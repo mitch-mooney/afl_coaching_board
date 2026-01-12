@@ -1,10 +1,29 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Text } from '@react-three/drei';
+import { Text, Billboard } from '@react-three/drei';
 import { Mesh, Vector3, Plane } from 'three';
 import { Player } from '../../models/PlayerModel';
 import { usePlayerStore } from '../../store/playerStore';
 import { snapToField } from '../../utils/fieldGeometry';
+
+// Maximum character length for player name labels before truncation
+const MAX_NAME_LENGTH = 12;
+
+/**
+ * Formats a player name for display:
+ * - Trims whitespace
+ * - Truncates long names with ellipsis
+ * - Returns null for empty/whitespace-only names
+ */
+function formatDisplayName(name: string | undefined): string | null {
+  if (!name) return null;
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > MAX_NAME_LENGTH) {
+    return trimmed.slice(0, MAX_NAME_LENGTH - 1) + '…';
+  }
+  return trimmed;
+}
 
 interface PlayerProps {
   player: Player;
@@ -18,6 +37,12 @@ export function PlayerComponent({ player }: PlayerProps) {
   const { selectedPlayerId, selectPlayer, updatePlayerPosition, showPlayerNames, startEditingPlayerName } = usePlayerStore();
   const { camera, raycaster } = useThree();
   const isSelected = selectedPlayerId === player.id;
+
+  // Memoize the formatted display name for performance with many players
+  const displayName = useMemo(
+    () => formatDisplayName(player.playerName),
+    [player.playerName]
+  );
   
   useFrame((state) => {
     if (meshRef.current) {
@@ -101,19 +126,21 @@ export function PlayerComponent({ player }: PlayerProps) {
         </mesh>
       )}
 
-      {/* Player name label */}
-      {showPlayerNames && player.playerName && (
-        <Text
-          position={[0, 2.1, 0]}
-          fontSize={0.4}
-          color="#ffffff"
-          anchorX="center"
-          anchorY="middle"
-          outlineWidth={0.05}
-          outlineColor="#000000"
-        >
-          {player.playerName}
-        </Text>
+      {/* Player name label - uses Billboard to always face camera */}
+      {showPlayerNames && displayName && (
+        <Billboard position={[0, 2.1, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
+          <Text
+            fontSize={0.4}
+            color="#ffffff"
+            anchorX="center"
+            anchorY="middle"
+            outlineWidth={0.05}
+            outlineColor="#000000"
+            maxWidth={3}
+          >
+            {displayName}
+          </Text>
+        </Billboard>
       )}
 
       {/* Selection indicator ring */}
