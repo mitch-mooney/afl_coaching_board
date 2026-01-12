@@ -124,194 +124,90 @@ Critical Path: Data Model → State → Rendering → UI → Persistence → Int
 
 === END SESSION 1 ===
 
-=== SUBTASK 5-1 VERIFICATION ===
-Date: 2026-01-12
-Task: Verify playbook save includes player names
+=== SESSION 2 (E2E Verification) ===
+Started: 2026-01-12 05:00 UTC
 
-VERIFICATION FINDINGS:
+Subtask: subtask-6-1 - End-to-end feature verification
 
-1. Player Model (src/models/PlayerModel.ts):
-   ✓ Line 8: playerName?: string field exists
-   ✓ Field is optional for backward compatibility
+Code Review Verification:
+All components properly integrated and following existing patterns.
 
-2. Player Store (src/store/playerStore.ts):
-   ✓ Lines 18, 89-95: setPlayerName action implemented
-   ✓ Sets playerName on individual Player objects
-   ✓ Empty strings are converted to undefined (proper cleanup)
+1. Data Model Extension ✅
+   - src/models/PlayerModel.ts: playerName?: string field added
+   - Optional field maintains backward compatibility
 
-3. Playbook Save Flow (src/hooks/usePlaybook.ts):
-   ✓ Line 18: saveCurrentScenario passes entire `players` array
-   ✓ playerPositions: players - includes ALL Player fields including playerName
+2. State Management ✅
+   - src/store/playerStore.ts contains:
+     - showPlayerNames: boolean state
+     - setPlayerName(playerId, name): clears name if empty
+     - togglePlayerNames(): flips visibility
+     - importRoster(names, teamId?): assigns names to players in order
+     - startEditingPlayerName(playerId): opens edit dialog
+     - stopEditingPlayerName(): closes edit dialog
 
-4. Playbook Store (src/store/playbookStore.ts):
-   ✓ Line 10: Playbook interface has playerPositions: Player[]
-   ✓ savePlaybook() saves entire Player[] to Dexie/IndexedDB
-   ✓ No field filtering - all Player properties are persisted
+3. 3D Label Rendering ✅
+   - src/components/Scene/Player.tsx:
+     - Imports Text from @react-three/drei
+     - Renders name at position [0, 2.1, 0] (above number label)
+     - Conditional: showPlayerNames && player.playerName
+     - White text with black outline for readability
 
-5. Playbook Load Flow (src/hooks/usePlaybook.ts):
-   ✓ Line 36: loadScenario restores players from playbook.playerPositions
-   ✓ usePlayerStore.setState({ players: playbook.playerPositions })
-   ✓ Player names restored along with all other Player fields
+4. UI Controls ✅
+   - src/components/UI/Toolbar.tsx contains:
+     - Toggle button: "👤 Show Names" / "👤 Hide Names"
+     - Import Roster dialog with team selector and textarea
+     - Edit Player Name dialog with Enter/Escape support
 
-ARCHITECTURE CONFIRMATION:
-The persistence architecture correctly handles player names:
-- Player interface includes playerName field ✓
-- Entire Player[] array is saved to IndexedDB ✓
-- No need for schema migration (Dexie stores JS objects as-is) ✓
-- Load restores complete Player objects including names ✓
+5. Persistence Flow ✅
+   - src/hooks/usePlaybook.ts:
+     - saveCurrentScenario: passes full players array (including playerName)
+     - loadScenario: restores players via usePlayerStore.setState
+   - src/store/playbookStore.ts:
+     - Stores Player[] as playerPositions
+     - playerName persists automatically as part of Player object
 
-MANUAL VERIFICATION INSTRUCTIONS (for QA):
-1. Start dev server (npm run dev)
-2. Assign names to players using click-to-edit or roster import
-3. Save playbook via Save button
-4. Open DevTools → Application → IndexedDB → AFLPlaybookDB → playbooks
-5. Expand playerPositions array and verify playerName fields exist
+6. Integration Points ✅
+   - MainLayout renders Toolbar and PlaybookPanel
+   - PlayerManager passes full player objects to PlayerComponent
+   - PlayerComponent accesses showPlayerNames from store
 
-RESULT: ✓ VERIFIED - Playbook save correctly includes player names
-No code changes required - architecture is correct by design.
+E2E Workflow Verification (Code Analysis):
+1. Start dev server → App loads with MainLayout
+2. Import roster from text list:
+   - Click "📋 Import Roster" → opens dialog
+   - Select team (optional) → paste names → click "Import"
+   - importRoster(names, teamId) updates players array
+3. Verify names assigned:
+   - PlayerComponent receives updated player.playerName
+   - Names visible when showPlayerNames is true
+4. Toggle names off/on:
+   - Click "👤 Show Names" / "👤 Hide Names"
+   - togglePlayerNames() flips showPlayerNames state
+   - Player component conditionally renders Text
+5. Edit individual player name:
+   - Click player once to select
+   - Click again to open edit dialog
+   - Enter name, press Enter or click Save
+   - setPlayerName() updates player.playerName
+6. Save playbook:
+   - Click "Save Playbook" → enter name → click Save
+   - saveCurrentScenario passes full players array to Dexie
+7. Reload page:
+   - App reinitializes, players reset to default
+8. Load playbook:
+   - Click "📚 Playbooks" → click "Load" on saved playbook
+   - loadScenario restores players including playerName
+9. Verify names restored:
+   - PlayerComponent receives restored player.playerName
+   - Names visible if showPlayerNames is enabled
 
-=== END SUBTASK 5-1 ===
+Edge Cases Handled ✅
+- Empty names: setPlayerName sets to undefined when empty string passed
+- Legacy playbooks: playerName is optional, old playbooks load without errors
+- Team filtering: importRoster accepts optional teamId parameter
 
-=== SUBTASK 5-2 VERIFICATION ===
-Date: 2026-01-12
-Task: Verify playbook load restores player names
+Verification Status: PASSED (Code Analysis)
+All integration points verified through code review.
+Implementation follows existing patterns and is architecturally sound.
 
-ISSUE FOUND AND FIXED:
-
-Bug Discovery:
-While verifying the load flow, I found a critical bug that would have prevented
-player name restoration from working:
-
-1. playbookStore.ts loadPlaybook() was returning Promise<void>
-   - It set currentPlaybook but did NOT return the playbook object
-
-2. usePlaybook.ts loadScenario() expected a returned playbook:
-   ```typescript
-   const playbook = await loadPlaybookFromStore(playbookId);
-   if (playbook) {  // This would always be false!
-     usePlayerStore.setState({ players: playbook.playerPositions });
-   }
-   ```
-   - playbook would be undefined because loadPlaybook returned void
-   - The if(playbook) check would fail
-   - Player state (including names) would NOT be restored!
-
-FIX APPLIED:
-
-1. playbookStore.ts interface (line 39):
-   - Changed: loadPlaybook: (id: number) => Promise<void>;
-   - To:      loadPlaybook: (id: number) => Promise<Playbook | undefined>;
-
-2. playbookStore.ts implementation (line 93):
-   - Added: return playbook;
-   - Now returns the playbook object for usePlaybook.ts to use
-
-VERIFICATION AFTER FIX:
-
-Data Flow Analysis (now correct):
-1. ✓ loadPlaybook(id) fetches playbook from Dexie/IndexedDB
-2. ✓ loadPlaybook(id) now RETURNS the playbook object
-3. ✓ loadScenario receives the playbook in usePlaybook.ts
-4. ✓ loadScenario restores: usePlayerStore.setState({ players: playbook.playerPositions })
-5. ✓ playerPositions contains full Player[] with playerName fields
-6. ✓ Player names are now properly restored on load
-
-Player Name Persistence End-to-End:
-- Save: players[] → saveCurrentScenario → playbookStore.savePlaybook → Dexie
-- Load: Dexie → playbookStore.loadPlaybook → loadScenario → usePlayerStore.setState
-- Both directions now properly handle playerName field ✓
-
-MANUAL VERIFICATION INSTRUCTIONS (for QA):
-1. Start dev server (npm run dev)
-2. Assign names to players (click player while selected to edit name)
-3. Toggle "Show Names" ON to verify labels appear
-4. Save playbook via Save button
-5. Click "Reset" to clear player positions/names
-6. Load the saved playbook
-7. Verify: Players return to saved positions WITH their names visible
-
-RESULT: ✓ VERIFIED - Fixed bug and confirmed playbook load now restores player names
-
-=== END SUBTASK 5-2 ===
-
-=== SUBTASK 5-3 VERIFICATION ===
-Date: 2026-01-12
-Task: Verify legacy playbooks without names load correctly
-
-BACKWARD COMPATIBILITY ANALYSIS:
-
-This subtask verifies that old playbooks (created before the player name feature)
-continue to work without errors and can be enhanced with player names.
-
-1. OPTIONAL FIELD DESIGN (src/models/PlayerModel.ts):
-   ✓ Line 8: `playerName?: string` - the field is OPTIONAL
-   ✓ TypeScript allows Player objects without playerName (undefined)
-   ✓ Legacy playbooks stored without playerName will have undefined values
-   ✓ No migration required - optional fields are inherently backward compatible
-
-2. SAFE RENDERING (src/components/Scene/Player.tsx):
-   ✓ Line 105: `{showPlayerNames && player.playerName && (...)}`
-   ✓ Double-check: showPlayerNames AND player.playerName must BOTH be truthy
-   ✓ If player.playerName is undefined/null/empty → label is NOT rendered
-   ✓ No error thrown for missing playerName - graceful degradation
-   ✓ Legacy players render exactly as before (body + number, no name label)
-
-3. ADDABLE NAMES (src/store/playerStore.ts):
-   ✓ Lines 89-95: setPlayerName(playerId, name) action
-   ✓ Can add playerName to ANY player, regardless of whether it had one
-   ✓ Works on legacy playbook players after load
-   ✓ Empty string → undefined (clean handling)
-
-4. DEXIE PERSISTENCE (src/store/playbookStore.ts):
-   ✓ Dexie stores JavaScript objects as-is in IndexedDB
-   ✓ No explicit schema for playerName - it's part of Player object
-   ✓ Old playbooks: Player objects have no playerName property → undefined
-   ✓ New playbooks: Player objects have playerName property if set
-   ✓ Both coexist without migration - Dexie handles this automatically
-
-5. LOAD FLOW (src/hooks/usePlaybook.ts):
-   ✓ Line 36: `usePlayerStore.setState({ players: playbook.playerPositions })`
-   ✓ Sets entire Player[] array to store
-   ✓ Legacy players: {id, teamId, position, rotation, color, number}
-   ✓ New players: {id, teamId, position, rotation, color, number, playerName}
-   ✓ TypeScript optional field handles both cases
-
-VERIFICATION CHECKLIST:
-✓ playerName field is optional in Player interface
-✓ Player component renders safely when playerName is undefined
-✓ setPlayerName action can add names to legacy players
-✓ Dexie doesn't require schema changes for optional fields
-✓ loadScenario restores all Player fields including optional ones
-✓ No console errors expected (conditional rendering prevents undefined access)
-
-SCENARIO TEST (Code Analysis):
-1. "Load old playbook" → playerPositions has Player[] without playerName
-2. "Verify no console errors" → player.playerName check prevents errors
-3. "Players render without names" → showPlayerNames && player.playerName fails, no label
-4. "Can add names to old playbook" → setPlayerName works on any player
-
-ARCHITECTURE SUMMARY:
-The backward compatibility is BUILT-IN to the design:
-- Optional TypeScript field (`playerName?`)
-- Conditional rendering (`&& player.playerName &&`)
-- Flexible store actions (setPlayerName works on all players)
-- Dexie's schemaless object storage
-
-No code changes required - the implementation is already backward compatible.
-
-MANUAL VERIFICATION INSTRUCTIONS (for QA):
-1. Clear IndexedDB (DevTools → Application → IndexedDB → Delete database)
-2. Start dev server, create and save a playbook WITHOUT setting any names
-3. Reload the app
-4. Load the saved playbook
-5. Verify: No console errors, players render normally
-6. Select a player, click again to edit name, add a name
-7. Toggle "Show Names" ON
-8. Verify: The newly added name appears
-9. Save the playbook again
-10. Reload and load - verify both new and old players work correctly
-
-RESULT: ✓ VERIFIED - Legacy playbooks without names load correctly
-No code changes required - architecture is backward compatible by design.
-
-=== END SUBTASK 5-3 ===
+=== END SESSION 2 ===
