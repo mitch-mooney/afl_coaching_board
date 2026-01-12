@@ -2,6 +2,7 @@ import { usePlayerStore } from '../../store/playerStore';
 import { useCameraStore } from '../../store/cameraStore';
 import { useVideoRecorder } from '../../hooks/useVideoRecorder';
 import { usePlaybook } from '../../hooks/usePlaybook';
+import { FormationSelector } from './FormationSelector';
 import { useState } from 'react';
 
 interface ToolbarProps {
@@ -75,9 +76,12 @@ export function Toolbar({ canvas }: ToolbarProps) {
         >
           Reset Players
         </button>
-        
+
+        {/* Formation Selector */}
+        <FormationSelector />
+
         <div className="w-px bg-gray-300 mx-1" />
-        
+
         {/* Camera Controls */}
         <button
           onClick={resetCamera}
