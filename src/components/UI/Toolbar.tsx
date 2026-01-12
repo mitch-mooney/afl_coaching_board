@@ -2,7 +2,7 @@ import { usePlayerStore } from '../../store/playerStore';
 import { useCameraStore } from '../../store/cameraStore';
 import { useVideoRecorder } from '../../hooks/useVideoRecorder';
 import { usePlaybook } from '../../hooks/usePlaybook';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ToolbarProps {
   canvas: HTMLCanvasElement | null;
@@ -13,6 +13,10 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const showPlayerNames = usePlayerStore((state) => state.showPlayerNames);
   const togglePlayerNames = usePlayerStore((state) => state.togglePlayerNames);
   const importRoster = usePlayerStore((state) => state.importRoster);
+  const editingPlayerId = usePlayerStore((state) => state.editingPlayerId);
+  const stopEditingPlayerName = usePlayerStore((state) => state.stopEditingPlayerName);
+  const setPlayerName = usePlayerStore((state) => state.setPlayerName);
+  const getPlayer = usePlayerStore((state) => state.getPlayer);
   const { setPresetView, resetCamera } = useCameraStore();
   const { isRecording, toggleRecording } = useVideoRecorder(canvas);
   const { saveCurrentScenario } = usePlaybook();
@@ -22,6 +26,30 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [rosterText, setRosterText] = useState('');
   const [selectedTeam, setSelectedTeam] = useState<'all' | 'team1' | 'team2'>('all');
+  const [editingName, setEditingName] = useState('');
+
+  // Get the player being edited
+  const editingPlayer = editingPlayerId ? getPlayer(editingPlayerId) : undefined;
+
+  // Initialize editing name when player starts being edited
+  useEffect(() => {
+    if (editingPlayer) {
+      setEditingName(editingPlayer.playerName || '');
+    }
+  }, [editingPlayerId, editingPlayer]);
+
+  const handleSavePlayerName = () => {
+    if (editingPlayerId) {
+      setPlayerName(editingPlayerId, editingName.trim());
+      stopEditingPlayerName();
+      setEditingName('');
+    }
+  };
+
+  const handleCancelEditPlayerName = () => {
+    stopEditingPlayerName();
+    setEditingName('');
+  };
   
   const handleSave = async () => {
     if (!playbookName.trim()) {
@@ -251,6 +279,49 @@ Jane Doe
                 className="px-4 py-2 bg-cyan-500 text-white rounded hover:bg-cyan-600 transition"
               >
                 Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Player Name Dialog */}
+      {editingPlayerId && editingPlayer && (
+        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 min-w-[280px]">
+          <h3 className="text-lg font-bold mb-3">Edit Player Name</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Player #{editingPlayer.number}
+              </label>
+              <input
+                type="text"
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSavePlayerName();
+                  } else if (e.key === 'Escape') {
+                    handleCancelEditPlayerName();
+                  }
+                }}
+                className="w-full px-3 py-2 border rounded"
+                placeholder="Enter player name"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={handleCancelEditPlayerName}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSavePlayerName}
+                className="px-4 py-2 bg-teal-500 text-white rounded hover:bg-teal-600 transition"
+              >
+                Save
               </button>
             </div>
           </div>

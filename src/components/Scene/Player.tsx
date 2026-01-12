@@ -15,7 +15,7 @@ export function PlayerComponent({ player }: PlayerProps) {
   const groupRef = useRef<any>(null);
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const { selectedPlayerId, selectPlayer, updatePlayerPosition, showPlayerNames } = usePlayerStore();
+  const { selectedPlayerId, selectPlayer, updatePlayerPosition, showPlayerNames, startEditingPlayerName } = usePlayerStore();
   const { camera, raycaster } = useThree();
   const isSelected = selectedPlayerId === player.id;
   
@@ -43,7 +43,12 @@ export function PlayerComponent({ player }: PlayerProps) {
   
   const handleClick = (e: any) => {
     e.stopPropagation();
-    selectPlayer(player.id);
+    if (isSelected) {
+      // Click on already-selected player opens name edit
+      startEditingPlayerName(player.id);
+    } else {
+      selectPlayer(player.id);
+    }
   };
   
   const handlePointerDown = (e: any) => {

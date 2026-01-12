@@ -4,6 +4,7 @@ import { Player, createTeamPlayers, DEFAULT_TEAM_COLORS } from '../models/Player
 interface PlayerState {
   players: Player[];
   selectedPlayerId: string | null;
+  editingPlayerId: string | null;
   showPlayerNames: boolean;
 
   // Actions
@@ -17,11 +18,14 @@ interface PlayerState {
   setPlayerName: (playerId: string, name: string) => void;
   togglePlayerNames: () => void;
   importRoster: (names: string[], teamId?: 'team1' | 'team2') => void;
+  startEditingPlayerName: (playerId: string) => void;
+  stopEditingPlayerName: () => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   players: [],
   selectedPlayerId: null,
+  editingPlayerId: null,
   showPlayerNames: false,
 
   initializePlayers: () => {
@@ -121,5 +125,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         }),
       };
     });
+  },
+
+  startEditingPlayerName: (playerId) => {
+    set({ editingPlayerId: playerId, selectedPlayerId: playerId });
+  },
+
+  stopEditingPlayerName: () => {
+    set({ editingPlayerId: null });
   },
 }));
