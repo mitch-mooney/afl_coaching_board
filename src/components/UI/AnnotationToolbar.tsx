@@ -11,6 +11,7 @@ const COLORS = [
 
 export function AnnotationToolbar() {
   const {
+    annotations,
     selectedTool,
     selectedColor,
     thickness,
@@ -21,6 +22,8 @@ export function AnnotationToolbar() {
     clearAnnotations,
     removeAnnotation,
   } = useAnnotationStore();
+
+  const annotationCount = annotations.length;
   
   const tools: { type: AnnotationType; label: string; icon: string }[] = [
     { type: 'line', label: 'Line', icon: '─' },
@@ -34,6 +37,12 @@ export function AnnotationToolbar() {
     <div className="absolute bottom-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-sm font-semibold">Annotations:</span>
+        <span
+          className="px-2 py-0.5 bg-gray-200 text-gray-700 rounded-full text-xs font-medium"
+          title={`${annotationCount} annotation${annotationCount !== 1 ? 's' : ''} on field`}
+        >
+          {annotationCount}
+        </span>
         {tools.map((tool) => (
           <button
             key={tool.type}

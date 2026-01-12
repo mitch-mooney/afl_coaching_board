@@ -395,8 +395,9 @@
               "No deletion when nothing selected"
             ]
           },
-          "status": "pending",
-          "notes": "Add useEffect with keydown listener. If event.key === 'Delete' or 'Backspace' and selectedAnnotation exists, call removeAnnotation()."
+          "status": "completed",
+          "notes": "Added keyboard event handling for Delete/Backspace keys in useAnnotationSelection hook. When an annotation is selected and either key is pressed, the annotation is removed via removeAnnotation(selectedAnnotationId). Prevents default browser behavior. No action when nothing is selected.",
+          "updated_at": "2026-01-12T06:59:44.689274+00:00"
         },
         {
           "id": "subtask-5-3",
@@ -644,5 +645,5 @@
   "updated_at": "2026-01-12T17:25:00.000Z",
   "status": "planned",
   "planStatus": "complete",
-  "last_updated": "2026-01-12T06:58:02.217470+00:00"
+  "last_updated": "2026-01-12T06:59:44.689274+00:00"
 }
