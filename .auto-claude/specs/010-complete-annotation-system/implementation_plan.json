@@ -129,8 +129,9 @@
               "No console errors"
             ]
           },
-          "status": "pending",
-          "notes": "Import TextAnnotation and ArrowAnnotation. Replace existing TextAnnotation and LineAnnotation renders in AnnotationRenderer switch statement."
+          "status": "completed",
+          "notes": "Updated AnnotationLayer.tsx to use the new TextAnnotation and ArrowAnnotation components:\n- Added imports for TextAnnotation and ArrowAnnotation from ../Annotations folder\n- Updated AnnotationRenderer to handle text type with minimum 1 point requirement\n- Separated 'line' and 'arrow' cases - arrow now uses ArrowAnnotation component with cone arrowhead\n- Line case continues using LineAnnotation for free-hand drawing paths\n- Removed redundant local TextAnnotation function (now using imported component)\nCommitted as 96401b1.",
+          "updated_at": "2026-01-12T06:31:58.274266+00:00"
         }
       ]
     },
@@ -164,8 +165,9 @@
               "Zone opacity allows field visibility"
             ]
           },
-          "status": "pending",
-          "notes": "Support both 'circle' and 'rectangle' zone types. Use existing CircleAnnotation and RectangleAnnotation rendering logic. Ensure opacity={0.3} and transparent={true}."
+          "status": "completed",
+          "notes": "Created src/components/Annotations/ZoneAnnotation.tsx that renders semi-transparent zone shapes for highlighting areas of the field. Features:\n- Supports both 'circle' and 'rectangle' annotation types via routing to CircleZone/RectangleZone sub-components\n- CircleZone: uses circleGeometry with radius calculated from distance between points[0] (center) and points[1] (edge)\n- RectangleZone: uses planeGeometry with width/height calculated from two corner points\n- Semi-transparent fill (opacity=0.3, transparent=true) allows field visibility underneath\n- Positioned at y=0.02 above field to prevent z-fighting\n- Rotated to lie flat on X-Z plane\n- Uses useMemo for efficient recalculation of radius and dimensions\n- Validates minimum 2 points before rendering\nCommitted as 2692a86.",
+          "updated_at": "2026-01-12T06:34:23.899752+00:00"
         },
         {
           "id": "subtask-3-2",
@@ -187,8 +189,9 @@
               "Path is smooth and visible"
             ]
           },
-          "status": "pending",
-          "notes": "Render using line with bufferGeometry. Points array contains all captured positions during drawing. Use LineBasicMaterial with color and linewidth from annotation."
+          "status": "completed",
+          "notes": "Created src/components/Annotations/DrawingAnnotation.tsx that renders free-hand drawing paths using bufferGeometry with bufferAttribute. Features:\n- Uses useMemo to memoize flattened points array into Float32Array for efficient buffer rendering\n- Validates minimum 2 points before rendering (returns null otherwise)\n- Renders line element with bufferGeometry containing all captured path points\n- Uses lineBasicMaterial with configurable color and linewidth (thickness) from annotation\n- Follows patterns from Field.tsx and other annotation components (ArrowAnnotation, ZoneAnnotation)\nCommitted as d431042.",
+          "updated_at": "2026-01-12T06:36:38.101511+00:00"
         },
         {
           "id": "subtask-3-3",
@@ -208,8 +211,9 @@
               "Drawing completes on pointer up"
             ]
           },
-          "status": "pending",
-          "notes": "For 'line' tool (free-hand), capture multiple points during pointermove (not just start/end). Push new point to currentPointsRef.current array on each move event. Create annotation with all points on pointer up."
+          "status": "completed",
+          "notes": "Added free-hand drawing interaction to useAnnotationInteraction hook:\n- Modified handlePointerMove to capture continuous path for 'line' tool (free-hand drawing)\n- Points are added to currentPointsRef.current array during drag (not just start/end)\n- Added minimum distance threshold (0.5 units) between points to optimize performance and avoid excessive points\n- Arrow, circle, and rectangle tools maintain two-point behavior (start and end/edge points only)\n- Drawing completes on pointer up with all captured intermediate points\nCommitted as 1c97a82.",
+          "updated_at": "2026-01-12T06:38:48.675475+00:00"
         },
         {
           "id": "subtask-3-4",
@@ -229,8 +233,9 @@
               "All annotation types coexist without errors"
             ]
           },
-          "status": "pending",
-          "notes": "Import ZoneAnnotation and DrawingAnnotation. Update AnnotationRenderer: circle/rectangle use ZoneAnnotation, line uses DrawingAnnotation."
+          "status": "completed",
+          "notes": "Updated AnnotationLayer.tsx to render zones and drawings using dedicated components:\n- Imported ZoneAnnotation and DrawingAnnotation from ../Annotations folder\n- Updated switch case: 'line' now uses DrawingAnnotation (renders continuous path via bufferGeometry)\n- Updated switch case: 'circle' and 'rectangle' now share ZoneAnnotation (renders semi-transparent filled shapes)\n- Removed inline LineAnnotation, CircleAnnotation, RectangleAnnotation functions (replaced by imported components)\n- All annotation types now use proper dedicated components with improved rendering:\n  - text \u2192 TextAnnotation (Billboard + drei Text)\n  - arrow \u2192 ArrowAnnotation (line + cone arrowhead)\n  - circle/rectangle \u2192 ZoneAnnotation (circleGeometry/planeGeometry with opacity=0.3)\n  - line \u2192 DrawingAnnotation (bufferGeometry with memoized Float32Array)\nCommitted as 9afb7a6.",
+          "updated_at": "2026-01-12T06:41:02.291900+00:00"
         }
       ]
     },
@@ -261,8 +266,9 @@
             "command": "npx tsc --noEmit",
             "expected": "No TypeScript errors"
           },
-          "status": "pending",
-          "notes": "Add selectedAnnotation: string | null field. Add selectAnnotation(id) and updateAnnotation(id, updates) actions. Follow playerStore.ts selectedPlayerId pattern."
+          "status": "completed",
+          "notes": "Added selectedAnnotationId state, selectAnnotation action, and getAnnotation helper to annotationStore. Also updated removeAnnotation and clearAnnotations to handle selection cleanup.",
+          "updated_at": "2026-01-12T06:43:13.551173+00:00"
         },
         {
           "id": "subtask-4-2",
@@ -634,5 +640,5 @@
   "updated_at": "2026-01-12T17:25:00.000Z",
   "status": "planned",
   "planStatus": "complete",
-  "last_updated": "2026-01-12T06:29:32.142553+00:00"
+  "last_updated": "2026-01-12T06:43:13.551173+00:00"
 }

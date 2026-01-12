@@ -47,11 +47,83 @@
         }
       ],
       "status": "completed"
+    },
+    "subtask-2-3": {
+      "attempts": [
+        {
+          "session": 5,
+          "timestamp": "2026-01-12T17:32:17.687936",
+          "approach": "Implemented: Update AnnotationLayer to use new Text and Arrow components",
+          "success": true,
+          "error": null
+        }
+      ],
+      "status": "completed"
+    },
+    "subtask-3-1": {
+      "attempts": [
+        {
+          "session": 6,
+          "timestamp": "2026-01-12T17:34:38.675143",
+          "approach": "Implemented: Implement ZoneAnnotation component for highlighting areas",
+          "success": true,
+          "error": null
+        }
+      ],
+      "status": "completed"
+    },
+    "subtask-3-2": {
+      "attempts": [
+        {
+          "session": 7,
+          "timestamp": "2026-01-12T17:36:58.635955",
+          "approach": "Implemented: Implement DrawingAnnotation component for free-hand paths",
+          "success": true,
+          "error": null
+        }
+      ],
+      "status": "completed"
+    },
+    "subtask-3-3": {
+      "attempts": [
+        {
+          "session": 8,
+          "timestamp": "2026-01-12T17:39:03.066475",
+          "approach": "Implemented: Add free-hand drawing interaction to useAnnotationInteraction",
+          "success": true,
+          "error": null
+        }
+      ],
+      "status": "completed"
+    },
+    "subtask-3-4": {
+      "attempts": [
+        {
+          "session": 9,
+          "timestamp": "2026-01-12T17:41:18.329038",
+          "approach": "Implemented: Update AnnotationLayer to render zones and drawings",
+          "success": true,
+          "error": null
+        }
+      ],
+      "status": "completed"
+    },
+    "subtask-4-1": {
+      "attempts": [
+        {
+          "session": 10,
+          "timestamp": "2026-01-12T17:43:19.982175",
+          "approach": "Implemented: Add selectedAnnotation to annotation store",
+          "success": true,
+          "error": null
+        }
+      ],
+      "status": "completed"
     }
   },
   "stuck_subtasks": [],
   "metadata": {
     "created_at": "2026-01-12T17:20:36.172484",
-    "last_updated": "2026-01-12T17:29:49.029786"
+    "last_updated": "2026-01-12T17:43:19.982175"
   }
 }
