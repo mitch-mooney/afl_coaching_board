@@ -1,14 +1,21 @@
 import { create } from 'zustand';
 import { Player, createTeamPlayers, DEFAULT_TEAM_COLORS } from '../models/PlayerModel';
 
+export interface PlayerUpdate {
+  playerId: string;
+  position: [number, number, number];
+  rotation?: number;
+}
+
 interface PlayerState {
   players: Player[];
   selectedPlayerId: string | null;
-  
+
   // Actions
   initializePlayers: () => void;
   updatePlayerPosition: (playerId: string, position: [number, number, number]) => void;
   updatePlayerRotation: (playerId: string, rotation: number) => void;
+  updateMultiplePlayers: (updates: PlayerUpdate[]) => void;
   selectPlayer: (playerId: string | null) => void;
   resetPlayers: () => void;
   getPlayer: (playerId: string) => Player | undefined;
@@ -60,7 +67,30 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       ),
     }));
   },
-  
+
+  updateMultiplePlayers: (updates) => {
+    set((state) => {
+      // Create a map for O(1) lookup of updates by playerId
+      const updateMap = new Map(
+        updates.map((update) => [update.playerId, update])
+      );
+
+      return {
+        players: state.players.map((player) => {
+          const update = updateMap.get(player.id);
+          if (update) {
+            return {
+              ...player,
+              position: update.position,
+              ...(update.rotation !== undefined && { rotation: update.rotation }),
+            };
+          }
+          return player;
+        }),
+      };
+    });
+  },
+
   selectPlayer: (playerId) => {
     set({ selectedPlayerId: playerId });
   },
