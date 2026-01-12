@@ -373,8 +373,9 @@
               "Delete button removes selected annotation"
             ]
           },
-          "status": "pending",
-          "notes": "Add 'Delete' button that calls removeAnnotation(selectedAnnotation). Button should be disabled if selectedAnnotation is null. Position near Clear All button."
+          "status": "completed",
+          "notes": "Added Delete button to AnnotationToolbar with the following features:\n- Button visible in toolbar row, positioned between tool buttons and Clear All button\n- Disabled state (gray, cursor-not-allowed) when no annotation is selected (selectedAnnotationId is null)\n- Enabled state (orange) when an annotation is selected\n- Calls removeAnnotation(selectedAnnotationId) when clicked\n- Includes helpful tooltips for both states\n- Renamed original \"Clear\" button to \"Clear All\" for clarity\nCommitted as f4b0c2b.",
+          "updated_at": "2026-01-12T06:58:02.217470+00:00"
         },
         {
           "id": "subtask-5-2",
@@ -643,5 +644,5 @@
   "updated_at": "2026-01-12T17:25:00.000Z",
   "status": "planned",
   "planStatus": "complete",
-  "last_updated": "2026-01-12T06:55:42.532810+00:00"
+  "last_updated": "2026-01-12T06:58:02.217470+00:00"
 }

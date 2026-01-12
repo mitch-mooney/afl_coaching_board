@@ -23,6 +23,7 @@ export function useAnnotationSelection() {
     annotations,
     selectedAnnotationId,
     selectAnnotation,
+    removeAnnotation,
   } = useAnnotationStore();
 
   /**
@@ -196,6 +197,32 @@ export function useAnnotationSelection() {
     selectAnnotation,
     findNearestAnnotation,
   ]);
+
+  /**
+   * Handle keyboard shortcuts for annotation deletion.
+   * Delete or Backspace key removes the currently selected annotation.
+   */
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle Delete or Backspace keys
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+
+      // Only delete if an annotation is selected
+      if (!selectedAnnotationId) return;
+
+      // Prevent default browser behavior (e.g., back navigation on Backspace)
+      event.preventDefault();
+
+      // Remove the selected annotation
+      removeAnnotation(selectedAnnotationId);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedAnnotationId, removeAnnotation]);
 
   return null;
 }
