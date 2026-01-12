@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Mesh, Vector3, Plane } from 'three';
 import { Player } from '../../models/PlayerModel';
@@ -14,7 +14,7 @@ export function PlayerComponent({ player }: PlayerProps) {
   const groupRef = useRef<any>(null);
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const { selectedPlayerId, selectPlayer, updatePlayerPosition } = usePlayerStore();
+  const { selectedPlayerId, selectPlayer, updatePlayerPosition, setDragging: setGlobalDragging } = usePlayerStore();
   const { camera, raycaster } = useThree();
   const isSelected = selectedPlayerId === player.id;
   
@@ -49,6 +49,7 @@ export function PlayerComponent({ player }: PlayerProps) {
     e.stopPropagation();
     selectPlayer(player.id);
     setIsDragging(true);
+    setGlobalDragging(true);
   };
   
   const handlePointerMove = (e: any) => {
@@ -61,6 +62,7 @@ export function PlayerComponent({ player }: PlayerProps) {
   const handlePointerUp = (e: any) => {
     e.stopPropagation();
     setIsDragging(false);
+    setGlobalDragging(false);
   };
   
   return (
@@ -74,7 +76,10 @@ export function PlayerComponent({ player }: PlayerProps) {
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => {
         setHovered(false);
-        setIsDragging(false);
+        if (isDragging) {
+          setIsDragging(false);
+          setGlobalDragging(false);
+        }
       }}
     >
       {/* Player body - capsule shape */}

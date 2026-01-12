@@ -4,9 +4,28 @@ import { usePlayerStore, PlayerUpdate } from '../../store/playerStore';
 import { PRE_BUILT_FORMATIONS, validateFormation } from '../../data/formations';
 import { Formation, PlayerPosition } from '../../types/Formation';
 
+/** Helper to check if an error is an IndexedDB quota error */
+function isQuotaExceededError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    return (
+      message.includes('quota') ||
+      message.includes('storage') ||
+      message.includes('exceeded') ||
+      error.name === 'QuotaExceededError'
+    );
+  }
+  return false;
+}
+
+/** Generate a unique name by appending a number suffix */
+function generateUniqueName(baseName: string, suffix: number = 1): string {
+  return `${baseName} (${suffix})`;
+}
+
 export function FormationSelector() {
   const { customFormations, isLoading, loadCustomFormations, setCurrentFormation, saveCustomFormation, checkNameExists } = useFormationStore();
-  const { players, updateMultiplePlayers } = usePlayerStore();
+  const { players, updateMultiplePlayers, canApplyFormation } = usePlayerStore();
   const [isOpen, setIsOpen] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
 
@@ -64,7 +83,27 @@ export function FormationSelector() {
   }, [players]);
 
   /**
+   * Find a unique name by appending suffix numbers
+   */
+  const findUniqueName = useCallback(async (baseName: string): Promise<string> => {
+    let suffix = 1;
+    let candidateName = baseName;
+
+    while (await checkNameExists(candidateName)) {
+      candidateName = generateUniqueName(baseName, suffix);
+      suffix++;
+      // Safety limit to prevent infinite loops
+      if (suffix > 100) {
+        throw new Error('Unable to generate unique name');
+      }
+    }
+
+    return candidateName;
+  }, [checkNameExists]);
+
+  /**
    * Handle saving current formation as a custom template
+   * Handles duplicate names with auto-rename option and IndexedDB quota errors
    */
   const handleSaveTemplate = useCallback(async () => {
     if (!templateName.trim()) {
@@ -75,17 +114,29 @@ export function FormationSelector() {
     try {
       setIsSaving(true);
 
-      // Check if name already exists
-      const nameExists = await checkNameExists(templateName.trim());
-      if (nameExists) {
-        alert('A formation with this name already exists. Please choose a different name.');
-        return;
-      }
-
       // Ensure we have all 36 players
       if (players.length !== 36) {
         alert(`Cannot save formation: expected 36 players, found ${players.length}`);
         return;
+      }
+
+      let finalName = templateName.trim();
+
+      // Check if name already exists
+      const nameExists = await checkNameExists(finalName);
+      if (nameExists) {
+        // Offer to auto-rename or cancel
+        const autoRename = confirm(
+          `A formation named "${finalName}" already exists.\n\n` +
+          `Click OK to save as "${generateUniqueName(finalName, 1)}" or Cancel to choose a different name.`
+        );
+
+        if (!autoRename) {
+          return;
+        }
+
+        // Find a unique name
+        finalName = await findUniqueName(finalName);
       }
 
       // Convert current player positions to formation format
@@ -93,7 +144,7 @@ export function FormationSelector() {
 
       // Save the custom formation
       await saveCustomFormation(
-        templateName.trim(),
+        finalName,
         templateDescription.trim(),
         positions
       );
@@ -102,21 +153,36 @@ export function FormationSelector() {
       setShowSaveDialog(false);
       setTemplateName('');
       setTemplateDescription('');
-      alert('Formation template saved successfully!');
+      alert(`Formation template "${finalName}" saved successfully!`);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      alert(`Failed to save formation template: ${errorMessage}`);
+      // Handle IndexedDB quota exceeded error with user-friendly message
+      if (isQuotaExceededError(error)) {
+        alert(
+          'Storage quota exceeded!\n\n' +
+          'Your browser storage is full. Please delete some existing custom formations to make room for new ones.'
+        );
+      } else {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        alert(`Failed to save formation template: ${errorMessage}`);
+      }
     } finally {
       setIsSaving(false);
     }
-  }, [templateName, templateDescription, players.length, checkNameExists, convertPlayersToPositions, saveCustomFormation]);
+  }, [templateName, templateDescription, players.length, checkNameExists, findUniqueName, convertPlayersToPositions, saveCustomFormation]);
 
   /**
    * Apply a formation to the current players
    * Updates all 36 player positions in a single batched operation
+   * Prevents application during active drag operations
    */
   const handleApplyFormation = useCallback((formation: Formation) => {
     try {
+      // Check for concurrent updates (dragging or another formation application in progress)
+      if (!canApplyFormation()) {
+        alert('Cannot apply formation while a player is being dragged. Please release the player first.');
+        return;
+      }
+
       setIsApplying(true);
 
       // Validate formation has required 36 positions
@@ -141,13 +207,12 @@ export function FormationSelector() {
       // Close the panel after successful application
       setIsOpen(false);
     } catch (error) {
-      console.error('Error applying formation:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       alert(`Failed to apply formation: ${errorMessage}`);
     } finally {
       setIsApplying(false);
     }
-  }, [players.length, convertFormationToUpdates, updateMultiplePlayers, setCurrentFormation]);
+  }, [players.length, canApplyFormation, convertFormationToUpdates, updateMultiplePlayers, setCurrentFormation]);
 
   // Combine pre-built and custom formations for display
   const allFormations: Formation[] = [
@@ -297,6 +362,7 @@ interface FormationItemProps {
 
 function FormationItem({ formation, onApply, showDelete = false, isApplying = false }: FormationItemProps) {
   const { deleteCustomFormation } = useFormationStore();
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -306,10 +372,13 @@ function FormationItem({ formation, onApply, showDelete = false, isApplying = fa
       if (idMatch) {
         const numericId = parseInt(idMatch[1], 10);
         try {
+          setIsDeleting(true);
           await deleteCustomFormation(numericId);
         } catch (error) {
-          console.error('Error deleting formation:', error);
-          alert('Failed to delete formation. Please try again.');
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          alert(`Failed to delete formation: ${errorMessage}`);
+        } finally {
+          setIsDeleting(false);
         }
       }
     }
@@ -348,11 +417,15 @@ function FormationItem({ formation, onApply, showDelete = false, isApplying = fa
           {showDelete && (
             <button
               onClick={handleDelete}
-              disabled={isApplying}
-              className="px-2 py-1.5 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition opacity-0 group-hover:opacity-100 disabled:opacity-50"
+              disabled={isApplying || isDeleting}
+              className={`px-2 py-1.5 text-white text-sm rounded transition ${
+                isDeleting
+                  ? 'bg-red-300 cursor-not-allowed opacity-100'
+                  : 'bg-red-500 hover:bg-red-600 opacity-0 group-hover:opacity-100'
+              } disabled:opacity-50`}
               title="Delete formation"
             >
-              ✕
+              {isDeleting ? '...' : '✕'}
             </button>
           )}
         </div>

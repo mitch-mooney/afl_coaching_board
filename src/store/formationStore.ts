@@ -81,44 +81,35 @@ export const useFormationStore = create<FormationState>((set, get) => ({
       const formations = storedFormations.map(storedToFormation);
       set({ customFormations: formations, isLoading: false });
     } catch (error) {
-      console.error('Error loading custom formations:', error);
-      set({ isLoading: false });
+      // Silently handle IndexedDB errors - formations will be empty
+      // This is acceptable as pre-built formations are always available
+      set({ customFormations: [], isLoading: false });
     }
   },
 
   saveCustomFormation: async (name, description, positions, thumbnail) => {
-    try {
-      const storedFormation: StoredFormation = {
-        formationId: `custom-${Date.now()}`,
-        name,
-        description,
-        positions,
-        createdAt: new Date().toISOString(),
-        thumbnail,
-      };
-      const id = await db.customFormations.add(storedFormation);
-      // Reload formations to update the list
-      await get().loadCustomFormations();
-      return id;
-    } catch (error) {
-      console.error('Error saving custom formation:', error);
-      throw error;
-    }
+    const storedFormation: StoredFormation = {
+      formationId: `custom-${Date.now()}`,
+      name,
+      description,
+      positions,
+      createdAt: new Date().toISOString(),
+      thumbnail,
+    };
+    const id = await db.customFormations.add(storedFormation);
+    // Reload formations to update the list
+    await get().loadCustomFormations();
+    return id;
   },
 
   deleteCustomFormation: async (id) => {
-    try {
-      await db.customFormations.delete(id);
-      // Reload formations to update the list
-      await get().loadCustomFormations();
-      // Clear current formation if it was the deleted one
-      const current = get().currentFormation;
-      if (current && current.id === `custom-${id}`) {
-        set({ currentFormation: null });
-      }
-    } catch (error) {
-      console.error('Error deleting custom formation:', error);
-      throw error;
+    await db.customFormations.delete(id);
+    // Reload formations to update the list
+    await get().loadCustomFormations();
+    // Clear current formation if it was the deleted one
+    const current = get().currentFormation;
+    if (current && current.id === `custom-${id}`) {
+      set({ currentFormation: null });
     }
   },
 
@@ -127,40 +118,25 @@ export const useFormationStore = create<FormationState>((set, get) => ({
   },
 
   getCustomFormation: async (id) => {
-    try {
-      const stored = await db.customFormations.get(id);
-      if (stored) {
-        return storedToFormation(stored);
-      }
-      return undefined;
-    } catch (error) {
-      console.error('Error getting custom formation:', error);
-      throw error;
+    const stored = await db.customFormations.get(id);
+    if (stored) {
+      return storedToFormation(stored);
     }
+    return undefined;
   },
 
   updateCustomFormation: async (id, updates) => {
-    try {
-      await db.customFormations.update(id, updates);
-      // Reload formations to update the list
-      await get().loadCustomFormations();
-    } catch (error) {
-      console.error('Error updating custom formation:', error);
-      throw error;
-    }
+    await db.customFormations.update(id, updates);
+    // Reload formations to update the list
+    await get().loadCustomFormations();
   },
 
   checkNameExists: async (name) => {
-    try {
-      const existing = await db.customFormations
-        .where('name')
-        .equalsIgnoreCase(name)
-        .first();
-      return !!existing;
-    } catch (error) {
-      console.error('Error checking formation name:', error);
-      throw error;
-    }
+    const existing = await db.customFormations
+      .where('name')
+      .equalsIgnoreCase(name)
+      .first();
+    return !!existing;
   },
 }));
 
