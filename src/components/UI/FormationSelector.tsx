@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useFormationStore } from '../../store/formationStore';
 import { usePlayerStore, PlayerUpdate } from '../../store/playerStore';
-import { PRE_BUILT_FORMATIONS } from '../../data/formations';
+import { PRE_BUILT_FORMATIONS, validateFormation } from '../../data/formations';
 import { Formation } from '../../types/Formation';
 
 export function FormationSelector() {
   const { customFormations, isLoading, loadCustomFormations, setCurrentFormation } = useFormationStore();
   const { players, updateMultiplePlayers } = usePlayerStore();
   const [isOpen, setIsOpen] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
 
   // Load custom formations on mount
   useEffect(() => {
@@ -17,39 +18,63 @@ export function FormationSelector() {
   /**
    * Convert formation positions to player updates
    * Maps PlayerPosition (playerNumber + teamId) to actual player IDs
+   * Optimized for performance with direct array construction
    */
-  const convertFormationToUpdates = (formation: Formation): PlayerUpdate[] => {
-    const updates: PlayerUpdate[] = [];
+  const convertFormationToUpdates = useCallback((formation: Formation): PlayerUpdate[] => {
+    // Pre-allocate array for better performance
+    const updates: PlayerUpdate[] = new Array(formation.positions.length);
 
-    for (const pos of formation.positions) {
+    for (let i = 0; i < formation.positions.length; i++) {
+      const pos = formation.positions[i];
       // Construct player ID from teamId and playerNumber
       // Player IDs are formatted as: `${teamId}-player-${number}`
-      const playerId = `${pos.teamId}-player-${pos.playerNumber}`;
-
-      updates.push({
-        playerId,
+      updates[i] = {
+        playerId: `${pos.teamId}-player-${pos.playerNumber}`,
         position: pos.position,
         rotation: pos.rotation,
-      });
+      };
     }
 
     return updates;
-  };
+  }, []);
 
   /**
    * Apply a formation to the current players
+   * Updates all 36 player positions in a single batched operation
    */
-  const handleApplyFormation = (formation: Formation) => {
-    // Check if we have all 36 players
-    if (players.length < 36) {
-      alert(`Warning: Only ${players.length} players found. Formation requires 36 players (18 per team).`);
-    }
+  const handleApplyFormation = useCallback((formation: Formation) => {
+    try {
+      setIsApplying(true);
 
-    const updates = convertFormationToUpdates(formation);
-    updateMultiplePlayers(updates);
-    setCurrentFormation(formation);
-    setIsOpen(false);
-  };
+      // Validate formation has required 36 positions
+      if (!validateFormation(formation)) {
+        throw new Error(`Invalid formation: expected 36 positions (18 per team), got ${formation.positions.length}`);
+      }
+
+      // Check if we have all 36 players initialized
+      if (players.length < 36) {
+        throw new Error(`Not enough players: found ${players.length}, formation requires 36 players (18 per team)`);
+      }
+
+      // Convert formation positions to player updates
+      const updates = convertFormationToUpdates(formation);
+
+      // Apply all updates in a single batched operation for performance
+      updateMultiplePlayers(updates);
+
+      // Update the current formation in the store
+      setCurrentFormation(formation);
+
+      // Close the panel after successful application
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Error applying formation:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to apply formation: ${errorMessage}`);
+    } finally {
+      setIsApplying(false);
+    }
+  }, [players.length, convertFormationToUpdates, updateMultiplePlayers, setCurrentFormation]);
 
   // Combine pre-built and custom formations for display
   const allFormations: Formation[] = [
@@ -85,6 +110,7 @@ export function FormationSelector() {
                       key={formation.id}
                       formation={formation}
                       onApply={handleApplyFormation}
+                      isApplying={isApplying}
                     />
                   ))}
                 </div>
@@ -103,6 +129,7 @@ export function FormationSelector() {
                         formation={formation}
                         onApply={handleApplyFormation}
                         showDelete
+                        isApplying={isApplying}
                       />
                     ))}
                   </div>
@@ -127,9 +154,10 @@ interface FormationItemProps {
   formation: Formation;
   onApply: (formation: Formation) => void;
   showDelete?: boolean;
+  isApplying?: boolean;
 }
 
-function FormationItem({ formation, onApply, showDelete = false }: FormationItemProps) {
+function FormationItem({ formation, onApply, showDelete = false, isApplying = false }: FormationItemProps) {
   const { deleteCustomFormation } = useFormationStore();
 
   const handleDelete = async (e: React.MouseEvent) => {
@@ -149,10 +177,16 @@ function FormationItem({ formation, onApply, showDelete = false }: FormationItem
     }
   };
 
+  const handleApply = useCallback(() => {
+    if (!isApplying) {
+      onApply(formation);
+    }
+  }, [isApplying, onApply, formation]);
+
   return (
     <div className="border rounded-lg p-3 hover:bg-gray-50 transition cursor-pointer group">
       <div className="flex justify-between items-start">
-        <div className="flex-1 min-w-0" onClick={() => onApply(formation)}>
+        <div className="flex-1 min-w-0" onClick={handleApply}>
           <h4 className="font-semibold text-gray-900 truncate">{formation.name}</h4>
           <p className="text-sm text-gray-600 mt-1 line-clamp-2">{formation.description}</p>
           {formation.createdAt && (
@@ -163,15 +197,21 @@ function FormationItem({ formation, onApply, showDelete = false }: FormationItem
         </div>
         <div className="flex gap-2 ml-2 flex-shrink-0">
           <button
-            onClick={() => onApply(formation)}
-            className="px-3 py-1.5 bg-indigo-500 text-white text-sm rounded hover:bg-indigo-600 transition"
+            onClick={handleApply}
+            disabled={isApplying}
+            className={`px-3 py-1.5 text-white text-sm rounded transition ${
+              isApplying
+                ? 'bg-indigo-300 cursor-not-allowed'
+                : 'bg-indigo-500 hover:bg-indigo-600'
+            }`}
           >
-            Apply
+            {isApplying ? 'Applying...' : 'Apply'}
           </button>
           {showDelete && (
             <button
               onClick={handleDelete}
-              className="px-2 py-1.5 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition opacity-0 group-hover:opacity-100"
+              disabled={isApplying}
+              className="px-2 py-1.5 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition opacity-0 group-hover:opacity-100 disabled:opacity-50"
               title="Delete formation"
             >
               ✕
