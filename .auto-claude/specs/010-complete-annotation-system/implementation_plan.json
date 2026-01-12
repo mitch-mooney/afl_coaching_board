@@ -286,8 +286,9 @@
             "command": "npx tsc --noEmit",
             "expected": "No TypeScript errors"
           },
-          "status": "pending",
-          "notes": "Use raycaster to detect clicks on annotation meshes. When clicked, call selectAnnotation(id). Attach click listeners to canvas, perform raycasting against annotation objects."
+          "status": "completed",
+          "notes": "Created useAnnotationSelection hook for raycasting-based annotation selection. Features:\n- Proximity-based selection using distance calculations for each annotation type\n- Text: distance to position point\n- Arrow/Line: minimum distance to line segments (using perpendicular distance calculation)\n- Circle: returns 0 if inside, otherwise distance to edge\n- Rectangle: returns 0 if inside, otherwise distance to nearest edge\n- Selection threshold of 5.0 world units\n- Toggle selection by clicking same annotation\n- Deselect by clicking empty space\n- Only active when no drawing tool is selected\n- Follows patterns from useAnnotationInteraction.ts\nCommitted as 4d62b57.",
+          "updated_at": "2026-01-12T06:46:00.459310+00:00"
         },
         {
           "id": "subtask-4-3",
@@ -312,8 +313,9 @@
               "Only one annotation selected at a time"
             ]
           },
-          "status": "pending",
-          "notes": "Each component receives isSelected prop from parent. If selected, add visual indicator (e.g., outline, glow effect, or color change). Use emissive material property or add outline mesh."
+          "status": "completed",
+          "notes": "Added selection highlighting to all four annotation components (TextAnnotation, ArrowAnnotation, ZoneAnnotation, DrawingAnnotation). Each component now uses useAnnotationStore to check selectedAnnotationId, supports click-to-select with stopPropagation, has hover state for visual feedback, and displays selection indicator rings when selected. Follows Player.tsx pattern for consistent selection behavior.",
+          "updated_at": "2026-01-12T06:50:47.514788+00:00"
         },
         {
           "id": "subtask-4-4",
@@ -337,8 +339,9 @@
               "Selected zone boundaries can be resized"
             ]
           },
-          "status": "pending",
-          "notes": "Add small sphere meshes at edit points (text position, arrow start/end, zone corners). Make handles draggable using pointer events. On drag, call updateAnnotation() with new points."
+          "status": "completed",
+          "notes": "Implemented draggable handles for all annotation types. TextAnnotation supports full drag, ArrowAnnotation has endpoint handles, ZoneAnnotation (circle/rectangle) has boundary handles for resizing. Uses useFrame with raycasting pattern from Player.tsx. Added updateAnnotationPoints and updateAnnotationPoint actions to annotationStore.",
+          "updated_at": "2026-01-12T06:55:42.532810+00:00"
         }
       ]
     },
@@ -640,5 +643,5 @@
   "updated_at": "2026-01-12T17:25:00.000Z",
   "status": "planned",
   "planStatus": "complete",
-  "last_updated": "2026-01-12T06:43:13.551173+00:00"
+  "last_updated": "2026-01-12T06:55:42.532810+00:00"
 }

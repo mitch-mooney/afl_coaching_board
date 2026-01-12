@@ -14,10 +14,12 @@ export function AnnotationToolbar() {
     selectedTool,
     selectedColor,
     thickness,
+    selectedAnnotationId,
     setSelectedTool,
     setSelectedColor,
     setThickness,
     clearAnnotations,
+    removeAnnotation,
   } = useAnnotationStore();
   
   const tools: { type: AnnotationType; label: string; icon: string }[] = [
@@ -47,10 +49,22 @@ export function AnnotationToolbar() {
           </button>
         ))}
         <button
+          onClick={() => selectedAnnotationId && removeAnnotation(selectedAnnotationId)}
+          disabled={!selectedAnnotationId}
+          className={`px-3 py-1 rounded text-sm transition ${
+            selectedAnnotationId
+              ? 'bg-orange-500 text-white hover:bg-orange-600'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
+          title={selectedAnnotationId ? 'Delete selected annotation' : 'Select an annotation to delete'}
+        >
+          Delete
+        </button>
+        <button
           onClick={clearAnnotations}
           className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition"
         >
-          Clear
+          Clear All
         </button>
       </div>
       

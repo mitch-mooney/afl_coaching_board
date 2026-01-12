@@ -29,7 +29,12 @@
       "description": "useAnnotationInteraction hook handles different drawing behaviors per tool type. For 'line' tool (free-hand drawing), it captures continuous path with multiple intermediate points during pointer move, using a 0.5 unit minimum distance threshold to optimize point density. For 'arrow', 'circle', and 'rectangle' tools, it only keeps start and end points (two-point behavior). Points are stored in currentPointsRef.current array and annotation is created on pointer up.",
       "category": "interaction",
       "discovered_at": "2026-01-12T06:38:54.711917+00:00"
+    },
+    "src/components/Annotations/": {
+      "description": "All annotation components (TextAnnotation, ArrowAnnotation, ZoneAnnotation) now implement draggable handles following the Player.tsx pattern. Uses useFrame with raycaster.setFromCamera and ray.intersectPlane for smooth ground-plane dragging. DragHandle component provides reusable sphere handles with hover/active states. Zones can be moved by dragging the fill area, and resized via corner/edge handles.",
+      "category": "component",
+      "discovered_at": "2026-01-12T06:55:42.615058+00:00"
     }
   },
-  "last_updated": "2026-01-12T06:41:02.368654+00:00"
+  "last_updated": "2026-01-12T06:55:42.615058+00:00"
 }
