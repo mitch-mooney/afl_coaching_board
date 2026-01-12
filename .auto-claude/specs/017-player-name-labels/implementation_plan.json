@@ -151,8 +151,9 @@
               "Button visual state reflects current state"
             ]
           },
-          "status": "pending",
-          "notes": "Add button that calls togglePlayerNames(). Use visual indicator (color/icon) for on/off state."
+          "status": "completed",
+          "notes": "Added player name visibility toggle button to Toolbar. Button imports showPlayerNames and togglePlayerNames from playerStore. Shows \"\ud83d\udc64 Show Names\" (gray) when off, \"\ud83d\udc64 Hide Names\" (teal) when on. Follows existing toggle button patterns. Committed as 9634b2d.",
+          "updated_at": "2026-01-12T03:42:02.948884+00:00"
         },
         {
           "id": "subtask-4-2",
@@ -175,8 +176,9 @@
               "Dialog closes after import"
             ]
           },
-          "status": "pending",
-          "notes": "Follow save dialog pattern from Toolbar. Parse text by newlines, call importRoster() with array."
+          "status": "completed",
+          "notes": "Added Import Roster button and dialog to Toolbar. Dialog includes team selector dropdown (All Players/Team 1/Team 2), multi-line textarea for pasting player names, and Cancel/Import buttons. Uses existing importRoster action from playerStore.",
+          "updated_at": "2026-01-12T03:45:02.530028+00:00"
         },
         {
           "id": "subtask-4-3",
@@ -199,8 +201,9 @@
               "Name appears on player after save"
             ]
           },
-          "status": "pending",
-          "notes": "Add input field that appears when player is selected. Use selectedPlayerId from playerStore."
+          "status": "completed",
+          "notes": "Implemented click-to-edit name functionality: Added editingPlayerId state to playerStore, modified Player component to trigger edit mode on second click, added Edit Player Name dialog in Toolbar with Enter/Escape keyboard support",
+          "updated_at": "2026-01-12T03:49:24.400045+00:00"
         }
       ]
     },
@@ -227,8 +230,9 @@
             "type": "manual",
             "instructions": "1. Assign names to players 2. Save playbook 3. Check IndexedDB (DevTools \u2192 Application) 4. Verify playerPositions array contains playerName fields"
           },
-          "status": "pending",
-          "notes": "Playbook store already saves Player[] in playerPositions. Since Player now has playerName, it should save automatically."
+          "status": "in_progress",
+          "notes": "Verifying playbook save includes player names through code analysis",
+          "updated_at": "2026-01-12T03:51:29.763103+00:00"
         },
         {
           "id": "subtask-5-2",
@@ -447,7 +451,7 @@
     }
   },
   "qa_signoff": null,
-  "last_updated": "2026-01-12T03:39:55.349715+00:00",
+  "last_updated": "2026-01-12T03:51:29.763103+00:00",
   "status": "in_progress",
   "planStatus": "in_progress",
   "updated_at": "2026-01-12T03:31:51.602Z",

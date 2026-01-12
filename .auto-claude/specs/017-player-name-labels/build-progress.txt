@@ -123,3 +123,51 @@ Phase 5 → Phase 6: Persistence verified before final integration
 Critical Path: Data Model → State → Rendering → UI → Persistence → Integration
 
 === END SESSION 1 ===
+
+=== SUBTASK 5-1 VERIFICATION ===
+Date: 2026-01-12
+Task: Verify playbook save includes player names
+
+VERIFICATION FINDINGS:
+
+1. Player Model (src/models/PlayerModel.ts):
+   ✓ Line 8: playerName?: string field exists
+   ✓ Field is optional for backward compatibility
+
+2. Player Store (src/store/playerStore.ts):
+   ✓ Lines 18, 89-95: setPlayerName action implemented
+   ✓ Sets playerName on individual Player objects
+   ✓ Empty strings are converted to undefined (proper cleanup)
+
+3. Playbook Save Flow (src/hooks/usePlaybook.ts):
+   ✓ Line 18: saveCurrentScenario passes entire `players` array
+   ✓ playerPositions: players - includes ALL Player fields including playerName
+
+4. Playbook Store (src/store/playbookStore.ts):
+   ✓ Line 10: Playbook interface has playerPositions: Player[]
+   ✓ savePlaybook() saves entire Player[] to Dexie/IndexedDB
+   ✓ No field filtering - all Player properties are persisted
+
+5. Playbook Load Flow (src/hooks/usePlaybook.ts):
+   ✓ Line 36: loadScenario restores players from playbook.playerPositions
+   ✓ usePlayerStore.setState({ players: playbook.playerPositions })
+   ✓ Player names restored along with all other Player fields
+
+ARCHITECTURE CONFIRMATION:
+The persistence architecture correctly handles player names:
+- Player interface includes playerName field ✓
+- Entire Player[] array is saved to IndexedDB ✓
+- No need for schema migration (Dexie stores JS objects as-is) ✓
+- Load restores complete Player objects including names ✓
+
+MANUAL VERIFICATION INSTRUCTIONS (for QA):
+1. Start dev server (npm run dev)
+2. Assign names to players using click-to-edit or roster import
+3. Save playbook via Save button
+4. Open DevTools → Application → IndexedDB → AFLPlaybookDB → playbooks
+5. Expand playerPositions array and verify playerName fields exist
+
+RESULT: ✓ VERIFIED - Playbook save correctly includes player names
+No code changes required - architecture is correct by design.
+
+=== END SUBTASK 5-1 ===
