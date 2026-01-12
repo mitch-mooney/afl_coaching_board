@@ -28,6 +28,8 @@ interface AnnotationState {
   setSelectedColor: (color: string) => void;
   setThickness: (thickness: number) => void;
   getAnnotation: (annotationId: string) => Annotation | undefined;
+  updateAnnotationPoints: (id: string, points: number[][]) => void;
+  updateAnnotationPoint: (id: string, pointIndex: number, newPoint: number[]) => void;
 }
 
 export const useAnnotationStore = create<AnnotationState>((set, get) => ({
@@ -77,5 +79,24 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
 
   getAnnotation: (annotationId) => {
     return get().annotations.find((a) => a.id === annotationId);
+  },
+
+  updateAnnotationPoints: (id, points) => {
+    set((state) => ({
+      annotations: state.annotations.map((a) =>
+        a.id === id ? { ...a, points } : a
+      ),
+    }));
+  },
+
+  updateAnnotationPoint: (id, pointIndex, newPoint) => {
+    set((state) => ({
+      annotations: state.annotations.map((a) => {
+        if (a.id !== id) return a;
+        const updatedPoints = [...a.points];
+        updatedPoints[pointIndex] = newPoint;
+        return { ...a, points: updatedPoints };
+      }),
+    }));
   },
 }));
