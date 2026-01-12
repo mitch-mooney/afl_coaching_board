@@ -4,7 +4,8 @@ import { Player, createTeamPlayers, DEFAULT_TEAM_COLORS } from '../models/Player
 interface PlayerState {
   players: Player[];
   selectedPlayerId: string | null;
-  
+  showPlayerNames: boolean;
+
   // Actions
   initializePlayers: () => void;
   updatePlayerPosition: (playerId: string, position: [number, number, number]) => void;
@@ -13,12 +14,15 @@ interface PlayerState {
   resetPlayers: () => void;
   getPlayer: (playerId: string) => Player | undefined;
   getTeamPlayers: (teamId: 'team1' | 'team2') => Player[];
+  setPlayerName: (playerId: string, name: string) => void;
+  togglePlayerNames: () => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   players: [],
   selectedPlayerId: null,
-  
+  showPlayerNames: false,
+
   initializePlayers: () => {
     const team1Players = createTeamPlayers('team1', DEFAULT_TEAM_COLORS.team1);
     const team2Players = createTeamPlayers('team2', DEFAULT_TEAM_COLORS.team2);
@@ -75,5 +79,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   
   getTeamPlayers: (teamId) => {
     return get().players.filter((p) => p.teamId === teamId);
+  },
+
+  setPlayerName: (playerId, name) => {
+    set((state) => ({
+      players: state.players.map((player) =>
+        player.id === playerId ? { ...player, playerName: name || undefined } : player
+      ),
+    }));
+  },
+
+  togglePlayerNames: () => {
+    set((state) => ({ showPlayerNames: !state.showPlayerNames }));
   },
 }));
