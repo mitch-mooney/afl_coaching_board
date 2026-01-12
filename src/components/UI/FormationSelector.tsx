@@ -2,13 +2,19 @@ import { useCallback, useEffect, useState } from 'react';
 import { useFormationStore } from '../../store/formationStore';
 import { usePlayerStore, PlayerUpdate } from '../../store/playerStore';
 import { PRE_BUILT_FORMATIONS, validateFormation } from '../../data/formations';
-import { Formation } from '../../types/Formation';
+import { Formation, PlayerPosition } from '../../types/Formation';
 
 export function FormationSelector() {
-  const { customFormations, isLoading, loadCustomFormations, setCurrentFormation } = useFormationStore();
+  const { customFormations, isLoading, loadCustomFormations, setCurrentFormation, saveCustomFormation, checkNameExists } = useFormationStore();
   const { players, updateMultiplePlayers } = usePlayerStore();
   const [isOpen, setIsOpen] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+
+  // Save dialog state
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Load custom formations on mount
   useEffect(() => {
@@ -37,6 +43,73 @@ export function FormationSelector() {
 
     return updates;
   }, []);
+
+  /**
+   * Convert current player positions to PlayerPosition format for saving
+   * Extracts player number from ID format: `${teamId}-player-${number}`
+   */
+  const convertPlayersToPositions = useCallback((): PlayerPosition[] => {
+    return players.map((player) => {
+      // Extract player number from ID (e.g., "team1-player-5" -> 5)
+      const numberMatch = player.id.match(/-player-(\d+)$/);
+      const playerNumber = numberMatch ? parseInt(numberMatch[1], 10) : 1;
+
+      return {
+        playerNumber,
+        teamId: player.teamId,
+        position: player.position,
+        rotation: player.rotation,
+      };
+    });
+  }, [players]);
+
+  /**
+   * Handle saving current formation as a custom template
+   */
+  const handleSaveTemplate = useCallback(async () => {
+    if (!templateName.trim()) {
+      alert('Please enter a name for the formation template');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      // Check if name already exists
+      const nameExists = await checkNameExists(templateName.trim());
+      if (nameExists) {
+        alert('A formation with this name already exists. Please choose a different name.');
+        return;
+      }
+
+      // Ensure we have all 36 players
+      if (players.length !== 36) {
+        alert(`Cannot save formation: expected 36 players, found ${players.length}`);
+        return;
+      }
+
+      // Convert current player positions to formation format
+      const positions = convertPlayersToPositions();
+
+      // Save the custom formation
+      await saveCustomFormation(
+        templateName.trim(),
+        templateDescription.trim(),
+        positions
+      );
+
+      // Reset dialog state
+      setShowSaveDialog(false);
+      setTemplateName('');
+      setTemplateDescription('');
+      alert('Formation template saved successfully!');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to save formation template: ${errorMessage}`);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [templateName, templateDescription, players.length, checkNameExists, convertPlayersToPositions, saveCustomFormation]);
 
   /**
    * Apply a formation to the current players
@@ -93,7 +166,16 @@ export function FormationSelector() {
 
       {isOpen && (
         <div className="absolute top-16 left-4 z-20 w-80 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 max-h-[calc(100vh-120px)] overflow-y-auto">
-          <h2 className="text-lg font-bold mb-3">Formation Templates</h2>
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-lg font-bold">Formation Templates</h2>
+            <button
+              onClick={() => setShowSaveDialog(true)}
+              className="px-3 py-1.5 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition"
+              title="Save current formation as template"
+            >
+              + Save Current
+            </button>
+          </div>
 
           {isLoading ? (
             <div className="text-center py-8 text-gray-500">Loading...</div>
@@ -144,6 +226,62 @@ export function FormationSelector() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Save Template Dialog */}
+      {showSaveDialog && (
+        <div className="absolute top-16 left-4 z-30 w-80 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4">
+          <h3 className="text-lg font-bold mb-3">Save Formation Template</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Name *</label>
+              <input
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="Enter formation name"
+                autoFocus
+                disabled={isSaving}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Description</label>
+              <textarea
+                value={templateDescription}
+                onChange={(e) => setTemplateDescription(e.target.value)}
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="Enter description (optional)"
+                rows={3}
+                disabled={isSaving}
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  setShowSaveDialog(false);
+                  setTemplateName('');
+                  setTemplateDescription('');
+                }}
+                disabled={isSaving}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveTemplate}
+                disabled={isSaving || !templateName.trim()}
+                className={`px-4 py-2 text-white rounded transition ${
+                  isSaving || !templateName.trim()
+                    ? 'bg-green-300 cursor-not-allowed'
+                    : 'bg-green-500 hover:bg-green-600'
+                }`}
+              >
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>
