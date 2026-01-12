@@ -1,5 +1,6 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
+import { Text } from '@react-three/drei';
 import { Mesh, Vector3, Plane } from 'three';
 import { Player } from '../../models/PlayerModel';
 import { usePlayerStore } from '../../store/playerStore';
@@ -14,7 +15,7 @@ export function PlayerComponent({ player }: PlayerProps) {
   const groupRef = useRef<any>(null);
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const { selectedPlayerId, selectPlayer, updatePlayerPosition } = usePlayerStore();
+  const { selectedPlayerId, selectPlayer, updatePlayerPosition, showPlayerNames } = usePlayerStore();
   const { camera, raycaster } = useThree();
   const isSelected = selectedPlayerId === player.id;
   
@@ -94,7 +95,22 @@ export function PlayerComponent({ player }: PlayerProps) {
           <meshStandardMaterial color="#ffffff" />
         </mesh>
       )}
-      
+
+      {/* Player name label */}
+      {showPlayerNames && player.playerName && (
+        <Text
+          position={[0, 2.1, 0]}
+          fontSize={0.4}
+          color="#ffffff"
+          anchorX="center"
+          anchorY="middle"
+          outlineWidth={0.05}
+          outlineColor="#000000"
+        >
+          {player.playerName}
+        </Text>
+      )}
+
       {/* Selection indicator ring */}
       {isSelected && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
