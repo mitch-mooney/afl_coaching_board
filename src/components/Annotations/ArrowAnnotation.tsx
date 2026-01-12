@@ -1,6 +1,6 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Mesh, Vector3, Euler } from 'three';
-import { Annotation } from '../../store/annotationStore';
+import { Annotation, useAnnotationStore } from '../../store/annotationStore';
 
 interface ArrowAnnotationProps {
   annotation: Annotation;
@@ -11,9 +11,13 @@ interface ArrowAnnotationProps {
  *
  * Renders a directional arrow between two points on the 3D field.
  * The arrow consists of a line segment with a cone arrowhead at the end point.
+ * Supports selection highlighting with visual indicator.
  */
 export function ArrowAnnotation({ annotation }: ArrowAnnotationProps) {
   const coneRef = useRef<Mesh>(null);
+  const [hovered, setHovered] = useState(false);
+  const { selectedAnnotationId, selectAnnotation } = useAnnotationStore();
+  const isSelected = selectedAnnotationId === annotation.id;
 
   // Validate annotation has at least 2 points for start and end
   if (annotation.points.length < 2) {
@@ -72,8 +76,25 @@ export function ArrowAnnotation({ annotation }: ArrowAnnotationProps) {
     ] as [number, number, number];
   }, [startPoint, endPoint, coneHeight]);
 
+  const handleClick = (e: any) => {
+    e.stopPropagation();
+    selectAnnotation(annotation.id);
+  };
+
+  const handlePointerOver = () => setHovered(true);
+  const handlePointerOut = () => setHovered(false);
+
+  // Determine colors based on selection/hover state
+  const lineColor = isSelected ? '#ffff00' : hovered ? '#ffffff' : annotation.color;
+  const coneColor = isSelected ? '#ffff00' : hovered ? '#ffffff' : annotation.color;
+  const emissiveIntensity = isSelected ? 0.3 : hovered ? 0.1 : 0;
+
   return (
-    <group>
+    <group
+      onClick={handleClick}
+      onPointerOver={handlePointerOver}
+      onPointerOut={handlePointerOut}
+    >
       {/* Arrow line segment */}
       <line>
         <bufferGeometry>
@@ -84,7 +105,7 @@ export function ArrowAnnotation({ annotation }: ArrowAnnotationProps) {
             itemSize={3}
           />
         </bufferGeometry>
-        <lineBasicMaterial color={annotation.color} linewidth={annotation.thickness || 2} />
+        <lineBasicMaterial color={lineColor} linewidth={annotation.thickness || 2} />
       </line>
 
       {/* Arrowhead cone at end point */}
@@ -94,8 +115,26 @@ export function ArrowAnnotation({ annotation }: ArrowAnnotationProps) {
         rotation={coneRotation}
       >
         <coneGeometry args={[coneRadius, coneHeight, coneSegments]} />
-        <meshStandardMaterial color={annotation.color} />
+        <meshStandardMaterial
+          color={coneColor}
+          emissive={isSelected ? '#ffff00' : annotation.color}
+          emissiveIntensity={emissiveIntensity}
+        />
       </mesh>
+
+      {/* Selection indicator rings at start and end points */}
+      {isSelected && (
+        <>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[startPoint[0], 0.03, startPoint[2]]}>
+            <ringGeometry args={[0.8, 1.0, 16]} />
+            <meshStandardMaterial color="#ffff00" emissive="#ffff00" emissiveIntensity={0.5} />
+          </mesh>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[endPoint[0], 0.03, endPoint[2]]}>
+            <ringGeometry args={[0.8, 1.0, 16]} />
+            <meshStandardMaterial color="#ffff00" emissive="#ffff00" emissiveIntensity={0.5} />
+          </mesh>
+        </>
+      )}
     </group>
   );
 }

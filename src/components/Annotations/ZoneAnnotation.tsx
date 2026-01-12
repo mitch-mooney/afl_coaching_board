@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Annotation } from '../../store/annotationStore';
+import { useMemo, useState } from 'react';
+import { Annotation, useAnnotationStore } from '../../store/annotationStore';
 
 interface ZoneAnnotationProps {
   annotation: Annotation;
@@ -11,6 +11,7 @@ interface ZoneAnnotationProps {
  * Renders semi-transparent zone shapes (circles or rectangles) for highlighting
  * areas of the field. Both shapes are rendered as filled planes with configurable
  * opacity to allow field visibility underneath.
+ * Supports selection highlighting with visual indicator.
  */
 export function ZoneAnnotation({ annotation }: ZoneAnnotationProps) {
   // Validate annotation has at least 2 points for defining the zone
@@ -37,6 +38,10 @@ export function ZoneAnnotation({ annotation }: ZoneAnnotationProps) {
  * Center is defined by points[0], radius by distance to points[1].
  */
 function CircleZone({ annotation }: ZoneAnnotationProps) {
+  const [hovered, setHovered] = useState(false);
+  const { selectedAnnotationId, selectAnnotation } = useAnnotationStore();
+  const isSelected = selectedAnnotationId === annotation.id;
+
   const center = annotation.points[0];
 
   // Calculate radius as distance from center to edge point (using X-Z plane)
@@ -49,21 +54,50 @@ function CircleZone({ annotation }: ZoneAnnotationProps) {
   // Position slightly above field to prevent z-fighting
   const yPosition = 0.02;
 
-  // Default opacity for zone highlighting
-  const opacity = 0.3;
+  // Opacity varies based on selection/hover state
+  const baseOpacity = 0.3;
+  const opacity = isSelected ? 0.5 : hovered ? 0.4 : baseOpacity;
+
+  // Determine color based on selection/hover state
+  const zoneColor = isSelected ? '#ffff00' : hovered ? '#ffffff' : annotation.color;
+
+  const handleClick = (e: any) => {
+    e.stopPropagation();
+    selectAnnotation(annotation.id);
+  };
+
+  const handlePointerOver = () => setHovered(true);
+  const handlePointerOut = () => setHovered(false);
 
   return (
-    <mesh
-      position={[center[0], yPosition, center[2]]}
-      rotation={[-Math.PI / 2, 0, 0]} // Rotate to lie flat on X-Z plane
+    <group
+      onClick={handleClick}
+      onPointerOver={handlePointerOver}
+      onPointerOut={handlePointerOut}
     >
-      <circleGeometry args={[radius, 32]} />
-      <meshStandardMaterial
-        color={annotation.color}
-        opacity={opacity}
-        transparent
-      />
-    </mesh>
+      {/* Zone fill */}
+      <mesh
+        position={[center[0], yPosition, center[2]]}
+        rotation={[-Math.PI / 2, 0, 0]} // Rotate to lie flat on X-Z plane
+      >
+        <circleGeometry args={[radius, 32]} />
+        <meshStandardMaterial
+          color={zoneColor}
+          opacity={opacity}
+          transparent
+          emissive={isSelected ? '#ffff00' : undefined}
+          emissiveIntensity={isSelected ? 0.2 : 0}
+        />
+      </mesh>
+
+      {/* Selection indicator ring around the zone */}
+      {isSelected && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[center[0], 0.03, center[2]]}>
+          <ringGeometry args={[radius + 0.3, radius + 0.6, 32]} />
+          <meshStandardMaterial color="#ffff00" emissive="#ffff00" emissiveIntensity={0.5} />
+        </mesh>
+      )}
+    </group>
   );
 }
 
@@ -74,6 +108,10 @@ function CircleZone({ annotation }: ZoneAnnotationProps) {
  * Defined by two opposite corner points: points[0] and points[1].
  */
 function RectangleZone({ annotation }: ZoneAnnotationProps) {
+  const [hovered, setHovered] = useState(false);
+  const { selectedAnnotationId, selectAnnotation } = useAnnotationStore();
+  const isSelected = selectedAnnotationId === annotation.id;
+
   const [p1, p2] = annotation.points;
 
   // Calculate dimensions and center from corner points
@@ -89,20 +127,53 @@ function RectangleZone({ annotation }: ZoneAnnotationProps) {
   // Position slightly above field to prevent z-fighting
   const yPosition = 0.02;
 
-  // Default opacity for zone highlighting
-  const opacity = 0.3;
+  // Opacity varies based on selection/hover state
+  const baseOpacity = 0.3;
+  const opacity = isSelected ? 0.5 : hovered ? 0.4 : baseOpacity;
+
+  // Determine color based on selection/hover state
+  const zoneColor = isSelected ? '#ffff00' : hovered ? '#ffffff' : annotation.color;
+
+  const handleClick = (e: any) => {
+    e.stopPropagation();
+    selectAnnotation(annotation.id);
+  };
+
+  const handlePointerOver = () => setHovered(true);
+  const handlePointerOut = () => setHovered(false);
 
   return (
-    <mesh
-      position={[dimensions.centerX, yPosition, dimensions.centerZ]}
-      rotation={[-Math.PI / 2, 0, 0]} // Rotate to lie flat on X-Z plane
+    <group
+      onClick={handleClick}
+      onPointerOver={handlePointerOver}
+      onPointerOut={handlePointerOut}
     >
-      <planeGeometry args={[dimensions.width, dimensions.height]} />
-      <meshStandardMaterial
-        color={annotation.color}
-        opacity={opacity}
-        transparent
-      />
-    </mesh>
+      {/* Zone fill */}
+      <mesh
+        position={[dimensions.centerX, yPosition, dimensions.centerZ]}
+        rotation={[-Math.PI / 2, 0, 0]} // Rotate to lie flat on X-Z plane
+      >
+        <planeGeometry args={[dimensions.width, dimensions.height]} />
+        <meshStandardMaterial
+          color={zoneColor}
+          opacity={opacity}
+          transparent
+          emissive={isSelected ? '#ffff00' : undefined}
+          emissiveIntensity={isSelected ? 0.2 : 0}
+        />
+      </mesh>
+
+      {/* Selection indicator border around the zone */}
+      {isSelected && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[dimensions.centerX, 0.03, dimensions.centerZ]}>
+          <ringGeometry args={[
+            Math.max(dimensions.width, dimensions.height) / 2 + 0.3,
+            Math.max(dimensions.width, dimensions.height) / 2 + 0.6,
+            4
+          ]} />
+          <meshStandardMaterial color="#ffff00" emissive="#ffff00" emissiveIntensity={0.5} />
+        </mesh>
+      )}
+    </group>
   );
 }
