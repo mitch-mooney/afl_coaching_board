@@ -1,0 +1,71 @@
+{
+  "complexity": "standard",
+  "workflow_type": "feature",
+  "confidence": 0.85,
+  "reasoning": "Extending existing partial annotation implementation. Multiple files (6-10) but contained to single frontend service. No external integrations, no infrastructure changes. Uses existing tech stack (Three.js, Zustand, Dexie).",
+
+  "analysis": {
+    "scope": {
+      "estimated_files": 8,
+      "estimated_services": 1,
+      "is_cross_cutting": false,
+      "notes": "Will modify: annotationStore (add edit/freehand), AnnotationLayer (implement arrow heads, text, freehand), useAnnotationInteraction (drawing logic), AnnotationToolbar (new tools), playbookStore (persistence integration), possibly add new utility components for text rendering"
+    },
+    "integrations": {
+      "external_services": [],
+      "new_dependencies": [],
+      "research_needed": false,
+      "notes": "All required libraries already in use: Three.js for rendering, @react-three/drei for Text component, Zustand for state, Dexie for persistence. No new external dependencies needed."
+    },
+    "infrastructure": {
+      "docker_changes": false,
+      "database_changes": false,
+      "config_changes": false,
+      "notes": "Uses existing IndexedDB schema. Playbook model already has annotations field as placeholder (annotations?: any[]). No infrastructure changes required."
+    },
+    "knowledge": {
+      "patterns_exist": true,
+      "research_required": false,
+      "unfamiliar_tech": [],
+      "notes": "Annotation store, layer, and persistence patterns already exist. Text rendering can use @react-three/drei Text component (already a dependency). Arrow rendering uses existing line geometry with cone for arrowhead."
+    },
+    "risk": {
+      "level": "medium",
+      "concerns": [
+        "Persistence integration could corrupt playbooks if annotations schema is wrong",
+        "Multiple annotation types require consistent interaction patterns",
+        "Edit/delete operations need proper selection and hit-testing logic",
+        "Free-hand drawing performance with many points in Three.js",
+        "Text rendering in 3D space may need camera billboarding"
+      ],
+      "notes": "Medium risk due to data persistence concerns and multiple feature types. Careful testing needed for save/load operations."
+    }
+  },
+
+  "recommended_phases": [
+    "discovery",
+    "requirements",
+    "context",
+    "spec_writing",
+    "planning",
+    "validation"
+  ],
+
+  "flags": {
+    "needs_research": false,
+    "needs_self_critique": false,
+    "needs_infrastructure_setup": false
+  },
+
+  "validation_recommendations": {
+    "risk_level": "medium",
+    "skip_validation": false,
+    "minimal_mode": false,
+    "test_types_required": ["unit", "integration"],
+    "security_scan_required": false,
+    "staging_deployment_required": false,
+    "reasoning": "Multiple annotation types with persistence require unit tests for each annotation type and integration tests to verify playbook save/load correctly preserves annotations. Medium risk due to data persistence concerns."
+  },
+
+  "created_at": "2026-01-12T00:00:00.000Z"
+}

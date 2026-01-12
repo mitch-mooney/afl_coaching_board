@@ -1,5 +1,7 @@
 import { useAnnotationStore } from '../../store/annotationStore';
 import { Annotation } from '../../store/annotationStore';
+import { TextAnnotation } from '../Annotations/TextAnnotation';
+import { ArrowAnnotation } from '../Annotations/ArrowAnnotation';
 
 export function AnnotationLayer() {
   const annotations = useAnnotationStore((state) => state.annotations);
@@ -14,18 +16,23 @@ export function AnnotationLayer() {
 }
 
 function AnnotationRenderer({ annotation }: { annotation: Annotation }) {
+  // Text only requires 1 point, others require 2+
+  if (annotation.type === 'text') {
+    if (annotation.points.length < 1) return null;
+    return <TextAnnotation annotation={annotation} />;
+  }
+
   if (annotation.points.length < 2) return null;
-  
+
   switch (annotation.type) {
     case 'line':
-    case 'arrow':
       return <LineAnnotation annotation={annotation} />;
+    case 'arrow':
+      return <ArrowAnnotation annotation={annotation} />;
     case 'circle':
       return <CircleAnnotation annotation={annotation} />;
     case 'rectangle':
       return <RectangleAnnotation annotation={annotation} />;
-    case 'text':
-      return <TextAnnotation annotation={annotation} />;
     default:
       return null;
   }
@@ -81,14 +88,3 @@ function RectangleAnnotation({ annotation }: { annotation: Annotation }) {
   );
 }
 
-function TextAnnotation({ annotation }: { annotation: Annotation }) {
-  if (!annotation.text || annotation.points.length < 1) return null;
-  const [x, y, z] = annotation.points[0];
-  
-  return (
-    <mesh position={[x, 1, z]}>
-      <planeGeometry args={[2, 0.5]} />
-      <meshStandardMaterial color="#ffffff" />
-    </mesh>
-  );
-}

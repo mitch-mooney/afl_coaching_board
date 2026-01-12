@@ -1,0 +1,638 @@
+{
+  "feature": "Complete Annotation System",
+  "workflow_type": "feature",
+  "workflow_rationale": "This is a feature development task extending an existing partial implementation. The annotation layer exists but needs completion of four annotation types (text, arrows, zones, free-hand), plus CRUD operations and persistence. Follows a typical feature workflow: foundation (types/validation) \u2192 rendering improvements \u2192 new capabilities \u2192 integration.",
+  "phases": [
+    {
+      "id": "phase-1-foundation",
+      "name": "Type System & Validation Foundation",
+      "type": "setup",
+      "description": "Create TypeScript type definitions using discriminated unions and validation utilities for annotation data integrity",
+      "depends_on": [],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-1-1",
+          "description": "Create annotation type definitions with discriminated unions",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": [
+            "src/types/annotations.ts"
+          ],
+          "patterns_from": [
+            "src/models/PlayerModel.ts",
+            "src/store/annotationStore.ts"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npx tsc --noEmit",
+            "expected": "No TypeScript errors"
+          },
+          "status": "completed",
+          "notes": "Created src/types/annotations.ts with discriminated unions for TextAnnotation, ArrowAnnotation, ZoneAnnotation, and DrawingAnnotation. Includes type guards, factory types, update types, and serialization utilities. Committed as 36d9f24.",
+          "updated_at": "2026-01-12T06:22:45.568842+00:00"
+        },
+        {
+          "id": "subtask-1-2",
+          "description": "Create annotation validation utilities",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": [
+            "src/utils/annotationValidation.ts"
+          ],
+          "patterns_from": [
+            "src/utils/fieldGeometry.ts"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npx tsc --noEmit",
+            "expected": "No TypeScript errors"
+          },
+          "status": "completed",
+          "notes": "Created src/utils/annotationValidation.ts with comprehensive validation utilities:\n- validateTextAnnotation: validates non-empty text and valid position\n- validateArrowAnnotation: validates non-zero length (min 0.01 distance)\n- validateZoneAnnotation: validates non-zero area for circle/rectangle shapes\n- validateDrawingAnnotation: validates minimum 2 points for path\n- validateBaseAnnotation: validates common properties (id, color, thickness, createdAt)\n- validateAnnotation: generic validator using type guards\n- Helper utilities: isValidAnnotation, filterValidAnnotations, getInvalidAnnotations, validateAnnotations\nAll validators return ValidationResult with valid flag and error array. Committed as 406117b.",
+          "updated_at": "2026-01-12T06:24:41.539182+00:00"
+        }
+      ]
+    },
+    {
+      "id": "phase-2-text-and-arrows",
+      "name": "Enhanced Text & Arrow Rendering",
+      "type": "implementation",
+      "description": "Improve text annotations to render actual text using @react-three/drei Text, and add arrowheads to arrow annotations",
+      "depends_on": [
+        "phase-1-foundation"
+      ],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-2-1",
+          "description": "Implement TextAnnotation component with @react-three/drei Text",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": [
+            "src/components/Annotations/TextAnnotation.tsx"
+          ],
+          "patterns_from": [
+            "src/components/Scene/Field.tsx"
+          ],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:5173",
+            "checks": [
+              "Text annotation renders with actual text content",
+              "Text is visible and legible on field"
+            ]
+          },
+          "status": "completed",
+          "notes": "Created src/components/Annotations/TextAnnotation.tsx using @react-three/drei Text and Billboard components. Features:\n- Uses Billboard wrapper for camera-facing readability from any angle\n- Renders annotation.text content with configurable fontSize\n- Positions text at annotation.points[0] coordinates\n- Adds black outline (outlineWidth: 0.05) for visibility on field\n- Places text 0.5 units above field surface to prevent z-fighting\n- Validates annotation has required text and position before rendering\nCommitted as 842a701.",
+          "updated_at": "2026-01-12T06:27:00.265300+00:00"
+        },
+        {
+          "id": "subtask-2-2",
+          "description": "Implement ArrowAnnotation component with arrowhead cone",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": [
+            "src/components/Annotations/ArrowAnnotation.tsx"
+          ],
+          "patterns_from": [
+            "src/components/Scene/Field.tsx"
+          ],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:5173",
+            "checks": [
+              "Arrow renders from start to end point",
+              "Arrowhead cone visible at end point",
+              "Arrow direction is clear"
+            ]
+          },
+          "status": "completed",
+          "notes": "Created src/components/Annotations/ArrowAnnotation.tsx component that:\n- Renders line segment from startPoint (points[0]) to endPoint (points[1]) using bufferGeometry\n- Adds cone mesh arrowhead at end point for clear direction indication\n- Calculates cone rotation using spherical coordinates to align with arrow direction\n- Positions cone so tip is exactly at endpoint\n- Uses annotation.color for both line and cone\n- Supports annotation.thickness for line width\n- Validates minimum 2 points before rendering\nCommitted as 1bc4cc4.",
+          "updated_at": "2026-01-12T06:29:32.142553+00:00"
+        },
+        {
+          "id": "subtask-2-3",
+          "description": "Update AnnotationLayer to use new Text and Arrow components",
+          "service": "main",
+          "files_to_modify": [
+            "src/components/Scene/AnnotationLayer.tsx"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:5173",
+            "checks": [
+              "Text annotations show actual text",
+              "Arrows show arrowheads",
+              "No console errors"
+            ]
+          },
+          "status": "pending",
+          "notes": "Import TextAnnotation and ArrowAnnotation. Replace existing TextAnnotation and LineAnnotation renders in AnnotationRenderer switch statement."
+        }
+      ]
+    },
+    {
+      "id": "phase-3-zones-and-drawing",
+      "name": "Zone Highlighting & Free-hand Drawing",
+      "type": "implementation",
+      "description": "Implement zone highlighting components and free-hand drawing capability for tactical annotations",
+      "depends_on": [
+        "phase-1-foundation"
+      ],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-3-1",
+          "description": "Implement ZoneAnnotation component for highlighting areas",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": [
+            "src/components/Annotations/ZoneAnnotation.tsx"
+          ],
+          "patterns_from": [
+            "src/components/Scene/AnnotationLayer.tsx"
+          ],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:5173",
+            "checks": [
+              "Zone renders as semi-transparent shape",
+              "Zone covers defined area",
+              "Zone opacity allows field visibility"
+            ]
+          },
+          "status": "pending",
+          "notes": "Support both 'circle' and 'rectangle' zone types. Use existing CircleAnnotation and RectangleAnnotation rendering logic. Ensure opacity={0.3} and transparent={true}."
+        },
+        {
+          "id": "subtask-3-2",
+          "description": "Implement DrawingAnnotation component for free-hand paths",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": [
+            "src/components/Annotations/DrawingAnnotation.tsx"
+          ],
+          "patterns_from": [
+            "src/components/Scene/Field.tsx"
+          ],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:5173",
+            "checks": [
+              "Drawing renders as continuous path",
+              "Path follows multiple points",
+              "Path is smooth and visible"
+            ]
+          },
+          "status": "pending",
+          "notes": "Render using line with bufferGeometry. Points array contains all captured positions during drawing. Use LineBasicMaterial with color and linewidth from annotation."
+        },
+        {
+          "id": "subtask-3-3",
+          "description": "Add free-hand drawing interaction to useAnnotationInteraction",
+          "service": "main",
+          "files_to_modify": [
+            "src/hooks/useAnnotationInteraction.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:5173",
+            "checks": [
+              "Dragging with 'line' tool captures continuous path",
+              "Path includes multiple intermediate points",
+              "Drawing completes on pointer up"
+            ]
+          },
+          "status": "pending",
+          "notes": "For 'line' tool (free-hand), capture multiple points during pointermove (not just start/end). Push new point to currentPointsRef.current array on each move event. Create annotation with all points on pointer up."
+        },
+        {
+          "id": "subtask-3-4",
+          "description": "Update AnnotationLayer to render zones and drawings",
+          "service": "main",
+          "files_to_modify": [
+            "src/components/Scene/AnnotationLayer.tsx"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:5173",
+            "checks": [
+              "Zones render correctly",
+              "Free-hand drawings render",
+              "All annotation types coexist without errors"
+            ]
+          },
+          "status": "pending",
+          "notes": "Import ZoneAnnotation and DrawingAnnotation. Update AnnotationRenderer: circle/rectangle use ZoneAnnotation, line uses DrawingAnnotation."
+        }
+      ]
+    },
+    {
+      "id": "phase-4-selection-editing",
+      "name": "Selection & Editing Capabilities",
+      "type": "implementation",
+      "description": "Implement annotation selection via clicking and editing capabilities with draggable handles",
+      "depends_on": [
+        "phase-2-text-and-arrows",
+        "phase-3-zones-and-drawing"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-4-1",
+          "description": "Add selectedAnnotation to annotation store",
+          "service": "main",
+          "files_to_modify": [
+            "src/store/annotationStore.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "src/store/playerStore.ts"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npx tsc --noEmit",
+            "expected": "No TypeScript errors"
+          },
+          "status": "pending",
+          "notes": "Add selectedAnnotation: string | null field. Add selectAnnotation(id) and updateAnnotation(id, updates) actions. Follow playerStore.ts selectedPlayerId pattern."
+        },
+        {
+          "id": "subtask-4-2",
+          "description": "Create useAnnotationSelection hook for raycasting selection",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": [
+            "src/hooks/useAnnotationSelection.ts"
+          ],
+          "patterns_from": [
+            "src/hooks/useAnnotationInteraction.ts"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npx tsc --noEmit",
+            "expected": "No TypeScript errors"
+          },
+          "status": "pending",
+          "notes": "Use raycaster to detect clicks on annotation meshes. When clicked, call selectAnnotation(id). Attach click listeners to canvas, perform raycasting against annotation objects."
+        },
+        {
+          "id": "subtask-4-3",
+          "description": "Add selection highlighting to annotation components",
+          "service": "main",
+          "files_to_modify": [
+            "src/components/Annotations/TextAnnotation.tsx",
+            "src/components/Annotations/ArrowAnnotation.tsx",
+            "src/components/Annotations/ZoneAnnotation.tsx",
+            "src/components/Annotations/DrawingAnnotation.tsx"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "src/components/Scene/Player.tsx"
+          ],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:5173",
+            "checks": [
+              "Selected annotation has visual highlight",
+              "Selection indicator is clearly visible",
+              "Only one annotation selected at a time"
+            ]
+          },
+          "status": "pending",
+          "notes": "Each component receives isSelected prop from parent. If selected, add visual indicator (e.g., outline, glow effect, or color change). Use emissive material property or add outline mesh."
+        },
+        {
+          "id": "subtask-4-4",
+          "description": "Implement draggable handles for annotation editing",
+          "service": "main",
+          "files_to_modify": [
+            "src/components/Annotations/TextAnnotation.tsx",
+            "src/components/Annotations/ArrowAnnotation.tsx",
+            "src/components/Annotations/ZoneAnnotation.tsx"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "src/hooks/usePlayerControls.ts"
+          ],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:5173",
+            "checks": [
+              "Selected text annotation can be dragged to new position",
+              "Selected arrow endpoints can be dragged",
+              "Selected zone boundaries can be resized"
+            ]
+          },
+          "status": "pending",
+          "notes": "Add small sphere meshes at edit points (text position, arrow start/end, zone corners). Make handles draggable using pointer events. On drag, call updateAnnotation() with new points."
+        }
+      ]
+    },
+    {
+      "id": "phase-5-delete-and-ui",
+      "name": "Delete Operations & UI Polish",
+      "type": "implementation",
+      "description": "Add individual annotation delete capability and improve toolbar UI with delete button and better tool indicators",
+      "depends_on": [
+        "phase-4-selection-editing"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-5-1",
+          "description": "Add delete button to AnnotationToolbar",
+          "service": "main",
+          "files_to_modify": [
+            "src/components/UI/AnnotationToolbar.tsx"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:5173",
+            "checks": [
+              "Delete button visible in toolbar",
+              "Delete button only enabled when annotation is selected",
+              "Delete button removes selected annotation"
+            ]
+          },
+          "status": "pending",
+          "notes": "Add 'Delete' button that calls removeAnnotation(selectedAnnotation). Button should be disabled if selectedAnnotation is null. Position near Clear All button."
+        },
+        {
+          "id": "subtask-5-2",
+          "description": "Add keyboard shortcut for delete (Delete/Backspace key)",
+          "service": "main",
+          "files_to_modify": [
+            "src/hooks/useAnnotationSelection.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:5173",
+            "checks": [
+              "Pressing Delete key removes selected annotation",
+              "Pressing Backspace key removes selected annotation",
+              "No deletion when nothing selected"
+            ]
+          },
+          "status": "pending",
+          "notes": "Add useEffect with keydown listener. If event.key === 'Delete' or 'Backspace' and selectedAnnotation exists, call removeAnnotation()."
+        },
+        {
+          "id": "subtask-5-3",
+          "description": "Add annotation count display to toolbar",
+          "service": "main",
+          "files_to_modify": [
+            "src/components/UI/AnnotationToolbar.tsx"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:5173",
+            "checks": [
+              "Toolbar shows count of annotations",
+              "Count updates when annotations added/removed"
+            ]
+          },
+          "status": "pending",
+          "notes": "Display annotations.length in toolbar UI. Show as '3 annotations' or 'No annotations'. Position near title."
+        }
+      ]
+    },
+    {
+      "id": "phase-6-integration",
+      "name": "Integration & End-to-End Verification",
+      "type": "integration",
+      "description": "Verify complete annotation workflow end-to-end including persistence, test all annotation types, and ensure no regressions",
+      "depends_on": [
+        "phase-5-delete-and-ui"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-6-1",
+          "description": "Verify annotation persistence with playbook save/load",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "e2e",
+            "steps": [
+              "Create text, arrow, zone, and drawing annotations",
+              "Save playbook with name 'Test Annotations'",
+              "Refresh browser page",
+              "Load 'Test Annotations' playbook",
+              "Verify all 4 annotation types appear in correct positions",
+              "Verify all annotation properties preserved (color, thickness, text)"
+            ]
+          },
+          "status": "pending",
+          "notes": "Ensure Annotation type definitions are serializable to JSON. Test with complex scenarios: multiple annotations of each type, various colors/sizes."
+        },
+        {
+          "id": "subtask-6-2",
+          "description": "End-to-end test of all annotation CRUD operations",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "e2e",
+            "steps": [
+              "Create: Add one of each annotation type (text, arrow, zone, drawing)",
+              "Read: Verify all render correctly on field",
+              "Update: Select and edit each annotation (move, resize, change text)",
+              "Delete: Remove each annotation using delete button and keyboard",
+              "Verify: No annotations remain, no console errors"
+            ]
+          },
+          "status": "pending",
+          "notes": "Test edge cases: overlapping annotations, off-field positions, empty text, zero-length arrows."
+        },
+        {
+          "id": "subtask-6-3",
+          "description": "Verify no regressions in existing playbook functionality",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "e2e",
+            "steps": [
+              "Load existing playbook without annotations",
+              "Verify loads without errors",
+              "Move players around",
+              "Save playbook",
+              "Reload and verify player positions preserved",
+              "Verify camera position and zoom preserved"
+            ]
+          },
+          "status": "pending",
+          "notes": "Ensure backward compatibility with playbooks that don't have annotations field. Handle undefined annotations gracefully."
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_phases": 6,
+    "total_subtasks": 18,
+    "services_involved": [
+      "main"
+    ],
+    "estimated_duration": "4-6 hours",
+    "parallelism": {
+      "max_parallel_phases": 2,
+      "parallel_groups": [
+        {
+          "phases": [
+            "phase-2-text-and-arrows",
+            "phase-3-zones-and-drawing"
+          ],
+          "reason": "Both depend only on phase-1-foundation, modify different files, can run simultaneously"
+        }
+      ],
+      "recommended_workers": 2,
+      "speedup_estimate": "1.3x faster than sequential (phases 2 and 3 can run in parallel)"
+    },
+    "startup_command": "npm run dev"
+  },
+  "verification_strategy": {
+    "risk_level": "medium",
+    "skip_validation": false,
+    "test_creation_phase": "post_implementation",
+    "test_types_required": [
+      "unit",
+      "integration"
+    ],
+    "security_scanning_required": false,
+    "staging_deployment_required": false,
+    "acceptance_criteria": [
+      "All existing tests pass (if any)",
+      "New annotation types render correctly",
+      "Annotations persist with playbook save/load",
+      "CRUD operations work for all annotation types",
+      "No console errors during annotation operations",
+      "No regressions in existing playbook functionality"
+    ],
+    "verification_steps": [
+      {
+        "name": "TypeScript Compilation",
+        "command": "npx tsc --noEmit",
+        "expected_outcome": "No TypeScript errors",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Linting",
+        "command": "npm run lint",
+        "expected_outcome": "No linting errors",
+        "type": "test",
+        "required": true,
+        "blocking": false
+      },
+      {
+        "name": "Development Build",
+        "command": "npm run build",
+        "expected_outcome": "Build succeeds without errors",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Browser Verification - Annotation Types",
+        "command": "manual",
+        "expected_outcome": "All 4 annotation types (text, arrow, zone, drawing) render correctly at http://localhost:5173",
+        "type": "manual",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Browser Verification - CRUD Operations",
+        "command": "manual",
+        "expected_outcome": "Can create, select, edit, and delete each annotation type",
+        "type": "manual",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Browser Verification - Persistence",
+        "command": "manual",
+        "expected_outcome": "Annotations persist after save/reload cycle",
+        "type": "manual",
+        "required": true,
+        "blocking": true
+      }
+    ],
+    "reasoning": "Medium risk due to data persistence concerns and multiple feature types. Manual browser verification required since this is visual 3D rendering. TypeScript compilation and linting provide code quality checks."
+  },
+  "qa_acceptance": {
+    "unit_tests": {
+      "required": false,
+      "commands": [],
+      "minimum_coverage": null,
+      "notes": "No unit test framework currently configured in project"
+    },
+    "integration_tests": {
+      "required": false,
+      "commands": [],
+      "services_to_test": [],
+      "notes": "No integration test framework currently configured"
+    },
+    "e2e_tests": {
+      "required": false,
+      "commands": [],
+      "flows": [],
+      "notes": "No E2E test framework configured. Manual E2E verification in phase-6-integration."
+    },
+    "browser_verification": {
+      "required": true,
+      "pages": [
+        {
+          "url": "http://localhost:5173",
+          "checks": [
+            "All 4 annotation tools (text, arrow, zone, drawing) selectable",
+            "Text annotations render with actual text content",
+            "Arrows render with visible arrowheads",
+            "Zone highlights are semi-transparent",
+            "Free-hand drawings follow mouse path smoothly",
+            "Clicking annotation selects it with visual highlight",
+            "Selected annotation can be edited (dragged, resized)",
+            "Delete button removes selected annotation",
+            "Delete/Backspace key removes selected annotation",
+            "Annotation count displayed in toolbar",
+            "No console errors during any annotation operation",
+            "Existing playbook save/load still works"
+          ]
+        }
+      ]
+    },
+    "database_verification": {
+      "required": true,
+      "checks": [
+        "Open DevTools \u2192 Application \u2192 IndexedDB \u2192 AFLPlaybookDB",
+        "Playbook records contain annotations array",
+        "Annotations have correct structure (id, type, points, color, thickness, text, createdAt)",
+        "Loading playbook without annotations field doesn't error"
+      ]
+    }
+  },
+  "qa_signoff": null,
+  "created_at": "2026-01-09T07:23:51.877Z",
+  "updated_at": "2026-01-12T17:25:00.000Z",
+  "status": "planned",
+  "planStatus": "complete",
+  "last_updated": "2026-01-12T06:29:32.142553+00:00"
+}

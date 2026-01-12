@@ -1,0 +1,71 @@
+{
+  "task_description": "Complete the partially implemented annotation system for the AFL coaching board. Add text labels, improved arrows with arrowheads, zone highlighting, free-hand drawing, selection/edit/delete capabilities, and ensure proper persistence with playbooks.",
+  "scoped_services": ["main"],
+  "files_to_modify": [
+    "src/store/annotationStore.ts",
+    "src/components/Scene/AnnotationLayer.tsx",
+    "src/components/UI/AnnotationToolbar.tsx",
+    "src/hooks/useAnnotationInteraction.ts",
+    "src/store/playbookStore.ts"
+  ],
+  "files_to_create": [
+    "src/types/annotations.ts",
+    "src/components/Annotations/TextAnnotation.tsx",
+    "src/components/Annotations/ArrowAnnotation.tsx",
+    "src/components/Annotations/ZoneAnnotation.tsx",
+    "src/components/Annotations/DrawingAnnotation.tsx",
+    "src/hooks/useAnnotationSelection.ts",
+    "src/utils/annotationValidation.ts"
+  ],
+  "files_to_reference": [
+    "src/store/playerStore.ts",
+    "src/store/playbookStore.ts",
+    "src/components/Scene/Field.tsx",
+    "src/hooks/useAnnotationInteraction.ts",
+    "src/utils/fieldGeometry.ts"
+  ],
+  "patterns": {
+    "zustand_store_pattern": "All stores use create<StateInterface>() with typed actions. See playerStore.ts for reference with get() and set() patterns.",
+    "threejs_component_pattern": "Use declarative JSX with @react-three/fiber. See Field.tsx for line/mesh patterns using bufferGeometry and bufferAttribute.",
+    "dexie_persistence_pattern": "PlaybookDatabase extends Dexie with Table types. Use version() for schema migrations. See playbookStore.ts.",
+    "raycasting_pattern": "useAnnotationInteraction.ts shows raycaster.ray.intersectPlane for field plane intersection.",
+    "field_coordinate_system": "Use field-space coordinates [x, y, z] where y=0 is field surface. snapToField() in fieldGeometry.ts constrains to oval bounds."
+  },
+  "existing_implementations": {
+    "description": "Annotation system is partially implemented with basic rendering and interaction",
+    "relevant_files": [
+      "src/store/annotationStore.ts",
+      "src/components/Scene/AnnotationLayer.tsx",
+      "src/components/UI/AnnotationToolbar.tsx",
+      "src/hooks/useAnnotationInteraction.ts",
+      "src/hooks/usePlaybook.ts"
+    ],
+    "what_exists": [
+      "Basic AnnotationType: 'line' | 'arrow' | 'circle' | 'rectangle' | 'text'",
+      "Annotation interface with id, type, points, color, thickness, text, createdAt",
+      "Zustand store with addAnnotation, removeAnnotation, clearAnnotations, setSelectedTool, setSelectedColor, setThickness",
+      "AnnotationToolbar with tool selection UI, color picker, and thickness slider",
+      "useAnnotationInteraction hook with click-and-drag using raycaster.ray.intersectPlane",
+      "AnnotationLayer component with rendering shells for all types",
+      "LineAnnotation renders using bufferGeometry (but no arrowhead)",
+      "CircleAnnotation renders using ringGeometry",
+      "RectangleAnnotation renders using planeGeometry with opacity",
+      "TextAnnotation renders white rectangle placeholder (no actual text)",
+      "Playbook save/load includes annotations field (annotations?: any[])",
+      "usePlaybook hook saves and restores annotations with setState"
+    ],
+    "what_needs_completion": [
+      "TextAnnotation needs @react-three/drei Text component for actual text rendering and text input capability",
+      "Arrows need arrowhead cone geometry at end point to show direction",
+      "Free-hand drawing not implemented (need continuous path capture, not just start/end points)",
+      "Selection mechanism missing - can't click annotation to select it for editing",
+      "Edit capabilities missing - no draggable handles for repositioning or resizing",
+      "Individual delete missing - toolbar only has 'Clear All' button",
+      "Type definitions need discriminated unions for type safety per annotation type",
+      "Validation for empty/invalid annotations (empty text, zero-length arrows, etc.)",
+      "selectedAnnotation field needs to be added to store for tracking selection"
+    ]
+  },
+  "created_at": "2026-01-09T18:50:44.729891",
+  "updated_at": "2026-01-12T17:20:00.000000"
+}

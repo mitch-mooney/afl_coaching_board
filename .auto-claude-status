@@ -1,0 +1,25 @@
+{
+  "active": true,
+  "spec": "010-complete-annotation-system",
+  "state": "building",
+  "subtasks": {
+    "completed": 4,
+    "total": 19,
+    "in_progress": 1,
+    "failed": 0
+  },
+  "phase": {
+    "current": "Enhanced Text & Arrow Rendering",
+    "id": null,
+    "total": 3
+  },
+  "workers": {
+    "active": 0,
+    "max": 1
+  },
+  "session": {
+    "number": 5,
+    "started_at": "2026-01-12T17:20:36.174496"
+  },
+  "last_update": "2026-01-12T17:29:58.257493"
+}

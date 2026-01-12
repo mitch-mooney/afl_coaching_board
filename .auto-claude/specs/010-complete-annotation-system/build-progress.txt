@@ -1,0 +1,144 @@
+=== AUTO-BUILD PROGRESS ===
+
+Project: AFL Coaching Board - Complete Annotation System
+Spec: 010-complete-annotation-system
+Workspace: C:\Users\mitch\PycharmProjects\afl_coaching_board
+Started: 2026-01-12 17:30:00
+
+Workflow Type: feature
+Rationale: Feature development task extending an existing partial annotation implementation.
+The annotation layer exists but needs completion of four annotation types (text, arrows,
+zones, free-hand drawing), plus CRUD operations (create, read, update, delete) and proper
+persistence with playbooks. Follows typical feature workflow: foundation (types/validation)
+→ rendering improvements → new capabilities → integration.
+
+Session 1 (Planner):
+- Completed deep codebase investigation
+  * Examined existing annotation implementation
+  * Identified patterns in Zustand stores, Three.js components, Dexie persistence
+  * Found existing partial implementations in annotationStore.ts, AnnotationLayer.tsx
+  * Documented what exists vs what needs completion
+- Created comprehensive implementation_plan.json
+  * 6 phases with 18 subtasks total
+  * Clear dependency chain and parallel opportunities
+  * Detailed verification steps for each subtask
+- Created context.json with investigation findings
+- Created init.sh startup script
+- Created build-progress.txt (this file)
+
+Phase Summary:
+
+Phase 1: Type System & Validation Foundation (Setup)
+  - 2 subtasks
+  - Dependencies: None
+  - Parallel safe: Yes
+  - Creates: src/types/annotations.ts, src/utils/annotationValidation.ts
+  - Status: pending
+
+Phase 2: Enhanced Text & Arrow Rendering (Implementation)
+  - 3 subtasks
+  - Dependencies: phase-1-foundation
+  - Parallel safe: Yes (can run with Phase 3)
+  - Creates: TextAnnotation.tsx, ArrowAnnotation.tsx
+  - Modifies: AnnotationLayer.tsx
+  - Status: pending
+
+Phase 3: Zone Highlighting & Free-hand Drawing (Implementation)
+  - 4 subtasks
+  - Dependencies: phase-1-foundation
+  - Parallel safe: Yes (can run with Phase 2)
+  - Creates: ZoneAnnotation.tsx, DrawingAnnotation.tsx
+  - Modifies: useAnnotationInteraction.ts, AnnotationLayer.tsx
+  - Status: pending
+
+Phase 4: Selection & Editing Capabilities (Implementation)
+  - 4 subtasks
+  - Dependencies: phase-2-text-and-arrows, phase-3-zones-and-drawing
+  - Parallel safe: No
+  - Creates: useAnnotationSelection.ts
+  - Modifies: annotationStore.ts, all annotation components
+  - Status: pending
+
+Phase 5: Delete Operations & UI Polish (Implementation)
+  - 3 subtasks
+  - Dependencies: phase-4-selection-editing
+  - Parallel safe: No
+  - Modifies: AnnotationToolbar.tsx, useAnnotationSelection.ts
+  - Status: pending
+
+Phase 6: Integration & End-to-End Verification (Integration)
+  - 3 subtasks
+  - Dependencies: phase-5-delete-and-ui
+  - Parallel safe: No
+  - Purpose: E2E testing and regression verification
+  - Status: pending
+
+Services Involved:
+- main (React/TypeScript frontend with Three.js)
+  * Role: Complete annotation system with rendering, interaction, persistence
+  * Tech: React 18, TypeScript, Three.js, Zustand, Dexie, Tailwind CSS
+  * Port: 5173 (Vite dev server)
+
+Parallelism Analysis:
+- Max parallel phases: 2
+- Parallel groups:
+  * Phase 2 and Phase 3 can run simultaneously
+    Reason: Both depend only on phase-1-foundation, modify different files
+- Recommended workers: 2
+- Speedup estimate: 1.3x faster than sequential
+
+Key Technical Decisions:
+1. Use discriminated unions for annotation type definitions (type safety)
+2. Leverage @react-three/drei Text component for text rendering
+3. Add cone geometry for arrow heads using lookAt() for orientation
+4. Capture multiple points during drawing for free-hand paths
+5. Use raycasting for annotation selection (consistent with existing player selection)
+6. Store annotations in playbook data (not separate persistence layer)
+7. Use field-space coordinates for 3D consistency
+
+Verification Strategy:
+- Risk level: medium
+- TypeScript compilation must pass (npx tsc --noEmit)
+- ESLint checks for code quality
+- Build verification (npm run build)
+- Manual browser verification for visual 3D rendering
+- Database inspection in DevTools for persistence
+
+=== STARTUP COMMAND ===
+
+To continue building this spec, run:
+
+  cd C:\Users\mitch\PycharmProjects\afl_coaching_board
+  npm run dev
+
+Or use the init script:
+
+  ./.auto-claude/specs/010-complete-annotation-system/init.sh
+
+For parallel execution (recommended):
+
+  source auto-claude/.venv/bin/activate && python auto-claude/run.py --spec 010 --parallel 2
+
+=== INVESTIGATION FINDINGS ===
+
+Existing Implementation:
+✅ Basic annotation types defined (line, arrow, circle, rectangle, text)
+✅ Zustand store with add/remove/clear actions
+✅ Tool selection UI with color picker and thickness controls
+✅ Click-and-drag interaction using raycasting
+✅ Basic rendering shells for all annotation types
+✅ Playbook save/load includes annotations field
+✅ Field coordinate system with snapToField utility
+
+Needs Completion:
+❌ Text annotations show white rectangle instead of actual text
+❌ Arrows are just lines (missing arrowheads)
+❌ Free-hand drawing not implemented (only start/end capture)
+❌ No selection mechanism for clicking annotations
+❌ No edit capabilities (no draggable handles)
+❌ No individual delete (only "Clear All")
+❌ Type definitions need discriminated unions
+❌ Missing validation for empty/invalid annotations
+❌ No selectedAnnotation tracking in store
+
+=== END SESSION 1 ===
