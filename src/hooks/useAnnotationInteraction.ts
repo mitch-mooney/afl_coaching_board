@@ -59,10 +59,22 @@ export function useAnnotationInteraction() {
       if (intersection) {
         const [x, z] = snapToField(intersection.x, intersection.z);
         const point = [x, 0, z];
-        
-        if (selectedTool === 'line' || selectedTool === 'arrow') {
+
+        if (selectedTool === 'line') {
+          // Free-hand drawing: capture continuous path with multiple intermediate points
+          const lastPoint = currentPointsRef.current[currentPointsRef.current.length - 1];
+          // Only add point if it moved a minimum distance (0.5 units) to avoid too many points
+          const dx = point[0] - lastPoint[0];
+          const dz = point[2] - lastPoint[2];
+          const distance = Math.sqrt(dx * dx + dz * dz);
+          if (distance >= 0.5) {
+            currentPointsRef.current = [...currentPointsRef.current, point];
+          }
+        } else if (selectedTool === 'arrow' || selectedTool === 'circle' || selectedTool === 'rectangle') {
+          // Arrow and zones: only keep start and end/edge points
           currentPointsRef.current = [currentPointsRef.current[0], point];
         } else {
+          // Default: keep start and current point
           currentPointsRef.current = [currentPointsRef.current[0], point];
         }
       }
