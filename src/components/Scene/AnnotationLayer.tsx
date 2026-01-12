@@ -2,6 +2,8 @@ import { useAnnotationStore } from '../../store/annotationStore';
 import { Annotation } from '../../store/annotationStore';
 import { TextAnnotation } from '../Annotations/TextAnnotation';
 import { ArrowAnnotation } from '../Annotations/ArrowAnnotation';
+import { ZoneAnnotation } from '../Annotations/ZoneAnnotation';
+import { DrawingAnnotation } from '../Annotations/DrawingAnnotation';
 
 export function AnnotationLayer() {
   const annotations = useAnnotationStore((state) => state.annotations);
@@ -26,65 +28,13 @@ function AnnotationRenderer({ annotation }: { annotation: Annotation }) {
 
   switch (annotation.type) {
     case 'line':
-      return <LineAnnotation annotation={annotation} />;
+      return <DrawingAnnotation annotation={annotation} />;
     case 'arrow':
       return <ArrowAnnotation annotation={annotation} />;
     case 'circle':
-      return <CircleAnnotation annotation={annotation} />;
     case 'rectangle':
-      return <RectangleAnnotation annotation={annotation} />;
+      return <ZoneAnnotation annotation={annotation} />;
     default:
       return null;
   }
 }
-
-function LineAnnotation({ annotation }: { annotation: Annotation }) {
-  const points = annotation.points.map((p) => new Float32Array(p));
-  
-  return (
-    <line>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={points.length}
-          array={new Float32Array(points.flat())}
-          itemSize={3}
-        />
-      </bufferGeometry>
-      <lineBasicMaterial color={annotation.color} linewidth={annotation.thickness || 2} />
-    </line>
-  );
-}
-
-function CircleAnnotation({ annotation }: { annotation: Annotation }) {
-  if (annotation.points.length < 2) return null;
-  const center = annotation.points[0];
-  const radius = Math.sqrt(
-    Math.pow(annotation.points[1][0] - center[0], 2) +
-    Math.pow(annotation.points[1][2] - center[2], 2)
-  );
-  
-  return (
-    <mesh position={[center[0], 0.02, center[2]]} rotation={[-Math.PI / 2, 0, 0]}>
-      <ringGeometry args={[radius - 0.1, radius, 32]} />
-      <meshStandardMaterial color={annotation.color} />
-    </mesh>
-  );
-}
-
-function RectangleAnnotation({ annotation }: { annotation: Annotation }) {
-  if (annotation.points.length < 2) return null;
-  const [p1, p2] = annotation.points;
-  const width = Math.abs(p2[0] - p1[0]);
-  const height = Math.abs(p2[2] - p1[2]);
-  const centerX = (p1[0] + p2[0]) / 2;
-  const centerZ = (p1[2] + p2[2]) / 2;
-  
-  return (
-    <mesh position={[centerX, 0.02, centerZ]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[width, height]} />
-      <meshStandardMaterial color={annotation.color} opacity={0.3} transparent />
-    </mesh>
-  );
-}
-
