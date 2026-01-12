@@ -81,7 +81,23 @@ export function useAnnotationInteraction() {
     };
     
     const handlePointerUp = () => {
-      if (isDrawingRef.current && currentPointsRef.current.length >= 2) {
+      if (!isDrawingRef.current) return;
+
+      // Text annotations: require only 1 point and prompt for text
+      if (selectedTool === 'text' && currentPointsRef.current.length >= 1) {
+        const text = window.prompt('Enter annotation text:');
+        if (text && text.trim()) {
+          addAnnotation({
+            type: selectedTool,
+            points: [currentPointsRef.current[0]], // Only need position point
+            color: selectedColor,
+            thickness,
+            text: text.trim(),
+          });
+        }
+      }
+      // Other annotations: require 2+ points for meaningful shape
+      else if (currentPointsRef.current.length >= 2) {
         addAnnotation({
           type: selectedTool!,
           points: currentPointsRef.current,
@@ -89,7 +105,7 @@ export function useAnnotationInteraction() {
           thickness,
         });
       }
-      
+
       isDrawingRef.current = false;
       startPointRef.current = null;
       currentPointsRef.current = [];
