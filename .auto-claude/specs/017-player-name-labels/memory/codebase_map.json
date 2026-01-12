@@ -9,7 +9,12 @@
       "description": "Player component now renders 3D Text labels from @react-three/drei above players. Labels are conditionally rendered based on showPlayerNames state and player.playerName field.",
       "category": "feature",
       "discovered_at": "2026-01-12T03:39:55.429933+00:00"
+    },
+    "src/components/UI/Toolbar.tsx": {
+      "description": "Edit Player Name dialog added - appears when clicking an already-selected player. Uses editingPlayerId from playerStore to track which player is being edited. Supports Enter to save and Escape to cancel.",
+      "category": "UI Components",
+      "discovered_at": "2026-01-12T03:49:30.788411+00:00"
     }
   },
-  "last_updated": "2026-01-12T03:39:55.429933+00:00"
+  "last_updated": "2026-01-12T03:49:30.788411+00:00"
 }

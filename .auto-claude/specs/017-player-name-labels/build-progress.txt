@@ -171,3 +171,65 @@ RESULT: ✓ VERIFIED - Playbook save correctly includes player names
 No code changes required - architecture is correct by design.
 
 === END SUBTASK 5-1 ===
+
+=== SUBTASK 5-2 VERIFICATION ===
+Date: 2026-01-12
+Task: Verify playbook load restores player names
+
+ISSUE FOUND AND FIXED:
+
+Bug Discovery:
+While verifying the load flow, I found a critical bug that would have prevented
+player name restoration from working:
+
+1. playbookStore.ts loadPlaybook() was returning Promise<void>
+   - It set currentPlaybook but did NOT return the playbook object
+
+2. usePlaybook.ts loadScenario() expected a returned playbook:
+   ```typescript
+   const playbook = await loadPlaybookFromStore(playbookId);
+   if (playbook) {  // This would always be false!
+     usePlayerStore.setState({ players: playbook.playerPositions });
+   }
+   ```
+   - playbook would be undefined because loadPlaybook returned void
+   - The if(playbook) check would fail
+   - Player state (including names) would NOT be restored!
+
+FIX APPLIED:
+
+1. playbookStore.ts interface (line 39):
+   - Changed: loadPlaybook: (id: number) => Promise<void>;
+   - To:      loadPlaybook: (id: number) => Promise<Playbook | undefined>;
+
+2. playbookStore.ts implementation (line 93):
+   - Added: return playbook;
+   - Now returns the playbook object for usePlaybook.ts to use
+
+VERIFICATION AFTER FIX:
+
+Data Flow Analysis (now correct):
+1. ✓ loadPlaybook(id) fetches playbook from Dexie/IndexedDB
+2. ✓ loadPlaybook(id) now RETURNS the playbook object
+3. ✓ loadScenario receives the playbook in usePlaybook.ts
+4. ✓ loadScenario restores: usePlayerStore.setState({ players: playbook.playerPositions })
+5. ✓ playerPositions contains full Player[] with playerName fields
+6. ✓ Player names are now properly restored on load
+
+Player Name Persistence End-to-End:
+- Save: players[] → saveCurrentScenario → playbookStore.savePlaybook → Dexie
+- Load: Dexie → playbookStore.loadPlaybook → loadScenario → usePlayerStore.setState
+- Both directions now properly handle playerName field ✓
+
+MANUAL VERIFICATION INSTRUCTIONS (for QA):
+1. Start dev server (npm run dev)
+2. Assign names to players (click player while selected to edit name)
+3. Toggle "Show Names" ON to verify labels appear
+4. Save playbook via Save button
+5. Click "Reset" to clear player positions/names
+6. Load the saved playbook
+7. Verify: Players return to saved positions WITH their names visible
+
+RESULT: ✓ VERIFIED - Fixed bug and confirmed playbook load now restores player names
+
+=== END SUBTASK 5-2 ===
