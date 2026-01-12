@@ -10,6 +10,8 @@ interface ToolbarProps {
 
 export function Toolbar({ canvas }: ToolbarProps) {
   const resetPlayers = usePlayerStore((state) => state.resetPlayers);
+  const showPlayerNames = usePlayerStore((state) => state.showPlayerNames);
+  const togglePlayerNames = usePlayerStore((state) => state.togglePlayerNames);
   const { setPresetView, resetCamera } = useCameraStore();
   const { isRecording, toggleRecording } = useVideoRecorder(canvas);
   const { saveCurrentScenario } = usePlaybook();
@@ -75,7 +77,17 @@ export function Toolbar({ canvas }: ToolbarProps) {
         >
           Reset Players
         </button>
-        
+        <button
+          onClick={togglePlayerNames}
+          className={`px-4 py-2 rounded transition ${
+            showPlayerNames
+              ? 'bg-teal-500 text-white hover:bg-teal-600'
+              : 'bg-gray-500 text-white hover:bg-gray-600'
+          }`}
+        >
+          {showPlayerNames ? '👤 Hide Names' : '👤 Show Names'}
+        </button>
+
         <div className="w-px bg-gray-300 mx-1" />
         
         {/* Camera Controls */}

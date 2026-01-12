@@ -1,0 +1,125 @@
+=== AUTO-BUILD PROGRESS ===
+
+Project: AFL Coaching Board - Player Name Labels
+Workspace: C:\Users\mitch\PycharmProjects\afl_coaching_board
+Started: 2026-01-09 21:30 UTC
+
+Workflow Type: feature
+Rationale: New feature being added to existing playbook system. Extends player data model with optional name field and adds UI controls for name management.
+
+Session 1 (Planner):
+- Created implementation_plan.json
+- Phases: 6
+- Total subtasks: 11
+- Created init.sh
+- Updated context.json with discovered patterns
+
+Phase Summary:
+- Phase 1 (Data Model Extension): 1 subtask, no dependencies
+- Phase 2 (State Management): 2 subtasks, depends on Phase 1
+- Phase 3 (3D Label Rendering): 1 subtask, depends on Phase 2
+- Phase 4 (UI Controls): 3 subtasks, depends on Phase 3
+- Phase 5 (Persistence Verification): 3 subtasks, depends on Phase 4
+- Phase 6 (Integration & Polish): 2 subtasks, depends on Phase 5
+
+Services Involved:
+- main (React + TypeScript + Three.js): Primary service for all implementation
+
+Key Files to Modify:
+- src/models/PlayerModel.ts - Add playerName field
+- src/store/playerStore.ts - Add name management actions
+- src/components/Scene/Player.tsx - Render name labels
+- src/components/UI/Toolbar.tsx - Add toggle and roster import UI
+
+Patterns Discovered:
+- Zustand store pattern: create<State>((set, get) => ({ state, actions }))
+- Player rendering: Three.js group with meshRef, label position [0, 1.5, 0.35]
+- UI components: Tailwind CSS, absolute positioning, conditional rendering
+- Persistence: Dexie v1 with AFLPlaybookDB, stores playerPositions: Player[]
+- 3D text: Use Text component from @react-three/drei
+
+Parallelism Analysis:
+- Max parallel phases: 1
+- Recommended workers: 1
+- Parallel groups: None (sequential dependencies)
+- Speedup estimate: Sequential execution required
+
+Verification Strategy:
+- Risk Level: medium
+- Test Types: unit, integration
+- Security Scan: Not required
+- Staging Deployment: Not required
+- Key Criteria: Backward compatibility, persistence, performance with 22+ players
+
+=== STARTUP COMMAND ===
+
+To continue building this spec, run:
+
+  source auto-claude/.venv/bin/activate && python auto-claude/run.py --spec 017 --parallel 1
+
+Example:
+  source auto-claude/.venv/bin/activate && python auto-claude/run.py --spec 017 --parallel 1
+
+=== CODEBASE INVESTIGATION FINDINGS ===
+
+Technology Stack:
+- Language: TypeScript
+- Framework: React 18
+- 3D Engine: Three.js with @react-three/fiber and @react-three/drei
+- State Management: Zustand
+- Database: Dexie (IndexedDB wrapper)
+- Styling: Tailwind CSS
+- Build Tool: Vite
+- Port: 3000
+
+Existing Player Model (src/models/PlayerModel.ts):
+- id: string
+- teamId: 'team1' | 'team2'
+- position: [number, number, number]
+- rotation: number
+- color: string
+- number?: number
+- playerName?: string (TO BE ADDED)
+
+Existing Player Store Actions (src/store/playerStore.ts):
+- initializePlayers()
+- updatePlayerPosition(playerId, position)
+- updatePlayerRotation(playerId, rotation)
+- selectPlayer(playerId)
+- resetPlayers()
+- getPlayer(playerId)
+- getTeamPlayers(teamId)
+
+Actions to Add:
+- showPlayerNames: boolean state
+- setPlayerName(playerId: string, name: string)
+- togglePlayerNames()
+- importRoster(names: string[])
+
+Playbook Persistence (src/store/playbookStore.ts):
+- Database: AFLPlaybookDB (Dexie v1)
+- Playbook schema: { id, name, description, createdAt, playerPositions: Player[], cameraPosition, cameraTarget, cameraZoom }
+- Already stores Player[] in playerPositions - adding playerName field should persist automatically
+
+UI Patterns:
+- Toolbar buttons: Tailwind classes, bg-{color}-500, hover:bg-{color}-600
+- Modal dialogs: Conditional render with state, bg-white/95 backdrop-blur-sm
+- Input fields: w-full px-3 py-2 border rounded
+
+3D Rendering Patterns:
+- Player component: group with position={player.position}
+- Player number label: mesh at position [0, 1.5, 0.35]
+- Name label: Use Text from @react-three/drei, position above number (y > 1.5)
+- Conditional rendering: {showPlayerNames && player.playerName && <Text>...</Text>}
+
+=== IMPLEMENTATION DEPENDENCIES ===
+
+Phase 1 → Phase 2: Player interface must have playerName before store can use it
+Phase 2 → Phase 3: Store actions must exist before Player component can use them
+Phase 3 → Phase 4: Name rendering must work before adding UI controls
+Phase 4 → Phase 5: UI controls needed to test persistence
+Phase 5 → Phase 6: Persistence verified before final integration
+
+Critical Path: Data Model → State → Rendering → UI → Persistence → Integration
+
+=== END SESSION 1 ===

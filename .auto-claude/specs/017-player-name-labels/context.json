@@ -1,0 +1,32 @@
+{
+  "task_description": "# Player Name Labels\n\nAllow assigning player names to positions. Names can appear as labels above players or in a legend panel. Names are saved with playbooks.\n\n## Rationale\nJersey numbers identify generic positions, but coaches often want to show specific player names for actual team lineups. Essential for game-specific preparation.\n\n## User Stories\n- As a coach, I want to assign actual player names so that instructions are specific\n- As a player, I want to see my name on the board during team meetings\n\n## Acceptance Criteria\n- [ ] Can assign name to any player position\n- [ ] Names display as optional labels\n- [ ] Can toggle name visibility on/off\n- [ ] Names saved with playbook data\n- [ ] Quick roster import from text list\n",
+  "scoped_services": ["main"],
+  "files_to_modify": [
+    "src/models/PlayerModel.ts",
+    "src/store/playerStore.ts",
+    "src/components/Scene/Player.tsx",
+    "src/components/UI/Toolbar.tsx"
+  ],
+  "files_to_reference": [
+    "src/components/Scene/Player.tsx",
+    "src/components/UI/Toolbar.tsx",
+    "src/components/UI/PlaybookPanel.tsx",
+    "src/store/playerStore.ts",
+    "src/components/Scene/CameraController.tsx"
+  ],
+  "patterns": {
+    "state_management": "Zustand store pattern: create<State>((set, get) => ({ state, actions }))",
+    "player_rendering": "Three.js group components with meshRef, player number label at position [0, 1.5, 0.35]",
+    "ui_components": "Tailwind CSS with absolute positioning, conditional rendering for dialogs",
+    "persistence": "Dexie v1 with playbook schema storing playerPositions: Player[]",
+    "drei_usage": "Import Text from @react-three/drei for 3D text labels"
+  },
+  "existing_implementations": {
+    "player_model": "src/models/PlayerModel.ts - Player interface with id, teamId, position, rotation, color, number?",
+    "player_store": "src/store/playerStore.ts - Has updatePlayerPosition, updatePlayerRotation patterns",
+    "playbook_store": "src/store/playbookStore.ts - Dexie database 'AFLPlaybookDB' v1, stores playerPositions",
+    "player_component": "src/components/Scene/Player.tsx - Renders capsule geometry with number label on mesh",
+    "toolbar": "src/components/UI/Toolbar.tsx - Button patterns with save dialog modal"
+  },
+  "created_at": "2026-01-09T21:13:02.768039"
+}

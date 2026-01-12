@@ -1,0 +1,15 @@
+{
+  "discovered_files": {
+    "src/store/playerStore.ts": {
+      "description": "Player store now includes showPlayerNames state and setPlayerName/togglePlayerNames actions for the player name labels feature",
+      "category": "state-management",
+      "discovered_at": "2026-01-12T03:34:16.651323+00:00"
+    },
+    "src/components/Scene/Player.tsx": {
+      "description": "Player component now renders 3D Text labels from @react-three/drei above players. Labels are conditionally rendered based on showPlayerNames state and player.playerName field.",
+      "category": "feature",
+      "discovered_at": "2026-01-12T03:39:55.429933+00:00"
+    }
+  },
+  "last_updated": "2026-01-12T03:39:55.429933+00:00"
+}

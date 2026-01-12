@@ -1,0 +1,455 @@
+{
+  "feature": "Player Name Labels",
+  "workflow_type": "feature",
+  "workflow_rationale": "New feature being added to existing playbook system. Extends player data model with optional name field and adds UI controls for name management. Not fixing bugs or restructuring code, but adding new functionality.",
+  "phases": [
+    {
+      "id": "phase-1-data-model",
+      "name": "Data Model Extension",
+      "type": "implementation",
+      "description": "Extend Player interface with optional playerName field",
+      "depends_on": [],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-1-1",
+          "description": "Add playerName field to Player interface",
+          "service": "main",
+          "files_to_modify": [
+            "src/models/PlayerModel.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "src/models/PlayerModel.ts"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm run build",
+            "expected": "Build succeeds with no TypeScript errors"
+          },
+          "status": "completed",
+          "notes": "Added playerName?: string field to Player interface in src/models/PlayerModel.ts. Field includes comment for display labels. Committed as bd0cbaa.",
+          "updated_at": "2026-01-09T15:00:40.666979+00:00"
+        }
+      ]
+    },
+    {
+      "id": "phase-2-state-management",
+      "name": "State Management",
+      "type": "implementation",
+      "description": "Add Zustand store actions for name management",
+      "depends_on": [
+        "phase-1-data-model"
+      ],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-2-1",
+          "description": "Add showPlayerNames state and setPlayerName action to playerStore",
+          "service": "main",
+          "files_to_modify": [
+            "src/store/playerStore.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "src/store/playerStore.ts"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm run build",
+            "expected": "Build succeeds, new actions available in store"
+          },
+          "status": "completed",
+          "notes": "Added showPlayerNames boolean state, setPlayerName(playerId, name) action, and togglePlayerNames() action to playerStore. setPlayerName clears the name (sets to undefined) when empty string passed. Committed as 823ed89.",
+          "updated_at": "2026-01-12T03:34:16.571488+00:00"
+        },
+        {
+          "id": "subtask-2-2",
+          "description": "Add importRoster action to playerStore",
+          "service": "main",
+          "files_to_modify": [
+            "src/store/playerStore.ts"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "src/store/playerStore.ts"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "npm run build",
+            "expected": "Build succeeds, importRoster action available"
+          },
+          "status": "completed",
+          "notes": "Added importRoster(names, teamId?) action to playerStore. Action accepts an array of names and optional team filter, assigns names to players by index order, and handles empty names by setting playerName to undefined (consistent with setPlayerName). Committed as 0a4d566.",
+          "updated_at": "2026-01-12T03:36:39.172784+00:00"
+        }
+      ]
+    },
+    {
+      "id": "phase-3-3d-rendering",
+      "name": "3D Label Rendering",
+      "type": "implementation",
+      "description": "Add name label rendering to Player component using @react-three/drei Text",
+      "depends_on": [
+        "phase-2-state-management"
+      ],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-3-1",
+          "description": "Import Text from @react-three/drei and render player names",
+          "service": "main",
+          "files_to_modify": [
+            "src/components/Scene/Player.tsx"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "src/components/Scene/Player.tsx"
+          ],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:3000",
+            "checks": [
+              "Names render above players when showPlayerNames is true",
+              "No console errors",
+              "Names are readable and positioned correctly"
+            ]
+          },
+          "status": "completed",
+          "notes": "Imported Text from @react-three/drei and added player name label rendering. Text renders at y=2.1 (above number label) when showPlayerNames is true and player has a playerName. Uses white text with black outline for readability. Committed as bf8ebf5.",
+          "updated_at": "2026-01-12T03:39:55.349715+00:00"
+        }
+      ]
+    },
+    {
+      "id": "phase-4-ui-controls",
+      "name": "UI Controls",
+      "type": "implementation",
+      "description": "Add name visibility toggle and roster import UI to Toolbar",
+      "depends_on": [
+        "phase-3-3d-rendering"
+      ],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-4-1",
+          "description": "Add player name visibility toggle button to Toolbar",
+          "service": "main",
+          "files_to_modify": [
+            "src/components/UI/Toolbar.tsx"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "src/components/UI/Toolbar.tsx"
+          ],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:3000",
+            "checks": [
+              "Toggle button appears in toolbar",
+              "Clicking toggle shows/hides player names",
+              "Button visual state reflects current state"
+            ]
+          },
+          "status": "pending",
+          "notes": "Add button that calls togglePlayerNames(). Use visual indicator (color/icon) for on/off state."
+        },
+        {
+          "id": "subtask-4-2",
+          "description": "Add roster import dialog with text area to Toolbar",
+          "service": "main",
+          "files_to_modify": [
+            "src/components/UI/Toolbar.tsx"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "src/components/UI/Toolbar.tsx"
+          ],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:3000",
+            "checks": [
+              "Import button opens dialog",
+              "Can paste multi-line text",
+              "Import assigns names to players",
+              "Dialog closes after import"
+            ]
+          },
+          "status": "pending",
+          "notes": "Follow save dialog pattern from Toolbar. Parse text by newlines, call importRoster() with array."
+        },
+        {
+          "id": "subtask-4-3",
+          "description": "Add click-to-edit name functionality for individual players",
+          "service": "main",
+          "files_to_modify": [
+            "src/components/Scene/Player.tsx",
+            "src/components/UI/Toolbar.tsx"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "src/components/UI/Toolbar.tsx"
+          ],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:3000",
+            "checks": [
+              "Clicking player when selected shows name input",
+              "Can type and save player name",
+              "Name appears on player after save"
+            ]
+          },
+          "status": "pending",
+          "notes": "Add input field that appears when player is selected. Use selectedPlayerId from playerStore."
+        }
+      ]
+    },
+    {
+      "id": "phase-5-persistence",
+      "name": "Persistence Verification",
+      "type": "implementation",
+      "description": "Verify player names are saved and loaded correctly with playbooks",
+      "depends_on": [
+        "phase-4-ui-controls"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-5-1",
+          "description": "Verify playbook save includes player names",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [
+            "src/store/playbookStore.ts"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "1. Assign names to players 2. Save playbook 3. Check IndexedDB (DevTools \u2192 Application) 4. Verify playerPositions array contains playerName fields"
+          },
+          "status": "pending",
+          "notes": "Playbook store already saves Player[] in playerPositions. Since Player now has playerName, it should save automatically."
+        },
+        {
+          "id": "subtask-5-2",
+          "description": "Verify playbook load restores player names",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [
+            "src/hooks/usePlaybook.ts"
+          ],
+          "verification": {
+            "type": "e2e",
+            "steps": [
+              "Assign names to players",
+              "Save playbook",
+              "Reset players",
+              "Load playbook",
+              "Verify names appear on players"
+            ]
+          },
+          "status": "pending",
+          "notes": "Check usePlaybook hook - should restore player names when loading playbook."
+        },
+        {
+          "id": "subtask-5-3",
+          "description": "Verify legacy playbooks without names load correctly",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "manual",
+            "instructions": "1. Load old playbook (if available) 2. Verify no console errors 3. Verify players render without names 4. Verify can still add names to old playbook"
+          },
+          "status": "pending",
+          "notes": "Backward compatibility test. playerName? is optional so old playbooks should work."
+        }
+      ]
+    },
+    {
+      "id": "phase-6-integration",
+      "name": "Integration & Polish",
+      "type": "integration",
+      "description": "End-to-end verification and polish",
+      "depends_on": [
+        "phase-5-persistence"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-6-1",
+          "description": "End-to-end feature verification",
+          "service": "main",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "e2e",
+            "steps": [
+              "Start dev server",
+              "Import roster from text list",
+              "Verify all names assigned",
+              "Toggle names off/on",
+              "Edit individual player name",
+              "Save playbook",
+              "Reload page",
+              "Load playbook",
+              "Verify all names restored"
+            ]
+          },
+          "status": "pending",
+          "notes": "Full workflow test covering all features."
+        },
+        {
+          "id": "subtask-6-2",
+          "description": "Visual polish and edge case handling",
+          "service": "main",
+          "files_to_modify": [
+            "src/components/Scene/Player.tsx"
+          ],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "manual",
+            "instructions": "Test: 1. Very long names (truncate/wrap) 2. Empty names (hide label) 3. Special characters 4. Many players with names (performance)"
+          },
+          "status": "pending",
+          "notes": "Handle edge cases: long names, empty strings, performance with 22+ players."
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_phases": 6,
+    "total_subtasks": 11,
+    "services_involved": [
+      "main"
+    ],
+    "estimated_complexity": "medium",
+    "key_files": [
+      "src/models/PlayerModel.ts",
+      "src/store/playerStore.ts",
+      "src/components/Scene/Player.tsx",
+      "src/components/UI/Toolbar.tsx"
+    ],
+    "parallelism": {
+      "max_parallel_phases": 1,
+      "parallel_groups": [],
+      "recommended_workers": 1,
+      "speedup_estimate": "Sequential execution required due to dependencies",
+      "reasoning": "Each phase depends on the previous phase completing. Data model must be done before state management, state management before rendering, etc."
+    },
+    "startup_command": "source auto-claude/.venv/bin/activate && python auto-claude/run.py --spec 017 --parallel 1"
+  },
+  "verification_strategy": {
+    "risk_level": "medium",
+    "skip_validation": false,
+    "test_creation_phase": "post_implementation",
+    "test_types_required": [
+      "unit",
+      "integration"
+    ],
+    "security_scanning_required": false,
+    "staging_deployment_required": false,
+    "acceptance_criteria": [
+      "All existing tests pass",
+      "Player names can be assigned via UI",
+      "Names display as 3D labels when enabled",
+      "Toggle controls visibility",
+      "Names persist in playbooks",
+      "Roster import parses text correctly",
+      "Legacy playbooks load without errors",
+      "No console errors",
+      "Performance acceptable with 22+ players"
+    ],
+    "verification_steps": [
+      {
+        "name": "TypeScript Build",
+        "command": "npm run build",
+        "expected_outcome": "No type errors",
+        "type": "build",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "ESLint Check",
+        "command": "npm run lint",
+        "expected_outcome": "No linting errors",
+        "type": "lint",
+        "required": true,
+        "blocking": false
+      },
+      {
+        "name": "Browser Verification",
+        "command": "npm run dev",
+        "expected_outcome": "All features work in browser",
+        "type": "manual",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "IndexedDB Verification",
+        "command": "DevTools \u2192 Application \u2192 IndexedDB",
+        "expected_outcome": "Player names persisted in playbooks table",
+        "type": "manual",
+        "required": true,
+        "blocking": true
+      }
+    ],
+    "reasoning": "Medium risk due to data persistence and backward compatibility concerns. Unit tests for name assignment logic, integration tests for save/load persistence, browser verification for UI functionality."
+  },
+  "qa_acceptance": {
+    "unit_tests": {
+      "required": false,
+      "commands": [],
+      "minimum_coverage": null,
+      "notes": "No test framework configured in package.json. Tests would need Jest/Vitest setup first."
+    },
+    "integration_tests": {
+      "required": false,
+      "commands": [],
+      "services_to_test": [],
+      "notes": "No test framework configured. Integration testing via manual browser verification."
+    },
+    "e2e_tests": {
+      "required": false,
+      "commands": [],
+      "flows": [],
+      "notes": "No E2E framework configured. Manual E2E verification documented in subtasks."
+    },
+    "browser_verification": {
+      "required": true,
+      "pages": [
+        {
+          "url": "http://localhost:3000",
+          "checks": [
+            "Names render above players",
+            "Toggle button shows/hides names",
+            "Roster import works",
+            "Click-to-edit works",
+            "Names persist after save/load",
+            "No console errors",
+            "Performance acceptable with 22 players"
+          ]
+        }
+      ]
+    },
+    "database_verification": {
+      "required": true,
+      "checks": [
+        "playerName field exists in Player objects",
+        "Playbooks table stores names correctly",
+        "Legacy playbooks without names load correctly"
+      ],
+      "notes": "Use browser DevTools \u2192 Application \u2192 IndexedDB \u2192 AFLPlaybookDB"
+    }
+  },
+  "qa_signoff": null,
+  "last_updated": "2026-01-12T03:39:55.349715+00:00",
+  "status": "in_progress",
+  "planStatus": "in_progress",
+  "updated_at": "2026-01-12T03:31:51.602Z",
+  "recoveryNote": "Task recovered from stuck state at 2026-01-12T03:31:51.602Z"
+}
