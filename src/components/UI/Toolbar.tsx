@@ -12,12 +12,16 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const resetPlayers = usePlayerStore((state) => state.resetPlayers);
   const showPlayerNames = usePlayerStore((state) => state.showPlayerNames);
   const togglePlayerNames = usePlayerStore((state) => state.togglePlayerNames);
+  const importRoster = usePlayerStore((state) => state.importRoster);
   const { setPresetView, resetCamera } = useCameraStore();
   const { isRecording, toggleRecording } = useVideoRecorder(canvas);
   const { saveCurrentScenario } = usePlaybook();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [playbookName, setPlaybookName] = useState('');
   const [playbookDescription, setPlaybookDescription] = useState('');
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [rosterText, setRosterText] = useState('');
+  const [selectedTeam, setSelectedTeam] = useState<'all' | 'team1' | 'team2'>('all');
   
   const handleSave = async () => {
     if (!playbookName.trim()) {
@@ -44,7 +48,26 @@ export function Toolbar({ canvas }: ToolbarProps) {
     }
     toggleRecording();
   };
-  
+
+  const handleImport = () => {
+    const names = rosterText
+      .split('\n')
+      .map((name) => name.trim())
+      .filter((name) => name.length > 0);
+
+    if (names.length === 0) {
+      alert('Please enter at least one player name');
+      return;
+    }
+
+    const teamId = selectedTeam === 'all' ? undefined : selectedTeam;
+    importRoster(names, teamId);
+
+    setShowImportDialog(false);
+    setRosterText('');
+    setSelectedTeam('all');
+  };
+
   return (
     <div className="absolute top-4 left-4 right-4 z-10 flex gap-2 flex-wrap">
       <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-2 flex gap-2">
@@ -87,9 +110,15 @@ export function Toolbar({ canvas }: ToolbarProps) {
         >
           {showPlayerNames ? '👤 Hide Names' : '👤 Show Names'}
         </button>
+        <button
+          onClick={() => setShowImportDialog(true)}
+          className="px-4 py-2 bg-cyan-500 text-white rounded hover:bg-cyan-600 transition"
+        >
+          📋 Import Roster
+        </button>
 
         <div className="w-px bg-gray-300 mx-1" />
-        
+
         {/* Camera Controls */}
         <button
           onClick={resetCamera}
@@ -165,6 +194,63 @@ export function Toolbar({ canvas }: ToolbarProps) {
                 className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition"
               >
                 Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Roster Dialog */}
+      {showImportDialog && (
+        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 min-w-[350px]">
+          <h3 className="text-lg font-bold mb-3">Import Roster</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Team</label>
+              <select
+                value={selectedTeam}
+                onChange={(e) => setSelectedTeam(e.target.value as 'all' | 'team1' | 'team2')}
+                className="w-full px-3 py-2 border rounded"
+              >
+                <option value="all">All Players</option>
+                <option value="team1">Team 1 (Home)</option>
+                <option value="team2">Team 2 (Away)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Player Names (one per line)
+              </label>
+              <textarea
+                value={rosterText}
+                onChange={(e) => setRosterText(e.target.value)}
+                className="w-full px-3 py-2 border rounded font-mono text-sm"
+                placeholder="John Smith
+Jane Doe
+..."
+                rows={8}
+                autoFocus
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Names will be assigned to players in order
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  setShowImportDialog(false);
+                  setRosterText('');
+                  setSelectedTeam('all');
+                }}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleImport}
+                className="px-4 py-2 bg-cyan-500 text-white rounded hover:bg-cyan-600 transition"
+              >
+                Import
               </button>
             </div>
           </div>
