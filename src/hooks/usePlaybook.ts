@@ -42,10 +42,11 @@ export function usePlaybook() {
           zoom: playbook.cameraZoom,
         });
         
-        // Restore annotations
-        if (playbook.annotations) {
-          useAnnotationStore.setState({ annotations: playbook.annotations });
-        }
+        // Restore annotations (clear existing if no annotations in playbook)
+        useAnnotationStore.setState({
+          annotations: playbook.annotations || [],
+          selectedAnnotationId: null
+        });
       }
     } catch (error) {
       console.error('Error loading scenario:', error);

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import Dexie, { Table } from 'dexie';
 import { Player } from '../models/PlayerModel';
+import { Annotation } from './annotationStore';
 
 interface Playbook {
   id?: number;
@@ -11,7 +12,7 @@ interface Playbook {
   cameraPosition: [number, number, number];
   cameraTarget: [number, number, number];
   cameraZoom: number;
-  annotations?: any[]; // Will be defined when annotations are implemented
+  annotations?: Annotation[];
 }
 
 class PlaybookDatabase extends Dexie {
@@ -36,7 +37,7 @@ interface PlaybookState {
   loadPlaybooks: () => Promise<void>;
   savePlaybook: (playbook: Omit<Playbook, 'id' | 'createdAt'>) => Promise<number>;
   deletePlaybook: (id: number) => Promise<void>;
-  loadPlaybook: (id: number) => Promise<void>;
+  loadPlaybook: (id: number) => Promise<Playbook | undefined>;
   clearCurrentPlaybook: () => void;
 }
 
@@ -90,6 +91,7 @@ export const usePlaybookStore = create<PlaybookState>((set) => ({
       if (playbook) {
         set({ currentPlaybook: playbook });
       }
+      return playbook;
     } catch (error) {
       console.error('Error loading playbook:', error);
       throw error;
