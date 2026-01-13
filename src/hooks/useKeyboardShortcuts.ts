@@ -874,3 +874,126 @@ export function useAnimationControlShortcuts(registry?: ShortcutRegistry): void 
     };
   }, [registryToUse, togglePlayback]);
 }
+
+// ============================================================================
+// Help Overlay Shortcuts
+// ============================================================================
+
+/**
+ * Options for registering help overlay shortcuts.
+ */
+export interface HelpOverlayShortcutHandlers {
+  /** Handler to open the help overlay */
+  onOpen: () => void;
+  /** Handler to close the help overlay */
+  onClose: () => void;
+}
+
+/**
+ * Registers help overlay shortcuts to the given registry.
+ *
+ * - ? (Shift + /) : Open help overlay
+ * - Esc: Close help overlay (allowInModal so it works when dialog is open)
+ *
+ * @param registry - The shortcut registry to register shortcuts to
+ * @param handlers - Handlers for open/close actions
+ */
+export function registerHelpOverlayShortcuts(
+  registry: ShortcutRegistry,
+  handlers: HelpOverlayShortcutHandlers
+): void {
+  const { onOpen, onClose } = handlers;
+
+  // ? key (Shift + Slash) to open help
+  registry.register({
+    id: 'help-open',
+    code: 'Slash',
+    key: '?',
+    modifiers: { shift: true },
+    description: 'Open help',
+    handler: onOpen,
+    category: 'general',
+  });
+
+  // Escape to close help - allowInModal so it works when dialog is open
+  registry.register({
+    id: 'help-close',
+    code: 'Escape',
+    key: 'Esc',
+    modifiers: {},
+    description: 'Close help/dialog',
+    handler: onClose,
+    category: 'general',
+    allowInModal: true,
+  });
+}
+
+/**
+ * Unregisters help overlay shortcuts from the given registry.
+ *
+ * @param registry - The shortcut registry to unregister shortcuts from
+ */
+export function unregisterHelpOverlayShortcuts(registry: ShortcutRegistry): void {
+  registry.unregister('help-open');
+  registry.unregister('help-close');
+}
+
+/**
+ * Hook that registers help overlay shortcuts (? to open, Esc to close).
+ *
+ * - ? (Shift + /): Opens help overlay
+ * - Esc: Closes help overlay (works even when dialog is open)
+ *
+ * @param isOpen - Current open state of the help overlay
+ * @param setIsOpen - Function to set the open state
+ * @param registry - The shortcut registry to use (defaults to global registry)
+ *
+ * @example
+ * ```tsx
+ * function HelpOverlay() {
+ *   const [isOpen, setIsOpen] = useState(false);
+ *   useHelpOverlayShortcuts(isOpen, setIsOpen);
+ *   return isOpen ? <div>Help content</div> : null;
+ * }
+ * ```
+ */
+export function useHelpOverlayShortcuts(
+  isOpen: boolean,
+  setIsOpen: (open: boolean) => void,
+  registry?: ShortcutRegistry
+): void {
+  const registryToUse = registry ?? getGlobalShortcutRegistry();
+
+  // Use refs to track latest state/callbacks without causing re-registrations
+  const isOpenRef = useRef(isOpen);
+  const setIsOpenRef = useRef(setIsOpen);
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  useEffect(() => {
+    setIsOpenRef.current = setIsOpen;
+  }, [setIsOpen]);
+
+  useEffect(() => {
+    const handlers: HelpOverlayShortcutHandlers = {
+      onOpen: () => {
+        if (!isOpenRef.current) {
+          setIsOpenRef.current(true);
+        }
+      },
+      onClose: () => {
+        if (isOpenRef.current) {
+          setIsOpenRef.current(false);
+        }
+      },
+    };
+
+    registerHelpOverlayShortcuts(registryToUse, handlers);
+
+    return () => {
+      unregisterHelpOverlayShortcuts(registryToUse);
+    };
+  }, [registryToUse]);
+}

@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   getGlobalShortcutRegistry,
   isMac,
+  useHelpOverlayShortcuts,
 } from '../../hooks/useKeyboardShortcuts';
 import type { ShortcutGroup, ShortcutDisplayInfo } from '../../types/shortcuts';
 
@@ -126,11 +127,26 @@ function KeyboardShortcutsSection() {
 export function HelpOverlay() {
   const [isOpen, setIsOpen] = useState(false);
 
+  // Register keyboard shortcuts for opening (?) and closing (Esc) help
+  useHelpOverlayShortcuts(isOpen, setIsOpen);
+
+  // Handle click on backdrop (outside the dialog content) to close
+  const handleBackdropClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      // Only close if clicking directly on the backdrop, not the content
+      if (event.target === event.currentTarget) {
+        setIsOpen(false);
+      }
+    },
+    []
+  );
+
   if (!isOpen) {
     return (
       <button
         onClick={() => setIsOpen(true)}
         className="absolute bottom-4 right-4 z-10 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg hover:bg-white transition text-sm"
+        title="Press ? for keyboard shortcuts"
       >
         ❓ Help
       </button>
@@ -138,13 +154,21 @@ export function HelpOverlay() {
   }
 
   return (
-    <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center">
+    <div
+      className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="help-overlay-title"
+      onClick={handleBackdropClick}
+    >
       <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl max-h-[80vh] overflow-y-auto">
         <div className="flex justify-between items-start mb-4">
-          <h2 className="text-2xl font-bold">Help & Instructions</h2>
+          <h2 id="help-overlay-title" className="text-2xl font-bold">Help & Instructions</h2>
           <button
             onClick={() => setIsOpen(false)}
             className="text-gray-500 hover:text-gray-700 text-2xl"
+            aria-label="Close help"
+            title="Press Esc to close"
           >
             ×
           </button>
