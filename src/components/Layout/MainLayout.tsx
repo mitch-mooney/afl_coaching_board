@@ -14,11 +14,11 @@ import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
 export function MainLayout() {
   const initializePlayers = usePlayerStore((state) => state.initializePlayers);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  
+
   useEffect(() => {
     initializePlayers();
   }, [initializePlayers]);
-  
+
   return (
     <div className="w-full h-full relative">
       <Canvas
@@ -33,14 +33,16 @@ export function MainLayout() {
         <PlayerManager />
         <CameraController />
         <AnnotationLayer />
+
+        {/* FIX: moved inside Canvas so R3F hooks work */}
+        <AnnotationInteractionHandler />
       </Canvas>
-      
+
+      {/* All DOM-layer UI stays outside */}
       <Toolbar canvas={canvasRef.current} />
       <PlaybookPanel />
       <AnnotationToolbar />
       <HelpOverlay />
-      
-      <AnnotationInteractionHandler />
     </div>
   );
 }
