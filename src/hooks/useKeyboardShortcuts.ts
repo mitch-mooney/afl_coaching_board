@@ -16,6 +16,7 @@ import type {
 } from '../types/shortcuts';
 import { SHORTCUT_CATEGORY_LABELS } from '../types/shortcuts';
 import { useCameraStore } from '../store/cameraStore';
+import { useAnnotationStore, type AnnotationType } from '../store/annotationStore';
 
 // ============================================================================
 // Platform Detection Utilities
@@ -490,4 +491,97 @@ export function useCameraPresetShortcuts(registry?: ShortcutRegistry): void {
       unregisterCameraPresetShortcuts(registryToUse);
     };
   }, [registryToUse, setPresetView]);
+}
+
+// ============================================================================
+// Tool Selection Shortcuts
+// ============================================================================
+
+/**
+ * Tool type for shortcuts - null represents "select" mode (deselect tool)
+ */
+type ToolShortcutValue = AnnotationType | null;
+
+/**
+ * Tool selection mapping for single-key shortcuts
+ * Maps keyboard codes to annotation tools
+ */
+const TOOL_SELECTION_MAP: Record<string, { code: string; key: string; tool: ToolShortcutValue; description: string }> = {
+  'KeyS': { code: 'KeyS', key: 'S', tool: null, description: 'Select mode (deselect tool)' },
+  'KeyL': { code: 'KeyL', key: 'L', tool: 'line', description: 'Line tool' },
+  'KeyA': { code: 'KeyA', key: 'A', tool: 'arrow', description: 'Arrow tool' },
+  'KeyC': { code: 'KeyC', key: 'C', tool: 'circle', description: 'Circle tool' },
+  'KeyR': { code: 'KeyR', key: 'R', tool: 'rectangle', description: 'Rectangle tool' },
+  'KeyT': { code: 'KeyT', key: 'T', tool: 'text', description: 'Text tool' },
+};
+
+/**
+ * Registers tool selection shortcuts to the given registry.
+ *
+ * - S: Select mode (deselect tool)
+ * - L: Line tool
+ * - A: Arrow tool
+ * - C: Circle tool
+ * - R: Rectangle tool
+ * - T: Text tool
+ *
+ * @param registry - The shortcut registry to register shortcuts to
+ * @param setSelectedTool - Function to call when switching tools
+ */
+export function registerToolSelectionShortcuts(
+  registry: ShortcutRegistry,
+  setSelectedTool: (tool: AnnotationType | null) => void
+): void {
+  Object.values(TOOL_SELECTION_MAP).forEach(({ code, key, tool, description }) => {
+    registry.register({
+      id: `tool-${key.toLowerCase()}`,
+      code,
+      key,
+      modifiers: {},
+      description,
+      handler: () => {
+        setSelectedTool(tool);
+      },
+      category: 'tools',
+    });
+  });
+}
+
+/**
+ * Unregisters tool selection shortcuts from the given registry.
+ *
+ * @param registry - The shortcut registry to unregister shortcuts from
+ */
+export function unregisterToolSelectionShortcuts(registry: ShortcutRegistry): void {
+  Object.values(TOOL_SELECTION_MAP).forEach(({ key }) => {
+    registry.unregister(`tool-${key.toLowerCase()}`);
+  });
+}
+
+/**
+ * Hook that registers tool selection shortcuts and integrates
+ * with the annotation store for switching tools.
+ *
+ * @param registry - The shortcut registry to use (defaults to global registry)
+ *
+ * @example
+ * ```tsx
+ * // In a component that should enable tool shortcuts
+ * function MyComponent() {
+ *   useToolSelectionShortcuts();
+ *   return <div>Tool shortcuts enabled</div>;
+ * }
+ * ```
+ */
+export function useToolSelectionShortcuts(registry?: ShortcutRegistry): void {
+  const setSelectedTool = useAnnotationStore((state) => state.setSelectedTool);
+  const registryToUse = registry ?? getGlobalShortcutRegistry();
+
+  useEffect(() => {
+    registerToolSelectionShortcuts(registryToUse, setSelectedTool);
+
+    return () => {
+      unregisterToolSelectionShortcuts(registryToUse);
+    };
+  }, [registryToUse, setSelectedTool]);
 }
