@@ -15,6 +15,7 @@ import type {
   UseKeyboardShortcutsOptions,
 } from '../types/shortcuts';
 import { SHORTCUT_CATEGORY_LABELS } from '../types/shortcuts';
+import { useCameraStore } from '../store/cameraStore';
 
 // ============================================================================
 // Platform Detection Utilities
@@ -404,4 +405,89 @@ export function getGlobalShortcutRegistry(): ShortcutRegistry {
  */
 export function resetGlobalShortcutRegistry(): void {
   globalRegistry = createShortcutRegistry();
+}
+
+// ============================================================================
+// Camera Preset Shortcuts
+// ============================================================================
+
+/**
+ * Camera preset mapping for number keys 1-4
+ */
+const CAMERA_PRESET_MAP: Record<string, { code: string; key: string; preset: 'top' | 'sideline' | 'end-to-end' | 'broadcast'; description: string }> = {
+  'Digit1': { code: 'Digit1', key: '1', preset: 'top', description: 'Top view (overhead)' },
+  'Digit2': { code: 'Digit2', key: '2', preset: 'sideline', description: 'Sideline view' },
+  'Digit3': { code: 'Digit3', key: '3', preset: 'end-to-end', description: 'End-to-end view' },
+  'Digit4': { code: 'Digit4', key: '4', preset: 'broadcast', description: 'Broadcast view' },
+};
+
+/**
+ * Registers camera preset shortcuts (keys 1-4) to the given registry.
+ *
+ * - Key 1: Top view (overhead)
+ * - Key 2: Sideline view
+ * - Key 3: End-to-end view
+ * - Key 4: Broadcast view
+ *
+ * Keys 5-0 are intentionally ignored as only 4 presets exist.
+ *
+ * @param registry - The shortcut registry to register shortcuts to
+ * @param setPresetView - Function to call when switching camera presets
+ */
+export function registerCameraPresetShortcuts(
+  registry: ShortcutRegistry,
+  setPresetView: (preset: 'top' | 'sideline' | 'end-to-end' | 'broadcast') => void
+): void {
+  Object.values(CAMERA_PRESET_MAP).forEach(({ code, key, preset, description }) => {
+    registry.register({
+      id: `camera-preset-${key}`,
+      code,
+      key,
+      modifiers: {},
+      description,
+      handler: () => {
+        setPresetView(preset);
+      },
+      category: 'camera',
+    });
+  });
+}
+
+/**
+ * Unregisters camera preset shortcuts from the given registry.
+ *
+ * @param registry - The shortcut registry to unregister shortcuts from
+ */
+export function unregisterCameraPresetShortcuts(registry: ShortcutRegistry): void {
+  Object.values(CAMERA_PRESET_MAP).forEach(({ key }) => {
+    registry.unregister(`camera-preset-${key}`);
+  });
+}
+
+/**
+ * Hook that registers camera preset shortcuts (keys 1-4) and integrates
+ * with the camera store for switching camera views.
+ *
+ * @param registry - The shortcut registry to use (defaults to global registry)
+ *
+ * @example
+ * ```tsx
+ * // In a component that should enable camera shortcuts
+ * function MyComponent() {
+ *   useCameraPresetShortcuts();
+ *   return <div>Camera shortcuts enabled</div>;
+ * }
+ * ```
+ */
+export function useCameraPresetShortcuts(registry?: ShortcutRegistry): void {
+  const setPresetView = useCameraStore((state) => state.setPresetView);
+  const registryToUse = registry ?? getGlobalShortcutRegistry();
+
+  useEffect(() => {
+    registerCameraPresetShortcuts(registryToUse, setPresetView);
+
+    return () => {
+      unregisterCameraPresetShortcuts(registryToUse);
+    };
+  }, [registryToUse, setPresetView]);
 }
