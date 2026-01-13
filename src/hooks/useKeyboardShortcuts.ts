@@ -585,3 +585,222 @@ export function useToolSelectionShortcuts(registry?: ShortcutRegistry): void {
     };
   }, [registryToUse, setSelectedTool]);
 }
+
+// ============================================================================
+// Edit Operation Shortcuts (Save, Undo, Redo)
+// ============================================================================
+
+// Lazy getters for stores to avoid circular dependencies
+const getHistoryStore = () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../store/historyStore').useHistoryStore;
+
+const getPlayerStore = () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../store/playerStore').usePlayerStore;
+
+const getAnnotationStore = () =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../store/annotationStore').useAnnotationStore;
+
+/**
+ * Performs undo operation by restoring the previous state from history.
+ * Pauses history recording during the operation to prevent recursive snapshots.
+ */
+export function performUndo(): boolean {
+  const historyStore = getHistoryStore().getState();
+  const playerStore = getPlayerStore().getState();
+  const annotationStore = getAnnotationStore().getState();
+
+  if (!historyStore.canUndo()) {
+    return false;
+  }
+
+  // Pause recording to prevent undo from creating new history entries
+  historyStore.pauseRecording();
+
+  try {
+    const snapshot = historyStore.undo();
+    if (snapshot) {
+      playerStore.restoreFromSnapshot(snapshot.players);
+      annotationStore.restoreFromSnapshot(snapshot.annotations);
+      return true;
+    }
+    return false;
+  } finally {
+    historyStore.resumeRecording();
+  }
+}
+
+/**
+ * Performs redo operation by restoring the next state from future history.
+ * Pauses history recording during the operation to prevent recursive snapshots.
+ */
+export function performRedo(): boolean {
+  const historyStore = getHistoryStore().getState();
+  const playerStore = getPlayerStore().getState();
+  const annotationStore = getAnnotationStore().getState();
+
+  if (!historyStore.canRedo()) {
+    return false;
+  }
+
+  // Pause recording to prevent redo from creating new history entries
+  historyStore.pauseRecording();
+
+  try {
+    const snapshot = historyStore.redo();
+    if (snapshot) {
+      playerStore.restoreFromSnapshot(snapshot.players);
+      annotationStore.restoreFromSnapshot(snapshot.annotations);
+      return true;
+    }
+    return false;
+  } finally {
+    historyStore.resumeRecording();
+  }
+}
+
+/**
+ * Options for registering edit operation shortcuts.
+ */
+export interface EditOperationShortcutHandlers {
+  /** Handler for save action - typically opens a save dialog */
+  onSave?: () => void;
+  /** Handler for undo action - if not provided, uses default performUndo */
+  onUndo?: () => void;
+  /** Handler for redo action - if not provided, uses default performRedo */
+  onRedo?: () => void;
+}
+
+/**
+ * Registers edit operation shortcuts to the given registry.
+ *
+ * - Ctrl+S (Cmd+S on Mac): Save
+ * - Ctrl+Z (Cmd+Z on Mac): Undo
+ * - Ctrl+Shift+Z (Cmd+Shift+Z on Mac): Redo
+ * - Ctrl+Y (Cmd+Y on Mac): Redo (alternative)
+ *
+ * Uses platform-specific modifier keys (Cmd on Mac, Ctrl on Windows/Linux).
+ *
+ * @param registry - The shortcut registry to register shortcuts to
+ * @param handlers - Optional handlers for save/undo/redo actions
+ */
+export function registerEditOperationShortcuts(
+  registry: ShortcutRegistry,
+  handlers: EditOperationShortcutHandlers = {}
+): void {
+  const { onSave, onUndo, onRedo } = handlers;
+
+  // Ctrl+S / Cmd+S for Save
+  if (onSave) {
+    registry.register({
+      id: 'edit-save',
+      code: 'KeyS',
+      key: 'S',
+      modifiers: withPrimaryModifier(),
+      description: 'Save playbook',
+      handler: onSave,
+      category: 'edit',
+    });
+  }
+
+  // Ctrl+Z / Cmd+Z for Undo
+  registry.register({
+    id: 'edit-undo',
+    code: 'KeyZ',
+    key: 'Z',
+    modifiers: withPrimaryModifier(),
+    description: 'Undo',
+    handler: onUndo ?? performUndo,
+    category: 'edit',
+  });
+
+  // Ctrl+Shift+Z / Cmd+Shift+Z for Redo
+  registry.register({
+    id: 'edit-redo-shift-z',
+    code: 'KeyZ',
+    key: 'Z',
+    modifiers: withPrimaryModifier({ shift: true }),
+    description: 'Redo',
+    handler: onRedo ?? performRedo,
+    category: 'edit',
+  });
+
+  // Ctrl+Y / Cmd+Y for Redo (alternative)
+  registry.register({
+    id: 'edit-redo-y',
+    code: 'KeyY',
+    key: 'Y',
+    modifiers: withPrimaryModifier(),
+    description: 'Redo',
+    handler: onRedo ?? performRedo,
+    category: 'edit',
+  });
+}
+
+/**
+ * Unregisters edit operation shortcuts from the given registry.
+ *
+ * @param registry - The shortcut registry to unregister shortcuts from
+ */
+export function unregisterEditOperationShortcuts(registry: ShortcutRegistry): void {
+  registry.unregister('edit-save');
+  registry.unregister('edit-undo');
+  registry.unregister('edit-redo-shift-z');
+  registry.unregister('edit-redo-y');
+}
+
+/**
+ * Hook that registers edit operation shortcuts (save, undo, redo).
+ *
+ * - Ctrl+S / Cmd+S: Opens save dialog (if onSave handler provided)
+ * - Ctrl+Z / Cmd+Z: Undo
+ * - Ctrl+Shift+Z / Cmd+Shift+Z: Redo
+ * - Ctrl+Y / Cmd+Y: Redo (alternative)
+ *
+ * @param handlers - Optional handlers for save/undo/redo actions
+ * @param registry - The shortcut registry to use (defaults to global registry)
+ *
+ * @example
+ * ```tsx
+ * function MyComponent() {
+ *   const [showSaveDialog, setShowSaveDialog] = useState(false);
+ *
+ *   useEditOperationShortcuts({
+ *     onSave: () => setShowSaveDialog(true),
+ *   });
+ *
+ *   return <div>Edit shortcuts enabled</div>;
+ * }
+ * ```
+ */
+export function useEditOperationShortcuts(
+  handlers: EditOperationShortcutHandlers = {},
+  registry?: ShortcutRegistry
+): void {
+  const registryToUse = registry ?? getGlobalShortcutRegistry();
+
+  // Memoize handlers to prevent unnecessary re-registrations
+  const handlersRef = useRef(handlers);
+  useEffect(() => {
+    handlersRef.current = handlers;
+  }, [handlers]);
+
+  useEffect(() => {
+    // Create stable wrapper functions that use the ref
+    const stableHandlers: EditOperationShortcutHandlers = {
+      onSave: handlersRef.current.onSave
+        ? () => handlersRef.current.onSave?.()
+        : undefined,
+      onUndo: handlersRef.current.onUndo,
+      onRedo: handlersRef.current.onRedo,
+    };
+
+    registerEditOperationShortcuts(registryToUse, stableHandlers);
+
+    return () => {
+      unregisterEditOperationShortcuts(registryToUse);
+    };
+  }, [registryToUse]);
+}
