@@ -1,10 +1,120 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   getGlobalShortcutRegistry,
   isMac,
   useHelpOverlayShortcuts,
 } from '../../hooks/useKeyboardShortcuts';
 import type { ShortcutGroup, ShortcutDisplayInfo } from '../../types/shortcuts';
+
+/**
+ * Selector for all focusable elements within a container
+ */
+const FOCUSABLE_SELECTOR = [
+  'button:not([disabled])',
+  'a[href]',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
+/**
+ * Gets all focusable elements within a container
+ */
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  const elements = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+  return Array.from(elements);
+}
+
+/**
+ * Custom hook for trapping focus within a container element.
+ * Handles Tab/Shift+Tab key navigation to cycle through focusable elements.
+ */
+function useFocusTrap(containerRef: React.RefObject<HTMLElement | null>, isActive: boolean) {
+  useEffect(() => {
+    if (!isActive || !containerRef.current) {
+      return;
+    }
+
+    const container = containerRef.current;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') {
+        return;
+      }
+
+      const focusableElements = getFocusableElements(container);
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement;
+
+      // Shift+Tab from first element goes to last
+      if (event.shiftKey && activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      }
+      // Tab from last element goes to first
+      else if (!event.shiftKey && activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+      // If focus is outside the container, move it inside
+      else if (!container.contains(activeElement)) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [containerRef, isActive]);
+}
+
+/**
+ * Custom hook to manage focus when a dialog opens and closes.
+ * - Stores the previously focused element
+ * - Focuses the first focusable element in the container on open
+ * - Restores focus to the previous element on close
+ */
+function useFocusManagement(
+  containerRef: React.RefObject<HTMLElement | null>,
+  closeButtonRef: React.RefObject<HTMLElement | null>,
+  isOpen: boolean
+) {
+  // Store the element that was focused before the dialog opened
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      // Store the currently focused element before dialog opens
+      previouslyFocusedRef.current = document.activeElement as HTMLElement;
+
+      // Focus the close button (or first focusable element) when dialog opens
+      // Use requestAnimationFrame to ensure the DOM is fully rendered
+      requestAnimationFrame(() => {
+        if (closeButtonRef.current) {
+          closeButtonRef.current.focus();
+        } else if (containerRef.current) {
+          const focusableElements = getFocusableElements(containerRef.current);
+          if (focusableElements.length > 0) {
+            focusableElements[0].focus();
+          }
+        }
+      });
+    } else {
+      // Restore focus to the previously focused element when dialog closes
+      if (previouslyFocusedRef.current && previouslyFocusedRef.current.focus) {
+        previouslyFocusedRef.current.focus();
+        previouslyFocusedRef.current = null;
+      }
+    }
+  }, [isOpen, containerRef, closeButtonRef]);
+}
 
 /**
  * Renders a single key badge with visual styling
@@ -127,8 +237,18 @@ function KeyboardShortcutsSection() {
 export function HelpOverlay() {
   const [isOpen, setIsOpen] = useState(false);
 
+  // Refs for focus management
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
   // Register keyboard shortcuts for opening (?) and closing (Esc) help
   useHelpOverlayShortcuts(isOpen, setIsOpen);
+
+  // Trap focus within the dialog when open
+  useFocusTrap(dialogRef, isOpen);
+
+  // Manage focus when dialog opens/closes
+  useFocusManagement(dialogRef, closeButtonRef, isOpen);
 
   // Handle click on backdrop (outside the dialog content) to close
   const handleBackdropClick = useCallback(
@@ -147,6 +267,7 @@ export function HelpOverlay() {
         onClick={() => setIsOpen(true)}
         className="absolute bottom-4 right-4 z-10 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg hover:bg-white transition text-sm"
         title="Press ? for keyboard shortcuts"
+        aria-haspopup="dialog"
       >
         ❓ Help
       </button>
@@ -156,23 +277,34 @@ export function HelpOverlay() {
   return (
     <div
       className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="help-overlay-title"
+      role="presentation"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl max-h-[80vh] overflow-y-auto">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="help-overlay-title"
+        aria-describedby="help-overlay-description"
+        className="bg-white rounded-lg shadow-xl p-6 max-w-2xl max-h-[80vh] overflow-y-auto"
+        tabIndex={-1}
+      >
         <div className="flex justify-between items-start mb-4">
           <h2 id="help-overlay-title" className="text-2xl font-bold">Help & Instructions</h2>
           <button
+            ref={closeButtonRef}
             onClick={() => setIsOpen(false)}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
-            aria-label="Close help"
+            className="text-gray-500 hover:text-gray-700 text-2xl leading-none px-2 py-1 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Close help dialog"
             title="Press Esc to close"
+            type="button"
           >
             ×
           </button>
         </div>
+        <p id="help-overlay-description" className="sr-only">
+          Help dialog with keyboard shortcuts and instructions for using the AFL Coaching Board application.
+        </p>
 
         <div className="space-y-4 text-sm">
           <KeyboardShortcutsSection />
