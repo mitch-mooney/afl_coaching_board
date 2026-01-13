@@ -17,6 +17,7 @@ import type {
 import { SHORTCUT_CATEGORY_LABELS } from '../types/shortcuts';
 import { useCameraStore } from '../store/cameraStore';
 import { useAnnotationStore, type AnnotationType } from '../store/annotationStore';
+import { useAnimationStore } from '../store/animationStore';
 
 // ============================================================================
 // Platform Detection Utilities
@@ -803,4 +804,73 @@ export function useEditOperationShortcuts(
       unregisterEditOperationShortcuts(registryToUse);
     };
   }, [registryToUse]);
+}
+
+// ============================================================================
+// Animation Control Shortcuts
+// ============================================================================
+
+/**
+ * Registers animation control shortcuts to the given registry.
+ *
+ * - Spacebar: Toggle animation play/pause
+ *
+ * @param registry - The shortcut registry to register shortcuts to
+ * @param togglePlayback - Function to call when toggling playback
+ */
+export function registerAnimationControlShortcuts(
+  registry: ShortcutRegistry,
+  togglePlayback: () => void
+): void {
+  // Spacebar for play/pause toggle
+  registry.register({
+    id: 'animation-toggle-playback',
+    code: 'Space',
+    key: 'Space',
+    modifiers: {},
+    description: 'Play/Pause animation',
+    handler: () => {
+      togglePlayback();
+    },
+    category: 'animation',
+  });
+}
+
+/**
+ * Unregisters animation control shortcuts from the given registry.
+ *
+ * @param registry - The shortcut registry to unregister shortcuts from
+ */
+export function unregisterAnimationControlShortcuts(registry: ShortcutRegistry): void {
+  registry.unregister('animation-toggle-playback');
+}
+
+/**
+ * Hook that registers animation control shortcuts and integrates
+ * with the animation store for controlling playback.
+ *
+ * - Spacebar: Toggle play/pause
+ *
+ * @param registry - The shortcut registry to use (defaults to global registry)
+ *
+ * @example
+ * ```tsx
+ * // In a component that should enable animation shortcuts
+ * function MyComponent() {
+ *   useAnimationControlShortcuts();
+ *   return <div>Animation shortcuts enabled</div>;
+ * }
+ * ```
+ */
+export function useAnimationControlShortcuts(registry?: ShortcutRegistry): void {
+  const togglePlayback = useAnimationStore((state) => state.togglePlayback);
+  const registryToUse = registry ?? getGlobalShortcutRegistry();
+
+  useEffect(() => {
+    registerAnimationControlShortcuts(registryToUse, togglePlayback);
+
+    return () => {
+      unregisterAnimationControlShortcuts(registryToUse);
+    };
+  }, [registryToUse, togglePlayback]);
 }
