@@ -1,8 +1,131 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import {
+  getGlobalShortcutRegistry,
+  isMac,
+} from '../../hooks/useKeyboardShortcuts';
+import type { ShortcutGroup, ShortcutDisplayInfo } from '../../types/shortcuts';
+
+/**
+ * Renders a single key badge with visual styling
+ */
+function KeyBadge({ keyText }: { keyText: string }) {
+  return (
+    <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 mx-0.5 bg-gray-100 border border-gray-300 rounded text-xs font-mono font-medium text-gray-700 shadow-sm">
+      {keyText}
+    </span>
+  );
+}
+
+/**
+ * Parses a formatted key string and renders it as visual key badges.
+ * Handles both Mac (no separator, uses symbols) and Windows (+ separator) formats.
+ */
+function ShortcutKeyDisplay({ keys }: { keys: string }) {
+  const onMac = isMac();
+
+  // Mac uses symbols without separator, Windows uses + separator
+  const keyParts = useMemo(() => {
+    if (onMac) {
+      // Mac format: symbols like ⌘⇧Z or single keys like S
+      // Split by known modifier symbols while keeping them
+      const parts: string[] = [];
+      let remaining = keys;
+      const modifiers = ['⌘', '⌥', '⇧', '⌃'];
+
+      for (const mod of modifiers) {
+        if (remaining.startsWith(mod)) {
+          parts.push(mod);
+          remaining = remaining.slice(mod.length);
+        }
+      }
+
+      if (remaining) {
+        parts.push(remaining);
+      }
+
+      return parts;
+    } else {
+      // Windows format: Ctrl+Shift+Z
+      return keys.split('+').map(k => k.trim());
+    }
+  }, [keys, onMac]);
+
+  return (
+    <span className="inline-flex items-center">
+      {keyParts.map((part, index) => (
+        <KeyBadge key={index} keyText={part} />
+      ))}
+    </span>
+  );
+}
+
+/**
+ * Renders a single shortcut row with key badge(s) and description
+ */
+function ShortcutRow({ shortcut }: { shortcut: ShortcutDisplayInfo }) {
+  return (
+    <div className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-gray-50">
+      <span className="text-gray-600 mr-4">{shortcut.description}</span>
+      <ShortcutKeyDisplay keys={shortcut.keys} />
+    </div>
+  );
+}
+
+/**
+ * Renders a category section with all its shortcuts
+ */
+function ShortcutCategorySection({ group }: { group: ShortcutGroup }) {
+  if (group.shortcuts.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mb-4 last:mb-0">
+      <h4 className="font-medium text-gray-800 mb-2 pb-1 border-b border-gray-200">
+        {group.label}
+      </h4>
+      <div className="space-y-0.5">
+        {group.shortcuts.map((shortcut, index) => (
+          <ShortcutRow key={`${group.category}-${index}`} shortcut={shortcut} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Main keyboard shortcuts section for the help overlay
+ */
+function KeyboardShortcutsSection() {
+  const groups = useMemo(() => {
+    const registry = getGlobalShortcutRegistry();
+    return registry.getGroupedShortcuts();
+  }, []);
+
+  const onMac = isMac();
+
+  if (groups.length === 0) {
+    return null;
+  }
+
+  return (
+    <section>
+      <h3 className="font-semibold text-lg mb-3">Keyboard Shortcuts</h3>
+      <div className="text-xs text-gray-500 mb-3">
+        {onMac ? 'Using Mac shortcuts (⌘ = Command)' : 'Using Windows/Linux shortcuts'}
+      </div>
+      <div className="bg-gray-50 rounded-lg p-4">
+        {groups.map((group) => (
+          <ShortcutCategorySection key={group.category} group={group} />
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export function HelpOverlay() {
   const [isOpen, setIsOpen] = useState(false);
-  
+
   if (!isOpen) {
     return (
       <button
@@ -13,7 +136,7 @@ export function HelpOverlay() {
       </button>
     );
   }
-  
+
   return (
     <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center">
       <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -26,8 +149,10 @@ export function HelpOverlay() {
             ×
           </button>
         </div>
-        
+
         <div className="space-y-4 text-sm">
+          <KeyboardShortcutsSection />
+
           <section>
             <h3 className="font-semibold text-lg mb-2">Camera Controls</h3>
             <ul className="list-disc list-inside space-y-1 ml-2">
@@ -37,7 +162,7 @@ export function HelpOverlay() {
               <li><strong>Preset Views:</strong> Use toolbar buttons for quick camera positions</li>
             </ul>
           </section>
-          
+
           <section>
             <h3 className="font-semibold text-lg mb-2">Player Controls</h3>
             <ul className="list-disc list-inside space-y-1 ml-2">
@@ -46,7 +171,7 @@ export function HelpOverlay() {
               <li><strong>Reset Players:</strong> Use "Reset Players" button in toolbar</li>
             </ul>
           </section>
-          
+
           <section>
             <h3 className="font-semibold text-lg mb-2">Video Recording</h3>
             <ul className="list-disc list-inside space-y-1 ml-2">
@@ -55,7 +180,7 @@ export function HelpOverlay() {
               <li>Videos are exported as WebM format</li>
             </ul>
           </section>
-          
+
           <section>
             <h3 className="font-semibold text-lg mb-2">Playbooks</h3>
             <ul className="list-disc list-inside space-y-1 ml-2">
@@ -64,7 +189,7 @@ export function HelpOverlay() {
               <li>Playbooks are stored locally in your browser</li>
             </ul>
           </section>
-          
+
           <section>
             <h3 className="font-semibold text-lg mb-2">Annotations</h3>
             <ul className="list-disc list-inside space-y-1 ml-2">
