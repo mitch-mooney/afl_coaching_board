@@ -12,7 +12,7 @@ interface CameraState {
   setZoom: (zoom: number) => void;
   resetCamera: () => void;
   focusOnPlayer: (position: [number, number, number]) => void;
-  setPresetView: (view: 'top' | 'sideline' | 'end-to-end') => void;
+  setPresetView: (view: 'top' | 'sideline' | 'end-to-end' | 'broadcast') => void;
 }
 
 const DEFAULT_CAMERA_POSITION: [number, number, number] = [0, 100, 150];
@@ -71,6 +71,14 @@ export const useCameraStore = create<CameraState>((set) => ({
       case 'end-to-end':
         set({
           position: [150, 50, 0],
+          target: [0, 0, 0],
+          zoom: 1,
+        });
+        break;
+      case 'broadcast':
+        // Elevated corner view - classic TV broadcast angle
+        set({
+          position: [-120, 80, 120],
           target: [0, 0, 0],
           zoom: 1,
         });
