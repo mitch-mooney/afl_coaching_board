@@ -16,6 +16,125 @@ import type {
 } from '../types/shortcuts';
 import { SHORTCUT_CATEGORY_LABELS } from '../types/shortcuts';
 
+// ============================================================================
+// Platform Detection Utilities
+// ============================================================================
+
+/**
+ * Cached platform detection result to avoid repeated navigator checks
+ */
+let cachedIsMac: boolean | null = null;
+
+/**
+ * Detects if the current platform is macOS.
+ * Uses navigator.platform with fallback to navigator.userAgent.
+ *
+ * @returns true if running on macOS, false otherwise
+ */
+export function isMac(): boolean {
+  if (cachedIsMac !== null) {
+    return cachedIsMac;
+  }
+
+  // Check for server-side rendering
+  if (typeof navigator === 'undefined') {
+    cachedIsMac = false;
+    return false;
+  }
+
+  // Primary detection using navigator.platform (most reliable)
+  const platform = navigator.platform?.toLowerCase() || '';
+  if (platform.includes('mac')) {
+    cachedIsMac = true;
+    return true;
+  }
+
+  // Fallback to userAgent for edge cases
+  const userAgent = navigator.userAgent?.toLowerCase() || '';
+  cachedIsMac = userAgent.includes('macintosh') || userAgent.includes('mac os');
+  return cachedIsMac;
+}
+
+/**
+ * Resets the cached platform detection (useful for testing)
+ */
+export function resetPlatformCache(): void {
+  cachedIsMac = null;
+}
+
+/**
+ * Type representing the primary modifier key name based on platform
+ */
+export type PrimaryModifierKey = 'meta' | 'ctrl';
+
+/**
+ * Gets the appropriate primary modifier key name for the current platform.
+ * Returns 'meta' (Cmd) for Mac, 'ctrl' for Windows/Linux.
+ *
+ * @returns 'meta' on Mac, 'ctrl' on other platforms
+ */
+export function getPrimaryModifierKey(): PrimaryModifierKey {
+  return isMac() ? 'meta' : 'ctrl';
+}
+
+/**
+ * Checks if the primary modifier key is pressed in a keyboard event.
+ * On Mac, checks metaKey (Cmd). On Windows/Linux, checks ctrlKey.
+ *
+ * @param event - The keyboard event to check
+ * @returns true if the primary modifier is pressed
+ */
+export function isPrimaryModifierPressed(event: KeyboardEvent): boolean {
+  return isMac() ? event.metaKey : event.ctrlKey;
+}
+
+/**
+ * Gets the display label for the primary modifier key.
+ * Returns '⌘' (Cmd) for Mac, 'Ctrl' for Windows/Linux.
+ *
+ * @returns Platform-appropriate modifier key label
+ */
+export function getPrimaryModifierLabel(): string {
+  return isMac() ? '⌘' : 'Ctrl';
+}
+
+/**
+ * Creates a ModifierKeys object with the primary modifier enabled.
+ * Useful for defining platform-aware shortcuts.
+ *
+ * @param additionalModifiers - Optional additional modifiers to include
+ * @returns ModifierKeys with the primary modifier enabled
+ */
+export function withPrimaryModifier(
+  additionalModifiers: Partial<Omit<ModifierKeys, 'ctrl' | 'meta'>> = {}
+): Partial<ModifierKeys> {
+  const primaryKey = getPrimaryModifierKey();
+  return {
+    ...additionalModifiers,
+    [primaryKey]: true,
+  };
+}
+
+/**
+ * Creates a ModifierKeys object for cross-platform shortcuts.
+ * Sets both ctrl and meta to true, allowing the shortcut to work with
+ * either Ctrl (Windows/Linux) or Cmd (Mac).
+ *
+ * Use this for shortcuts like Ctrl+S/Cmd+S, Ctrl+Z/Cmd+Z, etc.
+ *
+ * @param additionalModifiers - Optional additional modifiers to include
+ * @returns ModifierKeys with both ctrl and meta enabled
+ */
+export function withCrossplatformModifier(
+  additionalModifiers: Partial<Omit<ModifierKeys, 'ctrl' | 'meta'>> = {}
+): Partial<ModifierKeys> {
+  return {
+    ...additionalModifiers,
+    ctrl: true,
+    meta: true,
+  };
+}
+
 /**
  * Checks if the event target is an element where typing should be allowed
  * without triggering shortcuts (input, textarea, contentEditable)
@@ -144,27 +263,37 @@ export function createShortcutRegistry(): ShortcutRegistry {
 }
 
 /**
- * Formats shortcut keys for display in the help overlay
+ * Formats shortcut keys for display in the help overlay.
+ * Displays platform-appropriate modifier key labels:
+ * - Mac: ⌘ (Cmd), ⌥ (Alt), ⇧ (Shift), ⌃ (Ctrl)
+ * - Windows/Linux: Ctrl, Alt, Shift
  */
 export function formatShortcutKeys(shortcut: ShortcutDefinition): string {
   const parts: string[] = [];
+  const onMac = isMac();
 
-  if (shortcut.modifiers.ctrl) {
-    parts.push('Ctrl');
+  // On Mac, show meta (Cmd) as ⌘, on Windows show ctrl as Ctrl
+  // This handles platform-specific shortcuts (where only one is set)
+  // and cross-platform shortcuts (where handler checks both)
+  if (shortcut.modifiers.ctrl && shortcut.modifiers.meta) {
+    // Cross-platform shortcut - show platform-appropriate key
+    parts.push(onMac ? '⌘' : 'Ctrl');
+  } else if (shortcut.modifiers.ctrl) {
+    parts.push(onMac ? '⌃' : 'Ctrl');
+  } else if (shortcut.modifiers.meta) {
+    parts.push(onMac ? '⌘' : 'Ctrl');
   }
-  if (shortcut.modifiers.meta) {
-    parts.push('Cmd');
-  }
+
   if (shortcut.modifiers.alt) {
-    parts.push('Alt');
+    parts.push(onMac ? '⌥' : 'Alt');
   }
   if (shortcut.modifiers.shift) {
-    parts.push('Shift');
+    parts.push(onMac ? '⇧' : 'Shift');
   }
 
   parts.push(shortcut.key);
 
-  return parts.join('+');
+  return parts.join(onMac ? '' : '+');
 }
 
 /**
