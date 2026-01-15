@@ -3,6 +3,8 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Mesh, Vector3, Plane } from 'three';
 import { Ball } from '../../models/BallModel';
 import { useBallStore } from '../../store/ballStore';
+import { useAnimationStore } from '../../store/animationStore';
+import { usePathStore } from '../../store/pathStore';
 import { snapToField } from '../../utils/fieldGeometry';
 
 interface BallProps {
@@ -15,9 +17,30 @@ export function BallComponent({ ball }: BallProps) {
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const { isBallSelected, selectBall, updateBallPosition } = useBallStore();
+  const { isPlaying, getPositionForPath } = useAnimationStore();
+  const { getPathByEntity } = usePathStore();
   const { camera, raycaster } = useThree();
 
+  // Get the ball's movement path (if any)
+  const ballPath = getPathByEntity(ball.id, 'ball');
+
   useFrame((state) => {
+    // Handle animation playback - update ball position along path
+    // Note: Animation progress (tick) is advanced by the animation controller, not here
+    if (isPlaying && ballPath && !isDragging) {
+      // Get interpolated position from path at current progress
+      const animatedPosition = getPositionForPath(ballPath, true);
+
+      // Update group position directly for smooth rendering
+      if (groupRef.current) {
+        groupRef.current.position.set(
+          animatedPosition[0],
+          animatedPosition[1],
+          animatedPosition[2]
+        );
+      }
+    }
+
     // Handle dragging with global pointer events
     if (isDragging) {
       raycaster.setFromCamera(state.pointer, camera);
