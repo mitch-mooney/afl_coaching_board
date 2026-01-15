@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Mesh, Vector3, Plane } from 'three';
 import { Ball } from '../../models/BallModel';
 import { useBallStore } from '../../store/ballStore';
+import { usePlayerStore } from '../../store/playerStore';
 import { useAnimationStore } from '../../store/animationStore';
 import { usePathStore } from '../../store/pathStore';
 import { snapToField } from '../../utils/fieldGeometry';
@@ -17,16 +18,31 @@ export function BallComponent({ ball }: BallProps) {
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const { isBallSelected, selectBall, updateBallPosition } = useBallStore();
+  const { getPlayer } = usePlayerStore();
   const { isPlaying, getPositionForPath, tick } = useAnimationStore();
   const { getPathByEntity } = usePathStore();
   const { camera, raycaster } = useThree();
+
+  // Get the assigned player (if ball is assigned to a player)
+  const assignedPlayer = ball.assignedPlayerId ? getPlayer(ball.assignedPlayerId) : undefined;
 
   // Get the ball's movement path (if any)
   const ballPath = getPathByEntity(ball.id, 'ball');
 
   useFrame((state, delta) => {
-    // Handle animation playback - update ball position along path
-    if (isPlaying && ballPath && !isDragging) {
+    // Priority 1: Follow assigned player (overrides path animation)
+    if (assignedPlayer && !isDragging) {
+      // Position ball at player's position with slight Y offset to appear "held"
+      if (groupRef.current) {
+        groupRef.current.position.set(
+          assignedPlayer.position[0],
+          assignedPlayer.position[1] + ball.size + 0.5, // Position above player
+          assignedPlayer.position[2]
+        );
+      }
+    }
+    // Priority 2: Handle animation playback - update ball position along path
+    else if (isPlaying && ballPath && !isDragging) {
       // Advance animation progress
       tick(delta);
 
