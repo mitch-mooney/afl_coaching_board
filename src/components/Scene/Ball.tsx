@@ -17,21 +17,23 @@ export function BallComponent({ ball }: BallProps) {
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const { isBallSelected, selectBall, updateBallPosition } = useBallStore();
-  const { isPlaying, getPositionForPath } = useAnimationStore();
+  const { isPlaying, getPositionForPath, tick } = useAnimationStore();
   const { getPathByEntity } = usePathStore();
   const { camera, raycaster } = useThree();
 
   // Get the ball's movement path (if any)
   const ballPath = getPathByEntity(ball.id, 'ball');
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     // Handle animation playback - update ball position along path
-    // Note: Animation progress (tick) is advanced by the animation controller, not here
     if (isPlaying && ballPath && !isDragging) {
+      // Advance animation progress
+      tick(delta);
+
       // Get interpolated position from path at current progress
       const animatedPosition = getPositionForPath(ballPath, true);
 
-      // Update group position directly for smooth rendering
+      // Update group position directly for smooth 60fps rendering
       if (groupRef.current) {
         groupRef.current.position.set(
           animatedPosition[0],
