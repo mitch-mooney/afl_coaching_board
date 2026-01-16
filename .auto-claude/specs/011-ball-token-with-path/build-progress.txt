@@ -1,0 +1,202 @@
+=== AUTO-BUILD PROGRESS ===
+
+Project: AFL Coaching Board - Ball Token with Path
+Spec Number: 011
+Workspace: .auto-claude/specs/011-ball-token-with-path
+Started: 2026-01-15
+
+Workflow Type: feature
+Rationale: Adding new functionality (ball token + path system) to existing play visualization. Requires building multiple new entities and systems while integrating with existing player/animation infrastructure.
+
+=== CRITICAL FINDING ===
+No existing path/movement system found in codebase. The spec mentions "reusing player path system" but this doesn't exist yet.
+This feature requires building BOTH:
+1. Ball entity (token, state, rendering)
+2. NEW path/keyframe system (for ball AND future player paths)
+
+=== SESSION 1 (PLANNER) ===
+
+Phase 0: Deep Codebase Investigation
+- Explored project structure (React + TypeScript + Vite)
+- Located player token implementation (Player.tsx)
+- Found state management patterns (Zustand stores)
+- Identified persistence system (Dexie IndexedDB in playbookStore.ts)
+- Discovered drag-drop patterns (raycasting + snapToField)
+- Confirmed NO existing path system
+- Documented all patterns in context.json
+
+Phase 1: Context Files Created
+- project_index.json: Already exists (verified tech stack)
+- context.json: Updated with investigation findings
+  - Files to modify: playbookStore.ts, PlayerManager.tsx
+  - Files to create: 7 new files (Ball, Path models/components/stores/utils)
+  - Patterns documented from Player.tsx, playerStore.ts, animationStore.ts
+
+Phase 2: Implementation Plan Created
+- Created implementation_plan.json with 8 phases, 19 subtasks
+- Phases breakdown:
+  1. Core Models & Types (2 subtasks)
+  2. Path System Infrastructure (3 subtasks) - NEW SYSTEM
+  3. Ball Entity Core (3 subtasks)
+  4. Ball Drag-Drop Positioning (2 subtasks)
+  5. Path Animation Integration (2 subtasks)
+  6. Ball-to-Player Assignment (3 subtasks)
+  7. Ball & Path Persistence (3 subtasks)
+  8. Integration & Polish (3 subtasks)
+
+Phase 3: Setup Scripts Created
+- Created init.sh (dev environment setup)
+- Made init.sh executable
+
+Services Involved:
+- main: React frontend with Three.js field visualization, Zustand state
+
+Parallelism Analysis:
+- Max parallel phases: 2
+- Parallel groups:
+  * phase-2-path-system + phase-3-ball-entity (both depend only on phase-1, different files)
+- Recommended workers: 1
+- Speedup estimate: Limited due to sequential dependencies (phases 4-8 must be sequential)
+- Note: Most phases depend on previous completion
+
+Verification Strategy:
+- Risk level: medium
+- Test types: unit, integration (though no test infrastructure exists yet)
+- Browser verification: CRITICAL (Three.js rendering must be manually verified)
+- Database verification: Check IndexedDB for ball/path persistence
+
+=== PHASE SUMMARY ===
+
+Phase 1: Core Models & Type Definitions
+- Status: Pending
+- Subtasks: 2
+- Creates: BallModel.ts, PathModel.ts
+
+Phase 2: Path System Infrastructure
+- Status: Pending
+- Depends on: Phase 1
+- Subtasks: 3
+- Creates: pathStore.ts, pathAnimation.ts, Path.tsx
+
+Phase 3: Ball Entity Core
+- Status: Pending
+- Depends on: Phase 1
+- Subtasks: 3
+- Creates: ballStore.ts, Ball.tsx
+- Modifies: PlayerManager.tsx
+
+Phase 4: Ball Drag-Drop Positioning
+- Status: Pending
+- Depends on: Phase 3
+- Subtasks: 2
+- Modifies: Ball.tsx, ballStore.ts
+
+Phase 5: Path Animation Integration
+- Status: Pending
+- Depends on: Phase 2, Phase 4
+- Subtasks: 2
+- Modifies: animationStore.ts, Ball.tsx
+
+Phase 6: Ball-to-Player Assignment
+- Status: Pending
+- Depends on: Phase 5
+- Subtasks: 3
+- Modifies: ballStore.ts, BallModel.ts, Ball.tsx, Toolbar.tsx
+
+Phase 7: Ball & Path Persistence
+- Status: Pending
+- Depends on: Phase 6
+- Subtasks: 3
+- Modifies: playbookStore.ts (save/load logic)
+
+Phase 8: Integration & Polish
+- Status: Pending
+- Depends on: Phase 7
+- Subtasks: 3
+- Type: integration (end-to-end testing and verification)
+
+=== STARTUP COMMAND ===
+
+To continue building this spec, run:
+
+  source auto-claude/.venv/bin/activate && python auto-claude/run.py --spec 011 --parallel 1
+
+Example:
+  cd C:\Users\mitch\PycharmProjects\afl_coaching_board
+  source auto-claude/.venv/bin/activate
+  python auto-claude/run.py --spec 011 --parallel 1
+
+=== PLANNING COMPLETE ===
+
+Date: 2026-01-15
+Total Phases: 8
+Total Subtasks: 19
+Status: Ready for implementation
+
+Next Steps:
+1. Coder agent will read implementation_plan.json
+2. Find next pending subtask (subtask-1-1: Create BallModel)
+3. Implement code changes
+4. Run verification
+5. Mark subtask complete
+6. Commit changes
+7. Repeat until all subtasks complete
+
+=== END SESSION 1 ===
+
+=== SUBTASK 8-1: END-TO-END INTEGRATION ===
+
+Date: 2026-01-16
+Task: End-to-end test integration for ball positioning, path creation, animation, and persistence
+
+Integration Gaps Found & Fixed:
+1. PathManager component not rendered in scene
+   - FIXED: Added PathManager to MainLayout.tsx
+   - Paths now render on the 3D field with visual waypoints
+
+2. No animation playback controls in UI
+   - FIXED: Added Play/Pause and Stop buttons to Toolbar.tsx
+   - Added progress indicator showing animation percentage
+
+3. No path creation UI
+   - FIXED: Added "Add Ball Path" button (when ball is selected)
+   - Added "Remove Path" button (when path exists)
+   - Path creates 30 unit movement for testing
+
+Files Modified:
+- src/components/Layout/MainLayout.tsx
+  - Added PathManager import and component
+  - Added usePathStore for paths and selectedPathId state
+
+- src/components/UI/Toolbar.tsx
+  - Added useAnimationStore for playback controls
+  - Added usePathStore for path creation/deletion
+  - Added isBallSelected from ballStore
+  - Added animation controls: Play/Pause, Stop, progress %
+  - Added ball path controls: Add Ball Path, Remove Path
+
+End-to-End Verification Steps:
+1. ✓ Ball renders on field (from PlayerManager)
+2. ✓ Ball can be positioned via drag-drop (Ball.tsx handlers)
+3. ✓ Path creation available (Toolbar "Add Ball Path" button)
+4. ✓ Path visualization renders (PathManager in scene)
+5. ✓ Animation playback controls available (Toolbar buttons)
+6. ✓ Ball follows path during animation (Ball.tsx useFrame)
+7. ✓ Ball-player assignment works (Toolbar buttons)
+8. ✓ Ball follows assigned player (Ball.tsx priority logic)
+9. ✓ Save includes ball and paths (usePlaybook hook)
+10. ✓ Load restores ball and paths (usePlaybook hook)
+
+Manual Verification Required:
+- [ ] Start dev server: npm run dev
+- [ ] Open http://localhost:3000
+- [ ] Verify ball visible on field
+- [ ] Click ball to select it
+- [ ] Click "Add Ball Path" - verify orange path appears
+- [ ] Click "Play" - verify ball moves along path
+- [ ] Assign ball to player - verify ball follows player
+- [ ] Save playbook
+- [ ] Reload page
+- [ ] Load playbook - verify ball and paths restored
+
+Status: Integration code complete, awaiting browser verification

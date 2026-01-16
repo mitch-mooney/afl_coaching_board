@@ -1,6 +1,8 @@
 import { usePlayerStore } from '../../store/playerStore';
 import { useCameraStore } from '../../store/cameraStore';
 import { useBallStore } from '../../store/ballStore';
+import { useAnimationStore } from '../../store/animationStore';
+import { usePathStore } from '../../store/pathStore';
 import { useVideoRecorder } from '../../hooks/useVideoRecorder';
 import { usePlaybook } from '../../hooks/usePlaybook';
 import { useState } from 'react';
@@ -15,12 +17,18 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const players = usePlayerStore((state) => state.players);
   const { setPresetView, resetCamera } = useCameraStore();
   const ball = useBallStore((state) => state.ball);
+  const isBallSelected = useBallStore((state) => state.isBallSelected);
   const assignBallToPlayer = useBallStore((state) => state.assignBallToPlayer);
+  const { isPlaying, progress, togglePlay, stop } = useAnimationStore();
+  const { createPath, getPathByEntity, removePath } = usePathStore();
   const { isRecording, toggleRecording } = useVideoRecorder(canvas);
   const { saveCurrentScenario } = usePlaybook();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [playbookName, setPlaybookName] = useState('');
   const [playbookDescription, setPlaybookDescription] = useState('');
+
+  // Get ball's current path
+  const ballPath = ball ? getPathByEntity(ball.id, 'ball') : null;
 
   // Get the assigned player name for display
   const assignedPlayer = ball?.assignedPlayerId
@@ -41,7 +49,32 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const handleUnassignBall = () => {
     assignBallToPlayer(null);
   };
-  
+
+  // Create a test path for the ball (from current position to a destination)
+  const handleCreateBallPath = () => {
+    if (!ball) return;
+    // Create a path from current position to a position 30 units away (across field)
+    const startPos = ball.position;
+    const endPos: [number, number, number] = [
+      startPos[0] + 30,
+      startPos[1],
+      startPos[2] + 20
+    ];
+    createPath(ball.id, 'ball', startPos, endPos, 5); // 5 second duration
+  };
+
+  // Remove ball path
+  const handleRemoveBallPath = () => {
+    if (ballPath) {
+      removePath(ballPath.id);
+    }
+  };
+
+  // Handle stop animation
+  const handleStopAnimation = () => {
+    stop();
+  };
+
   const handleSave = async () => {
     if (!playbookName.trim()) {
       alert('Please enter a name for the playbook');
@@ -132,6 +165,55 @@ export function Toolbar({ canvas }: ToolbarProps) {
             <div className="w-px bg-gray-300 mx-1" />
           </>
         )}
+
+        {/* Ball Path Controls */}
+        {ball && isBallSelected && (
+          <>
+            {!ballPath ? (
+              <button
+                onClick={handleCreateBallPath}
+                className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition"
+                title="Create a test movement path for the ball"
+              >
+                ➕ Add Ball Path
+              </button>
+            ) : (
+              <button
+                onClick={handleRemoveBallPath}
+                className="px-4 py-2 bg-red-400 text-white rounded hover:bg-red-500 transition"
+                title="Remove ball movement path"
+              >
+                ➖ Remove Path
+              </button>
+            )}
+            <div className="w-px bg-gray-300 mx-1" />
+          </>
+        )}
+
+        {/* Animation Playback Controls */}
+        <button
+          onClick={togglePlay}
+          className={`px-4 py-2 rounded transition ${
+            isPlaying
+              ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+              : 'bg-green-600 text-white hover:bg-green-700'
+          }`}
+          title={isPlaying ? 'Pause animation' : 'Play animation'}
+        >
+          {isPlaying ? '⏸ Pause' : '▶ Play'}
+        </button>
+        <button
+          onClick={handleStopAnimation}
+          className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition"
+          title="Stop animation and reset to start"
+        >
+          ⏹ Stop
+        </button>
+        <span className="px-2 py-2 text-sm text-gray-600 bg-gray-100 rounded">
+          {Math.round(progress * 100)}%
+        </span>
+
+        <div className="w-px bg-gray-300 mx-1" />
 
         {/* Camera Controls */}
         <button
