@@ -3,13 +3,17 @@ import { usePlaybookStore } from '../store/playbookStore';
 import { usePlayerStore } from '../store/playerStore';
 import { useCameraStore } from '../store/cameraStore';
 import { useAnnotationStore } from '../store/annotationStore';
+import { useBallStore } from '../store/ballStore';
+import { usePathStore } from '../store/pathStore';
 
 export function usePlaybook() {
   const { savePlaybook, loadPlaybook: loadPlaybookFromStore } = usePlaybookStore();
   const players = usePlayerStore((state) => state.players);
   const { position, target, zoom } = useCameraStore();
   const annotations = useAnnotationStore((state) => state.annotations);
-  
+  const ball = useBallStore((state) => state.ball);
+  const paths = usePathStore((state) => state.paths);
+
   const saveCurrentScenario = useCallback(async (name: string, description?: string) => {
     try {
       const id = await savePlaybook({
@@ -20,13 +24,15 @@ export function usePlaybook() {
         cameraTarget: target,
         cameraZoom: zoom,
         annotations: annotations,
+        ball: ball,
+        paths: paths,
       });
       return id;
     } catch (error) {
       console.error('Error saving scenario:', error);
       throw error;
     }
-  }, [savePlaybook, players, position, target, zoom, annotations]);
+  }, [savePlaybook, players, position, target, zoom, annotations, ball, paths]);
   
   const loadScenario = useCallback(async (playbookId: number) => {
     try {
