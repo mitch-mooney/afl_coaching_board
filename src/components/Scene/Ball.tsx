@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Mesh, Vector3, Plane } from 'three';
 import { Ball } from '../../models/BallModel';
@@ -7,6 +7,15 @@ import { usePlayerStore } from '../../store/playerStore';
 import { useAnimationStore } from '../../store/animationStore';
 import { usePathStore } from '../../store/pathStore';
 import { snapToField } from '../../utils/fieldGeometry';
+
+// Ball visual constants for distinct appearance
+const BALL_COLORS = {
+  default: '#8B4513',      // Saddle brown - AFL ball color
+  hover: '#D2691E',        // Chocolate - lighter brown for hover
+  selected: '#FFD700',     // Gold - distinct selection color
+  ring: '#FFD700',         // Gold selection ring
+  hoverRing: '#D2691E',    // Subtle hover ring
+};
 
 interface BallProps {
   ball: Ball;
@@ -21,7 +30,15 @@ export function BallComponent({ ball }: BallProps) {
   const { getPlayer } = usePlayerStore();
   const { isPlaying, getPositionForPath, tick } = useAnimationStore();
   const { getPathByEntity } = usePathStore();
-  const { camera, raycaster } = useThree();
+  const { camera, raycaster, gl } = useThree();
+
+  // Calculate ring sizes based on ball size
+  const ringSize = useMemo(() => ({
+    innerHover: ball.size + 0.15,
+    outerHover: ball.size + 0.25,
+    innerSelect: ball.size + 0.1,
+    outerSelect: ball.size + 0.25,
+  }), [ball.size]);
 
   // Get the assigned player (if ball is assigned to a player)
   const assignedPlayer = ball.assignedPlayerId ? getPlayer(ball.assignedPlayerId) : undefined;
@@ -99,6 +116,28 @@ export function BallComponent({ ball }: BallProps) {
     setIsDragging(false);
   };
 
+  const handlePointerOver = () => {
+    setHovered(true);
+    gl.domElement.style.cursor = 'pointer';
+  };
+
+  const handlePointerOut = () => {
+    setHovered(false);
+    setIsDragging(false);
+    gl.domElement.style.cursor = 'auto';
+  };
+
+  // Determine current ball color based on state
+  const ballColor = isBallSelected
+    ? BALL_COLORS.selected
+    : hovered
+      ? BALL_COLORS.hover
+      : ball.color;
+
+  // Determine emissive color and intensity
+  const emissiveColor = isBallSelected ? BALL_COLORS.selected : ball.color;
+  const emissiveIntensity = isBallSelected ? 0.4 : hovered ? 0.25 : 0.15;
+
   return (
     <group
       ref={groupRef}
@@ -107,29 +146,44 @@ export function BallComponent({ ball }: BallProps) {
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerOver={() => setHovered(true)}
-      onPointerOut={() => {
-        setHovered(false);
-        setIsDragging(false);
-      }}
+      onPointerOver={handlePointerOver}
+      onPointerOut={handlePointerOut}
     >
-      {/* Ball mesh - sphere shape */}
+      {/* Ball mesh - sphere shape with higher resolution for smoothness */}
       <mesh ref={meshRef} castShadow>
-        <sphereGeometry args={[ball.size, 16, 16]} />
+        <sphereGeometry args={[ball.size, 32, 32]} />
         <meshStandardMaterial
-          color={isBallSelected ? '#ffff00' : hovered ? '#CD853F' : ball.color}
-          emissive={isBallSelected ? '#ffff00' : ball.color}
-          emissiveIntensity={isBallSelected ? 0.3 : 0.15}
-          roughness={0.6}
-          metalness={0.1}
+          color={ballColor}
+          emissive={emissiveColor}
+          emissiveIntensity={emissiveIntensity}
+          roughness={0.5}
+          metalness={0.15}
         />
       </mesh>
 
-      {/* Selection indicator ring */}
+      {/* Hover indicator ring - subtle feedback before selection */}
+      {hovered && !isBallSelected && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+          <ringGeometry args={[ringSize.innerHover, ringSize.outerHover, 24]} />
+          <meshStandardMaterial
+            color={BALL_COLORS.hoverRing}
+            emissive={BALL_COLORS.hoverRing}
+            emissiveIntensity={0.3}
+            transparent
+            opacity={0.6}
+          />
+        </mesh>
+      )}
+
+      {/* Selection indicator ring - prominent when selected */}
       {isBallSelected && (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -ball.size + 0.01, 0]}>
-          <ringGeometry args={[ball.size + 0.1, ball.size + 0.2, 16]} />
-          <meshStandardMaterial color="#ffff00" emissive="#ffff00" emissiveIntensity={0.5} />
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+          <ringGeometry args={[ringSize.innerSelect, ringSize.outerSelect, 24]} />
+          <meshStandardMaterial
+            color={BALL_COLORS.ring}
+            emissive={BALL_COLORS.ring}
+            emissiveIntensity={0.6}
+          />
         </mesh>
       )}
     </group>
