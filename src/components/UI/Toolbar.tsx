@@ -1,5 +1,6 @@
 import { usePlayerStore } from '../../store/playerStore';
 import { useCameraStore } from '../../store/cameraStore';
+import { useBallStore } from '../../store/ballStore';
 import { useVideoRecorder } from '../../hooks/useVideoRecorder';
 import { usePlaybook } from '../../hooks/usePlaybook';
 import { useState } from 'react';
@@ -10,12 +11,36 @@ interface ToolbarProps {
 
 export function Toolbar({ canvas }: ToolbarProps) {
   const resetPlayers = usePlayerStore((state) => state.resetPlayers);
+  const selectedPlayerId = usePlayerStore((state) => state.selectedPlayerId);
+  const players = usePlayerStore((state) => state.players);
   const { setPresetView, resetCamera } = useCameraStore();
+  const ball = useBallStore((state) => state.ball);
+  const assignBallToPlayer = useBallStore((state) => state.assignBallToPlayer);
   const { isRecording, toggleRecording } = useVideoRecorder(canvas);
   const { saveCurrentScenario } = usePlaybook();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [playbookName, setPlaybookName] = useState('');
   const [playbookDescription, setPlaybookDescription] = useState('');
+
+  // Get the assigned player name for display
+  const assignedPlayer = ball?.assignedPlayerId
+    ? players.find(p => p.id === ball.assignedPlayerId)
+    : null;
+
+  // Get the selected player for display
+  const selectedPlayer = selectedPlayerId
+    ? players.find(p => p.id === selectedPlayerId)
+    : null;
+
+  const handleAssignBall = () => {
+    if (selectedPlayerId) {
+      assignBallToPlayer(selectedPlayerId);
+    }
+  };
+
+  const handleUnassignBall = () => {
+    assignBallToPlayer(null);
+  };
   
   const handleSave = async () => {
     if (!playbookName.trim()) {
@@ -75,9 +100,39 @@ export function Toolbar({ canvas }: ToolbarProps) {
         >
           Reset Players
         </button>
-        
+
         <div className="w-px bg-gray-300 mx-1" />
-        
+
+        {/* Ball Assignment Controls */}
+        {ball && (
+          <>
+            <button
+              onClick={handleAssignBall}
+              disabled={!selectedPlayerId}
+              className={`px-4 py-2 rounded transition ${
+                selectedPlayerId
+                  ? 'bg-amber-600 text-white hover:bg-amber-700'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+              title={selectedPlayerId
+                ? `Assign ball to ${selectedPlayer?.number || 'player'}`
+                : 'Select a player first'}
+            >
+              🏈 Give Ball{selectedPlayer ? ` to #${selectedPlayer.number}` : ''}
+            </button>
+            {assignedPlayer && (
+              <button
+                onClick={handleUnassignBall}
+                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition"
+                title="Release ball from player"
+              >
+                🏈 Release (#{assignedPlayer.number})
+              </button>
+            )}
+            <div className="w-px bg-gray-300 mx-1" />
+          </>
+        )}
+
         {/* Camera Controls */}
         <button
           onClick={resetCamera}
