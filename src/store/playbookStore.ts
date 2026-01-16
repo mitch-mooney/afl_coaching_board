@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import Dexie, { Table } from 'dexie';
 import { Player } from '../models/PlayerModel';
+import { Ball } from '../models/BallModel';
+import { MovementPath } from '../models/PathModel';
 
 interface Playbook {
   id?: number;
@@ -12,6 +14,8 @@ interface Playbook {
   cameraTarget: [number, number, number];
   cameraZoom: number;
   annotations?: any[]; // Will be defined when annotations are implemented
+  ball?: Ball | null; // Ball entity with position and assignment
+  paths?: MovementPath[]; // Movement paths for ball and player animation
 }
 
 class PlaybookDatabase extends Dexie {
