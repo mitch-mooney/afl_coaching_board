@@ -40,7 +40,7 @@ interface PlaybookState {
   loadPlaybooks: () => Promise<void>;
   savePlaybook: (playbook: Omit<Playbook, 'id' | 'createdAt'>) => Promise<number>;
   deletePlaybook: (id: number) => Promise<void>;
-  loadPlaybook: (id: number) => Promise<void>;
+  loadPlaybook: (id: number) => Promise<Playbook | undefined>;
   clearCurrentPlaybook: () => void;
 }
 
@@ -94,6 +94,7 @@ export const usePlaybookStore = create<PlaybookState>((set) => ({
       if (playbook) {
         set({ currentPlaybook: playbook });
       }
+      return playbook;
     } catch (error) {
       console.error('Error loading playbook:', error);
       throw error;

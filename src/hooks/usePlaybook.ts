@@ -40,17 +40,31 @@ export function usePlaybook() {
       if (playbook) {
         // Restore player positions
         usePlayerStore.setState({ players: playbook.playerPositions });
-        
+
         // Restore camera
         useCameraStore.setState({
           position: playbook.cameraPosition,
           target: playbook.cameraTarget,
           zoom: playbook.cameraZoom,
         });
-        
+
         // Restore annotations
         if (playbook.annotations) {
           useAnnotationStore.setState({ annotations: playbook.annotations });
+        }
+
+        // Restore ball state (position and assignment)
+        if (playbook.ball) {
+          useBallStore.setState({ ball: playbook.ball, isBallSelected: false });
+        } else {
+          useBallStore.setState({ ball: null, isBallSelected: false });
+        }
+
+        // Restore movement paths
+        if (playbook.paths) {
+          usePathStore.setState({ paths: playbook.paths, selectedPathId: null });
+        } else {
+          usePathStore.setState({ paths: [], selectedPathId: null });
         }
       }
     } catch (error) {
