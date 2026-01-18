@@ -84,11 +84,16 @@ function AnnotationInteractionHandler() {
  * - Animation: Spacebar (play/pause)
  * - Help: ? (open), Esc (close) - handled by HelpOverlay component
  *
+ * Shortcuts are automatically disabled when:
+ * - Modals/dialogs are open (save dialog, help overlay)
+ * - User has explicitly disabled shortcuts
+ *
  * Note: Ctrl+S (save) handler is wired up via keyboardStore in a separate integration
  */
 function KeyboardShortcutsHandler() {
-  // Get shortcuts enabled state from keyboard store
-  const shortcutsEnabled = useKeyboardStore((state) => state.shortcutsEnabled);
+  // Get active state from keyboard store
+  // areShortcutsActive() checks: shortcutsEnabled && openModalCount === 0 && !helpOverlayOpen
+  const areShortcutsActive = useKeyboardStore((state) => state.areShortcutsActive());
 
   // Get the global shortcut registry
   const registry = getGlobalShortcutRegistry();
@@ -107,7 +112,8 @@ function KeyboardShortcutsHandler() {
   useAnimationControlShortcuts(registry);
 
   // Activate the core keyboard shortcuts handler
-  useKeyboardShortcuts(registry, { enabled: shortcutsEnabled });
+  // Disabled when modals are open or shortcuts globally disabled
+  useKeyboardShortcuts(registry, { enabled: areShortcutsActive });
 
   return null;
 }

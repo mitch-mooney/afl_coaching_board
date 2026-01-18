@@ -1,8 +1,9 @@
 import { usePlayerStore } from '../../store/playerStore';
 import { useCameraStore } from '../../store/cameraStore';
+import { useKeyboardStore } from '../../store/keyboardStore';
 import { useVideoRecorder } from '../../hooks/useVideoRecorder';
 import { usePlaybook } from '../../hooks/usePlaybook';
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface ToolbarProps {
   canvas: HTMLCanvasElement | null;
@@ -11,11 +12,56 @@ interface ToolbarProps {
 export function Toolbar({ canvas }: ToolbarProps) {
   const resetPlayers = usePlayerStore((state) => state.resetPlayers);
   const { setPresetView, resetCamera } = useCameraStore();
+  const registerModalOpen = useKeyboardStore((state) => state.registerModalOpen);
+  const registerModalClose = useKeyboardStore((state) => state.registerModalClose);
   const { isRecording, toggleRecording } = useVideoRecorder(canvas);
   const { saveCurrentScenario } = usePlaybook();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [playbookName, setPlaybookName] = useState('');
   const [playbookDescription, setPlaybookDescription] = useState('');
+  const saveDialogRef = useRef<HTMLDivElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Register/unregister modal with keyboard store to disable shortcuts
+  useEffect(() => {
+    if (showSaveDialog) {
+      registerModalOpen();
+      // Focus the name input when dialog opens
+      requestAnimationFrame(() => {
+        nameInputRef.current?.focus();
+      });
+      return () => registerModalClose();
+    }
+  }, [showSaveDialog, registerModalOpen, registerModalClose]);
+
+  // Handle Escape key to close the save dialog
+  useEffect(() => {
+    if (!showSaveDialog) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setShowSaveDialog(false);
+        setPlaybookName('');
+        setPlaybookDescription('');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showSaveDialog]);
+
+  // Handle click outside the save dialog to close it
+  const handleBackdropClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (event.target === event.currentTarget) {
+        setShowSaveDialog(false);
+        setPlaybookName('');
+        setPlaybookDescription('');
+      }
+    },
+    []
+  );
   
   const handleSave = async () => {
     if (!playbookName.trim()) {
@@ -111,49 +157,68 @@ export function Toolbar({ canvas }: ToolbarProps) {
         </button>
       </div>
       
-      {/* Save Dialog */}
+      {/* Save Dialog with Backdrop */}
       {showSaveDialog && (
-        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 min-w-[300px]">
-          <h3 className="text-lg font-bold mb-3">Save Playbook</h3>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium mb-1">Name *</label>
-              <input
-                type="text"
-                value={playbookName}
-                onChange={(e) => setPlaybookName(e.target.value)}
-                className="w-full px-3 py-2 border rounded"
-                placeholder="Enter playbook name"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Description</label>
-              <textarea
-                value={playbookDescription}
-                onChange={(e) => setPlaybookDescription(e.target.value)}
-                className="w-full px-3 py-2 border rounded"
-                placeholder="Enter description (optional)"
-                rows={3}
-              />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => {
-                  setShowSaveDialog(false);
-                  setPlaybookName('');
-                  setPlaybookDescription('');
-                }}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition"
-              >
-                Save
-              </button>
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center pt-20"
+          role="presentation"
+          onClick={handleBackdropClick}
+        >
+          {/* Backdrop overlay */}
+          <div className="absolute inset-0 bg-black/20" aria-hidden="true" />
+
+          {/* Dialog content */}
+          <div
+            ref={saveDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="save-dialog-title"
+            className="relative bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 min-w-[300px]"
+            tabIndex={-1}
+          >
+            <h3 id="save-dialog-title" className="text-lg font-bold mb-3">Save Playbook</h3>
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="playbook-name" className="block text-sm font-medium mb-1">Name *</label>
+                <input
+                  ref={nameInputRef}
+                  id="playbook-name"
+                  type="text"
+                  value={playbookName}
+                  onChange={(e) => setPlaybookName(e.target.value)}
+                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="Enter playbook name"
+                />
+              </div>
+              <div>
+                <label htmlFor="playbook-description" className="block text-sm font-medium mb-1">Description</label>
+                <textarea
+                  id="playbook-description"
+                  value={playbookDescription}
+                  onChange={(e) => setPlaybookDescription(e.target.value)}
+                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  placeholder="Enter description (optional)"
+                  rows={3}
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => {
+                    setShowSaveDialog(false);
+                    setPlaybookName('');
+                    setPlaybookDescription('');
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  Save
+                </button>
+              </div>
             </div>
           </div>
         </div>

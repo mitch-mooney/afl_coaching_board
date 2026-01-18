@@ -4,6 +4,7 @@ import {
   isMac,
   useHelpOverlayShortcuts,
 } from '../../hooks/useKeyboardShortcuts';
+import { useKeyboardStore } from '../../store/keyboardStore';
 import type { ShortcutGroup, ShortcutDisplayInfo } from '../../types/shortcuts';
 
 /**
@@ -236,6 +237,9 @@ function KeyboardShortcutsSection() {
 
 export function HelpOverlay() {
   const [isOpen, setIsOpen] = useState(false);
+  const registerModalOpen = useKeyboardStore((state) => state.registerModalOpen);
+  const registerModalClose = useKeyboardStore((state) => state.registerModalClose);
+  const setHelpOverlayOpen = useKeyboardStore((state) => state.setHelpOverlayOpen);
 
   // Refs for focus management
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -243,6 +247,18 @@ export function HelpOverlay() {
 
   // Register keyboard shortcuts for opening (?) and closing (Esc) help
   useHelpOverlayShortcuts(isOpen, setIsOpen);
+
+  // Register/unregister modal with keyboard store to disable shortcuts
+  useEffect(() => {
+    if (isOpen) {
+      registerModalOpen();
+      setHelpOverlayOpen(true);
+      return () => {
+        registerModalClose();
+        setHelpOverlayOpen(false);
+      };
+    }
+  }, [isOpen, registerModalOpen, registerModalClose, setHelpOverlayOpen]);
 
   // Trap focus within the dialog when open
   useFocusTrap(dialogRef, isOpen);
