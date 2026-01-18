@@ -1,0 +1,101 @@
+# Build Progress - Keyboard Shortcuts System
+
+## Current Status: Phase 8 - Testing and Polish
+
+### Completed Phases
+
+#### Phase 1: Foundation - Types and Core Hook ✓
+- 1.1: Created TypeScript types for keyboard shortcuts (src/types/shortcuts.ts)
+- 1.2: Created core useKeyboardShortcuts hook (src/hooks/useKeyboardShortcuts.ts)
+- 1.3: Added platform detection for Ctrl vs Cmd
+
+#### Phase 2: Camera Preset Shortcuts ✓
+- 2.1: Extended camera store with fourth preset (broadcast)
+- 2.2: Implemented camera preset shortcuts (keys 1-4)
+
+#### Phase 3: Tool Selection Shortcuts ✓
+- 3.1: Implemented tool selection shortcuts (S, L, A, C, R, T)
+
+#### Phase 4: Edit Operation Shortcuts ✓
+- 4.1: Created undo/redo state management (historyStore.ts)
+- 4.2: Integrated history tracking with player and annotation stores
+- 4.3: Implemented save, undo, and redo shortcuts (Ctrl+S, Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y)
+
+#### Phase 5: Animation Control Shortcuts ✓
+- 5.1: Created animation store (animationStore.ts)
+- 5.2: Implemented spacebar play/pause shortcut
+
+#### Phase 6: Help Overlay Enhancement ✓
+- 6.1: Created keyboard shortcuts help section in HelpOverlay
+- 6.2: Added ? key trigger and Esc dismiss
+- 6.3: Made help overlay accessible (focus trapping, ARIA)
+
+#### Phase 7: Integration and State Management ✓
+- 7.1: Created keyboard shortcuts context (keyboardStore.ts)
+- 7.2: Integrated keyboard shortcuts into MainLayout
+- 7.3: Handle dialog/modal interaction (shortcuts disabled when modals open)
+
+#### Phase 8: Testing and Polish (In Progress)
+- 8.1: Created unit tests for keyboard hook ✓
+- 8.2: Created integration tests ✓
+- 8.3: Manual browser testing - CHECKLIST PREPARED
+
+### Subtask 8.3 Notes
+
+**Status:** Browser testing checklist created
+
+A comprehensive browser testing checklist has been created at:
+`.auto-claude/specs/018-keyboard-shortcuts/browser-testing-checklist.md`
+
+This checklist covers:
+- All keyboard shortcuts across Chrome, Firefox, Safari, and Edge
+- Input field handling verification
+- Modal/dialog interaction testing
+- Platform-specific behavior (Mac Cmd vs Windows Ctrl)
+- Console error checking
+
+**Implementation Review Findings:**
+
+The implementation correctly handles browser compatibility:
+1. Uses `event.code` for layout-independent key detection
+2. Platform detection via `navigator.platform` with `userAgent` fallback
+3. Proper `preventDefault()` to stop browser defaults
+4. Focus detection for input/textarea/contentEditable elements
+
+**Manual Testing Required:**
+This subtask requires human verification in actual browsers. The automated test suite (8.1, 8.2) provides confidence in the logic, but real browser testing is needed to verify:
+- Browser default prevention actually works (Ctrl+S doesn't open save dialog)
+- Spacebar doesn't scroll the page
+- Focus trapping works correctly in Help overlay
+- Platform-specific modifiers display correctly
+
+### Next Steps
+
+1. Run the dev server: `npm run dev`
+2. Open the browser testing checklist
+3. Test each browser systematically
+4. Document any issues found
+5. Complete QA sign-off
+
+### Files Modified in This Feature
+
+**New Files:**
+- `src/types/shortcuts.ts` - TypeScript types for shortcuts
+- `src/hooks/useKeyboardShortcuts.ts` - Core hook and all shortcut implementations
+- `src/hooks/useKeyboardShortcuts.test.ts` - Comprehensive test suite
+- `src/hooks/useKeyboardShortcuts.integration.test.ts` - Integration tests
+- `src/store/historyStore.ts` - Undo/redo state management
+- `src/store/animationStore.ts` - Animation playback state
+- `src/store/keyboardStore.ts` - Keyboard shortcuts state
+
+**Modified Files:**
+- `src/components/UI/HelpOverlay.tsx` - Added keyboard shortcuts section
+- `src/components/UI/Toolbar.tsx` - Modal registration for shortcut disabling
+- `src/components/Layout/MainLayout.tsx` - Keyboard shortcuts integration
+- `src/store/cameraStore.ts` - Added broadcast preset
+- `src/store/playerStore.ts` - History snapshot integration
+- `src/store/annotationStore.ts` - History snapshot integration
+- `package.json` - Added test dependencies
+
+---
+Last Updated: 2026-01-19
