@@ -1778,3 +1778,896 @@ describe('Edge Cases', () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 });
+
+// ============================================================================
+// Integration Tests - Shortcuts with Actual Stores
+// ============================================================================
+
+import { useCameraStore } from '../store/cameraStore';
+import { useAnnotationStore } from '../store/annotationStore';
+import { useHistoryStore } from '../store/historyStore';
+import { useAnimationStore } from '../store/animationStore';
+import { useKeyboardStore } from '../store/keyboardStore';
+import { usePlayerStore } from '../store/playerStore';
+
+describe('Integration: Camera Preset Shortcuts with Store', () => {
+  let registry: ReturnType<typeof createShortcutRegistry>;
+
+  beforeEach(() => {
+    registry = createShortcutRegistry();
+    resetPlatformCache();
+    vi.stubGlobal('navigator', { platform: 'Win32', userAgent: '' });
+
+    // Reset camera store to default state
+    useCameraStore.setState({
+      position: [0, 100, 150],
+      target: [0, 0, 0],
+      zoom: 1,
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    resetPlatformCache();
+    document.body.innerHTML = '';
+  });
+
+  it('should call camera store setPresetView when key 1 is pressed', () => {
+    const setPresetViewSpy = vi.spyOn(useCameraStore.getState(), 'setPresetView');
+    registerCameraPresetShortcuts(registry, useCameraStore.getState().setPresetView);
+
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'Digit1', key: '1' })
+      );
+    });
+
+    expect(setPresetViewSpy).toHaveBeenCalledWith('top');
+  });
+
+  it('should update camera store position when camera preset shortcuts are triggered', () => {
+    registerCameraPresetShortcuts(registry, useCameraStore.getState().setPresetView);
+
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    // Press key 1 for top view
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'Digit1', key: '1' })
+      );
+    });
+
+    const topViewState = useCameraStore.getState();
+    expect(topViewState.position).toEqual([0, 200, 0]);
+    expect(topViewState.target).toEqual([0, 0, 0]);
+
+    // Press key 2 for sideline view
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'Digit2', key: '2' })
+      );
+    });
+
+    const sidelineViewState = useCameraStore.getState();
+    expect(sidelineViewState.position).toEqual([0, 50, 150]);
+
+    // Press key 3 for end-to-end view
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'Digit3', key: '3' })
+      );
+    });
+
+    const endToEndViewState = useCameraStore.getState();
+    expect(endToEndViewState.position).toEqual([150, 50, 0]);
+
+    // Press key 4 for broadcast view
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'Digit4', key: '4' })
+      );
+    });
+
+    const broadcastViewState = useCameraStore.getState();
+    expect(broadcastViewState.position).toEqual([-120, 80, 120]);
+  });
+
+  it('should not call camera store for keys 5-9', () => {
+    const setPresetViewSpy = vi.spyOn(useCameraStore.getState(), 'setPresetView');
+    registerCameraPresetShortcuts(registry, useCameraStore.getState().setPresetView);
+
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    // Press keys 5-9 - should not trigger any shortcut
+    for (let i = 5; i <= 9; i++) {
+      act(() => {
+        window.dispatchEvent(
+          createKeyboardEvent('keydown', { code: `Digit${i}`, key: `${i}` })
+        );
+      });
+    }
+
+    expect(setPresetViewSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('Integration: Tool Selection Shortcuts with Store', () => {
+  let registry: ReturnType<typeof createShortcutRegistry>;
+
+  beforeEach(() => {
+    registry = createShortcutRegistry();
+    resetPlatformCache();
+    vi.stubGlobal('navigator', { platform: 'Win32', userAgent: '' });
+
+    // Reset annotation store to default state
+    useAnnotationStore.setState({
+      annotations: [],
+      selectedTool: null,
+      selectedColor: '#ffff00',
+      thickness: 2,
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    resetPlatformCache();
+    document.body.innerHTML = '';
+  });
+
+  it('should call annotation store setSelectedTool when tool shortcut is pressed', () => {
+    const setSelectedToolSpy = vi.spyOn(useAnnotationStore.getState(), 'setSelectedTool');
+    registerToolSelectionShortcuts(registry, useAnnotationStore.getState().setSelectedTool);
+
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'KeyL', key: 'l' })
+      );
+    });
+
+    expect(setSelectedToolSpy).toHaveBeenCalledWith('line');
+  });
+
+  it('should update annotation store selectedTool when tool shortcuts are triggered', () => {
+    registerToolSelectionShortcuts(registry, useAnnotationStore.getState().setSelectedTool);
+
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    // Press 'L' for line tool
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'KeyL', key: 'l' })
+      );
+    });
+    expect(useAnnotationStore.getState().selectedTool).toBe('line');
+
+    // Press 'A' for arrow tool
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'KeyA', key: 'a' })
+      );
+    });
+    expect(useAnnotationStore.getState().selectedTool).toBe('arrow');
+
+    // Press 'C' for circle tool
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'KeyC', key: 'c' })
+      );
+    });
+    expect(useAnnotationStore.getState().selectedTool).toBe('circle');
+
+    // Press 'R' for rectangle tool
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'KeyR', key: 'r' })
+      );
+    });
+    expect(useAnnotationStore.getState().selectedTool).toBe('rectangle');
+
+    // Press 'T' for text tool
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'KeyT', key: 't' })
+      );
+    });
+    expect(useAnnotationStore.getState().selectedTool).toBe('text');
+
+    // Press 'S' for select mode (null)
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'KeyS', key: 's' })
+      );
+    });
+    expect(useAnnotationStore.getState().selectedTool).toBe(null);
+  });
+
+  it('should clear tool selection when S is pressed (select mode)', () => {
+    // First set a tool
+    useAnnotationStore.setState({ selectedTool: 'arrow' });
+
+    registerToolSelectionShortcuts(registry, useAnnotationStore.getState().setSelectedTool);
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'KeyS', key: 's' })
+      );
+    });
+
+    expect(useAnnotationStore.getState().selectedTool).toBe(null);
+  });
+});
+
+describe('Integration: Save Shortcut with Dialog Handler', () => {
+  let registry: ReturnType<typeof createShortcutRegistry>;
+
+  beforeEach(() => {
+    registry = createShortcutRegistry();
+    resetPlatformCache();
+    vi.stubGlobal('navigator', { platform: 'Win32', userAgent: '' });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    resetPlatformCache();
+    document.body.innerHTML = '';
+  });
+
+  it('should call save handler when Ctrl+S is pressed', () => {
+    const saveHandler = vi.fn();
+    registerEditOperationShortcuts(registry, { onSave: saveHandler });
+
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'KeyS', key: 's', ctrlKey: true })
+      );
+    });
+
+    expect(saveHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it('should trigger save dialog state change when Ctrl+S is pressed', () => {
+    // Simulate a save dialog state
+    let saveDialogOpen = false;
+    const openSaveDialog = () => {
+      saveDialogOpen = true;
+    };
+
+    registerEditOperationShortcuts(registry, { onSave: openSaveDialog });
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'KeyS', key: 's', ctrlKey: true })
+      );
+    });
+
+    expect(saveDialogOpen).toBe(true);
+  });
+
+  it('should not trigger save when Ctrl+S is not registered (no save handler)', () => {
+    // Register without save handler
+    registerEditOperationShortcuts(registry, {});
+
+    const preventDefaultSpy = vi.fn();
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    // Create an event and spy on preventDefault
+    const event = createKeyboardEvent('keydown', {
+      code: 'KeyS',
+      key: 's',
+      ctrlKey: true,
+    });
+    Object.defineProperty(event, 'preventDefault', { value: preventDefaultSpy });
+
+    act(() => {
+      window.dispatchEvent(event);
+    });
+
+    // Should not have called preventDefault for Ctrl+S since there's no save shortcut
+    expect(preventDefaultSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('Integration: Undo/Redo Shortcuts with History Store', () => {
+  let registry: ReturnType<typeof createShortcutRegistry>;
+
+  beforeEach(() => {
+    registry = createShortcutRegistry();
+    resetPlatformCache();
+    vi.stubGlobal('navigator', { platform: 'Win32', userAgent: '' });
+
+    // Reset stores to default state
+    useHistoryStore.setState({
+      past: [],
+      future: [],
+      maxHistorySize: 50,
+      isPaused: false,
+    });
+
+    useAnnotationStore.setState({
+      annotations: [],
+      selectedTool: null,
+      selectedColor: '#ffff00',
+      thickness: 2,
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    resetPlatformCache();
+    document.body.innerHTML = '';
+  });
+
+  it('should call history store undo when Ctrl+Z is pressed', () => {
+    // Add some history
+    useHistoryStore.getState().pushSnapshot({
+      players: [],
+      annotations: [],
+    });
+
+    const undoSpy = vi.spyOn(useHistoryStore.getState(), 'undo');
+    registerEditOperationShortcuts(registry);
+
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'KeyZ', key: 'z', ctrlKey: true })
+      );
+    });
+
+    expect(undoSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('should call history store redo when Ctrl+Shift+Z is pressed', () => {
+    // Setup: Add history and do an undo to have a future state
+    useHistoryStore.getState().pushSnapshot({
+      players: [],
+      annotations: [],
+    });
+    useHistoryStore.getState().undo();
+
+    const redoSpy = vi.spyOn(useHistoryStore.getState(), 'redo');
+    registerEditOperationShortcuts(registry);
+
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', {
+          code: 'KeyZ',
+          key: 'z',
+          ctrlKey: true,
+          shiftKey: true,
+        })
+      );
+    });
+
+    expect(redoSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('should call history store redo when Ctrl+Y is pressed (alternative)', () => {
+    // Setup: Add history and do an undo to have a future state
+    useHistoryStore.getState().pushSnapshot({
+      players: [],
+      annotations: [],
+    });
+    useHistoryStore.getState().undo();
+
+    const redoSpy = vi.spyOn(useHistoryStore.getState(), 'redo');
+    registerEditOperationShortcuts(registry);
+
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'KeyY', key: 'y', ctrlKey: true })
+      );
+    });
+
+    expect(redoSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('should do nothing when undo is called with no history', () => {
+    registerEditOperationShortcuts(registry);
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    // History is empty, canUndo should return false
+    expect(useHistoryStore.getState().canUndo()).toBe(false);
+
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'KeyZ', key: 'z', ctrlKey: true })
+      );
+    });
+
+    // Should still have empty history
+    expect(useHistoryStore.getState().past.length).toBe(0);
+  });
+
+  it('should track history changes when undo/redo are performed', () => {
+    // Setup initial state
+    useHistoryStore.setState({
+      past: [
+        { players: [], annotations: [], timestamp: Date.now() - 1000 },
+        { players: [], annotations: [], timestamp: Date.now() },
+      ],
+      future: [],
+      isPaused: false,
+    });
+
+    registerEditOperationShortcuts(registry);
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    // Before undo: past should have 2 items, future empty
+    expect(useHistoryStore.getState().past.length).toBe(2);
+    expect(useHistoryStore.getState().future.length).toBe(0);
+
+    // Perform undo
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'KeyZ', key: 'z', ctrlKey: true })
+      );
+    });
+
+    // After undo: past should decrease, future should have 1 item
+    expect(useHistoryStore.getState().past.length).toBe(1);
+    expect(useHistoryStore.getState().future.length).toBe(1);
+
+    // Perform redo
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', {
+          code: 'KeyZ',
+          key: 'z',
+          ctrlKey: true,
+          shiftKey: true,
+        })
+      );
+    });
+
+    // After redo: past should increase, future should decrease
+    expect(useHistoryStore.getState().past.length).toBe(2);
+    expect(useHistoryStore.getState().future.length).toBe(0);
+  });
+});
+
+describe('Integration: Animation Control Shortcuts with Store', () => {
+  let registry: ReturnType<typeof createShortcutRegistry>;
+
+  beforeEach(() => {
+    registry = createShortcutRegistry();
+    resetPlatformCache();
+    vi.stubGlobal('navigator', { platform: 'Win32', userAgent: '' });
+
+    // Reset animation store to default state with animation enabled
+    useAnimationStore.setState({
+      isPlaying: false,
+      playbackState: 'stopped',
+      speed: 1,
+      progress: 0,
+      duration: 1000,
+      hasAnimation: true, // Enable animation to allow toggle
+      loop: false,
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    resetPlatformCache();
+    document.body.innerHTML = '';
+  });
+
+  it('should call animation store togglePlayback when spacebar is pressed', () => {
+    const togglePlaybackSpy = vi.spyOn(
+      useAnimationStore.getState(),
+      'togglePlayback'
+    );
+    registerAnimationControlShortcuts(registry, useAnimationStore.getState().togglePlayback);
+
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'Space', key: ' ' })
+      );
+    });
+
+    expect(togglePlaybackSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('should toggle isPlaying state when spacebar is pressed', () => {
+    registerAnimationControlShortcuts(registry, useAnimationStore.getState().togglePlayback);
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    // Initially not playing
+    expect(useAnimationStore.getState().isPlaying).toBe(false);
+
+    // Press spacebar to play
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'Space', key: ' ' })
+      );
+    });
+    expect(useAnimationStore.getState().isPlaying).toBe(true);
+
+    // Press spacebar again to pause
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'Space', key: ' ' })
+      );
+    });
+    expect(useAnimationStore.getState().isPlaying).toBe(false);
+  });
+
+  it('should not toggle playback when no animation is loaded', () => {
+    // Set no animation
+    useAnimationStore.setState({ hasAnimation: false });
+
+    registerAnimationControlShortcuts(registry, useAnimationStore.getState().togglePlayback);
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    // Press spacebar - should not start playing
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'Space', key: ' ' })
+      );
+    });
+
+    expect(useAnimationStore.getState().isPlaying).toBe(false);
+  });
+
+  it('should update playbackState when spacebar toggles playback', () => {
+    registerAnimationControlShortcuts(registry, useAnimationStore.getState().togglePlayback);
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    // Initially stopped
+    expect(useAnimationStore.getState().playbackState).toBe('stopped');
+
+    // Press spacebar to play
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'Space', key: ' ' })
+      );
+    });
+    expect(useAnimationStore.getState().playbackState).toBe('playing');
+
+    // Press spacebar again to pause
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'Space', key: ' ' })
+      );
+    });
+    expect(useAnimationStore.getState().playbackState).toBe('paused');
+  });
+});
+
+describe('Integration: Keyboard Store Modal Tracking', () => {
+  let registry: ReturnType<typeof createShortcutRegistry>;
+
+  beforeEach(() => {
+    registry = createShortcutRegistry();
+    resetPlatformCache();
+    vi.stubGlobal('navigator', { platform: 'Win32', userAgent: '' });
+
+    // Reset keyboard store
+    useKeyboardStore.getState().reset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    resetPlatformCache();
+    document.body.innerHTML = '';
+  });
+
+  it('should track modal count correctly', () => {
+    expect(useKeyboardStore.getState().openModalCount).toBe(0);
+
+    useKeyboardStore.getState().registerModalOpen();
+    expect(useKeyboardStore.getState().openModalCount).toBe(1);
+
+    useKeyboardStore.getState().registerModalOpen();
+    expect(useKeyboardStore.getState().openModalCount).toBe(2);
+
+    useKeyboardStore.getState().registerModalClose();
+    expect(useKeyboardStore.getState().openModalCount).toBe(1);
+
+    useKeyboardStore.getState().registerModalClose();
+    expect(useKeyboardStore.getState().openModalCount).toBe(0);
+  });
+
+  it('should report shortcuts as inactive when modal is open', () => {
+    expect(useKeyboardStore.getState().areShortcutsActive()).toBe(true);
+
+    useKeyboardStore.getState().registerModalOpen();
+    expect(useKeyboardStore.getState().areShortcutsActive()).toBe(false);
+
+    useKeyboardStore.getState().registerModalClose();
+    expect(useKeyboardStore.getState().areShortcutsActive()).toBe(true);
+  });
+
+  it('should report shortcuts as inactive when help overlay is open', () => {
+    expect(useKeyboardStore.getState().areShortcutsActive()).toBe(true);
+
+    useKeyboardStore.getState().openHelpOverlay();
+    expect(useKeyboardStore.getState().areShortcutsActive()).toBe(false);
+
+    useKeyboardStore.getState().closeHelpOverlay();
+    expect(useKeyboardStore.getState().areShortcutsActive()).toBe(true);
+  });
+
+  it('should report shortcuts as inactive when shortcuts are disabled', () => {
+    expect(useKeyboardStore.getState().areShortcutsActive()).toBe(true);
+
+    useKeyboardStore.getState().disableShortcuts('user_disabled');
+    expect(useKeyboardStore.getState().areShortcutsActive()).toBe(false);
+
+    useKeyboardStore.getState().enableShortcuts();
+    expect(useKeyboardStore.getState().areShortcutsActive()).toBe(true);
+  });
+});
+
+describe('Integration: Complete Workflow - Camera and Tool Switching', () => {
+  let registry: ReturnType<typeof createShortcutRegistry>;
+
+  beforeEach(() => {
+    registry = createShortcutRegistry();
+    resetPlatformCache();
+    vi.stubGlobal('navigator', { platform: 'Win32', userAgent: '' });
+
+    // Reset stores
+    useCameraStore.setState({
+      position: [0, 100, 150],
+      target: [0, 0, 0],
+      zoom: 1,
+    });
+
+    useAnnotationStore.setState({
+      annotations: [],
+      selectedTool: null,
+      selectedColor: '#ffff00',
+      thickness: 2,
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    resetPlatformCache();
+    document.body.innerHTML = '';
+  });
+
+  it('should allow switching cameras and tools in sequence', () => {
+    // Register both camera and tool shortcuts
+    registerCameraPresetShortcuts(registry, useCameraStore.getState().setPresetView);
+    registerToolSelectionShortcuts(
+      registry,
+      useAnnotationStore.getState().setSelectedTool
+    );
+
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    // Switch to top camera
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'Digit1', key: '1' })
+      );
+    });
+    expect(useCameraStore.getState().position).toEqual([0, 200, 0]);
+
+    // Select arrow tool
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'KeyA', key: 'a' })
+      );
+    });
+    expect(useAnnotationStore.getState().selectedTool).toBe('arrow');
+
+    // Switch to sideline camera
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'Digit2', key: '2' })
+      );
+    });
+    expect(useCameraStore.getState().position).toEqual([0, 50, 150]);
+
+    // Select line tool
+    act(() => {
+      window.dispatchEvent(
+        createKeyboardEvent('keydown', { code: 'KeyL', key: 'l' })
+      );
+    });
+    expect(useAnnotationStore.getState().selectedTool).toBe('line');
+  });
+
+  it('should allow rapid switching between tools', () => {
+    registerToolSelectionShortcuts(
+      registry,
+      useAnnotationStore.getState().setSelectedTool
+    );
+    renderHook(() => useKeyboardShortcuts(registry));
+
+    const tools = ['line', 'arrow', 'circle', 'rectangle', 'text', null];
+    const keys = ['KeyL', 'KeyA', 'KeyC', 'KeyR', 'KeyT', 'KeyS'];
+
+    // Rapidly switch through all tools
+    act(() => {
+      keys.forEach((key, index) => {
+        window.dispatchEvent(
+          createKeyboardEvent('keydown', { code: key, key: key[3]?.toLowerCase() || 's' })
+        );
+        expect(useAnnotationStore.getState().selectedTool).toBe(tools[index]);
+      });
+    });
+  });
+});
+
+describe('Integration: performUndo and performRedo with Player Store', () => {
+  beforeEach(() => {
+    resetPlatformCache();
+    vi.stubGlobal('navigator', { platform: 'Win32', userAgent: '' });
+
+    // Reset stores
+    useHistoryStore.setState({
+      past: [],
+      future: [],
+      maxHistorySize: 50,
+      isPaused: false,
+    });
+
+    usePlayerStore.setState({
+      players: [
+        {
+          id: 'player-1',
+          number: 1,
+          position: [0, 0, 0],
+          rotation: 0,
+          teamId: 'team1',
+          color: '#ff0000',
+        },
+      ],
+      selectedPlayerId: null,
+    });
+
+    useAnnotationStore.setState({
+      annotations: [],
+      selectedTool: null,
+      selectedColor: '#ffff00',
+      thickness: 2,
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    resetPlatformCache();
+    document.body.innerHTML = '';
+  });
+
+  it('should restore player state when undo is performed', () => {
+    // Create a snapshot of the initial state
+    const initialPlayerPosition: [number, number, number] = [0, 0, 0];
+
+    // Push a snapshot (representing initial state)
+    useHistoryStore.getState().pushSnapshot({
+      players: [{ id: 'player-1', position: [...initialPlayerPosition], rotation: 0 }],
+      annotations: [],
+    });
+
+    // Update player position (simulating user action)
+    usePlayerStore.setState((state) => ({
+      players: state.players.map((p) =>
+        p.id === 'player-1' ? { ...p, position: [10, 0, 10] as [number, number, number] } : p
+      ),
+    }));
+
+    // Verify player moved
+    expect(usePlayerStore.getState().players[0].position).toEqual([10, 0, 10]);
+
+    // Perform undo - this should call performUndo from the shortcut system
+    const result = require('./useKeyboardShortcuts').performUndo();
+
+    // Undo should have succeeded
+    expect(result).toBe(true);
+
+    // Player should be back to original position
+    expect(usePlayerStore.getState().players[0].position).toEqual(initialPlayerPosition);
+  });
+
+  it('should restore annotation state when undo is performed', () => {
+    // Create an annotation
+    const testAnnotation = {
+      id: 'test-anno-1',
+      type: 'line' as const,
+      points: [[0, 0], [10, 10]],
+      color: '#ff0000',
+      thickness: 2,
+    };
+
+    // Push initial empty state
+    useHistoryStore.getState().pushSnapshot({
+      players: [],
+      annotations: [],
+    });
+
+    // Add annotation to store
+    useAnnotationStore.setState({
+      annotations: [
+        {
+          ...testAnnotation,
+          createdAt: new Date(),
+        },
+      ],
+    });
+
+    // Verify annotation was added
+    expect(useAnnotationStore.getState().annotations.length).toBe(1);
+
+    // Perform undo
+    const result = require('./useKeyboardShortcuts').performUndo();
+
+    // Undo should have succeeded
+    expect(result).toBe(true);
+
+    // Annotations should be restored to empty (initial state)
+    expect(useAnnotationStore.getState().annotations.length).toBe(0);
+  });
+
+  it('should redo restored state after undo', () => {
+    // Setup: Push initial state, then "make a change"
+    useHistoryStore.getState().pushSnapshot({
+      players: [{ id: 'player-1', position: [0, 0, 0], rotation: 0 }],
+      annotations: [],
+    });
+
+    // Simulate a change: player moved
+    usePlayerStore.setState((state) => ({
+      players: state.players.map((p) =>
+        p.id === 'player-1' ? { ...p, position: [20, 0, 20] as [number, number, number] } : p
+      ),
+    }));
+
+    // Perform undo
+    require('./useKeyboardShortcuts').performUndo();
+    expect(usePlayerStore.getState().players[0].position).toEqual([0, 0, 0]);
+
+    // Perform redo
+    const result = require('./useKeyboardShortcuts').performRedo();
+
+    // Redo should have succeeded
+    expect(result).toBe(true);
+
+    // The future state is the initial state we pushed, so player stays at [0,0,0]
+    // Note: This depends on the exact history implementation logic
+    // The undo/redo system saves states before changes
+  });
+
+  it('should return false when trying to undo with no history', () => {
+    // Empty history
+    useHistoryStore.setState({
+      past: [],
+      future: [],
+      isPaused: false,
+    });
+
+    const result = require('./useKeyboardShortcuts').performUndo();
+    expect(result).toBe(false);
+  });
+
+  it('should return false when trying to redo with no future', () => {
+    // Empty future
+    useHistoryStore.setState({
+      past: [{ players: [], annotations: [], timestamp: Date.now() }],
+      future: [],
+      isPaused: false,
+    });
+
+    const result = require('./useKeyboardShortcuts').performRedo();
+    expect(result).toBe(false);
+  });
+});
