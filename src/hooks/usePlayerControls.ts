@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react';
 import { useThree } from '@react-three/fiber';
-import { Vector3, Raycaster, Plane } from 'three';
+import { Vector3, Plane } from 'three';
 import { usePlayerStore } from '../store/playerStore';
 import { snapToField } from '../utils/fieldGeometry';
 
 export function usePlayerControls() {
-  const { camera, raycaster, gl } = useThree();
+  const { camera, raycaster } = useThree();
   const { selectedPlayerId, updatePlayerPosition, selectPlayer } = usePlayerStore();
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<Vector3 | null>(null);

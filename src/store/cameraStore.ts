@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import * as THREE from 'three';
 
 interface CameraState {
   position: [number, number, number];

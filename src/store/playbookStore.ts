@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import Dexie, { Table } from 'dexie';
+import Dexie, { Table, IndexableType } from 'dexie';
 import { Player } from '../models/PlayerModel';
 
 interface Playbook {
@@ -31,12 +31,12 @@ interface PlaybookState {
   playbooks: Playbook[];
   currentPlaybook: Playbook | null;
   isLoading: boolean;
-  
+
   // Actions
   loadPlaybooks: () => Promise<void>;
-  savePlaybook: (playbook: Omit<Playbook, 'id' | 'createdAt'>) => Promise<number>;
+  savePlaybook: (playbook: Omit<Playbook, 'id' | 'createdAt'>) => Promise<IndexableType>;
   deletePlaybook: (id: number) => Promise<void>;
-  loadPlaybook: (id: number) => Promise<void>;
+  loadPlaybook: (id: number) => Promise<Playbook | undefined>;
   clearCurrentPlaybook: () => void;
 }
 
@@ -90,6 +90,7 @@ export const usePlaybookStore = create<PlaybookState>((set) => ({
       if (playbook) {
         set({ currentPlaybook: playbook });
       }
+      return playbook;
     } catch (error) {
       console.error('Error loading playbook:', error);
       throw error;

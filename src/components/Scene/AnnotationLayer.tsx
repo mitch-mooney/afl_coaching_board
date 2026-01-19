@@ -1,9 +1,11 @@
+import { Line } from '@react-three/drei';
+import { Vector3 } from 'three';
 import { useAnnotationStore } from '../../store/annotationStore';
 import { Annotation } from '../../store/annotationStore';
 
 export function AnnotationLayer() {
   const annotations = useAnnotationStore((state) => state.annotations);
-  
+
   return (
     <group>
       {annotations.map((annotation) => (
@@ -15,11 +17,12 @@ export function AnnotationLayer() {
 
 function AnnotationRenderer({ annotation }: { annotation: Annotation }) {
   if (annotation.points.length < 2) return null;
-  
+
   switch (annotation.type) {
     case 'line':
-    case 'arrow':
       return <LineAnnotation annotation={annotation} />;
+    case 'arrow':
+      return <ArrowAnnotation annotation={annotation} />;
     case 'circle':
       return <CircleAnnotation annotation={annotation} />;
     case 'rectangle':
@@ -32,20 +35,51 @@ function AnnotationRenderer({ annotation }: { annotation: Annotation }) {
 }
 
 function LineAnnotation({ annotation }: { annotation: Annotation }) {
-  const points = annotation.points.map((p) => new Float32Array(p));
-  
+  // Raise the line slightly above the field to prevent z-fighting
+  const points = annotation.points.map(
+    (p) => new Vector3(p[0], 0.15, p[2])
+  );
+
   return (
-    <line>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={points.length}
-          array={new Float32Array(points.flat())}
-          itemSize={3}
-        />
-      </bufferGeometry>
-      <lineBasicMaterial color={annotation.color} linewidth={annotation.thickness || 2} />
-    </line>
+    <Line
+      points={points}
+      color={annotation.color}
+      lineWidth={annotation.thickness || 3}
+    />
+  );
+}
+
+function ArrowAnnotation({ annotation }: { annotation: Annotation }) {
+  const [start, end] = annotation.points;
+  const startVec = new Vector3(start[0], 0.15, start[2]);
+  const endVec = new Vector3(end[0], 0.15, end[2]);
+
+  // Calculate arrow head points
+  const direction = endVec.clone().sub(startVec).normalize();
+  const arrowLength = 2;
+  const arrowWidth = 1;
+
+  // Perpendicular vector for arrow head
+  const perpendicular = new Vector3(-direction.z, 0, direction.x);
+
+  const arrowBase = endVec.clone().sub(direction.clone().multiplyScalar(arrowLength));
+  const arrowLeft = arrowBase.clone().add(perpendicular.clone().multiplyScalar(arrowWidth));
+  const arrowRight = arrowBase.clone().sub(perpendicular.clone().multiplyScalar(arrowWidth));
+
+  return (
+    <group>
+      <Line
+        points={[startVec, endVec]}
+        color={annotation.color}
+        lineWidth={annotation.thickness || 3}
+      />
+      {/* Arrow head */}
+      <Line
+        points={[arrowLeft, endVec, arrowRight]}
+        color={annotation.color}
+        lineWidth={annotation.thickness || 3}
+      />
+    </group>
   );
 }
 
@@ -56,34 +90,54 @@ function CircleAnnotation({ annotation }: { annotation: Annotation }) {
     Math.pow(annotation.points[1][0] - center[0], 2) +
     Math.pow(annotation.points[1][2] - center[2], 2)
   );
-  
+
+  // Generate circle points
+  const segments = 32;
+  const circlePoints: Vector3[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const angle = (i / segments) * Math.PI * 2;
+    circlePoints.push(
+      new Vector3(
+        center[0] + Math.cos(angle) * radius,
+        0.15,
+        center[2] + Math.sin(angle) * radius
+      )
+    );
+  }
+
   return (
-    <mesh position={[center[0], 0.02, center[2]]} rotation={[-Math.PI / 2, 0, 0]}>
-      <ringGeometry args={[radius - 0.1, radius, 32]} />
-      <meshStandardMaterial color={annotation.color} />
-    </mesh>
+    <Line
+      points={circlePoints}
+      color={annotation.color}
+      lineWidth={annotation.thickness || 3}
+    />
   );
 }
 
 function RectangleAnnotation({ annotation }: { annotation: Annotation }) {
   if (annotation.points.length < 2) return null;
   const [p1, p2] = annotation.points;
-  const width = Math.abs(p2[0] - p1[0]);
-  const height = Math.abs(p2[2] - p1[2]);
-  const centerX = (p1[0] + p2[0]) / 2;
-  const centerZ = (p1[2] + p2[2]) / 2;
-  
+
+  const corners = [
+    new Vector3(p1[0], 0.15, p1[2]),
+    new Vector3(p2[0], 0.15, p1[2]),
+    new Vector3(p2[0], 0.15, p2[2]),
+    new Vector3(p1[0], 0.15, p2[2]),
+    new Vector3(p1[0], 0.15, p1[2]), // close the rectangle
+  ];
+
   return (
-    <mesh position={[centerX, 0.02, centerZ]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[width, height]} />
-      <meshStandardMaterial color={annotation.color} opacity={0.3} transparent />
-    </mesh>
+    <Line
+      points={corners}
+      color={annotation.color}
+      lineWidth={annotation.thickness || 3}
+    />
   );
 }
 
 function TextAnnotation({ annotation }: { annotation: Annotation }) {
   if (!annotation.text || annotation.points.length < 1) return null;
-  const [x, y, z] = annotation.points[0];
+  const [x, _y, z] = annotation.points[0];
   
   return (
     <mesh position={[x, 1, z]}>

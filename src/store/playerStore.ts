@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Player, createTeamPlayers, DEFAULT_TEAM_COLORS } from '../models/PlayerModel';
+import { getFormationById } from '../data/formations';
 
 export interface PlayerUpdate {
   playerId: string;
@@ -14,6 +15,8 @@ interface PlayerState {
   isUpdating: boolean;
   /** Flag to track if any player is currently being dragged */
   isDragging: boolean;
+  editingPlayerId: string | null;
+  showPlayerNames: boolean;
 
   // Actions
   initializePlayers: () => void;
@@ -28,6 +31,11 @@ interface PlayerState {
   setDragging: (isDragging: boolean) => void;
   /** Check if safe to apply formation (not dragging or updating) */
   canApplyFormation: () => boolean;
+  setPlayerName: (playerId: string, name: string) => void;
+  togglePlayerNames: () => void;
+  importRoster: (names: string[], teamId?: 'team1' | 'team2') => void;
+  startEditingPlayerName: (playerId: string) => void;
+  stopEditingPlayerName: () => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -35,31 +43,63 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   selectedPlayerId: null,
   isUpdating: false,
   isDragging: false,
+  editingPlayerId: null,
+  showPlayerNames: false,
 
   initializePlayers: () => {
     const team1Players = createTeamPlayers('team1', DEFAULT_TEAM_COLORS.team1);
     const team2Players = createTeamPlayers('team2', DEFAULT_TEAM_COLORS.team2);
-    
-    // Position players in initial formation (spread across field)
-    const positionedTeam1 = team1Players.map((player, index) => ({
-      ...player,
-      position: [
-        -30 + (index % 6) * 10,
-        0,
-        -40 + Math.floor(index / 6) * 20,
-      ] as [number, number, number],
-    }));
-    
-    const positionedTeam2 = team2Players.map((player, index) => ({
-      ...player,
-      position: [
-        30 - (index % 6) * 10,
-        0,
-        -40 + Math.floor(index / 6) * 20,
-      ] as [number, number, number],
-    }));
-    
-    set({ players: [...positionedTeam1, ...positionedTeam2] });
+
+    // Apply Centre Bounce formation by default
+    const centreBounce = getFormationById('centre-bounce');
+
+    if (centreBounce) {
+      // Position players using the Centre Bounce formation
+      const positionedTeam1 = team1Players.map((player, index) => {
+        const formationPos = centreBounce.positions.find(
+          (p) => p.teamId === 'team1' && p.playerNumber === index + 1
+        );
+        return {
+          ...player,
+          position: formationPos?.position ?? [0, 0, 0] as [number, number, number],
+          rotation: formationPos?.rotation ?? 0,
+        };
+      });
+
+      const positionedTeam2 = team2Players.map((player, index) => {
+        const formationPos = centreBounce.positions.find(
+          (p) => p.teamId === 'team2' && p.playerNumber === index + 1
+        );
+        return {
+          ...player,
+          position: formationPos?.position ?? [0, 0, 0] as [number, number, number],
+          rotation: formationPos?.rotation ?? 0,
+        };
+      });
+
+      set({ players: [...positionedTeam1, ...positionedTeam2] });
+    } else {
+      // Fallback to grid layout if Centre Bounce not found
+      const positionedTeam1 = team1Players.map((player, index) => ({
+        ...player,
+        position: [
+          -30 + (index % 6) * 10,
+          0,
+          -40 + Math.floor(index / 6) * 20,
+        ] as [number, number, number],
+      }));
+
+      const positionedTeam2 = team2Players.map((player, index) => ({
+        ...player,
+        position: [
+          30 - (index % 6) * 10,
+          0,
+          -40 + Math.floor(index / 6) * 20,
+        ] as [number, number, number],
+      }));
+
+      set({ players: [...positionedTeam1, ...positionedTeam2] });
+    }
   },
   
   updatePlayerPosition: (playerId, position) => {
@@ -134,5 +174,54 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const state = get();
     // Prevent formation application if currently updating or dragging
     return !state.isUpdating && !state.isDragging;
+  },
+
+  setPlayerName: (playerId, name) => {
+    set((state) => ({
+      players: state.players.map((player) =>
+        player.id === playerId ? { ...player, playerName: name || undefined } : player
+      ),
+    }));
+  },
+
+  togglePlayerNames: () => {
+    set((state) => ({ showPlayerNames: !state.showPlayerNames }));
+  },
+
+  importRoster: (names, teamId) => {
+    set((state) => {
+      // Get players to assign names to (filter by team if specified)
+      const targetPlayers = teamId
+        ? state.players.filter((p) => p.teamId === teamId)
+        : state.players;
+
+      // Create a map of player IDs to their new names
+      const playerIdToName = new Map<string, string | undefined>();
+      targetPlayers.forEach((player, index) => {
+        if (index < names.length) {
+          const name = names[index].trim();
+          // Store undefined for empty names (same behavior as setPlayerName)
+          playerIdToName.set(player.id, name || undefined);
+        }
+      });
+
+      // Update players with new names
+      return {
+        players: state.players.map((player) => {
+          if (playerIdToName.has(player.id)) {
+            return { ...player, playerName: playerIdToName.get(player.id) };
+          }
+          return player;
+        }),
+      };
+    });
+  },
+
+  startEditingPlayerName: (playerId) => {
+    set({ editingPlayerId: playerId, selectedPlayerId: playerId });
+  },
+
+  stopEditingPlayerName: () => {
+    set({ editingPlayerId: null });
   },
 }));

@@ -114,9 +114,9 @@ export function FormationSelector() {
     try {
       setIsSaving(true);
 
-      // Ensure we have all 36 players
-      if (players.length !== 36) {
-        alert(`Cannot save formation: expected 36 players, found ${players.length}`);
+      // Ensure we have all 44 players (22 per team: 18 on-field + 4 interchange)
+      if (players.length !== 44) {
+        alert(`Cannot save formation: expected 44 players (22 per team), found ${players.length}`);
         return;
       }
 
@@ -185,14 +185,14 @@ export function FormationSelector() {
 
       setIsApplying(true);
 
-      // Validate formation has required 36 positions
+      // Validate formation has required 44 positions (22 per team)
       if (!validateFormation(formation)) {
-        throw new Error(`Invalid formation: expected 36 positions (18 per team), got ${formation.positions.length}`);
+        throw new Error(`Invalid formation: expected 44 positions (22 per team: 18 on-field + 4 interchange), got ${formation.positions.length}`);
       }
 
-      // Check if we have all 36 players initialized
-      if (players.length < 36) {
-        throw new Error(`Not enough players: found ${players.length}, formation requires 36 players (18 per team)`);
+      // Check if we have all 44 players initialized
+      if (players.length < 44) {
+        throw new Error(`Not enough players: found ${players.length}, formation requires 44 players (22 per team)`);
       }
 
       // Convert formation positions to player updates
@@ -214,11 +214,6 @@ export function FormationSelector() {
     }
   }, [players.length, canApplyFormation, convertFormationToUpdates, updateMultiplePlayers, setCurrentFormation]);
 
-  // Combine pre-built and custom formations for display
-  const allFormations: Formation[] = [
-    ...PRE_BUILT_FORMATIONS,
-    ...customFormations,
-  ];
 
   return (
     <>

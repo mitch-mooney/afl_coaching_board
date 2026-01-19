@@ -3,8 +3,11 @@
  *
  * Field dimensions: 165m (length/x) x 135m (width/z)
  * Center: (0, 0, 0)
- * Team 1 defends at z = -67.5 (goal at negative z)
- * Team 2 defends at z = +67.5 (goal at positive z)
+ * Team 1 defends at x = -82.5 (goal at negative x)
+ * Team 2 defends at x = +82.5 (goal at positive x)
+ *
+ * NOTE: Field has been rotated 90 degrees from original orientation.
+ * X-axis is now goal-to-goal, Z-axis is now wing-to-wing.
  *
  * Standard AFL positions:
  * - Full Back (FB), Back Pocket (BP)
@@ -18,6 +21,7 @@ import { Formation, PlayerPosition } from '../types/Formation';
 
 /**
  * Helper to create player positions for a team
+ * Applies 90-degree rotation to match field orientation (x=goal-to-goal, z=wing-to-wing)
  */
 function createTeamPositions(
   teamId: 'team1' | 'team2',
@@ -26,21 +30,23 @@ function createTeamPositions(
   return positions.map((pos, index) => ({
     playerNumber: index + 1,
     teamId,
-    position: [pos.x, 0, pos.z] as [number, number, number],
+    // Rotate 90 degrees: new_x = old_z, new_z = old_x
+    position: [pos.z, 0, pos.x] as [number, number, number],
     rotation: pos.rotation ?? 0,
     role: pos.role,
   }));
 }
 
 /**
- * Mirror positions for opposing team (flip z-axis)
+ * Mirror positions for opposing team (flip z-axis in original orientation)
+ * After rotation, this will flip the x-axis (goal-to-goal)
  */
 function mirrorTeamPositions(
   sourcePositions: Array<{ x: number; z: number; role: string; rotation?: number }>
 ): Array<{ x: number; z: number; role: string; rotation?: number }> {
   return sourcePositions.map(pos => ({
     ...pos,
-    z: -pos.z,
+    z: -pos.z,  // In original coords (will become x after rotation)
     rotation: pos.rotation ? pos.rotation + Math.PI : Math.PI,
   }));
 }
@@ -70,6 +76,12 @@ const STANDARD_TEAM1_POSITIONS = [
   { x: 0, z: 60, role: 'FF', rotation: Math.PI },      // Full Forward
   { x: -25, z: 55, role: 'FP', rotation: Math.PI },    // Forward Pocket Left
   { x: 25, z: 55, role: 'FP', rotation: Math.PI },     // Forward Pocket Right
+
+  // Interchange (off the field - positioned on team bench area with offset for visibility)
+  { x: -60, z: -75, role: 'INT', rotation: 0 },        // Interchange 1
+  { x: -50, z: -75.25, role: 'INT', rotation: 0 },     // Interchange 2
+  { x: -40, z: -75.5, role: 'INT', rotation: 0 },      // Interchange 3
+  { x: -30, z: -75.75, role: 'INT', rotation: 0 },     // Interchange 4
 ];
 
 /**
@@ -117,6 +129,12 @@ const ZONE_DEFENSE_TEAM1_POSITIONS = [
   { x: 0, z: 55, role: 'FF', rotation: Math.PI },
   { x: -20, z: 50, role: 'FP', rotation: Math.PI },
   { x: 20, z: 50, role: 'FP', rotation: Math.PI },
+
+  // Interchange (off the field - positioned on team bench area with offset for visibility)
+  { x: -60, z: -75, role: 'INT', rotation: 0 },        // Interchange 1
+  { x: -50, z: -75.25, role: 'INT', rotation: 0 },     // Interchange 2
+  { x: -40, z: -75.5, role: 'INT', rotation: 0 },      // Interchange 3
+  { x: -30, z: -75.75, role: 'INT', rotation: 0 },     // Interchange 4
 ];
 
 const ZONE_DEFENSE: Formation = {
@@ -159,6 +177,12 @@ const PRESS_TEAM1_POSITIONS = [
   { x: 0, z: 62, role: 'FF', rotation: Math.PI },
   { x: -18, z: 58, role: 'FP', rotation: Math.PI },
   { x: 18, z: 58, role: 'FP', rotation: Math.PI },
+
+  // Interchange (off the field - positioned on team bench area with offset for visibility)
+  { x: -60, z: -75, role: 'INT', rotation: 0 },        // Interchange 1
+  { x: -50, z: -75.25, role: 'INT', rotation: 0 },     // Interchange 2
+  { x: -40, z: -75.5, role: 'INT', rotation: 0 },      // Interchange 3
+  { x: -30, z: -75.75, role: 'INT', rotation: 0 },     // Interchange 4
 ];
 
 const PRESS: Formation = {
@@ -201,6 +225,12 @@ const SPREAD_TEAM1_POSITIONS = [
   { x: 0, z: 58, role: 'FF', rotation: Math.PI },
   { x: -35, z: 55, role: 'FP', rotation: Math.PI },
   { x: 35, z: 55, role: 'FP', rotation: Math.PI },
+
+  // Interchange (off the field - positioned on team bench area with offset for visibility)
+  { x: -60, z: -75, role: 'INT', rotation: 0 },        // Interchange 1
+  { x: -50, z: -75.25, role: 'INT', rotation: 0 },     // Interchange 2
+  { x: -40, z: -75.5, role: 'INT', rotation: 0 },      // Interchange 3
+  { x: -30, z: -75.75, role: 'INT', rotation: 0 },     // Interchange 4
 ];
 
 const SPREAD: Formation = {
@@ -243,6 +273,12 @@ const FLOOD_TEAM1_POSITIONS = [
   { x: 0, z: 45, role: 'FF', rotation: Math.PI },
   { x: -20, z: 40, role: 'FP', rotation: Math.PI },
   { x: 20, z: 40, role: 'FP', rotation: Math.PI },
+
+  // Interchange (off the field - positioned on team bench area with offset for visibility)
+  { x: -60, z: -75, role: 'INT', rotation: 0 },        // Interchange 1
+  { x: -50, z: -75.25, role: 'INT', rotation: 0 },     // Interchange 2
+  { x: -40, z: -75.5, role: 'INT', rotation: 0 },      // Interchange 3
+  { x: -30, z: -75.75, role: 'INT', rotation: 0 },     // Interchange 4
 ];
 
 const FLOOD: Formation = {
@@ -285,6 +321,12 @@ const MAN_ON_MAN_TEAM1_POSITIONS = [
   { x: 0, z: 55, role: 'FF', rotation: Math.PI },
   { x: -22, z: 50, role: 'FP', rotation: Math.PI },
   { x: 22, z: 50, role: 'FP', rotation: Math.PI },
+
+  // Interchange (off the field - positioned on team bench area with offset for visibility)
+  { x: -60, z: -75, role: 'INT', rotation: 0 },        // Interchange 1
+  { x: -50, z: -75.25, role: 'INT', rotation: 0 },     // Interchange 2
+  { x: -40, z: -75.5, role: 'INT', rotation: 0 },      // Interchange 3
+  { x: -30, z: -75.75, role: 'INT', rotation: 0 },     // Interchange 4
 ];
 
 const MAN_ON_MAN: Formation = {
@@ -327,6 +369,12 @@ const CENTRE_BOUNCE_TEAM1_POSITIONS = [
   { x: 0, z: 58, role: 'FF', rotation: Math.PI },
   { x: -25, z: 55, role: 'FP', rotation: Math.PI },
   { x: 25, z: 55, role: 'FP', rotation: Math.PI },
+
+  // Interchange (off the field - positioned on team bench area with offset for visibility)
+  { x: -60, z: -75, role: 'INT', rotation: 0 },        // Interchange 1
+  { x: -50, z: -75.25, role: 'INT', rotation: 0 },     // Interchange 2
+  { x: -40, z: -75.5, role: 'INT', rotation: 0 },      // Interchange 3
+  { x: -30, z: -75.75, role: 'INT', rotation: 0 },     // Interchange 4
 ];
 
 const CENTRE_BOUNCE: Formation = {
@@ -361,17 +409,17 @@ export function getFormationById(id: string): Formation | undefined {
 }
 
 /**
- * Validate that a formation has the required 36 positions
+ * Validate that a formation has the required 44 positions (22 per team: 18 on-field + 4 interchange)
  */
 export function validateFormation(formation: Formation): boolean {
-  if (formation.positions.length !== 36) {
+  if (formation.positions.length !== 44) {
     return false;
   }
 
   const team1Count = formation.positions.filter(p => p.teamId === 'team1').length;
   const team2Count = formation.positions.filter(p => p.teamId === 'team2').length;
 
-  return team1Count === 18 && team2Count === 18;
+  return team1Count === 22 && team2Count === 22;
 }
 
 /**

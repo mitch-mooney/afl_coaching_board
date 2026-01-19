@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import Dexie, { Table } from 'dexie';
+import Dexie, { Table, IndexableType } from 'dexie';
 import { Formation, PlayerPosition, StoredFormation } from '../types/Formation';
 
 /**
@@ -35,7 +35,7 @@ interface FormationState {
     description: string,
     positions: PlayerPosition[],
     thumbnail?: string
-  ) => Promise<number>;
+  ) => Promise<IndexableType>;
   /** Delete a custom formation by its database ID */
   deleteCustomFormation: (id: number) => Promise<void>;
   /** Set the current formation (for tracking which is applied) */

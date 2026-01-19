@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useThree } from '@react-three/fiber';
-import { Raycaster, Vector3, Plane } from 'three';
+import { Vector3, Plane } from 'three';
 import { useAnnotationStore } from '../store/annotationStore';
 import { snapToField } from '../utils/fieldGeometry';
 

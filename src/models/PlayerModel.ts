@@ -5,6 +5,7 @@ export interface Player {
   rotation: number; // Rotation in radians
   color: string;
   number?: number; // Player number
+  playerName?: string; // Player name for display labels
 }
 
 export interface Team {
@@ -19,11 +20,11 @@ export const DEFAULT_TEAM_COLORS = {
   team2: '#cc0000', // Red
 } as const;
 
-// Create initial players for a team
+// Create initial players for a team (18 on-field + 4 interchange = 22 total)
 export function createTeamPlayers(
   teamId: 'team1' | 'team2',
   color: string,
-  count: number = 18
+  count: number = 22
 ): Player[] {
   const players: Player[] = [];
   
