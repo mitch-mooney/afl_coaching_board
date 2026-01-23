@@ -84,6 +84,12 @@ export function PlayerComponent({ player }: PlayerProps) {
   
   const handlePointerDown = (e: any) => {
     e.stopPropagation();
+
+    // Capture pointer for smooth dragging - prevents camera from stealing events
+    if (e.target && e.target.setPointerCapture) {
+      e.target.setPointerCapture(e.pointerId);
+    }
+
     selectPlayer(player.id);
     setIsDragging(true);
     setDragging(true);  // Notify store to disable camera controls
@@ -106,6 +112,16 @@ export function PlayerComponent({ player }: PlayerProps) {
   
   const handlePointerUp = (e: any) => {
     e.stopPropagation();
+
+    // Release pointer capture
+    if (e.target && e.target.releasePointerCapture) {
+      try {
+        e.target.releasePointerCapture(e.pointerId);
+      } catch {
+        // Ignore if pointer was not captured
+      }
+    }
+
     setIsDragging(false);
     setDragging(false);  // Re-enable camera controls
 

@@ -93,15 +93,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       return [pos[0] * teamMultiplier, pos[1], pos[2]];
     };
 
+    // Offset for team1 (blue) to make them visible next to team2 (red)
+    const TEAM1_Z_OFFSET = 0.5;
+
     if (centreBounce && centreBounce.positions.length >= 44) {
       // Position players using the Centre Bounce formation
       const positionedTeam1 = team1Players.map((player, index) => {
         const formationPos = centreBounce.positions.find(
           (p) => p.teamId === 'team1' && p.playerNumber === index + 1
         );
+        const basePos = formationPos?.position ?? getFallbackPosition('team1', index);
+        // Offset blue team by 0.5m in Z direction for visibility
         return {
           ...player,
-          position: formationPos?.position ?? getFallbackPosition('team1', index),
+          position: [basePos[0], basePos[1], basePos[2] + TEAM1_Z_OFFSET] as [number, number, number],
           rotation: formationPos?.rotation ?? 0,
         };
       });
@@ -120,10 +125,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       set({ players: [...positionedTeam1, ...positionedTeam2] });
     } else {
       // Fallback to spread grid layout if Centre Bounce not found
-      const positionedTeam1 = team1Players.map((player, index) => ({
-        ...player,
-        position: getFallbackPosition('team1', index),
-      }));
+      const positionedTeam1 = team1Players.map((player, index) => {
+        const basePos = getFallbackPosition('team1', index);
+        // Offset blue team by 0.5m in Z direction for visibility
+        return {
+          ...player,
+          position: [basePos[0], basePos[1], basePos[2] + TEAM1_Z_OFFSET] as [number, number, number],
+        };
+      });
 
       const positionedTeam2 = team2Players.map((player, index) => ({
         ...player,
