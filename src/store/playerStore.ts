@@ -53,7 +53,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     // Apply Centre Bounce formation by default
     const centreBounce = getFormationById('centre-bounce');
 
-    if (centreBounce) {
+    // Helper function to get fallback position for a player
+    const getFallbackPosition = (teamId: 'team1' | 'team2', index: number): [number, number, number] => {
+      // Spread 22 players across 4 rows of 6 players (last row has 4)
+      const row = Math.floor(index / 6);
+      const col = index % 6;
+      const xOffset = teamId === 'team1' ? -40 : 40;
+      const xSpread = teamId === 'team1' ? 1 : -1;
+      return [
+        xOffset + (col * 12 * xSpread),
+        0,
+        -45 + (row * 25),
+      ];
+    };
+
+    if (centreBounce && centreBounce.positions.length >= 44) {
       // Position players using the Centre Bounce formation
       const positionedTeam1 = team1Players.map((player, index) => {
         const formationPos = centreBounce.positions.find(
@@ -61,7 +75,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         );
         return {
           ...player,
-          position: formationPos?.position ?? [0, 0, 0] as [number, number, number],
+          position: formationPos?.position ?? getFallbackPosition('team1', index),
           rotation: formationPos?.rotation ?? 0,
         };
       });
@@ -72,30 +86,22 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         );
         return {
           ...player,
-          position: formationPos?.position ?? [0, 0, 0] as [number, number, number],
+          position: formationPos?.position ?? getFallbackPosition('team2', index),
           rotation: formationPos?.rotation ?? 0,
         };
       });
 
       set({ players: [...positionedTeam1, ...positionedTeam2] });
     } else {
-      // Fallback to grid layout if Centre Bounce not found
+      // Fallback to spread grid layout if Centre Bounce not found
       const positionedTeam1 = team1Players.map((player, index) => ({
         ...player,
-        position: [
-          -30 + (index % 6) * 10,
-          0,
-          -40 + Math.floor(index / 6) * 20,
-        ] as [number, number, number],
+        position: getFallbackPosition('team1', index),
       }));
 
       const positionedTeam2 = team2Players.map((player, index) => ({
         ...player,
-        position: [
-          30 - (index % 6) * 10,
-          0,
-          -40 + Math.floor(index / 6) * 20,
-        ] as [number, number, number],
+        position: getFallbackPosition('team2', index),
       }));
 
       set({ players: [...positionedTeam1, ...positionedTeam2] });
