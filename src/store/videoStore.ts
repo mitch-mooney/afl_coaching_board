@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import Dexie, { Table } from 'dexie';
 
 /**
  * Perspective settings for matching 3D field to video camera angle
@@ -31,6 +32,40 @@ export interface VideoMetadata {
   aspectRatio: number;
 }
 
+/**
+ * Persisted video metadata in IndexedDB
+ * Stores video file metadata and calibration settings for session persistence
+ */
+export interface PersistedVideoMetadata {
+  id?: number;
+  fileName: string;
+  fileSize: number;
+  duration: number;
+  width: number;
+  height: number;
+  aspectRatio: number;
+  createdAt: Date;
+  updatedAt: Date;
+  perspectiveSettings: PerspectiveSettings;
+  exportSettings: ExportSettings;
+}
+
+/**
+ * Dexie database class for video metadata persistence
+ */
+class VideoDatabase extends Dexie {
+  videos!: Table<PersistedVideoMetadata>;
+
+  constructor() {
+    super('VideoImportDB');
+    this.version(1).stores({
+      videos: '++id, fileName, createdAt, updatedAt',
+    });
+  }
+}
+
+const videoDb = new VideoDatabase();
+
 interface VideoState {
   // Video source
   videoFile: File | null;
@@ -59,6 +94,11 @@ interface VideoState {
 
   // Export settings
   exportSettings: ExportSettings;
+
+  // Persistence state
+  savedVideos: PersistedVideoMetadata[];
+  currentSavedVideoId: number | null;
+  isPersisting: boolean;
 
   // Actions - Video source
   setVideoFile: (file: File | null) => void;
@@ -102,6 +142,13 @@ interface VideoState {
   // Actions - Export settings
   setExportSettings: (settings: Partial<ExportSettings>) => void;
   resetExportSettings: () => void;
+
+  // Actions - Persistence
+  loadSavedVideos: () => Promise<void>;
+  saveVideoMetadata: () => Promise<number>;
+  updateVideoMetadata: (id: number) => Promise<void>;
+  deleteVideoMetadata: (id: number) => Promise<void>;
+  loadVideoSettings: (id: number) => Promise<void>;
 
   // Actions - Full reset
   resetStore: () => void;
@@ -152,6 +199,11 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   // Initial state - Settings
   perspectiveSettings: { ...DEFAULT_PERSPECTIVE_SETTINGS },
   exportSettings: { ...DEFAULT_EXPORT_SETTINGS },
+
+  // Initial state - Persistence
+  savedVideos: [],
+  currentSavedVideoId: null,
+  isPersisting: false,
 
   // Actions - Video source
   setVideoFile: (file) => {
@@ -317,6 +369,105 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     set({ exportSettings: { ...DEFAULT_EXPORT_SETTINGS } });
   },
 
+  // Actions - Persistence
+  loadSavedVideos: async () => {
+    set({ isPersisting: true });
+    try {
+      const videos = await videoDb.videos.orderBy('updatedAt').reverse().toArray();
+      set({ savedVideos: videos, isPersisting: false });
+    } catch (error) {
+      set({ isPersisting: false });
+      throw error;
+    }
+  },
+
+  saveVideoMetadata: async () => {
+    const { videoMetadata, duration, perspectiveSettings, exportSettings } = get();
+    if (!videoMetadata) {
+      throw new Error('No video metadata to save');
+    }
+
+    set({ isPersisting: true });
+    try {
+      const now = new Date();
+      const record: PersistedVideoMetadata = {
+        fileName: videoMetadata.fileName,
+        fileSize: videoMetadata.fileSize,
+        duration,
+        width: videoMetadata.width,
+        height: videoMetadata.height,
+        aspectRatio: videoMetadata.aspectRatio,
+        createdAt: now,
+        updatedAt: now,
+        perspectiveSettings: { ...perspectiveSettings },
+        exportSettings: { ...exportSettings },
+      };
+      const id = await videoDb.videos.add(record);
+      set({ currentSavedVideoId: id, isPersisting: false });
+      await useVideoStore.getState().loadSavedVideos();
+      return id;
+    } catch (error) {
+      set({ isPersisting: false });
+      throw error;
+    }
+  },
+
+  updateVideoMetadata: async (id) => {
+    const { perspectiveSettings, exportSettings, duration } = get();
+
+    set({ isPersisting: true });
+    try {
+      await videoDb.videos.update(id, {
+        duration,
+        perspectiveSettings: { ...perspectiveSettings },
+        exportSettings: { ...exportSettings },
+        updatedAt: new Date(),
+      });
+      set({ isPersisting: false });
+      await useVideoStore.getState().loadSavedVideos();
+    } catch (error) {
+      set({ isPersisting: false });
+      throw error;
+    }
+  },
+
+  deleteVideoMetadata: async (id) => {
+    set({ isPersisting: true });
+    try {
+      await videoDb.videos.delete(id);
+      const { currentSavedVideoId } = get();
+      if (currentSavedVideoId === id) {
+        set({ currentSavedVideoId: null });
+      }
+      set({ isPersisting: false });
+      await useVideoStore.getState().loadSavedVideos();
+    } catch (error) {
+      set({ isPersisting: false });
+      throw error;
+    }
+  },
+
+  loadVideoSettings: async (id) => {
+    set({ isPersisting: true });
+    try {
+      const video = await videoDb.videos.get(id);
+      if (video) {
+        set({
+          perspectiveSettings: { ...video.perspectiveSettings },
+          exportSettings: { ...video.exportSettings },
+          currentSavedVideoId: id,
+          isPersisting: false,
+        });
+      } else {
+        set({ isPersisting: false });
+        throw new Error(`Video with id ${id} not found`);
+      }
+    } catch (error) {
+      set({ isPersisting: false });
+      throw error;
+    }
+  },
+
   // Actions - Full reset
   resetStore: () => {
     const { videoElement } = get();
@@ -342,6 +493,10 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       isVideoMode: false,
       perspectiveSettings: { ...DEFAULT_PERSPECTIVE_SETTINGS },
       exportSettings: { ...DEFAULT_EXPORT_SETTINGS },
+      currentSavedVideoId: null,
     });
   },
 }));
+
+// Export the database for direct access if needed
+export { videoDb };
