@@ -3,9 +3,10 @@ import { useCameraStore } from '../../store/cameraStore';
 import { useBallStore } from '../../store/ballStore';
 import { useAnimationStore } from '../../store/animationStore';
 import { usePathStore } from '../../store/pathStore';
+import { useHistoryStore } from '../../store/historyStore';
 import { useVideoRecorder } from '../../hooks/useVideoRecorder';
 import { usePlaybook } from '../../hooks/usePlaybook';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FormationSelector } from './FormationSelector';
 
 interface ToolbarProps {
@@ -23,14 +24,16 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const getPlayer = usePlayerStore((state) => state.getPlayer);
   const selectedPlayerId = usePlayerStore((state) => state.selectedPlayerId);
   const players = usePlayerStore((state) => state.players);
+  const updateMultiplePlayers = usePlayerStore((state) => state.updateMultiplePlayers);
   const { setPresetView, resetCamera } = useCameraStore();
   const ball = useBallStore((state) => state.ball);
   const isBallSelected = useBallStore((state) => state.isBallSelected);
   const assignBallToPlayer = useBallStore((state) => state.assignBallToPlayer);
   const { isPlaying, progress, togglePlayback, stop } = useAnimationStore();
-  const { createPath, getPathByEntity, removePath } = usePathStore();
+  const { createPath, getPathByEntity, removePath, clearPaths, paths } = usePathStore();
   const { isRecording, toggleRecording } = useVideoRecorder(canvas);
   const { saveCurrentScenario } = usePlaybook();
+  const { undo, canUndo, pauseRecording, resumeRecording } = useHistoryStore();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [playbookName, setPlaybookName] = useState('');
   const [playbookDescription, setPlaybookDescription] = useState('');
@@ -136,6 +139,24 @@ export function Toolbar({ canvas }: ToolbarProps) {
     toggleRecording();
   };
 
+  // Handle undo - restore previous player positions
+  const handleUndo = useCallback(() => {
+    if (!canUndo()) return;
+
+    pauseRecording(); // Don't record the restoration as a new action
+    const snapshot = undo();
+    if (snapshot) {
+      // Apply player positions from snapshot
+      const updates = snapshot.players.map(p => ({
+        playerId: p.id,
+        position: p.position,
+        rotation: p.rotation,
+      }));
+      updateMultiplePlayers(updates);
+    }
+    resumeRecording();
+  }, [undo, canUndo, pauseRecording, resumeRecording, updateMultiplePlayers]);
+
   const handleImport = () => {
     const names = rosterText
       .split('\n')
@@ -181,6 +202,30 @@ export function Toolbar({ canvas }: ToolbarProps) {
         <div className="w-px bg-gray-300 mx-1" />
 
         {/* Player Controls */}
+        <button
+          onClick={handleUndo}
+          disabled={!canUndo()}
+          className={`px-4 py-2 rounded transition ${
+            canUndo()
+              ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
+          title="Undo last player move (Ctrl+Z)"
+        >
+          Undo
+        </button>
+        <button
+          onClick={clearPaths}
+          disabled={paths.length === 0}
+          className={`px-4 py-2 rounded transition ${
+            paths.length > 0
+              ? 'bg-red-500 text-white hover:bg-red-600'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
+          title="Clear all movement paths"
+        >
+          Clear Paths
+        </button>
         <button
           onClick={resetPlayers}
           className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition"

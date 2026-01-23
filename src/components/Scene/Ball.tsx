@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo } from 'react';
+import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Mesh, Vector3, Plane } from 'three';
 import { Ball } from '../../models/BallModel';
@@ -6,8 +6,13 @@ import { useBallStore } from '../../store/ballStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useAnimationStore } from '../../store/animationStore';
 import { usePathStore } from '../../store/pathStore';
+import { useHistoryStore } from '../../store/historyStore';
 import { snapToField } from '../../utils/fieldGeometry';
 import { getPositionAtProgressWithEasing, easeInOut } from '../../utils/pathAnimation';
+import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
+
+// Minimum distance (in meters) between recorded path points to avoid excessive waypoints
+const MIN_PATH_POINT_DISTANCE = 1.5;
 
 // Ball visual constants for distinct appearance
 const BALL_COLORS = {
@@ -16,6 +21,13 @@ const BALL_COLORS = {
   selected: '#FFD700',     // Gold - distinct selection color
   ring: '#FFD700',         // Gold selection ring
   hoverRing: '#D2691E',    // Subtle hover ring
+  seam: '#FFFFFF',         // White seams
+};
+
+// AFL ball dimensions (ellipsoid shape)
+const AFL_BALL = {
+  length: 0.28,    // Semi-axis along the length (pointy ends)
+  width: 0.18,     // Semi-axis for width/height (rounder middle)
 };
 
 interface BallProps {
@@ -27,20 +39,26 @@ export function BallComponent({ ball }: BallProps) {
   const groupRef = useRef<any>(null);
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const dragStartPos = useRef<[number, number, number] | null>(null);
+  // Track all movement points during drag for curved path recording
+  const movementPoints = useRef<[number, number, number][]>([]);
+  const lastRecordedPos = useRef<[number, number, number] | null>(null);
+  const dragStartTime = useRef<number>(0);
+  // Store pre-drag position for undo
+  const preDragPosition = useRef<[number, number, number] | null>(null);
   const { isBallSelected, selectBall, updateBallPosition } = useBallStore();
   const { getPlayer, setDragging } = usePlayerStore();
   const { isPlaying, progress, speed, setProgress } = useAnimationStore();
-  const { getPathByEntity, createPath, removePath } = usePathStore();
+  const { getPathByEntity, addPath, removePath } = usePathStore();
+  const { pushSnapshot } = useHistoryStore();
   const { camera, raycaster, gl } = useThree();
 
   // Calculate ring sizes based on ball size
   const ringSize = useMemo(() => ({
-    innerHover: ball.size + 0.15,
-    outerHover: ball.size + 0.25,
-    innerSelect: ball.size + 0.1,
-    outerSelect: ball.size + 0.25,
-  }), [ball.size]);
+    innerHover: AFL_BALL.length + 0.15,
+    outerHover: AFL_BALL.length + 0.25,
+    innerSelect: AFL_BALL.length + 0.1,
+    outerSelect: AFL_BALL.length + 0.25,
+  }), []);
 
   // Get the assigned player (if ball is assigned to a player)
   const assignedPlayer = ball.assignedPlayerId ? getPlayer(ball.assignedPlayerId) : undefined;
@@ -55,7 +73,7 @@ export function BallComponent({ ball }: BallProps) {
       if (groupRef.current) {
         groupRef.current.position.set(
           assignedPlayer.position[0],
-          assignedPlayer.position[1] + ball.size + 0.5, // Position above player
+          assignedPlayer.position[1] + AFL_BALL.length + 0.5, // Position above player
           assignedPlayer.position[2]
         );
       }
@@ -93,7 +111,22 @@ export function BallComponent({ ball }: BallProps) {
 
       if (intersection) {
         const [x, z] = snapToField(intersection.x, intersection.z);
-        updateBallPosition([x, ball.size, z]);
+        const newPos: [number, number, number] = [x, AFL_BALL.length, z];
+        updateBallPosition(newPos);
+
+        // Record movement point if moved far enough from last recorded position
+        if (lastRecordedPos.current) {
+          const lastPos = lastRecordedPos.current;
+          const distance = Math.sqrt(
+            Math.pow(newPos[0] - lastPos[0], 2) +
+            Math.pow(newPos[2] - lastPos[2], 2)
+          );
+
+          if (distance >= MIN_PATH_POINT_DISTANCE) {
+            movementPoints.current.push(newPos);
+            lastRecordedPos.current = newPos;
+          }
+        }
       }
     }
   });
@@ -106,14 +139,102 @@ export function BallComponent({ ball }: BallProps) {
   // Get existing path for the ball
   const existingBallPath = getPathByEntity(ball.id, 'ball');
 
+  // Helper to create path from recorded movement points
+  const createPathFromMovement = useCallback(() => {
+    // Add final position if different from last recorded
+    const finalPos = [...ball.position] as [number, number, number];
+    const points = [...movementPoints.current];
+
+    if (points.length > 0) {
+      const lastPoint = points[points.length - 1];
+      const distToFinal = Math.sqrt(
+        Math.pow(finalPos[0] - lastPoint[0], 2) +
+        Math.pow(finalPos[2] - lastPoint[2], 2)
+      );
+      if (distToFinal > 0.1) {
+        points.push(finalPos);
+      }
+    }
+
+    // Only create path if we have at least 2 points and meaningful movement
+    if (points.length >= 2) {
+      const startPos = points[0];
+      const endPos = points[points.length - 1];
+      const totalDistance = Math.sqrt(
+        Math.pow(endPos[0] - startPos[0], 2) +
+        Math.pow(endPos[2] - startPos[2], 2)
+      );
+
+      if (totalDistance > 1) {
+        // Calculate duration based on drag time (minimum 2 seconds)
+        const dragDuration = Math.max(2, (Date.now() - dragStartTime.current) / 1000);
+
+        // Create waypoints with evenly distributed timestamps
+        const waypoints: Waypoint[] = points.map((pos, index) => ({
+          timestamp: (index / (points.length - 1)) * dragDuration,
+          position: pos,
+        }));
+
+        const path = createPathFromWaypoints(ball.id, 'ball', waypoints);
+        addPath(path);
+
+        // Save snapshot for undo (pre-drag state)
+        if (preDragPosition.current) {
+          pushSnapshot({
+            players: [], // Ball undo doesn't need player state
+            annotations: [],
+          });
+        }
+      }
+    }
+
+    // Reset tracking
+    movementPoints.current = [];
+    lastRecordedPos.current = null;
+    preDragPosition.current = null;
+  }, [ball.id, ball.position, addPath, pushSnapshot]);
+
+  // End dragging helper - used by both pointerUp and window events
+  const endDragging = useCallback(() => {
+    if (!isDragging) return;
+
+    setIsDragging(false);
+    setDragging(false);
+    createPathFromMovement();
+  }, [isDragging, setDragging, createPathFromMovement]);
+
+  // Use window-level event listener to reliably end drag even when pointer leaves canvas
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleWindowPointerUp = () => {
+      endDragging();
+    };
+
+    // Listen on window to catch pointer release anywhere
+    window.addEventListener('pointerup', handleWindowPointerUp);
+    window.addEventListener('pointercancel', handleWindowPointerUp);
+
+    return () => {
+      window.removeEventListener('pointerup', handleWindowPointerUp);
+      window.removeEventListener('pointercancel', handleWindowPointerUp);
+    };
+  }, [isDragging, endDragging]);
+
   const handlePointerDown = (e: any) => {
     e.stopPropagation();
     selectBall(true);
     setIsDragging(true);
     setDragging(true);  // Notify store to disable camera controls
 
-    // Store starting position for path recording
-    dragStartPos.current = [...ball.position] as [number, number, number];
+    // Save pre-drag position for undo
+    const startPos = [...ball.position] as [number, number, number];
+    preDragPosition.current = startPos;
+
+    // Initialize movement tracking for path recording
+    movementPoints.current = [startPos];
+    lastRecordedPos.current = startPos;
+    dragStartTime.current = Date.now();
 
     // Remove any existing path for the ball to start fresh
     if (existingBallPath) {
@@ -130,26 +251,8 @@ export function BallComponent({ ball }: BallProps) {
 
   const handlePointerUp = (e: any) => {
     e.stopPropagation();
-    setIsDragging(false);
-    setDragging(false);  // Re-enable camera controls
-
-    // Create path from start to end position if ball moved
-    if (dragStartPos.current) {
-      const startPos = dragStartPos.current;
-      const endPos = ball.position;
-
-      // Only create path if ball actually moved (more than 1 unit)
-      const distance = Math.sqrt(
-        Math.pow(endPos[0] - startPos[0], 2) +
-        Math.pow(endPos[2] - startPos[2], 2)
-      );
-
-      if (distance > 1) {
-        createPath(ball.id, 'ball', startPos, endPos, 2);
-      }
-
-      dragStartPos.current = null;
-    }
+    // Delegate to endDragging which handles everything
+    endDragging();
   };
 
   const handlePointerOver = () => {
@@ -158,25 +261,9 @@ export function BallComponent({ ball }: BallProps) {
   };
 
   const handlePointerOut = () => {
+    // Only update hover state, don't end drag here
+    // Drag is ended by window-level pointerup event for reliability
     setHovered(false);
-    if (isDragging) {
-      setIsDragging(false);
-      setDragging(false);  // Re-enable camera controls
-
-      // Create path from start to end position if ball moved
-      if (dragStartPos.current) {
-        const startPos = dragStartPos.current;
-        const endPos = ball.position;
-        const distance = Math.sqrt(
-          Math.pow(endPos[0] - startPos[0], 2) +
-          Math.pow(endPos[2] - startPos[2], 2)
-        );
-        if (distance > 1) {
-          createPath(ball.id, 'ball', startPos, endPos, 2);
-        }
-        dragStartPos.current = null;
-      }
-    }
     gl.domElement.style.cursor = 'auto';
   };
 
@@ -202,17 +289,41 @@ export function BallComponent({ ball }: BallProps) {
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
     >
-      {/* Ball mesh - sphere shape with higher resolution for smoothness */}
-      <mesh ref={meshRef} castShadow>
-        <sphereGeometry args={[ball.size, 32, 32]} />
-        <meshStandardMaterial
-          color={ballColor}
-          emissive={emissiveColor}
-          emissiveIntensity={emissiveIntensity}
-          roughness={0.5}
-          metalness={0.15}
-        />
-      </mesh>
+      {/* AFL Ball - elongated ellipsoid shape rotated to lay flat */}
+      <group rotation={[0, 0, Math.PI / 2]}>
+        {/* Main ball body - scaled sphere to create ellipsoid */}
+        <mesh ref={meshRef} castShadow scale={[AFL_BALL.length, AFL_BALL.width, AFL_BALL.width]}>
+          <sphereGeometry args={[1, 32, 32]} />
+          <meshStandardMaterial
+            color={ballColor}
+            emissive={emissiveColor}
+            emissiveIntensity={emissiveIntensity}
+            roughness={0.6}
+            metalness={0.1}
+          />
+        </mesh>
+
+        {/* Seam lines - characteristic AFL ball stitching */}
+        {/* Vertical seam (along length) */}
+        <mesh scale={[AFL_BALL.length * 1.01, AFL_BALL.width * 0.02, AFL_BALL.width * 1.01]}>
+          <sphereGeometry args={[1, 16, 16]} />
+          <meshStandardMaterial
+            color={BALL_COLORS.seam}
+            emissive={BALL_COLORS.seam}
+            emissiveIntensity={0.1}
+          />
+        </mesh>
+
+        {/* Horizontal seam (around middle) */}
+        <mesh scale={[AFL_BALL.length * 0.02, AFL_BALL.width * 1.01, AFL_BALL.width * 1.01]}>
+          <sphereGeometry args={[1, 16, 16]} />
+          <meshStandardMaterial
+            color={BALL_COLORS.seam}
+            emissive={BALL_COLORS.seam}
+            emissiveIntensity={0.1}
+          />
+        </mesh>
+      </group>
 
       {/* Hover indicator ring - subtle feedback before selection */}
       {hovered && !isBallSelected && (
