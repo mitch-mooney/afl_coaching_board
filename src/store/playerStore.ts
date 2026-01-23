@@ -54,17 +54,43 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const centreBounce = getFormationById('centre-bounce');
 
     // Helper function to get fallback position for a player
+    // Spreads 22 players across the field in a realistic formation-like pattern
     const getFallbackPosition = (teamId: 'team1' | 'team2', index: number): [number, number, number] => {
-      // Spread 22 players across 4 rows of 6 players (last row has 4)
-      const row = Math.floor(index / 6);
-      const col = index % 6;
-      const xOffset = teamId === 'team1' ? -40 : 40;
-      const xSpread = teamId === 'team1' ? 1 : -1;
-      return [
-        xOffset + (col * 12 * xSpread),
-        0,
-        -45 + (row * 25),
+      // Team1 on negative X side (defending), Team2 on positive X side
+      const teamMultiplier = teamId === 'team1' ? -1 : 1;
+
+      // Define positions for 22 players (18 on-field + 4 interchange)
+      const positions: [number, number, number][] = [
+        // Defence line (6 players)
+        [55, 0, 0],    // Full Back
+        [50, 0, -25],  // Back Pocket Left
+        [50, 0, 25],   // Back Pocket Right
+        [40, 0, 0],    // Centre Half Back
+        [40, 0, -35],  // Half Back Flank Left
+        [40, 0, 35],   // Half Back Flank Right
+        // Midfield (6 players)
+        [0, 0, -50],   // Wing Left
+        [0, 0, 50],    // Wing Right
+        [10, 0, 0],    // Centre
+        [5, 0, 0],     // Ruckman
+        [10, 0, -15],  // Ruck Rover
+        [10, 0, 15],   // Rover
+        // Forward line (6 players)
+        [-40, 0, 0],   // Centre Half Forward
+        [-40, 0, -35], // Half Forward Flank Left
+        [-40, 0, 35],  // Half Forward Flank Right
+        [-55, 0, 0],   // Full Forward
+        [-50, 0, -25], // Forward Pocket Left
+        [-50, 0, 25],  // Forward Pocket Right
+        // Interchange (4 players - off-field bench area)
+        [70, 0, -55],  // Int 1
+        [70, 0, -45],  // Int 2
+        [70, 0, -35],  // Int 3
+        [70, 0, -25],  // Int 4
       ];
+
+      const pos = positions[index] || [0, 0, index * 3];
+      return [pos[0] * teamMultiplier, pos[1], pos[2]];
     };
 
     if (centreBounce && centreBounce.positions.length >= 44) {
