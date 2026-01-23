@@ -4,6 +4,7 @@ import { Text, Billboard } from '@react-three/drei';
 import { Mesh, Vector3, Plane } from 'three';
 import { Player } from '../../models/PlayerModel';
 import { usePlayerStore } from '../../store/playerStore';
+import { usePathStore } from '../../store/pathStore';
 import { snapToField } from '../../utils/fieldGeometry';
 
 // Maximum character length for player name labels before truncation
@@ -34,9 +35,14 @@ export function PlayerComponent({ player }: PlayerProps) {
   const groupRef = useRef<any>(null);
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const dragStartPos = useRef<[number, number, number] | null>(null);
   const { selectedPlayerId, selectPlayer, updatePlayerPosition, showPlayerNames, startEditingPlayerName, setDragging } = usePlayerStore();
+  const { createPath, getPathByEntity, removePath } = usePathStore();
   const { camera, raycaster } = useThree();
   const isSelected = selectedPlayerId === player.id;
+
+  // Get existing path for this player (if any)
+  const existingPath = getPathByEntity(player.id, 'player');
 
   // Memoize the formatted display name for performance with many players
   const displayName = useMemo(
@@ -81,6 +87,14 @@ export function PlayerComponent({ player }: PlayerProps) {
     selectPlayer(player.id);
     setIsDragging(true);
     setDragging(true);  // Notify store to disable camera controls
+
+    // Store starting position for path recording
+    dragStartPos.current = [...player.position] as [number, number, number];
+
+    // Remove any existing path for this player to start fresh
+    if (existingPath) {
+      removePath(existingPath.id);
+    }
   };
   
   const handlePointerMove = (e: any) => {
@@ -94,6 +108,24 @@ export function PlayerComponent({ player }: PlayerProps) {
     e.stopPropagation();
     setIsDragging(false);
     setDragging(false);  // Re-enable camera controls
+
+    // Create path from start to end position if player moved
+    if (dragStartPos.current) {
+      const startPos = dragStartPos.current;
+      const endPos = player.position;
+
+      // Only create path if player actually moved (more than 1 unit)
+      const distance = Math.sqrt(
+        Math.pow(endPos[0] - startPos[0], 2) +
+        Math.pow(endPos[2] - startPos[2], 2)
+      );
+
+      if (distance > 1) {
+        createPath(player.id, 'player', startPos, endPos, 2);
+      }
+
+      dragStartPos.current = null;
+    }
   };
   
   return (
@@ -110,6 +142,20 @@ export function PlayerComponent({ player }: PlayerProps) {
         if (isDragging) {
           setIsDragging(false);
           setDragging(false);  // Re-enable camera controls
+
+          // Create path from start to end position if player moved
+          if (dragStartPos.current) {
+            const startPos = dragStartPos.current;
+            const endPos = player.position;
+            const distance = Math.sqrt(
+              Math.pow(endPos[0] - startPos[0], 2) +
+              Math.pow(endPos[2] - startPos[2], 2)
+            );
+            if (distance > 1) {
+              createPath(player.id, 'player', startPos, endPos, 2);
+            }
+            dragStartPos.current = null;
+          }
         }
       }}
     >

@@ -27,10 +27,11 @@ export function BallComponent({ ball }: BallProps) {
   const groupRef = useRef<any>(null);
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const dragStartPos = useRef<[number, number, number] | null>(null);
   const { isBallSelected, selectBall, updateBallPosition } = useBallStore();
-  const { getPlayer } = usePlayerStore();
+  const { getPlayer, setDragging } = usePlayerStore();
   const { isPlaying, progress, speed, setProgress } = useAnimationStore();
-  const { getPathByEntity } = usePathStore();
+  const { getPathByEntity, createPath, removePath } = usePathStore();
   const { camera, raycaster, gl } = useThree();
 
   // Calculate ring sizes based on ball size
@@ -102,10 +103,22 @@ export function BallComponent({ ball }: BallProps) {
     selectBall(true);
   };
 
+  // Get existing path for the ball
+  const existingBallPath = getPathByEntity(ball.id, 'ball');
+
   const handlePointerDown = (e: any) => {
     e.stopPropagation();
     selectBall(true);
     setIsDragging(true);
+    setDragging(true);  // Notify store to disable camera controls
+
+    // Store starting position for path recording
+    dragStartPos.current = [...ball.position] as [number, number, number];
+
+    // Remove any existing path for the ball to start fresh
+    if (existingBallPath) {
+      removePath(existingBallPath.id);
+    }
   };
 
   const handlePointerMove = (e: any) => {
@@ -118,6 +131,25 @@ export function BallComponent({ ball }: BallProps) {
   const handlePointerUp = (e: any) => {
     e.stopPropagation();
     setIsDragging(false);
+    setDragging(false);  // Re-enable camera controls
+
+    // Create path from start to end position if ball moved
+    if (dragStartPos.current) {
+      const startPos = dragStartPos.current;
+      const endPos = ball.position;
+
+      // Only create path if ball actually moved (more than 1 unit)
+      const distance = Math.sqrt(
+        Math.pow(endPos[0] - startPos[0], 2) +
+        Math.pow(endPos[2] - startPos[2], 2)
+      );
+
+      if (distance > 1) {
+        createPath(ball.id, 'ball', startPos, endPos, 2);
+      }
+
+      dragStartPos.current = null;
+    }
   };
 
   const handlePointerOver = () => {
@@ -127,7 +159,24 @@ export function BallComponent({ ball }: BallProps) {
 
   const handlePointerOut = () => {
     setHovered(false);
-    setIsDragging(false);
+    if (isDragging) {
+      setIsDragging(false);
+      setDragging(false);  // Re-enable camera controls
+
+      // Create path from start to end position if ball moved
+      if (dragStartPos.current) {
+        const startPos = dragStartPos.current;
+        const endPos = ball.position;
+        const distance = Math.sqrt(
+          Math.pow(endPos[0] - startPos[0], 2) +
+          Math.pow(endPos[2] - startPos[2], 2)
+        );
+        if (distance > 1) {
+          createPath(ball.id, 'ball', startPos, endPos, 2);
+        }
+        dragStartPos.current = null;
+      }
+    }
     gl.domElement.style.cursor = 'auto';
   };
 
