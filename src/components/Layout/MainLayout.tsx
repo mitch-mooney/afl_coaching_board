@@ -10,6 +10,7 @@ import { HelpOverlay } from '../UI/HelpOverlay';
 import { VideoCanvas } from '../VideoImport/VideoCanvas';
 import { VideoTimeline } from '../VideoImport/VideoTimeline';
 import { PlaybackControls } from '../VideoImport/PlaybackControls';
+import { CalibrationGridControls, useCalibrationGrid } from '../VideoImport/CalibrationGrid';
 import { usePlayerStore } from '../../store/playerStore';
 import { useVideoStore } from '../../store/videoStore';
 import { useEffect, useRef } from 'react';
@@ -23,6 +24,9 @@ export function MainLayout() {
   // Video mode state from video store
   const isVideoMode = useVideoStore((state) => state.isVideoMode);
   const isLoaded = useVideoStore((state) => state.isLoaded);
+
+  // Calibration grid state
+  const { gridSettings, updateGridSettings } = useCalibrationGrid();
 
   // Determine if we should show video canvas
   const showVideoCanvas = isVideoMode && isLoaded;
@@ -44,6 +48,7 @@ export function MainLayout() {
           showField={true}
           enableControls={true}
           onCanvasReady={handleVideoCanvasReady}
+          gridSettings={gridSettings}
         />
       ) : (
         <Canvas
@@ -77,6 +82,17 @@ export function MainLayout() {
             <PlaybackControls />
           </div>
           <VideoTimeline />
+        </div>
+      )}
+
+      {/* Calibration grid controls - positioned on the right side when video is loaded */}
+      {showVideoCanvas && (
+        <div className="absolute top-20 right-4 z-10 w-64">
+          <CalibrationGridControls
+            settings={gridSettings}
+            onSettingsChange={updateGridSettings}
+            isVideoLoaded={isLoaded}
+          />
         </div>
       )}
     </div>

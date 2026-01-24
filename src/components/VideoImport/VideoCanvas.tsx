@@ -6,6 +6,7 @@ import { Field } from '../Scene/Field';
 import { PlayerManager } from '../Scene/PlayerManager';
 import { AnnotationLayer } from '../Scene/AnnotationLayer';
 import { VideoBackgroundPlane } from './VideoBackgroundPlane';
+import { CalibrationGrid3D, GridSettings } from './CalibrationGrid';
 import { useVideoStore } from '../../store/videoStore';
 import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
 
@@ -19,6 +20,8 @@ interface VideoCanvasProps {
   enableControls?: boolean;
   /** Optional callback when canvas is ready */
   onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
+  /** Optional grid settings for calibration overlay */
+  gridSettings?: GridSettings;
 }
 
 /**
@@ -161,12 +164,14 @@ function AnnotationInteractionHandler() {
 
 /**
  * Scene contents that are rendered inside the Canvas.
- * Includes video background, field overlay, players, and annotations.
+ * Includes video background, field overlay, calibration grid, players, and annotations.
  */
 function VideoSceneContents({
   showField = true,
+  gridSettings,
 }: {
   showField?: boolean;
+  gridSettings?: GridSettings;
 }) {
   const isVideoMode = useVideoStore((state) => state.isVideoMode);
   const isLoaded = useVideoStore((state) => state.isLoaded);
@@ -190,6 +195,18 @@ function VideoSceneContents({
           positionY={-1}
           scale={1}
           enableFrameUpdate={true}
+        />
+      )}
+
+      {/* Calibration grid overlay - helps with perspective alignment */}
+      {gridSettings && (
+        <CalibrationGrid3D
+          visible={gridSettings.visible}
+          color={gridSettings.color}
+          opacity={gridSettings.opacity}
+          horizontalDivisions={gridSettings.horizontalDivisions}
+          verticalDivisions={gridSettings.verticalDivisions}
+          showMajorLines={gridSettings.showMajorLines}
         />
       )}
 
@@ -220,6 +237,7 @@ function VideoSceneContents({
  *
  * - Video background rendered as a texture on a plane
  * - Field geometry overlay with adjustable opacity and scale
+ * - Optional calibration grid for perspective alignment
  * - 3D player models positioned on top of the video
  * - Annotation layer for drawing on the scene
  * - Camera controls with perspective calibration support
@@ -230,6 +248,7 @@ function VideoSceneContents({
  * <VideoCanvas
  *   showField={true}
  *   enableControls={true}
+ *   gridSettings={{ visible: true, color: '#00ff00', opacity: 0.6 }}
  *   onCanvasReady={(canvas) => {
  *     // Canvas ready for export or other operations
  *   }}
@@ -240,6 +259,7 @@ export function VideoCanvas({
   showField = true,
   enableControls = true,
   onCanvasReady,
+  gridSettings,
 }: VideoCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const perspectiveSettings = useVideoStore((state) => state.perspectiveSettings);
@@ -270,7 +290,7 @@ export function VideoCanvas({
         }
       }}
     >
-      <VideoSceneContents showField={showField} />
+      <VideoSceneContents showField={showField} gridSettings={gridSettings} />
     </Canvas>
   );
 }
@@ -296,6 +316,7 @@ export function VideoCanvasWithField({
   fieldOpacity,
   fieldScale,
   showField = true,
+  gridSettings,
   ...props
 }: VideoCanvasWithFieldProps) {
   // If explicit values are provided, update the store
@@ -314,8 +335,11 @@ export function VideoCanvasWithField({
     }
   }, [fieldScale, setFieldScale]);
 
-  return <VideoCanvas showField={showField} {...props} />;
+  return <VideoCanvas showField={showField} gridSettings={gridSettings} {...props} />;
 }
+
+// Re-export GridSettings type for convenience
+export type { GridSettings };
 
 /**
  * Hook to get a reference to the video canvas for export operations.
