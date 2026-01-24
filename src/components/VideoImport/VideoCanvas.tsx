@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { useEffect, useRef, useMemo } from 'react';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { Field } from '../Scene/Field';
@@ -24,6 +24,7 @@ interface VideoCanvasProps {
 /**
  * Internal camera controller that responds to perspective settings from the video store.
  * Manages camera position, rotation, and field of view for video overlay mode.
+ * Uses useFrame for smooth real-time updates during calibration.
  */
 function VideoCameraController() {
   const { camera } = useThree();
@@ -32,33 +33,52 @@ function VideoCameraController() {
   // Get perspective settings from video store
   const perspectiveSettings = useVideoStore((state) => state.perspectiveSettings);
 
-  // Apply perspective settings to camera
+  // Store target values for smooth interpolation
+  const targetPosition = useMemo(() => new THREE.Vector3(), []);
+  const targetRotation = useMemo(() => new THREE.Euler(), []);
+
+  // Update target values when perspective settings change
   useEffect(() => {
+    targetPosition.set(...perspectiveSettings.cameraPosition);
+    targetRotation.set(...perspectiveSettings.cameraRotation);
+  }, [perspectiveSettings.cameraPosition, perspectiveSettings.cameraRotation, targetPosition, targetRotation]);
+
+  // Apply camera updates using useFrame for smooth real-time response
+  useFrame(() => {
     if (!camera) return;
 
-    // Update camera position
-    camera.position.set(...perspectiveSettings.cameraPosition);
+    // Smoothly interpolate camera position
+    camera.position.lerp(targetPosition, 0.15);
 
-    // Update camera rotation (convert from degrees to radians if needed)
-    const [rotX, rotY, rotZ] = perspectiveSettings.cameraRotation;
-    camera.rotation.set(rotX, rotY, rotZ);
+    // Smoothly interpolate camera rotation
+    camera.rotation.x += (targetRotation.x - camera.rotation.x) * 0.15;
+    camera.rotation.y += (targetRotation.y - camera.rotation.y) * 0.15;
+    camera.rotation.z += (targetRotation.z - camera.rotation.z) * 0.15;
 
     // Update field of view if it's a PerspectiveCamera
     if (camera instanceof THREE.PerspectiveCamera) {
-      camera.fov = perspectiveSettings.fieldOfView;
+      const targetFov = perspectiveSettings.fieldOfView;
+      camera.fov += (targetFov - camera.fov) * 0.15;
       camera.updateProjectionMatrix();
     }
 
-    // Update orbit controls target to look at center of field
-    if (controlsRef.current) {
+    // Keep orbit controls target centered
+    if (controlsRef.current && !perspectiveSettings.lockOrbitControls) {
       controlsRef.current.target.set(0, 0, 0);
-      controlsRef.current.update();
     }
-  }, [camera, perspectiveSettings]);
+  });
+
+  // Update orbit controls enabled state based on lock setting
+  useEffect(() => {
+    if (controlsRef.current) {
+      controlsRef.current.enabled = !perspectiveSettings.lockOrbitControls;
+    }
+  }, [perspectiveSettings.lockOrbitControls]);
 
   return (
     <OrbitControls
       ref={controlsRef}
+      enabled={!perspectiveSettings.lockOrbitControls}
       enableDamping
       dampingFactor={0.05}
       minDistance={10}
@@ -72,22 +92,37 @@ function VideoCameraController() {
 }
 
 /**
- * Field overlay component with opacity and scale controlled by perspective settings.
+ * Field overlay component with opacity, scale, and position controlled by perspective settings.
  * Renders the 3D field geometry on top of the video background.
+ * Uses useFrame for smooth real-time updates during calibration.
  */
 function FieldOverlay() {
   const groupRef = useRef<THREE.Group>(null);
   const perspectiveSettings = useVideoStore((state) => state.perspectiveSettings);
 
-  // Apply field scale from perspective settings
-  useEffect(() => {
-    if (groupRef.current) {
-      const scale = perspectiveSettings.fieldScale;
-      groupRef.current.scale.set(scale, scale, scale);
-    }
-  }, [perspectiveSettings.fieldScale]);
+  // Store target values for smooth interpolation
+  const targetScale = useMemo(() => new THREE.Vector3(1, 1, 1), []);
+  const targetPosition = useMemo(() => new THREE.Vector3(0, 0, 0), []);
 
-  // Apply opacity to field materials
+  // Update targets when settings change
+  useEffect(() => {
+    const scale = perspectiveSettings.fieldScale;
+    targetScale.set(scale, scale, scale);
+    targetPosition.set(...perspectiveSettings.fieldOffset);
+  }, [perspectiveSettings.fieldScale, perspectiveSettings.fieldOffset, targetScale, targetPosition]);
+
+  // Apply field transformations using useFrame for smooth real-time updates
+  useFrame(() => {
+    if (!groupRef.current) return;
+
+    // Smoothly interpolate scale
+    groupRef.current.scale.lerp(targetScale, 0.15);
+
+    // Smoothly interpolate position
+    groupRef.current.position.lerp(targetPosition, 0.15);
+  });
+
+  // Apply opacity to field materials (this can be done via useEffect since it's a material property)
   useEffect(() => {
     if (!groupRef.current) return;
 
@@ -96,12 +131,14 @@ function FieldOverlay() {
     // Traverse all meshes and update their material opacity
     groupRef.current.traverse((child) => {
       if (child instanceof THREE.Mesh && child.material) {
-        const material = child.material as THREE.Material;
-        if (material) {
-          material.transparent = opacity < 1;
-          (material as THREE.MeshBasicMaterial | THREE.MeshStandardMaterial).opacity = opacity;
-          material.needsUpdate = true;
-        }
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach((material) => {
+          if (material) {
+            material.transparent = opacity < 1;
+            (material as THREE.MeshBasicMaterial | THREE.MeshStandardMaterial).opacity = opacity;
+            material.needsUpdate = true;
+          }
+        });
       }
     });
   }, [perspectiveSettings.fieldOpacity]);

@@ -10,6 +10,10 @@ export interface PerspectiveSettings {
   fieldOfView: number;
   fieldScale: number;
   fieldOpacity: number;
+  /** Field offset in 3D space for fine-tuning alignment */
+  fieldOffset: [number, number, number];
+  /** Lock orbit controls during precise calibration */
+  lockOrbitControls: boolean;
 }
 
 /**
@@ -137,6 +141,9 @@ interface VideoState {
   setFieldOfView: (fov: number) => void;
   setFieldScale: (scale: number) => void;
   setFieldOpacity: (opacity: number) => void;
+  setFieldOffset: (offset: [number, number, number]) => void;
+  setLockOrbitControls: (locked: boolean) => void;
+  toggleLockOrbitControls: () => void;
   resetPerspectiveSettings: () => void;
 
   // Actions - Export settings
@@ -161,6 +168,8 @@ const DEFAULT_PERSPECTIVE_SETTINGS: PerspectiveSettings = {
   fieldOfView: 60,
   fieldScale: 1,
   fieldOpacity: 0.5,
+  fieldOffset: [0, 0, 0],
+  lockOrbitControls: false,
 };
 
 // Default export settings
@@ -351,6 +360,27 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   setFieldOpacity: (opacity) => {
     set((state) => ({
       perspectiveSettings: { ...state.perspectiveSettings, fieldOpacity: opacity },
+    }));
+  },
+
+  setFieldOffset: (offset) => {
+    set((state) => ({
+      perspectiveSettings: { ...state.perspectiveSettings, fieldOffset: offset },
+    }));
+  },
+
+  setLockOrbitControls: (locked) => {
+    set((state) => ({
+      perspectiveSettings: { ...state.perspectiveSettings, lockOrbitControls: locked },
+    }));
+  },
+
+  toggleLockOrbitControls: () => {
+    set((state) => ({
+      perspectiveSettings: {
+        ...state.perspectiveSettings,
+        lockOrbitControls: !state.perspectiveSettings.lockOrbitControls,
+      },
     }));
   },
 

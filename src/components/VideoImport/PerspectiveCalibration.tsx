@@ -165,6 +165,8 @@ export function PerspectiveCalibration({
   const setFieldOfView = useVideoStore((state) => state.setFieldOfView);
   const setFieldScale = useVideoStore((state) => state.setFieldScale);
   const setFieldOpacity = useVideoStore((state) => state.setFieldOpacity);
+  const setFieldOffset = useVideoStore((state) => state.setFieldOffset);
+  const toggleLockOrbitControls = useVideoStore((state) => state.toggleLockOrbitControls);
   const resetPerspectiveSettings = useVideoStore((state) => state.resetPerspectiveSettings);
   const saveVideoMetadata = useVideoStore((state) => state.saveVideoMetadata);
   const updateVideoMetadata = useVideoStore((state) => state.updateVideoMetadata);
@@ -202,6 +204,18 @@ export function PerspectiveCalibration({
       return (perspectiveSettings.cameraRotation[axis] * 180) / Math.PI;
     },
     [perspectiveSettings.cameraRotation]
+  );
+
+  /**
+   * Handle field offset axis change
+   */
+  const handleOffsetChange = useCallback(
+    (axis: 0 | 1 | 2, value: number) => {
+      const newOffset: [number, number, number] = [...perspectiveSettings.fieldOffset];
+      newOffset[axis] = value;
+      setFieldOffset(newOffset);
+    },
+    [perspectiveSettings.fieldOffset, setFieldOffset]
   );
 
   /**
@@ -388,6 +402,66 @@ export function PerspectiveCalibration({
             unit=""
             onChange={setFieldOpacity}
           />
+
+          {/* Field Position Offset */}
+          <SectionHeader title="Field Position" />
+          <CalibrationSlider
+            label="Offset X (Left/Right)"
+            min={-100}
+            max={100}
+            step={1}
+            value={perspectiveSettings.fieldOffset[0]}
+            unit=""
+            onChange={(value) => handleOffsetChange(0, value)}
+          />
+          <CalibrationSlider
+            label="Offset Y (Up/Down)"
+            min={-50}
+            max={50}
+            step={1}
+            value={perspectiveSettings.fieldOffset[1]}
+            unit=""
+            onChange={(value) => handleOffsetChange(1, value)}
+          />
+          <CalibrationSlider
+            label="Offset Z (Forward/Back)"
+            min={-100}
+            max={100}
+            step={1}
+            value={perspectiveSettings.fieldOffset[2]}
+            unit=""
+            onChange={(value) => handleOffsetChange(2, value)}
+          />
+
+          {/* Controls Lock */}
+          <SectionHeader title="Calibration Mode" />
+          <div className="flex items-center justify-between py-2">
+            <span className="text-xs text-gray-600">Lock Camera Controls</span>
+            <button
+              onClick={toggleLockOrbitControls}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                perspectiveSettings.lockOrbitControls
+                  ? 'bg-blue-500'
+                  : 'bg-gray-300'
+              }`}
+              role="switch"
+              aria-checked={perspectiveSettings.lockOrbitControls}
+              aria-label="Lock camera controls for precise calibration"
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  perspectiveSettings.lockOrbitControls
+                    ? 'translate-x-6'
+                    : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 -mt-1">
+            {perspectiveSettings.lockOrbitControls
+              ? 'Camera locked - use sliders to adjust'
+              : 'Drag to orbit camera freely'}
+          </p>
 
           {/* Action Buttons */}
           <div className="flex gap-2 pt-3 border-t border-gray-100">
