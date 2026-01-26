@@ -5,9 +5,221 @@ import {
   getAcceptedMimeTypes,
   getSupportedFormats,
   formatFileSize,
-  createVideoElement,
   calculateAspectRatio,
+  LARGE_FILE_WARNING_BYTES,
 } from '../../utils/videoUtils';
+
+/**
+ * Loading phase for video import
+ */
+type LoadingPhase = 'idle' | 'validating' | 'loading' | 'processing' | 'ready';
+
+/**
+ * Loading progress state
+ */
+interface LoadingProgress {
+  phase: LoadingPhase;
+  percent: number;
+  message: string;
+}
+
+/**
+ * Creates a video element from a File object with progress tracking.
+ * Uses streaming approach for memory efficiency - the blob URL references the file
+ * without loading it entirely into memory.
+ *
+ * @param file - The video file
+ * @param onProgress - Optional progress callback
+ * @returns Promise that resolves with the video element and its URL
+ */
+function createVideoElementWithProgress(
+  file: File,
+  onProgress?: (progress: LoadingProgress) => void
+): Promise<{ element: HTMLVideoElement; url: string }> {
+  return new Promise((resolve, reject) => {
+    // Create object URL - this is memory-efficient as it references the file
+    // directly rather than loading the entire file into memory
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+
+    // Track if this is a large file that needs streaming awareness
+    const isLargeFile = file.size > LARGE_FILE_WARNING_BYTES;
+
+    // Configure video for efficient loading
+    video.preload = isLargeFile ? 'metadata' : 'auto';
+    video.muted = true; // Required for autoplay in some browsers
+    video.playsInline = true;
+
+    let hasResolved = false;
+
+    // Report initial progress
+    onProgress?.({
+      phase: 'loading',
+      percent: 10,
+      message: 'Creating video element...',
+    });
+
+    const handleLoadedMetadata = () => {
+      if (hasResolved) return;
+
+      onProgress?.({
+        phase: 'processing',
+        percent: 50,
+        message: 'Processing video metadata...',
+      });
+    };
+
+    const handleLoadedData = () => {
+      if (hasResolved) return;
+
+      onProgress?.({
+        phase: 'processing',
+        percent: 75,
+        message: 'Preparing video for playback...',
+      });
+    };
+
+    const handleCanPlay = () => {
+      if (hasResolved) return;
+      hasResolved = true;
+
+      onProgress?.({
+        phase: 'ready',
+        percent: 100,
+        message: 'Video ready!',
+      });
+
+      cleanup();
+      resolve({ element: video, url });
+    };
+
+    const handleCanPlayThrough = () => {
+      // Also resolve on canplaythrough if canplay didn't fire
+      if (hasResolved) return;
+      hasResolved = true;
+
+      onProgress?.({
+        phase: 'ready',
+        percent: 100,
+        message: 'Video ready!',
+      });
+
+      cleanup();
+      resolve({ element: video, url });
+    };
+
+    // For large files, we can resolve earlier on loadedmetadata
+    // since we don't want to wait for the entire file to buffer
+    const handleLoadedMetadataForLargeFile = () => {
+      if (hasResolved || !isLargeFile) return;
+
+      // Give a short delay to ensure video dimensions are available
+      setTimeout(() => {
+        if (hasResolved) return;
+        if (video.videoWidth > 0 && video.videoHeight > 0) {
+          hasResolved = true;
+
+          onProgress?.({
+            phase: 'ready',
+            percent: 100,
+            message: 'Video ready (streaming mode)',
+          });
+
+          cleanup();
+          resolve({ element: video, url });
+        }
+      }, 100);
+    };
+
+    const handleProgress = () => {
+      if (hasResolved) return;
+
+      // Calculate approximate progress from buffered ranges
+      if (video.buffered.length > 0 && video.duration > 0) {
+        const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+        const bufferPercent = Math.min((bufferedEnd / video.duration) * 100, 100);
+        // Map buffer progress to 20-90% of our progress bar
+        const displayPercent = 20 + (bufferPercent * 0.7);
+
+        onProgress?.({
+          phase: 'loading',
+          percent: Math.round(displayPercent),
+          message: `Loading video data (${Math.round(bufferPercent)}% buffered)...`,
+        });
+      }
+    };
+
+    const handleError = () => {
+      if (hasResolved) return;
+      hasResolved = true;
+
+      cleanup();
+      URL.revokeObjectURL(url);
+
+      const errorCode = video.error?.code;
+      let errorMessage = 'Failed to load video file';
+
+      switch (errorCode) {
+        case MediaError.MEDIA_ERR_ABORTED:
+          errorMessage = 'Video loading was aborted';
+          break;
+        case MediaError.MEDIA_ERR_NETWORK:
+          errorMessage = 'Network error while loading video';
+          break;
+        case MediaError.MEDIA_ERR_DECODE:
+          errorMessage = 'Video file is corrupt or uses an unsupported codec';
+          break;
+        case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+          errorMessage = 'Video format not supported by your browser';
+          break;
+      }
+
+      reject(new Error(errorMessage));
+    };
+
+    // Timeout handler for very large files that may take too long
+    const timeoutId = setTimeout(() => {
+      if (hasResolved) return;
+
+      // If we have metadata but video hasn't fully loaded, resolve anyway
+      // This allows streaming playback to work
+      if (video.readyState >= 1 && video.videoWidth > 0) {
+        hasResolved = true;
+
+        onProgress?.({
+          phase: 'ready',
+          percent: 100,
+          message: 'Video ready (streaming mode)',
+        });
+
+        cleanup();
+        resolve({ element: video, url });
+      }
+    }, 30000); // 30 second timeout for metadata
+
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('loadedmetadata', handleLoadedMetadataForLargeFile);
+      video.removeEventListener('loadeddata', handleLoadedData);
+      video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('canplaythrough', handleCanPlayThrough);
+      video.removeEventListener('progress', handleProgress);
+      video.removeEventListener('error', handleError);
+    };
+
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('loadedmetadata', handleLoadedMetadataForLargeFile);
+    video.addEventListener('loadeddata', handleLoadedData);
+    video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('canplaythrough', handleCanPlayThrough);
+    video.addEventListener('progress', handleProgress);
+    video.addEventListener('error', handleError);
+
+    video.src = url;
+    video.load();
+  });
+}
 
 interface VideoUploaderProps {
   onClose?: () => void;
@@ -18,6 +230,12 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
   const [isDragActive, setIsDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState<LoadingProgress>({
+    phase: 'idle',
+    percent: 0,
+    message: '',
+  });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const {
     isLoading,
@@ -36,12 +254,22 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
       // Clear previous messages
       setError(null);
       setWarning(null);
+      setSelectedFile(file);
+
+      // Update progress: validating
+      setLoadingProgress({
+        phase: 'validating',
+        percent: 5,
+        message: 'Validating video file...',
+      });
 
       // Validate the file
       const validation = validateVideoFile(file);
 
       if (!validation.isValid) {
         setError(validation.error || 'Invalid video file');
+        setLoadingProgress({ phase: 'idle', percent: 0, message: '' });
+        setSelectedFile(null);
         return;
       }
 
@@ -53,10 +281,18 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
       setIsLoading(true);
       setVideoFile(file);
 
+      // Update progress: loading
+      setLoadingProgress({
+        phase: 'loading',
+        percent: 10,
+        message: 'Loading video file...',
+      });
+
       try {
-        // Create video element and load metadata
-        // Note: url is managed internally by the video element
-        const { element } = await createVideoElement(file);
+        // Create video element with progress tracking
+        // Uses streaming approach - the blob URL references the file
+        // without loading it entirely into memory
+        const { element } = await createVideoElementWithProgress(file, setLoadingProgress);
 
         // Calculate aspect ratio
         const aspectRatio = calculateAspectRatio(element.videoWidth, element.videoHeight);
@@ -75,6 +311,10 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
         setIsLoaded(true);
         setIsVideoMode(true);
 
+        // Reset progress state
+        setLoadingProgress({ phase: 'idle', percent: 0, message: '' });
+        setSelectedFile(null);
+
         // Call onClose to dismiss the uploader if provided
         if (onClose) {
           onClose();
@@ -85,6 +325,10 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
         setError(errorMessage);
         setStoreError(errorMessage);
         setVideoFile(null);
+        setLoadingProgress({ phase: 'idle', percent: 0, message: '' });
+        setSelectedFile(null);
+      } finally {
+        setIsLoading(false);
       }
     },
     [
@@ -207,9 +451,67 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
         />
 
         {isLoading ? (
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-gray-600">Loading video...</p>
+          <div className="flex flex-col items-center gap-4 py-2">
+            {/* File info */}
+            {selectedFile && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <svg
+                  className="w-5 h-5 text-blue-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+                <span className="truncate max-w-[200px]" title={selectedFile.name}>
+                  {selectedFile.name}
+                </span>
+                <span className="text-gray-400">
+                  ({formatFileSize(selectedFile.size)})
+                </span>
+              </div>
+            )}
+
+            {/* Progress bar */}
+            <div className="w-full max-w-xs">
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${loadingProgress.percent}%` }}
+                />
+              </div>
+              <div className="flex justify-between items-center mt-2">
+                <span className="text-xs text-gray-500">
+                  {loadingProgress.message || 'Loading...'}
+                </span>
+                <span className="text-xs font-medium text-blue-600">
+                  {loadingProgress.percent}%
+                </span>
+              </div>
+            </div>
+
+            {/* Large file streaming notice */}
+            {selectedFile && selectedFile.size > LARGE_FILE_WARNING_BYTES && (
+              <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded">
+                <svg
+                  className="w-4 h-4 flex-shrink-0"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span>Large file - using streaming mode for efficiency</span>
+              </div>
+            )}
           </div>
         ) : (
           <>
