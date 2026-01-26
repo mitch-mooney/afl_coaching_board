@@ -7,10 +7,7 @@ import { Toolbar } from '../UI/Toolbar';
 import { PlaybookPanel } from '../UI/PlaybookPanel';
 import { AnnotationToolbar } from '../UI/AnnotationToolbar';
 import { HelpOverlay } from '../UI/HelpOverlay';
-import { VideoCanvas } from '../VideoImport/VideoCanvas';
-import { VideoTimeline } from '../VideoImport/VideoTimeline';
-import { PlaybackControls } from '../VideoImport/PlaybackControls';
-import { CalibrationGridControls, useCalibrationGrid } from '../VideoImport/CalibrationGrid';
+import { VideoWorkspace } from '../VideoImport/VideoWorkspace';
 import { usePlayerStore } from '../../store/playerStore';
 import { useVideoStore } from '../../store/videoStore';
 import { useEffect, useRef } from 'react';
@@ -25,76 +22,47 @@ export function MainLayout() {
   const isVideoMode = useVideoStore((state) => state.isVideoMode);
   const isLoaded = useVideoStore((state) => state.isLoaded);
 
-  // Calibration grid state
-  const { gridSettings, updateGridSettings } = useCalibrationGrid();
-
-  // Determine if we should show video canvas
-  const showVideoCanvas = isVideoMode && isLoaded;
+  // Determine if we should show video workspace
+  const showVideoWorkspace = isVideoMode && isLoaded;
 
   useEffect(() => {
     initializePlayers();
   }, [initializePlayers]);
 
-  // Handle video canvas ready callback
-  const handleVideoCanvasReady = (canvas: HTMLCanvasElement | null) => {
-    canvasRef.current = canvas;
-  };
+  // When in video mode, render VideoWorkspace as full-screen experience
+  if (showVideoWorkspace) {
+    return (
+      <div className="w-full h-full relative">
+        <VideoWorkspace showFieldOverlay={true} />
+      </div>
+    );
+  }
 
+  // Normal field view when no video is loaded
   return (
     <div className="w-full h-full relative">
-      {/* Conditional rendering: VideoCanvas when video is loaded, normal Canvas otherwise */}
-      {showVideoCanvas ? (
-        <VideoCanvas
-          showField={true}
-          enableControls={true}
-          onCanvasReady={handleVideoCanvasReady}
-          gridSettings={gridSettings}
-        />
-      ) : (
-        <Canvas
-          shadows
-          camera={{ position: [0, 100, 150], fov: 50 }}
-          gl={{ antialias: true, alpha: false }}
-          onCreated={({ gl }) => {
-            canvasRef.current = gl.domElement;
-          }}
-        >
-          <Field />
-          <PlayerManager />
-          <CameraController />
-          <AnnotationLayer />
+      <Canvas
+        shadows
+        camera={{ position: [0, 100, 150], fov: 50 }}
+        gl={{ antialias: true, alpha: false }}
+        onCreated={({ gl }) => {
+          canvasRef.current = gl.domElement;
+        }}
+      >
+        <Field />
+        <PlayerManager />
+        <CameraController />
+        <AnnotationLayer />
 
-          {/* FIX: moved inside Canvas so R3F hooks work */}
-          <AnnotationInteractionHandler />
-        </Canvas>
-      )}
+        {/* FIX: moved inside Canvas so R3F hooks work */}
+        <AnnotationInteractionHandler />
+      </Canvas>
 
       {/* All DOM-layer UI stays outside */}
       <Toolbar canvas={canvasRef.current} />
       <PlaybookPanel />
       <AnnotationToolbar />
       <HelpOverlay />
-
-      {/* Video timeline and playback controls at bottom - only shown when video is loaded */}
-      {showVideoCanvas && (
-        <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col gap-3">
-          <div className="flex items-center justify-center gap-4">
-            <PlaybackControls />
-          </div>
-          <VideoTimeline />
-        </div>
-      )}
-
-      {/* Calibration grid controls - positioned on the right side when video is loaded */}
-      {showVideoCanvas && (
-        <div className="absolute top-20 right-4 z-10 w-64">
-          <CalibrationGridControls
-            settings={gridSettings}
-            onSettingsChange={updateGridSettings}
-            isVideoLoaded={isLoaded}
-          />
-        </div>
-      )}
     </div>
   );
 }
