@@ -7,6 +7,11 @@ import {
   formatFileSize,
   calculateAspectRatio,
   LARGE_FILE_WARNING_BYTES,
+  VideoError,
+  VideoErrorCode,
+  VideoErrorInfo,
+  createVideoError,
+  mediaErrorToVideoErrorCode,
 } from '../../utils/videoUtils';
 
 /**
@@ -156,25 +161,13 @@ function createVideoElementWithProgress(
       cleanup();
       URL.revokeObjectURL(url);
 
+      // Convert MediaError to VideoError for consistent error handling
       const errorCode = video.error?.code;
-      let errorMessage = 'Failed to load video file';
+      const videoErrorCode = errorCode
+        ? mediaErrorToVideoErrorCode(errorCode)
+        : VideoErrorCode.UNKNOWN_LOAD_ERROR;
 
-      switch (errorCode) {
-        case MediaError.MEDIA_ERR_ABORTED:
-          errorMessage = 'Video loading was aborted';
-          break;
-        case MediaError.MEDIA_ERR_NETWORK:
-          errorMessage = 'Network error while loading video';
-          break;
-        case MediaError.MEDIA_ERR_DECODE:
-          errorMessage = 'Video file is corrupt or uses an unsupported codec';
-          break;
-        case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-          errorMessage = 'Video format not supported by your browser';
-          break;
-      }
-
-      reject(new Error(errorMessage));
+      reject(new VideoError(videoErrorCode));
     };
 
     // Timeout handler for very large files that may take too long
@@ -228,7 +221,7 @@ interface VideoUploaderProps {
 export function VideoUploader({ onClose }: VideoUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragActive, setIsDragActive] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorInfo, setErrorInfo] = useState<VideoErrorInfo | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [loadingProgress, setLoadingProgress] = useState<LoadingProgress>({
     phase: 'idle',
@@ -236,6 +229,7 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
     message: '',
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [lastFailedFile, setLastFailedFile] = useState<File | null>(null);
 
   const {
     isLoading,
@@ -252,9 +246,10 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
   const handleFileSelect = useCallback(
     async (file: File) => {
       // Clear previous messages
-      setError(null);
+      setErrorInfo(null);
       setWarning(null);
       setSelectedFile(file);
+      setLastFailedFile(null);
 
       // Update progress: validating
       setLoadingProgress({
@@ -267,9 +262,23 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
       const validation = validateVideoFile(file);
 
       if (!validation.isValid) {
-        setError(validation.error || 'Invalid video file');
+        // Convert validation error to VideoErrorInfo
+        let errorCode = VideoErrorCode.UNKNOWN;
+        if (validation.error?.includes('Unsupported')) {
+          errorCode = VideoErrorCode.UNSUPPORTED_FORMAT;
+        } else if (validation.error?.includes('too large')) {
+          errorCode = VideoErrorCode.FILE_TOO_LARGE;
+        } else if (validation.error?.includes('No file')) {
+          errorCode = VideoErrorCode.NO_FILE;
+        }
+
+        const videoError = new VideoError(errorCode, {
+          message: validation.error,
+        });
+        setErrorInfo(videoError.getErrorInfo());
         setLoadingProgress({ phase: 'idle', percent: 0, message: '' });
         setSelectedFile(null);
+        setLastFailedFile(file);
         return;
       }
 
@@ -314,19 +323,21 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
         // Reset progress state
         setLoadingProgress({ phase: 'idle', percent: 0, message: '' });
         setSelectedFile(null);
+        setLastFailedFile(null);
 
         // Call onClose to dismiss the uploader if provided
         if (onClose) {
           onClose();
         }
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to load video file';
-        setError(errorMessage);
-        setStoreError(errorMessage);
+        // Convert to VideoError for structured error handling
+        const videoError = createVideoError(err, VideoErrorCode.UNKNOWN_LOAD_ERROR);
+        setErrorInfo(videoError.getErrorInfo());
+        setStoreError(videoError.message);
         setVideoFile(null);
         setLoadingProgress({ phase: 'idle', percent: 0, message: '' });
         setSelectedFile(null);
+        setLastFailedFile(file);
       } finally {
         setIsLoading(false);
       }
@@ -343,6 +354,23 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
       onClose,
     ]
   );
+
+  /**
+   * Retry loading the last failed file
+   */
+  const handleRetry = useCallback(() => {
+    if (lastFailedFile) {
+      handleFileSelect(lastFailedFile);
+    }
+  }, [lastFailedFile, handleFileSelect]);
+
+  /**
+   * Dismiss the error and clear the last failed file
+   */
+  const handleDismissError = useCallback(() => {
+    setErrorInfo(null);
+    setLastFailedFile(null);
+  }, []);
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -553,31 +581,82 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
         )}
       </div>
 
-      {/* Error Message */}
-      {error && (
+      {/* Error Message with Recovery Suggestions */}
+      {errorInfo && (
         <div
-          className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"
+          className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg"
           role="alert"
         >
-          <div className="flex items-start gap-2">
-            <svg
-              className="w-5 h-5 flex-shrink-0 mt-0.5"
-              fill="currentColor"
-              viewBox="0 0 20 20"
+          {/* Error Header */}
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-2">
+              <svg
+                className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <div>
+                <p className="font-medium text-red-800">{errorInfo.title}</p>
+                <p className="text-sm text-red-700 mt-0.5">{errorInfo.message}</p>
+              </div>
+            </div>
+            {/* Dismiss button */}
+            <button
+              onClick={handleDismissError}
+              className="text-red-400 hover:text-red-600 transition p-1"
+              aria-label="Dismiss error"
             >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span>{error}</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
+
+          {/* Recovery Suggestions */}
+          {errorInfo.recovery.length > 0 && (
+            <div className="mt-3 pl-7">
+              <p className="text-xs font-medium text-red-700 mb-1">Try the following:</p>
+              <ul className="text-xs text-red-600 space-y-1">
+                {errorInfo.recovery.map((suggestion, index) => (
+                  <li key={index} className="flex items-start gap-1.5">
+                    <span className="text-red-400 mt-0.5">•</span>
+                    <span>{suggestion}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Retry Button for retryable errors */}
+          {errorInfo.isRetryable && lastFailedFile && (
+            <div className="mt-3 pl-7">
+              <button
+                onClick={handleRetry}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-sm font-medium rounded transition"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                Try Again
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {/* Warning Message */}
-      {warning && !error && (
+      {warning && !errorInfo && (
         <div
           className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm"
           role="alert"

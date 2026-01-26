@@ -1,7 +1,431 @@
 /**
  * Video utility functions for file validation, time formatting,
- * format checking, and aspect ratio calculations.
+ * format checking, aspect ratio calculations, and error handling.
  */
+
+// ============================================================================
+// ERROR HANDLING
+// ============================================================================
+
+/**
+ * Error codes for video operations.
+ * These provide a standardized way to identify and handle specific error conditions.
+ */
+export enum VideoErrorCode {
+  // File validation errors
+  NO_FILE = 'NO_FILE',
+  UNSUPPORTED_FORMAT = 'UNSUPPORTED_FORMAT',
+  FILE_TOO_LARGE = 'FILE_TOO_LARGE',
+  FILE_CORRUPTED = 'FILE_CORRUPTED',
+
+  // Video loading errors
+  LOAD_ABORTED = 'LOAD_ABORTED',
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  DECODE_ERROR = 'DECODE_ERROR',
+  FORMAT_NOT_SUPPORTED = 'FORMAT_NOT_SUPPORTED',
+  LOAD_TIMEOUT = 'LOAD_TIMEOUT',
+  UNKNOWN_LOAD_ERROR = 'UNKNOWN_LOAD_ERROR',
+
+  // Export errors
+  EXPORT_NOT_SUPPORTED = 'EXPORT_NOT_SUPPORTED',
+  NO_VIDEO_LOADED = 'NO_VIDEO_LOADED',
+  CANVAS_NOT_AVAILABLE = 'CANVAS_NOT_AVAILABLE',
+  NO_EXPORT_FORMAT = 'NO_EXPORT_FORMAT',
+  RECORDING_FAILED = 'RECORDING_FAILED',
+  EXPORT_CANCELLED = 'EXPORT_CANCELLED',
+  MEMORY_LIMIT_EXCEEDED = 'MEMORY_LIMIT_EXCEEDED',
+  UNKNOWN_EXPORT_ERROR = 'UNKNOWN_EXPORT_ERROR',
+
+  // Playback errors
+  PLAYBACK_FAILED = 'PLAYBACK_FAILED',
+  SEEK_FAILED = 'SEEK_FAILED',
+
+  // Generic errors
+  UNKNOWN = 'UNKNOWN',
+}
+
+/**
+ * Information about a video error for user display.
+ */
+export interface VideoErrorInfo {
+  /** Error code for programmatic handling */
+  code: VideoErrorCode;
+  /** User-friendly error title */
+  title: string;
+  /** User-friendly error message */
+  message: string;
+  /** Suggested recovery actions */
+  recovery: string[];
+  /** Whether the error is likely temporary/transient */
+  isRetryable: boolean;
+}
+
+/**
+ * Map of error codes to user-friendly error information
+ */
+const VIDEO_ERROR_INFO: Record<VideoErrorCode, Omit<VideoErrorInfo, 'code'>> = {
+  // File validation errors
+  [VideoErrorCode.NO_FILE]: {
+    title: 'No File Selected',
+    message: 'Please select a video file to import.',
+    recovery: ['Click the "Browse Files" button or drag and drop a video file.'],
+    isRetryable: true,
+  },
+  [VideoErrorCode.UNSUPPORTED_FORMAT]: {
+    title: 'Unsupported Video Format',
+    message: 'The selected file format is not supported.',
+    recovery: [
+      'Convert your video to MP4 or WebM format.',
+      'Use a video converter tool like HandBrake (free).',
+      'Try a different video file.',
+    ],
+    isRetryable: false,
+  },
+  [VideoErrorCode.FILE_TOO_LARGE]: {
+    title: 'File Too Large',
+    message: 'The video file exceeds the maximum allowed size of 500MB.',
+    recovery: [
+      'Use a video editing tool to reduce the file size.',
+      'Trim the video to a shorter duration.',
+      'Lower the video resolution or bitrate.',
+    ],
+    isRetryable: false,
+  },
+  [VideoErrorCode.FILE_CORRUPTED]: {
+    title: 'File Corrupted',
+    message: 'The video file appears to be damaged or corrupted.',
+    recovery: [
+      'Re-download the video file if it came from the internet.',
+      'Try a different video file.',
+      'Check if the file plays in your system video player.',
+    ],
+    isRetryable: false,
+  },
+
+  // Video loading errors
+  [VideoErrorCode.LOAD_ABORTED]: {
+    title: 'Loading Cancelled',
+    message: 'Video loading was cancelled.',
+    recovery: ['Try importing the video again.'],
+    isRetryable: true,
+  },
+  [VideoErrorCode.NETWORK_ERROR]: {
+    title: 'Network Error',
+    message: 'A network error occurred while loading the video.',
+    recovery: [
+      'Check your internet connection.',
+      'Try importing the video again.',
+      'If the file is local, ensure it is accessible.',
+    ],
+    isRetryable: true,
+  },
+  [VideoErrorCode.DECODE_ERROR]: {
+    title: 'Video Decode Error',
+    message: 'The video file could not be decoded. It may be corrupted or use an unsupported codec.',
+    recovery: [
+      'Convert the video to a standard codec (H.264 for MP4, VP9 for WebM).',
+      'Try re-encoding the video with a tool like HandBrake.',
+      'Verify the video plays correctly in your system video player.',
+    ],
+    isRetryable: false,
+  },
+  [VideoErrorCode.FORMAT_NOT_SUPPORTED]: {
+    title: 'Format Not Supported',
+    message: 'Your browser does not support this video format.',
+    recovery: [
+      'Convert your video to MP4 (H.264) or WebM (VP9) format.',
+      'Try using Chrome or Firefox for better format support.',
+    ],
+    isRetryable: false,
+  },
+  [VideoErrorCode.LOAD_TIMEOUT]: {
+    title: 'Loading Timeout',
+    message: 'The video took too long to load.',
+    recovery: [
+      'Try with a smaller video file.',
+      'Check your system resources and close other applications.',
+      'Try importing the video again.',
+    ],
+    isRetryable: true,
+  },
+  [VideoErrorCode.UNKNOWN_LOAD_ERROR]: {
+    title: 'Loading Failed',
+    message: 'An unexpected error occurred while loading the video.',
+    recovery: [
+      'Try importing the video again.',
+      'Refresh the page and try again.',
+      'Try a different video file.',
+    ],
+    isRetryable: true,
+  },
+
+  // Export errors
+  [VideoErrorCode.EXPORT_NOT_SUPPORTED]: {
+    title: 'Export Not Supported',
+    message: 'Video export is not supported in this browser.',
+    recovery: [
+      'Use Chrome, Edge, or Firefox for export functionality.',
+      'Update your browser to the latest version.',
+    ],
+    isRetryable: false,
+  },
+  [VideoErrorCode.NO_VIDEO_LOADED]: {
+    title: 'No Video Loaded',
+    message: 'Please import a video before exporting.',
+    recovery: ['Import a video file first, then try exporting again.'],
+    isRetryable: true,
+  },
+  [VideoErrorCode.CANVAS_NOT_AVAILABLE]: {
+    title: 'Canvas Not Available',
+    message: 'The video canvas could not be accessed.',
+    recovery: [
+      'Refresh the page and try again.',
+      'Check if WebGL is enabled in your browser.',
+    ],
+    isRetryable: true,
+  },
+  [VideoErrorCode.NO_EXPORT_FORMAT]: {
+    title: 'No Export Format Available',
+    message: 'No supported video export format is available in your browser.',
+    recovery: [
+      'Try using Chrome, which has the best export format support.',
+      'Update your browser to the latest version.',
+    ],
+    isRetryable: false,
+  },
+  [VideoErrorCode.RECORDING_FAILED]: {
+    title: 'Recording Failed',
+    message: 'An error occurred while recording the video.',
+    recovery: [
+      'Try exporting again.',
+      'Try a lower resolution or shorter duration.',
+      'Close other browser tabs to free up resources.',
+    ],
+    isRetryable: true,
+  },
+  [VideoErrorCode.EXPORT_CANCELLED]: {
+    title: 'Export Cancelled',
+    message: 'The video export was cancelled.',
+    recovery: ['Start a new export when ready.'],
+    isRetryable: true,
+  },
+  [VideoErrorCode.MEMORY_LIMIT_EXCEEDED]: {
+    title: 'Memory Limit Exceeded',
+    message: 'The export ran out of memory. The video may be too long or high resolution.',
+    recovery: [
+      'Try exporting at a lower resolution (720p).',
+      'Export a shorter portion of the video.',
+      'Close other browser tabs and applications.',
+      'Restart your browser and try again.',
+    ],
+    isRetryable: true,
+  },
+  [VideoErrorCode.UNKNOWN_EXPORT_ERROR]: {
+    title: 'Export Failed',
+    message: 'An unexpected error occurred during export.',
+    recovery: [
+      'Try exporting again.',
+      'Try a different format or resolution.',
+      'Refresh the page and try again.',
+    ],
+    isRetryable: true,
+  },
+
+  // Playback errors
+  [VideoErrorCode.PLAYBACK_FAILED]: {
+    title: 'Playback Failed',
+    message: 'The video could not be played.',
+    recovery: [
+      'Try pausing and playing again.',
+      'Reload the video.',
+      'Check if the video file is accessible.',
+    ],
+    isRetryable: true,
+  },
+  [VideoErrorCode.SEEK_FAILED]: {
+    title: 'Seek Failed',
+    message: 'Could not jump to the requested position in the video.',
+    recovery: [
+      'Try seeking to a different position.',
+      'Wait for more of the video to buffer.',
+    ],
+    isRetryable: true,
+  },
+
+  // Generic errors
+  [VideoErrorCode.UNKNOWN]: {
+    title: 'Unknown Error',
+    message: 'An unexpected error occurred.',
+    recovery: [
+      'Refresh the page and try again.',
+      'Try a different video file.',
+    ],
+    isRetryable: true,
+  },
+};
+
+/**
+ * Custom error class for video-related errors.
+ * Provides structured error information with user-friendly messages.
+ */
+export class VideoError extends Error {
+  /** Error code for programmatic handling */
+  readonly code: VideoErrorCode;
+  /** User-friendly error title */
+  readonly title: string;
+  /** Suggested recovery actions */
+  readonly recovery: string[];
+  /** Whether the error is likely temporary/transient */
+  readonly isRetryable: boolean;
+  /** Original error if this wraps another error */
+  readonly originalError?: Error;
+
+  constructor(code: VideoErrorCode, options?: { message?: string; originalError?: Error }) {
+    const info = VIDEO_ERROR_INFO[code];
+    const message = options?.message || info.message;
+
+    super(message);
+
+    this.name = 'VideoError';
+    this.code = code;
+    this.title = info.title;
+    this.recovery = info.recovery;
+    this.isRetryable = info.isRetryable;
+    this.originalError = options?.originalError;
+
+    // Maintain proper stack trace for where our error was thrown
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, VideoError);
+    }
+  }
+
+  /**
+   * Get the full error info object
+   */
+  getErrorInfo(): VideoErrorInfo {
+    return {
+      code: this.code,
+      title: this.title,
+      message: this.message,
+      recovery: this.recovery,
+      isRetryable: this.isRetryable,
+    };
+  }
+}
+
+/**
+ * Get user-friendly error information for a VideoErrorCode
+ * @param code - The error code
+ * @param customMessage - Optional custom message to override the default
+ * @returns VideoErrorInfo object with user-friendly messages
+ */
+export function getVideoErrorInfo(code: VideoErrorCode, customMessage?: string): VideoErrorInfo {
+  const info = VIDEO_ERROR_INFO[code];
+  return {
+    code,
+    ...info,
+    message: customMessage || info.message,
+  };
+}
+
+/**
+ * Convert a MediaError code to a VideoErrorCode
+ * @param mediaErrorCode - The MediaError code from a video element
+ * @returns Corresponding VideoErrorCode
+ */
+export function mediaErrorToVideoErrorCode(mediaErrorCode: number): VideoErrorCode {
+  switch (mediaErrorCode) {
+    case MediaError.MEDIA_ERR_ABORTED:
+      return VideoErrorCode.LOAD_ABORTED;
+    case MediaError.MEDIA_ERR_NETWORK:
+      return VideoErrorCode.NETWORK_ERROR;
+    case MediaError.MEDIA_ERR_DECODE:
+      return VideoErrorCode.DECODE_ERROR;
+    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+      return VideoErrorCode.FORMAT_NOT_SUPPORTED;
+    default:
+      return VideoErrorCode.UNKNOWN_LOAD_ERROR;
+  }
+}
+
+/**
+ * Create a VideoError from a MediaError
+ * @param mediaError - The MediaError from a video element
+ * @returns VideoError with appropriate code and message
+ */
+export function createVideoErrorFromMediaError(mediaError: MediaError): VideoError {
+  const code = mediaErrorToVideoErrorCode(mediaError.code);
+  return new VideoError(code, {
+    message: mediaError.message || undefined,
+  });
+}
+
+/**
+ * Create a VideoError from an unknown error
+ * @param error - The error to convert
+ * @param defaultCode - Default error code if error type is unknown
+ * @returns VideoError
+ */
+export function createVideoError(
+  error: unknown,
+  defaultCode: VideoErrorCode = VideoErrorCode.UNKNOWN
+): VideoError {
+  if (error instanceof VideoError) {
+    return error;
+  }
+
+  if (error instanceof Error) {
+    // Check for specific error messages to determine the code
+    const message = error.message.toLowerCase();
+
+    if (message.includes('aborted')) {
+      return new VideoError(VideoErrorCode.LOAD_ABORTED, { originalError: error });
+    }
+    if (message.includes('network')) {
+      return new VideoError(VideoErrorCode.NETWORK_ERROR, { originalError: error });
+    }
+    if (message.includes('decode') || message.includes('corrupt')) {
+      return new VideoError(VideoErrorCode.DECODE_ERROR, { originalError: error });
+    }
+    if (message.includes('not supported') || message.includes('unsupported')) {
+      return new VideoError(VideoErrorCode.FORMAT_NOT_SUPPORTED, { originalError: error });
+    }
+    if (message.includes('timeout')) {
+      return new VideoError(VideoErrorCode.LOAD_TIMEOUT, { originalError: error });
+    }
+    if (message.includes('memory') || message.includes('out of memory')) {
+      return new VideoError(VideoErrorCode.MEMORY_LIMIT_EXCEEDED, { originalError: error });
+    }
+    if (message.includes('cancel')) {
+      return new VideoError(VideoErrorCode.EXPORT_CANCELLED, { originalError: error });
+    }
+
+    return new VideoError(defaultCode, {
+      message: error.message,
+      originalError: error,
+    });
+  }
+
+  return new VideoError(defaultCode);
+}
+
+/**
+ * Format an error for display in the UI
+ * @param error - The error to format
+ * @returns Object with title and message for display
+ */
+export function formatVideoError(error: unknown): { title: string; message: string; recovery: string[] } {
+  const videoError = createVideoError(error);
+  return {
+    title: videoError.title,
+    message: videoError.message,
+    recovery: videoError.recovery,
+  };
+}
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 
 /**
  * Supported video MIME types

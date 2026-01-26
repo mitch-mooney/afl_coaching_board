@@ -1,7 +1,13 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useVideoStore, ExportSettings } from '../../store/videoStore';
 import { useVideoExport, RESOLUTION_PRESETS } from '../../hooks/useVideoExport';
-import { formatTime, supportsMediaRecorder } from '../../utils/videoUtils';
+import {
+  formatTime,
+  supportsMediaRecorder,
+  createVideoError,
+  VideoErrorCode,
+  VideoErrorInfo,
+} from '../../utils/videoUtils';
 
 /**
  * Format options for video export
@@ -87,6 +93,36 @@ export function VideoExporter({
 
   // Check if MP4 format is supported
   const isMp4Supported = supportedFormats.some((f) => f.includes('mp4'));
+
+  // Convert export error to structured VideoErrorInfo for better display
+  const exportErrorInfo = useMemo((): VideoErrorInfo | null => {
+    if (!exportState.error) {
+      return null;
+    }
+
+    // Determine the appropriate error code based on the error message
+    let errorCode = VideoErrorCode.UNKNOWN_EXPORT_ERROR;
+    const errorMessage = exportState.error.toLowerCase();
+
+    if (errorMessage.includes('not supported')) {
+      errorCode = VideoErrorCode.EXPORT_NOT_SUPPORTED;
+    } else if (errorMessage.includes('no video')) {
+      errorCode = VideoErrorCode.NO_VIDEO_LOADED;
+    } else if (errorMessage.includes('canvas')) {
+      errorCode = VideoErrorCode.CANVAS_NOT_AVAILABLE;
+    } else if (errorMessage.includes('no supported')) {
+      errorCode = VideoErrorCode.NO_EXPORT_FORMAT;
+    } else if (errorMessage.includes('recording') || errorMessage.includes('failed')) {
+      errorCode = VideoErrorCode.RECORDING_FAILED;
+    } else if (errorMessage.includes('memory') || errorMessage.includes('quota')) {
+      errorCode = VideoErrorCode.MEMORY_LIMIT_EXCEEDED;
+    } else if (errorMessage.includes('cancel')) {
+      errorCode = VideoErrorCode.EXPORT_CANCELLED;
+    }
+
+    const videoError = createVideoError(new Error(exportState.error), errorCode);
+    return videoError.getErrorInfo();
+  }, [exportState.error]);
 
   /**
    * Handle format selection
@@ -488,17 +524,18 @@ export function VideoExporter({
                 </div>
               )}
 
-              {/* Error Message */}
-              {exportState.error && (
+              {/* Error Message with Recovery Suggestions */}
+              {exportErrorInfo && (
                 <div
-                  className="bg-red-100 text-red-700 rounded-lg px-3 py-2"
+                  className="bg-red-50 border border-red-200 rounded-lg px-3 py-3"
                   role="alert"
                   aria-live="assertive"
                 >
+                  {/* Error Header */}
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-2">
                       <svg
-                        className="w-5 h-5 mt-0.5 flex-shrink-0"
+                        className="w-5 h-5 mt-0.5 flex-shrink-0 text-red-500"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -511,13 +548,13 @@ export function VideoExporter({
                         />
                       </svg>
                       <div>
-                        <p className="text-sm font-medium">Export Failed</p>
-                        <p className="text-xs mt-0.5">{exportState.error}</p>
+                        <p className="text-sm font-medium text-red-800">{exportErrorInfo.title}</p>
+                        <p className="text-xs text-red-700 mt-0.5">{exportErrorInfo.message}</p>
                       </div>
                     </div>
                     <button
                       onClick={handleDismissError}
-                      className="text-red-500 hover:text-red-700 transition p-0.5"
+                      className="text-red-400 hover:text-red-600 transition p-0.5"
                       aria-label="Dismiss error"
                     >
                       <svg
@@ -535,6 +572,44 @@ export function VideoExporter({
                       </svg>
                     </button>
                   </div>
+
+                  {/* Recovery Suggestions */}
+                  {exportErrorInfo.recovery.length > 0 && (
+                    <div className="mt-2 pl-7">
+                      <p className="text-xs font-medium text-red-700 mb-1">Try the following:</p>
+                      <ul className="text-xs text-red-600 space-y-0.5">
+                        {exportErrorInfo.recovery.slice(0, 3).map((suggestion, index) => (
+                          <li key={index} className="flex items-start gap-1.5">
+                            <span className="text-red-400 mt-0.5">•</span>
+                            <span>{suggestion}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Retry Button for retryable errors */}
+                  {exportErrorInfo.isRetryable && (
+                    <div className="mt-2 pl-7">
+                      <button
+                        onClick={() => {
+                          handleDismissError();
+                          handleStartExport();
+                        }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-medium rounded transition"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          />
+                        </svg>
+                        Try Again
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
