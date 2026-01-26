@@ -1,0 +1,678 @@
+{
+  "spec_id": "022-video-import-overlay",
+  "title": "Video Import Overlay Feature",
+  "description": "Enable coaches to import game footage as a background layer in the 3D tactical planning scene, with video playback controls, perspective calibration, and video export capabilities.",
+  "created_at": "2025-01-24T00:00:00Z",
+  "status": "in_progress",
+  "planStatus": "in_progress",
+  "workflow_type": "feature",
+  "phases": [
+    {
+      "id": "phase-1",
+      "name": "Foundation - Video Store and Utilities",
+      "description": "Set up the core state management and utility functions for video handling",
+      "order": 1,
+      "subtasks": [
+        {
+          "id": "1.1",
+          "title": "Create Video Store with Zustand",
+          "description": "Create src/store/videoStore.ts following existing store patterns. Include state for: videoFile, videoElement ref, currentTime, duration, isPlaying, playbackRate, and perspective settings. Include actions for all state mutations.",
+          "status": "completed",
+          "files_to_modify": [
+            "src/store/videoStore.ts"
+          ],
+          "acceptance_criteria": [
+            "Store exports useVideoStore hook",
+            "All state and actions typed with TypeScript interfaces",
+            "Follows existing store patterns from playerStore and cameraStore",
+            "Includes perspective settings interface (cameraPosition, cameraRotation, fieldOfView, fieldScale)"
+          ],
+          "estimated_effort": "small",
+          "notes": "Created src/store/videoStore.ts with full Zustand store implementation including: videoFile, videoElement ref, currentTime, duration, isPlaying, playbackRate, perspective settings (cameraPosition, cameraRotation, fieldOfView, fieldScale, fieldOpacity), export settings, loading states, and all action methods for state mutations. Follows existing store patterns from playerStore and cameraStore.",
+          "updated_at": "2026-01-23T20:20:21.187317+00:00"
+        },
+        {
+          "id": "1.2",
+          "title": "Create Video Utilities",
+          "description": "Create src/utils/videoUtils.ts with utility functions for video processing including file validation, time formatting, supported format checking, and aspect ratio calculations.",
+          "status": "completed",
+          "files_to_modify": [
+            "src/utils/videoUtils.ts"
+          ],
+          "acceptance_criteria": [
+            "validateVideoFile() checks file type (MP4, WebM) and size limits",
+            "formatTime() converts seconds to mm:ss format",
+            "getSupportedFormats() returns list of supported MIME types",
+            "calculateAspectRatio() returns video dimensions",
+            "All functions have proper TypeScript types"
+          ],
+          "estimated_effort": "small",
+          "notes": "Created src/utils/videoUtils.ts with comprehensive utility functions for video processing including: validateVideoFile() for file type and size validation, formatTime() for time formatting, getSupportedFormats() for MIME types, calculateAspectRatio() for aspect ratio calculations, plus additional utilities for file size formatting, frame conversion, browser capability detection (requestVideoFrameCallback, MediaRecorder), and video element creation. All functions are properly typed with TypeScript interfaces.",
+          "updated_at": "2026-01-23T20:23:13.661678+00:00"
+        },
+        {
+          "id": "1.3",
+          "title": "Create Video Database Schema",
+          "description": "Add video metadata persistence to IndexedDB using Dexie. Store video metadata and perspective calibration settings for session persistence.",
+          "status": "completed",
+          "files_to_modify": [
+            "src/store/videoStore.ts"
+          ],
+          "acceptance_criteria": [
+            "VideoDatabase class extends Dexie with videos table",
+            "Schema stores fileName, duration, createdAt, and perspectiveSettings",
+            "Save/load functions integrated into videoStore",
+            "Follows existing playbookStore Dexie pattern"
+          ],
+          "estimated_effort": "small",
+          "notes": "Added video metadata persistence to IndexedDB using Dexie. Created VideoDatabase class with videos table storing PersistedVideoMetadata (fileName, fileSize, duration, dimensions, perspectiveSettings, exportSettings). Implemented loadSavedVideos, saveVideoMetadata, updateVideoMetadata, deleteVideoMetadata, and loadVideoSettings actions. Added persistence state (savedVideos, currentSavedVideoId, isPersisting) to the store.",
+          "updated_at": "2026-01-23T20:26:06.538510+00:00"
+        }
+      ]
+    },
+    {
+      "id": "phase-2",
+      "name": "Video Import and Playback",
+      "description": "Implement video file import and playback controls with timeline scrubbing",
+      "order": 2,
+      "subtasks": [
+        {
+          "id": "2.1",
+          "title": "Create Video Uploader Component",
+          "description": "Create src/components/VideoImport/VideoUploader.tsx with file input and drag-and-drop support for video file selection. Validate files and update store on selection.",
+          "status": "completed",
+          "files_to_modify": [
+            "src/components/VideoImport/VideoUploader.tsx"
+          ],
+          "acceptance_criteria": [
+            "File input accepts video/mp4 and video/webm formats",
+            "Drag-and-drop zone with visual feedback",
+            "File validation with error messages for unsupported formats",
+            "Loading indicator during video processing",
+            "Updates videoStore with selected file",
+            "Styled with Tailwind CSS following existing UI patterns"
+          ],
+          "estimated_effort": "medium",
+          "notes": "Created src/components/VideoImport/VideoUploader.tsx with full drag-and-drop support for video file selection. Features include: file input accepting video/mp4 and video/webm formats, drag-and-drop zone with visual feedback (isDragActive state), file validation using videoUtils with error/warning messages, loading indicator during video processing, videoStore integration (setVideoFile, setVideoElement, setVideoMetadata, setDuration, setIsLoaded, setIsVideoMode), Tailwind CSS styling following existing UI patterns, and accessibility features (ARIA labels, keyboard navigation for the drop zone).",
+          "updated_at": "2026-01-24T02:51:34.093723+00:00"
+        },
+        {
+          "id": "2.2",
+          "title": "Create useVideoPlayback Hook",
+          "description": "Create src/hooks/useVideoPlayback.ts hook to manage video element lifecycle, playback state synchronization, and frame-accurate seeking using requestVideoFrameCallback.",
+          "status": "completed",
+          "files_to_modify": [
+            "src/hooks/useVideoPlayback.ts"
+          ],
+          "acceptance_criteria": [
+            "Creates and manages HTMLVideoElement lifecycle",
+            "Synchronizes video playback state with videoStore",
+            "Uses requestVideoFrameCallback for frame-accurate timing (with requestAnimationFrame fallback)",
+            "Handles play/pause/seek operations",
+            "Proper cleanup on unmount to prevent memory leaks",
+            "Returns videoElement ref for Three.js texture creation"
+          ],
+          "estimated_effort": "medium",
+          "notes": "Created src/hooks/useVideoPlayback.ts with comprehensive video playback management including: HTMLVideoElement lifecycle management synchronized with videoStore, frame-accurate timing using requestVideoFrameCallback (with requestAnimationFrame fallback for Firefox/Safari), play/pause/seek/step operations, volume/mute/loop controls, bidirectional state sync between video element and store, proper event listener cleanup on unmount, and videoRef returned for Three.js texture creation.",
+          "updated_at": "2026-01-24T02:55:12.609377+00:00"
+        },
+        {
+          "id": "2.3",
+          "title": "Create Video Timeline Component",
+          "description": "Create src/components/VideoImport/VideoTimeline.tsx with timeline scrubber, time display, and playback controls (play/pause, skip forward/back).",
+          "status": "completed",
+          "files_to_modify": [
+            "src/components/VideoImport/VideoTimeline.tsx"
+          ],
+          "acceptance_criteria": [
+            "Timeline slider shows current position relative to duration",
+            "Draggable scrubber for seeking to any position",
+            "Current time and duration display in mm:ss format",
+            "Play/pause button with visual state indication",
+            "Frame step buttons (forward/back) for fine control",
+            "Keyboard shortcuts (spacebar for play/pause, arrow keys for frame step)",
+            "Styled consistently with existing Toolbar component"
+          ],
+          "estimated_effort": "medium",
+          "notes": "Created src/components/VideoImport/VideoTimeline.tsx with comprehensive video timeline controls. Features: timeline slider with progress indicator, draggable scrubber for seeking, time display (current/duration) in mm:ss format using formatTime utility, play/pause button with visual state (blue when playing), frame step buttons for fine control, skip forward/back buttons (5 seconds), keyboard shortcuts (Space: play/pause, ←/→: frame step, Shift+←/→: 5s skip, Home/End: start/end), hover preview with time tooltip, proper ARIA labels and keyboard accessibility, Tailwind CSS styling consistent with Toolbar component.",
+          "updated_at": "2026-01-24T02:58:11.911812+00:00"
+        },
+        {
+          "id": "2.4",
+          "title": "Create Playback Controls Component",
+          "description": "Create src/components/VideoImport/PlaybackControls.tsx with additional playback controls including playback rate selector and loop toggle.",
+          "status": "completed",
+          "files_to_modify": [
+            "src/components/VideoImport/PlaybackControls.tsx"
+          ],
+          "acceptance_criteria": [
+            "Playback rate selector (0.25x, 0.5x, 1x, 1.5x, 2x)",
+            "Loop toggle button",
+            "Volume control (mute/unmute)",
+            "Integrates with videoStore for state management"
+          ],
+          "estimated_effort": "small",
+          "notes": "Created src/components/VideoImport/PlaybackControls.tsx with comprehensive playback controls. Features include: playback rate selector with dropdown menu (0.25x, 0.5x, 1x, 1.5x, 2x), loop toggle button with visual state indication, volume control with mute/unmute button, volume slider popup for fine control. All controls integrate with videoStore for state management and use useVideoPlayback hook for actions. Styled with Tailwind CSS following existing UI patterns (consistent with VideoTimeline and Toolbar). Includes proper ARIA labels for keyboard accessibility.",
+          "updated_at": "2026-01-24T03:00:43.868593+00:00"
+        }
+      ]
+    },
+    {
+      "id": "phase-3",
+      "name": "3D Video Background Integration",
+      "description": "Integrate video as background in Three.js scene with proper layering",
+      "order": 3,
+      "subtasks": [
+        {
+          "id": "3.1",
+          "title": "Create VideoBackgroundPlane Component",
+          "description": "Create src/components/VideoImport/VideoBackgroundPlane.tsx - a Three.js mesh that renders video as a texture on a plane positioned behind the field.",
+          "status": "completed",
+          "files_to_modify": [
+            "src/components/VideoImport/VideoBackgroundPlane.tsx"
+          ],
+          "acceptance_criteria": [
+            "Creates THREE.VideoTexture from video element",
+            "Renders plane mesh with video texture as material",
+            "Positions plane behind field geometry with proper depth",
+            "Handles aspect ratio to prevent video distortion",
+            "Updates texture on each frame for smooth playback",
+            "Proper disposal of texture on unmount"
+          ],
+          "estimated_effort": "medium",
+          "notes": "Created src/components/VideoImport/VideoBackgroundPlane.tsx - a Three.js mesh component that renders video as a texture on a plane positioned behind the field. Features include: THREE.VideoTexture creation from video element, automatic aspect ratio calculation to prevent distortion, per-frame texture updates via useFrame for smooth playback, proper disposal of texture on unmount to prevent memory leaks, and event listeners for seek/timeupdate to handle timeline scrubbing while paused.",
+          "updated_at": "2026-01-24T03:03:58.591778+00:00"
+        },
+        {
+          "id": "3.2",
+          "title": "Create VideoCanvas Component",
+          "description": "Create src/components/VideoImport/VideoCanvas.tsx - the main canvas component that combines video background with existing 3D elements (field, players, annotations).",
+          "status": "completed",
+          "files_to_modify": [
+            "src/components/VideoImport/VideoCanvas.tsx"
+          ],
+          "acceptance_criteria": [
+            "Renders VideoBackgroundPlane as background layer",
+            "Includes existing PlayerManager for 3D players",
+            "Includes existing AnnotationLayer",
+            "Includes CameraController for navigation",
+            "Proper render order ensures 3D objects appear in front of video",
+            "Can toggle between video mode and normal field mode"
+          ],
+          "estimated_effort": "medium",
+          "notes": "Created src/components/VideoImport/VideoCanvas.tsx - the main canvas component that combines video background with existing 3D elements. Features include: VideoBackgroundPlane as background layer with renderOrder=-1, Field overlay component with adjustable opacity/scale via perspective settings, PlayerManager for 3D players, AnnotationLayer for annotations, VideoCameraController with OrbitControls responding to videoStore perspective settings, PerspectiveCamera from @react-three/drei, conditional rendering based on isVideoMode and isLoaded from videoStore, preserveDrawingBuffer enabled for video export support, onCanvasReady callback for canvas element access. Also exports VideoCanvasWithField wrapper and useVideoCanvasRef hook.",
+          "updated_at": "2026-01-24T03:07:05.693139+00:00"
+        },
+        {
+          "id": "3.3",
+          "title": "Create Video Mode Toggle",
+          "description": "Add video import mode toggle to MainLayout and Toolbar. When video is loaded, switch to VideoCanvas; otherwise show normal field.",
+          "status": "completed",
+          "files_to_modify": [
+            "src/components/Layout/MainLayout.tsx",
+            "src/components/UI/Toolbar.tsx"
+          ],
+          "acceptance_criteria": [
+            "Toolbar has 'Import Video' button that opens VideoUploader",
+            "MainLayout conditionally renders VideoCanvas when video is loaded",
+            "Can toggle back to normal field mode",
+            "Smooth transition between modes",
+            "Clear video button to unload video and return to field mode"
+          ],
+          "estimated_effort": "medium",
+          "notes": "Added video import mode toggle to MainLayout and Toolbar. MainLayout now conditionally renders VideoCanvas when isVideoMode && isLoaded from videoStore, otherwise shows normal field Canvas. Added VideoTimeline and PlaybackControls at the bottom of the screen when in video mode. Toolbar has 'Import Video' button that opens VideoUploader modal, and when video is loaded, displays video filename with 'Clear Video' button to unload video and return to field mode. Smooth transition between modes is achieved through conditional rendering.",
+          "updated_at": "2026-01-24T03:10:47.184670+00:00"
+        }
+      ]
+    },
+    {
+      "id": "phase-4",
+      "name": "Perspective Calibration",
+      "description": "Implement tools for matching 3D field perspective to video camera angle",
+      "order": 4,
+      "subtasks": [
+        {
+          "id": "4.1",
+          "title": "Create Perspective Calibration Panel",
+          "description": "Create src/components/VideoImport/PerspectiveCalibration.tsx - a UI panel with sliders and inputs for adjusting camera position, rotation, FOV, and field scale to match video perspective.",
+          "status": "completed",
+          "files_to_modify": [
+            "src/components/VideoImport/PerspectiveCalibration.tsx"
+          ],
+          "acceptance_criteria": [
+            "Camera position sliders (X, Y, Z) with numeric input",
+            "Camera rotation sliders (pitch, yaw, roll)",
+            "Field of View slider (30-120 degrees)",
+            "Field scale slider for sizing 3D field relative to video",
+            "Field opacity slider to see through field while calibrating",
+            "Reset to defaults button",
+            "Save calibration button to persist settings",
+            "Real-time preview as values change"
+          ],
+          "estimated_effort": "medium",
+          "notes": "Created src/components/VideoImport/PerspectiveCalibration.tsx - a UI panel with sliders and inputs for adjusting camera position, rotation, FOV, and field scale to match video perspective. Features include: camera position sliders (X, Y, Z), camera rotation sliders (pitch, yaw, roll), Field of View slider (30-120°), field scale slider (0.5x-2x), field opacity slider (0-100%), reset to defaults button, save calibration button with IndexedDB persistence, and real-time preview through Zustand store integration. Component follows existing patterns from PlaybackControls and Toolbar, with proper accessibility (ARIA labels) and Tailwind CSS styling.",
+          "updated_at": "2026-01-24T07:12:53.557469+00:00"
+        },
+        {
+          "id": "4.2",
+          "title": "Implement Perspective Camera Controls",
+          "description": "Update camera and field rendering to respond to perspective calibration settings from videoStore.",
+          "status": "completed",
+          "files_to_modify": [
+            "src/components/VideoImport/VideoCanvas.tsx",
+            "src/store/videoStore.ts"
+          ],
+          "acceptance_criteria": [
+            "Camera position/rotation controlled by perspective settings",
+            "Field geometry scales according to fieldScale setting",
+            "Field can be made semi-transparent for calibration",
+            "Changes reflect in real-time without lag",
+            "Perspective settings isolated from normal field mode camera"
+          ],
+          "estimated_effort": "medium",
+          "notes": "Updated camera and field rendering to respond to perspective calibration settings. Changes include: (1) Added fieldOffset and lockOrbitControls to PerspectiveSettings interface in videoStore, (2) VideoCameraController now uses useFrame for smooth camera interpolation with lerp factor 0.15, (3) FieldOverlay uses useFrame for smooth position/scale interpolation, (4) OrbitControls can be locked during precise calibration, (5) Added field position offset sliders (X, Y, Z) to PerspectiveCalibration panel, (6) Added calibration mode toggle with visual feedback. All changes ensure real-time updates without lag through smooth interpolation.",
+          "updated_at": "2026-01-24T07:18:52.506578+00:00"
+        },
+        {
+          "id": "4.3",
+          "title": "Add Calibration Grid Overlay",
+          "description": "Create optional grid overlay on video to help with perspective alignment. Grid lines help visualize field line positions.",
+          "status": "completed",
+          "files_to_modify": [
+            "src/components/VideoImport/CalibrationGrid.tsx"
+          ],
+          "acceptance_criteria": [
+            "Toggle-able grid overlay on video",
+            "Grid lines match AFL field proportions",
+            "Grid color/opacity adjustable",
+            "Helps user align 3D field with video field markings"
+          ],
+          "estimated_effort": "small",
+          "notes": "Created src/components/VideoImport/CalibrationGrid.tsx with CalibrationGrid3D Three.js component and CalibrationGridControls UI panel. Features include: toggle-able grid overlay, grid lines matching AFL field proportions (165m x 135m), adjustable color/opacity, configurable divisions, optional major field markings (50m arcs, center square, boundary outline). Grid follows perspective settings for proper alignment with field overlay. Integrated into VideoCanvas and MainLayout for video mode display.",
+          "updated_at": "2026-01-24T07:25:26.415116+00:00"
+        }
+      ]
+    },
+    {
+      "id": "phase-5",
+      "name": "Video Export",
+      "description": "Implement video export functionality to render combined 3D overlay with video",
+      "order": 5,
+      "subtasks": [
+        {
+          "id": "5.1",
+          "title": "Create useVideoExport Hook",
+          "description": "Create src/hooks/useVideoExport.ts hook to handle video export logic using MediaRecorder API and canvas capture stream.",
+          "status": "completed",
+          "files_to_modify": [
+            "src/hooks/useVideoExport.ts"
+          ],
+          "acceptance_criteria": [
+            "Uses canvas.captureStream() to capture Three.js output",
+            "Uses MediaRecorder API to encode video",
+            "Synchronizes export with video playback timing",
+            "Supports WebM and MP4 (where available) output formats",
+            "Provides progress callback for UI updates",
+            "Handles export cancellation",
+            "Proper error handling for unsupported browsers"
+          ],
+          "estimated_effort": "large",
+          "notes": "Created src/hooks/useVideoExport.ts with comprehensive video export functionality. Features include: canvas.captureStream() for Three.js output capture, MediaRecorder API with WebM (VP9/VP8) and MP4 format support, audio stream capture and combination with video, progress tracking with phase descriptions (Initializing, Setting up video stream, Capturing audio, Creating encoder, Rendering video, Finalizing), export cancellation with proper resource cleanup, browser compatibility detection via supportsMediaRecorder(), resolution presets (1080p, 720p, original), configurable options (startTime, endTime, frameRate, videoBitrate, audioBitrate, includeAudio, filename), and auto-generated filenames with timestamps. The hook integrates with videoStore for export settings and video element access.",
+          "updated_at": "2026-01-24T07:28:25.101076+00:00"
+        },
+        {
+          "id": "5.2",
+          "title": "Create Video Exporter UI",
+          "description": "Create src/components/VideoImport/VideoExporter.tsx - UI component for configuring and initiating video export.",
+          "status": "completed",
+          "files_to_modify": [
+            "src/components/VideoImport/VideoExporter.tsx"
+          ],
+          "acceptance_criteria": [
+            "Export button with format selection (WebM, MP4)",
+            "Resolution selector (720p, 1080p, original)",
+            "Progress bar during export",
+            "Cancel export button",
+            "Auto-download on completion",
+            "Error messages for export failures",
+            "Disabled state when no video loaded"
+          ],
+          "estimated_effort": "medium",
+          "notes": "Created src/components/VideoImport/VideoExporter.tsx - UI component for configuring and initiating video export. Features include: export button with format selection (WebM, MP4), resolution selector (720p, 1080p, original), progress bar during export with phase descriptions, cancel export button, auto-download on completion, error messages for export failures with dismiss functionality, disabled state when no video loaded, browser compatibility check for MediaRecorder API. Component follows existing patterns from PerspectiveCalibration and PlaybackControls, integrates with useVideoExport hook and videoStore for state management.",
+          "updated_at": "2026-01-24T07:31:47.490755+00:00"
+        },
+        {
+          "id": "5.3",
+          "title": "Add Audio Sync to Export",
+          "description": "Ensure exported video includes original audio track synchronized with overlay.",
+          "status": "pending",
+          "files_to_modify": [
+            "src/hooks/useVideoExport.ts"
+          ],
+          "acceptance_criteria": [
+            "Captures audio from original video element",
+            "Combines audio track with canvas video stream",
+            "Audio remains synchronized throughout export",
+            "Handles videos without audio track gracefully"
+          ],
+          "estimated_effort": "medium"
+        }
+      ]
+    },
+    {
+      "id": "phase-6",
+      "name": "Video Workspace Integration",
+      "description": "Create unified video workspace UI and integrate all components",
+      "order": 6,
+      "subtasks": [
+        {
+          "id": "6.1",
+          "title": "Create VideoWorkspace Component",
+          "description": "Create src/components/VideoImport/VideoWorkspace.tsx - the main container that combines VideoCanvas, VideoTimeline, PlaybackControls, and action buttons.",
+          "status": "pending",
+          "files_to_modify": [
+            "src/components/VideoImport/VideoWorkspace.tsx"
+          ],
+          "acceptance_criteria": [
+            "Integrates VideoCanvas as main view",
+            "VideoTimeline positioned at bottom",
+            "Sidebar or panel for calibration controls",
+            "Export button accessible",
+            "Close/exit video mode button",
+            "Responsive layout that uses available space",
+            "Keyboard event handling for shortcuts"
+          ],
+          "estimated_effort": "medium"
+        },
+        {
+          "id": "6.2",
+          "title": "Add Video Import Button to Toolbar",
+          "description": "Add 'Import Video' button to existing Toolbar that opens the video uploader dialog.",
+          "status": "pending",
+          "files_to_modify": [
+            "src/components/UI/Toolbar.tsx"
+          ],
+          "acceptance_criteria": [
+            "Import Video button styled consistently with other toolbar buttons",
+            "Opens VideoUploader modal/dialog on click",
+            "Button disabled while video is loading",
+            "Shows indication when video is currently loaded"
+          ],
+          "estimated_effort": "small"
+        },
+        {
+          "id": "6.3",
+          "title": "Integrate VideoWorkspace with MainLayout",
+          "description": "Update MainLayout to show VideoWorkspace when video is loaded, replacing or overlaying the normal field view.",
+          "status": "pending",
+          "files_to_modify": [
+            "src/components/Layout/MainLayout.tsx"
+          ],
+          "acceptance_criteria": [
+            "MainLayout checks videoStore for loaded video",
+            "Renders VideoWorkspace when video is present",
+            "Renders normal Canvas when no video",
+            "Smooth transition between modes",
+            "All existing functionality preserved when no video loaded"
+          ],
+          "estimated_effort": "medium"
+        }
+      ]
+    },
+    {
+      "id": "phase-7",
+      "name": "Polish and Edge Cases",
+      "description": "Handle edge cases, add accessibility features, and polish the UX",
+      "order": 7,
+      "subtasks": [
+        {
+          "id": "7.1",
+          "title": "Handle Large Video Files",
+          "description": "Implement streaming approach for large videos (>100MB) to avoid memory issues. Add loading states and progress indicators.",
+          "status": "pending",
+          "files_to_modify": [
+            "src/hooks/useVideoPlayback.ts",
+            "src/components/VideoImport/VideoUploader.tsx"
+          ],
+          "acceptance_criteria": [
+            "Large videos load without blocking UI",
+            "Loading progress indicator for initial video load",
+            "Memory usage stays reasonable (<1GB for 500MB video)",
+            "Graceful handling if video is too large to process"
+          ],
+          "estimated_effort": "medium"
+        },
+        {
+          "id": "7.2",
+          "title": "Add Error Handling and User Feedback",
+          "description": "Implement comprehensive error handling for all video operations with user-friendly error messages.",
+          "status": "pending",
+          "files_to_modify": [
+            "src/components/VideoImport/VideoUploader.tsx",
+            "src/components/VideoImport/VideoExporter.tsx",
+            "src/utils/videoUtils.ts"
+          ],
+          "acceptance_criteria": [
+            "Unsupported format error with list of supported formats",
+            "File too large error with size limit info",
+            "Export failure error with recovery options",
+            "Browser compatibility warnings",
+            "Toast/notification system for feedback"
+          ],
+          "estimated_effort": "small"
+        },
+        {
+          "id": "7.3",
+          "title": "Add Keyboard Shortcuts",
+          "description": "Implement keyboard shortcuts for video playback control.",
+          "status": "pending",
+          "files_to_modify": [
+            "src/components/VideoImport/VideoWorkspace.tsx"
+          ],
+          "acceptance_criteria": [
+            "Spacebar toggles play/pause",
+            "Left/Right arrow keys step frames",
+            "J/K/L keys for playback speed control",
+            "Escape key exits video mode",
+            "Shortcuts documented in help overlay"
+          ],
+          "estimated_effort": "small"
+        },
+        {
+          "id": "7.4",
+          "title": "Add Accessibility Features",
+          "description": "Ensure video import feature is accessible with proper ARIA labels, keyboard navigation, and screen reader support.",
+          "status": "pending",
+          "files_to_modify": [
+            "src/components/VideoImport/VideoTimeline.tsx",
+            "src/components/VideoImport/PlaybackControls.tsx",
+            "src/components/VideoImport/PerspectiveCalibration.tsx"
+          ],
+          "acceptance_criteria": [
+            "All interactive elements have ARIA labels",
+            "Timeline slider is keyboard accessible",
+            "Focus management for modals and dialogs",
+            "Sufficient color contrast for controls over video",
+            "Screen reader announcements for playback state changes"
+          ],
+          "estimated_effort": "small"
+        },
+        {
+          "id": "7.5",
+          "title": "Performance Optimization",
+          "description": "Optimize rendering performance to maintain 30+ fps during video playback with 3D overlays.",
+          "status": "pending",
+          "files_to_modify": [
+            "src/components/VideoImport/VideoBackgroundPlane.tsx",
+            "src/components/VideoImport/VideoCanvas.tsx"
+          ],
+          "acceptance_criteria": [
+            "VideoTexture updates efficiently without frame drops",
+            "Reduce 3D quality if needed during playback",
+            "Measure and maintain 30+ fps on average hardware",
+            "No memory leaks over extended usage"
+          ],
+          "estimated_effort": "medium"
+        }
+      ]
+    },
+    {
+      "id": "phase-8",
+      "name": "Testing and Documentation",
+      "description": "Add tests and update documentation for the video import feature",
+      "order": 8,
+      "subtasks": [
+        {
+          "id": "8.1",
+          "title": "Add Unit Tests for Video Store",
+          "description": "Create tests for videoStore state management and actions.",
+          "status": "pending",
+          "files_to_modify": [
+            "src/store/__tests__/videoStore.test.ts"
+          ],
+          "acceptance_criteria": [
+            "Test all store actions update state correctly",
+            "Test perspective settings persistence",
+            "Test reset functionality"
+          ],
+          "estimated_effort": "small"
+        },
+        {
+          "id": "8.2",
+          "title": "Add Unit Tests for Video Utilities",
+          "description": "Create tests for videoUtils functions.",
+          "status": "pending",
+          "files_to_modify": [
+            "src/utils/__tests__/videoUtils.test.ts"
+          ],
+          "acceptance_criteria": [
+            "Test file validation with various formats",
+            "Test time formatting",
+            "Test aspect ratio calculations"
+          ],
+          "estimated_effort": "small"
+        },
+        {
+          "id": "8.3",
+          "title": "Update Help Overlay with Video Instructions",
+          "description": "Add video import feature documentation to the existing HelpOverlay component.",
+          "status": "pending",
+          "files_to_modify": [
+            "src/components/UI/HelpOverlay.tsx"
+          ],
+          "acceptance_criteria": [
+            "Video import workflow documented",
+            "Keyboard shortcuts listed",
+            "Perspective calibration tips included",
+            "Export options explained"
+          ],
+          "estimated_effort": "small"
+        }
+      ]
+    }
+  ],
+  "dependencies": {
+    "2.1": [
+      "1.1",
+      "1.2"
+    ],
+    "2.2": [
+      "1.1"
+    ],
+    "2.3": [
+      "1.1",
+      "1.2",
+      "2.2"
+    ],
+    "2.4": [
+      "1.1",
+      "2.2"
+    ],
+    "3.1": [
+      "2.2"
+    ],
+    "3.2": [
+      "3.1"
+    ],
+    "3.3": [
+      "3.2",
+      "2.1"
+    ],
+    "4.1": [
+      "1.1",
+      "1.3"
+    ],
+    "4.2": [
+      "4.1",
+      "3.2"
+    ],
+    "4.3": [
+      "4.2"
+    ],
+    "5.1": [
+      "3.2"
+    ],
+    "5.2": [
+      "5.1"
+    ],
+    "5.3": [
+      "5.1"
+    ],
+    "6.1": [
+      "3.2",
+      "2.3",
+      "2.4",
+      "4.1",
+      "5.2"
+    ],
+    "6.2": [
+      "2.1"
+    ],
+    "6.3": [
+      "6.1"
+    ],
+    "7.1": [
+      "2.2",
+      "2.1"
+    ],
+    "7.2": [
+      "6.1"
+    ],
+    "7.3": [
+      "6.1"
+    ],
+    "7.4": [
+      "6.1"
+    ],
+    "7.5": [
+      "3.2"
+    ],
+    "8.1": [
+      "1.1",
+      "1.3"
+    ],
+    "8.2": [
+      "1.2"
+    ],
+    "8.3": [
+      "6.1"
+    ]
+  },
+  "total_estimated_effort": "large",
+  "critical_path": [
+    "1.1",
+    "2.2",
+    "3.1",
+    "3.2",
+    "6.1",
+    "6.3"
+  ],
+  "qa_signoff": {
+    "status": "pending",
+    "issues": "",
+    "tests_passed": ""
+  },
+  "last_updated": "2026-01-24T07:31:47.490755+00:00",
+  "updated_at": "2026-01-26T05:13:20.029Z",
+  "recoveryNote": "Task recovered from stuck state at 2026-01-26T05:13:20.029Z"
+}

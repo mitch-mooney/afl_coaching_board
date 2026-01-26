@@ -1,0 +1,84 @@
+{
+  "complexity": "complex",
+  "workflow_type": "feature",
+  "confidence": 0.95,
+  "reasoning": "This is a highly complex feature requiring multiple new technologies (video processing, timeline UI), sophisticated algorithms (perspective transformation/camera calibration), and integration with existing 3D rendering. The user explicitly describes it as 'highly complex' and it involves 15+ files across video import, playback, timeline scrubbing, perspective matching, and export pipeline. Performance is critical for real-time video + 3D rendering.",
+
+  "analysis": {
+    "scope": {
+      "estimated_files": 18,
+      "estimated_services": 1,
+      "is_cross_cutting": true,
+      "notes": "Touches video import system, 3D rendering integration, timeline UI components, perspective controls, export pipeline, and file handling. Cross-cutting across multiple architectural layers."
+    },
+    "integrations": {
+      "external_services": [],
+      "new_dependencies": [
+        "video-processing-library",
+        "timeline-ui-components",
+        "canvas-video-renderer",
+        "video-encoder"
+      ],
+      "research_needed": true,
+      "notes": "No external services, but significant new dependencies for browser-based video processing, timeline controls, and video export. Research needed for HTML5 video APIs, canvas composition, and encoding libraries (ffmpeg.js, video-react, etc.)."
+    },
+    "infrastructure": {
+      "docker_changes": false,
+      "database_changes": false,
+      "config_changes": true,
+      "notes": "Likely client-side implementation. May need config for supported video formats, quality settings, and export options. No Docker/DB changes expected unless server-side video processing is chosen."
+    },
+    "knowledge": {
+      "patterns_exist": false,
+      "research_required": true,
+      "unfamiliar_tech": [
+        "browser-video-processing",
+        "perspective-transformation",
+        "canvas-video-composition",
+        "frame-rendering-export"
+      ],
+      "notes": "Discovery phase found no technical exploration performed. Need to research: video decoding in browser, perspective matching algorithms (camera calibration), real-time video+3D synchronization, and frame-by-frame export pipeline."
+    },
+    "risk": {
+      "level": "high",
+      "concerns": [
+        "Performance: Real-time video + 3D rendering is computationally expensive",
+        "Browser compatibility: Video codec support varies across browsers",
+        "Perspective matching: Complex mathematical problem requiring camera calibration",
+        "Export performance: Frame-by-frame rendering is slow",
+        "File size handling: Video files can be very large",
+        "Memory management: Video buffers + 3D scene may strain browser memory"
+      ],
+      "notes": "High-risk feature due to performance demands, algorithmic complexity, and browser limitations. Perspective matching alone is a non-trivial computer vision problem. May need fallback to manual calibration."
+    }
+  },
+
+  "recommended_phases": [
+    "discovery",
+    "requirements",
+    "research",
+    "context",
+    "spec_writing",
+    "self_critique",
+    "planning",
+    "validation"
+  ],
+
+  "flags": {
+    "needs_research": true,
+    "needs_self_critique": true,
+    "needs_infrastructure_setup": false
+  },
+
+  "validation_recommendations": {
+    "risk_level": "high",
+    "skip_validation": false,
+    "minimal_mode": false,
+    "test_types_required": ["unit", "integration", "e2e"],
+    "security_scan_required": false,
+    "staging_deployment_required": false,
+    "reasoning": "Complex feature with significant performance implications and multiple new technologies. Requires comprehensive testing including E2E to verify video playback, timeline controls, 3D overlay synchronization, and export functionality. No security scan needed (no auth/payment/sensitive data), and no staging deployment needed (no infrastructure changes)."
+  },
+
+  "created_at": "2026-01-09T00:00:00Z"
+}

@@ -20,6 +20,8 @@ export interface ExportState {
   error: string | null;
   /** Whether export was cancelled */
   isCancelled: boolean;
+  /** Whether audio is included in the export */
+  hasAudio: boolean;
 }
 
 /**
@@ -58,8 +60,8 @@ export interface UseVideoExportReturn {
   cancelExport: () => void;
   /** Reset export state to initial values */
   resetExportState: () => void;
-  /** Get the best supported MIME type for export */
-  getBestMimeType: () => string | null;
+  /** Get the best supported MIME type for export (pass true to prefer audio codecs) */
+  getBestMimeType: (withAudio?: boolean) => string | null;
 }
 
 /** Default export options */
@@ -80,6 +82,7 @@ const INITIAL_EXPORT_STATE: ExportState = {
   phase: '',
   error: null,
   isCancelled: false,
+  hasAudio: false,
 };
 
 /**
@@ -92,16 +95,44 @@ export const RESOLUTION_PRESETS = {
 } as const;
 
 /**
+ * MIME types with audio codec specifications for better synchronization.
+ * Audio codec (opus) is specified for WebM to ensure proper audio encoding.
+ */
+const MIME_TYPES_WITH_AUDIO = [
+  'video/webm;codecs=vp9,opus',
+  'video/webm;codecs=vp8,opus',
+  'video/webm;codecs=vp9',
+  'video/webm;codecs=vp8',
+  'video/webm',
+  'video/mp4',
+] as const;
+
+const MIME_TYPES_VIDEO_ONLY = [
+  'video/webm;codecs=vp9',
+  'video/webm;codecs=vp8',
+  'video/webm',
+  'video/mp4',
+] as const;
+
+/**
  * Custom hook for handling video export with 3D overlay.
  *
  * Features:
  * - Captures Three.js canvas output using captureStream()
  * - Encodes video using MediaRecorder API
  * - Synchronizes export with original video playback timing
+ * - Captures and synchronizes original audio track with overlay
  * - Supports WebM and MP4 output formats
  * - Provides progress tracking for UI updates
  * - Handles export cancellation
  * - Proper error handling for unsupported browsers
+ *
+ * Audio Synchronization Strategy:
+ * 1. Seek video to export start time before capturing audio stream
+ * 2. Capture audio from video element's captureStream() which stays synced with playback
+ * 3. Clone audio tracks to avoid interference with original video
+ * 4. Use MIME types with explicit audio codec (opus) for proper encoding
+ * 5. Record combined stream as video plays to maintain natural sync
  *
  * @returns Object containing export state, controls, and capabilities
  */
@@ -113,6 +144,7 @@ export function useVideoExport(): UseVideoExportReturn {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const canvasStreamRef = useRef<MediaStream | null>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
   const combinedStreamRef = useRef<MediaStream | null>(null);
   const exportVideoElementRef = useRef<HTMLVideoElement | null>(null);
   const isCancelledRef = useRef<boolean>(false);
@@ -129,56 +161,67 @@ export function useVideoExport(): UseVideoExportReturn {
   const supportedFormats = getSupportedExportFormats();
 
   /**
-   * Get the best MIME type for the requested format
+   * Get the best MIME type for the requested format.
+   * When audio is included, prefers MIME types with opus audio codec.
+   *
+   * @param withAudio - Whether to prefer MIME types with audio codec support
    */
-  const getBestMimeType = useCallback((): string | null => {
-    if (!isSupported || supportedFormats.length === 0) {
+  const getBestMimeType = useCallback(
+    (withAudio: boolean = false): string | null => {
+      if (!isSupported) {
+        return null;
+      }
+
+      const format = exportSettings.format;
+
+      // Select MIME type candidates based on audio requirement
+      const mimeTypes = withAudio ? MIME_TYPES_WITH_AUDIO : MIME_TYPES_VIDEO_ONLY;
+
+      if (format === 'webm') {
+        // Try each WebM MIME type in order of preference
+        for (const mimeType of mimeTypes) {
+          if (mimeType.startsWith('video/webm') && MediaRecorder.isTypeSupported(mimeType)) {
+            return mimeType;
+          }
+        }
+      }
+
+      if (format === 'mp4') {
+        // MP4 support is limited in browsers
+        if (MediaRecorder.isTypeSupported('video/mp4')) {
+          return 'video/mp4';
+        }
+        // Fall back to webm if mp4 not supported
+        return getBestWebmMimeType(withAudio);
+      }
+
+      // Default: try all supported formats
+      for (const mimeType of mimeTypes) {
+        if (MediaRecorder.isTypeSupported(mimeType)) {
+          return mimeType;
+        }
+      }
+
       return null;
-    }
-
-    const format = exportSettings.format;
-
-    if (format === 'webm') {
-      // Prefer VP9, fallback to VP8, then basic webm
-      if (supportedFormats.includes('video/webm;codecs=vp9')) {
-        return 'video/webm;codecs=vp9';
-      }
-      if (supportedFormats.includes('video/webm;codecs=vp8')) {
-        return 'video/webm;codecs=vp8';
-      }
-      if (supportedFormats.includes('video/webm')) {
-        return 'video/webm';
-      }
-    }
-
-    if (format === 'mp4') {
-      // MP4 support is limited in browsers
-      if (supportedFormats.includes('video/mp4')) {
-        return 'video/mp4';
-      }
-      // Fall back to webm if mp4 not supported
-      return getBestWebmMimeType();
-    }
-
-    // Default to first available format
-    return supportedFormats[0] || null;
-  }, [isSupported, supportedFormats, exportSettings.format]);
+    },
+    [isSupported, exportSettings.format]
+  );
 
   /**
    * Helper to get best WebM MIME type
+   * @param withAudio - Whether to prefer MIME types with audio codec support
    */
-  const getBestWebmMimeType = useCallback((): string | null => {
-    if (supportedFormats.includes('video/webm;codecs=vp9')) {
-      return 'video/webm;codecs=vp9';
+  const getBestWebmMimeType = useCallback((withAudio: boolean = false): string | null => {
+    const mimeTypes = withAudio ? MIME_TYPES_WITH_AUDIO : MIME_TYPES_VIDEO_ONLY;
+
+    for (const mimeType of mimeTypes) {
+      if (mimeType.startsWith('video/webm') && MediaRecorder.isTypeSupported(mimeType)) {
+        return mimeType;
+      }
     }
-    if (supportedFormats.includes('video/webm;codecs=vp8')) {
-      return 'video/webm;codecs=vp8';
-    }
-    if (supportedFormats.includes('video/webm')) {
-      return 'video/webm';
-    }
+
     return null;
-  }, [supportedFormats]);
+  }, []);
 
   /**
    * Clean up all resources used during export
@@ -204,6 +247,12 @@ export function useVideoExport(): UseVideoExportReturn {
     if (canvasStreamRef.current) {
       canvasStreamRef.current.getTracks().forEach((track) => track.stop());
       canvasStreamRef.current = null;
+    }
+
+    // Stop audio stream tracks (cloned tracks from video)
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach((track) => track.stop());
+      audioStreamRef.current = null;
     }
 
     // Stop combined stream tracks
@@ -299,28 +348,76 @@ export function useVideoExport(): UseVideoExportReturn {
   );
 
   /**
-   * Create an audio context and destination for capturing audio
+   * Capture and clone audio stream from video element.
+   *
+   * AUDIO SYNCHRONIZATION DETAILS:
+   * - Uses HTMLVideoElement.captureStream() which produces a live MediaStream
+   * - This stream is inherently synchronized with the video element's playback
+   * - When the video element plays, seeks, or pauses, the audio stream follows
+   * - We clone the audio tracks to avoid interfering with the original video's audio output
+   * - The cloned tracks remain synchronized because they're derived from the same source
+   *
+   * IMPORTANT: Call this function AFTER seeking the video to the desired start time.
+   * The captured stream will be at the video's current position and stay in sync
+   * as the video plays during export.
+   *
+   * @param video - The video element to capture audio from
+   * @returns MediaStream with cloned audio tracks, or null if unavailable
    */
   const captureAudioStream = useCallback(
     (video: HTMLVideoElement): MediaStream | null => {
       try {
-        // Check if video has audio tracks
+        // Check if captureStream is supported
         if (!video.captureStream) {
           return null;
         }
 
+        // Check if video element has a source loaded
+        if (!video.src && !video.currentSrc) {
+          return null;
+        }
+
+        // Capture the live stream from video element
+        // This stream is inherently synchronized with the video's playback state
         const videoStream = video.captureStream();
         const audioTracks = videoStream.getAudioTracks();
 
         if (audioTracks.length === 0) {
+          // Video has no audio track - this is normal for some videos
           return null;
         }
 
-        // Create a stream with just audio tracks
-        const audioStream = new MediaStream(audioTracks);
+        // Clone audio tracks to avoid interference with original video playback
+        // Cloned tracks maintain synchronization with the source but can be
+        // independently controlled (e.g., stopped without affecting original)
+        const clonedTracks = audioTracks.map((track) => {
+          const clonedTrack = track.clone();
+          // Ensure cloned track is enabled for recording
+          clonedTrack.enabled = true;
+          return clonedTrack;
+        });
+
+        // Verify at least one track is live and enabled
+        const validTracks = clonedTracks.filter(
+          (track) => track.readyState === 'live' && track.enabled
+        );
+
+        if (validTracks.length === 0) {
+          // Clean up cloned tracks if none are valid
+          clonedTracks.forEach((track) => track.stop());
+          return null;
+        }
+
+        // Create a new stream with the valid cloned audio tracks
+        // This stream will stay synchronized with the video element's playback
+        const audioStream = new MediaStream(validTracks);
         return audioStream;
       } catch {
-        // Audio capture not supported or failed
+        // Audio capture not supported or failed - handle gracefully
+        // This can happen if:
+        // - Browser doesn't support captureStream
+        // - Video source has CORS restrictions
+        // - Audio track is encrypted (DRM)
         return null;
       }
     },
@@ -328,7 +425,19 @@ export function useVideoExport(): UseVideoExportReturn {
   );
 
   /**
-   * Combine canvas video stream with audio stream
+   * Combine canvas video stream with audio stream for synchronized recording.
+   *
+   * SYNCHRONIZATION MECHANISM:
+   * - The canvas video stream captures the Three.js rendered output at the specified frame rate
+   * - The audio stream is captured from the original video element's live playback
+   * - Both streams are added to a single MediaStream for the MediaRecorder
+   * - The MediaRecorder records both tracks together, maintaining their temporal relationship
+   * - Since the audio stream is derived from the video element's playback, and the canvas
+   *   renders the same video's frames, they stay inherently synchronized
+   *
+   * @param videoStream - Canvas capture stream (from Three.js canvas)
+   * @param audioStream - Audio stream from original video element (or null)
+   * @returns Combined MediaStream with both video and audio tracks
    */
   const combineStreams = useCallback(
     (videoStream: MediaStream, audioStream: MediaStream | null): MediaStream => {
@@ -339,12 +448,13 @@ export function useVideoExport(): UseVideoExportReturn {
       // Create a new stream with video tracks from canvas and audio tracks from video
       const combined = new MediaStream();
 
-      // Add video tracks from canvas stream
+      // Add video tracks from canvas stream (the 3D overlay rendering)
       videoStream.getVideoTracks().forEach((track) => {
         combined.addTrack(track);
       });
 
-      // Add audio tracks from video stream
+      // Add audio tracks from video stream (original video audio)
+      // These tracks are synchronized with the video element's playback
       audioStream.getAudioTracks().forEach((track) => {
         combined.addTrack(track);
       });
@@ -404,51 +514,120 @@ export function useVideoExport(): UseVideoExportReturn {
         phase: 'Initializing export...',
         error: null,
         isCancelled: false,
+        hasAudio: false,
       });
 
       try {
-        // Get MIME type
-        const mimeType = getBestMimeType();
-        if (!mimeType) {
-          throw new Error('No supported video format available');
+        setExportState((prev) => ({
+          ...prev,
+          phase: 'Preparing video...',
+          progress: 5,
+        }));
+
+        // AUDIO SYNCHRONIZATION STEP 1:
+        // Seek video to start time BEFORE capturing audio stream.
+        // This ensures the audio stream starts from the correct position.
+        videoElement.currentTime = startTime;
+
+        // Wait for seek to complete before capturing streams
+        await new Promise<void>((resolve) => {
+          const handleSeeked = () => {
+            videoElement.removeEventListener('seeked', handleSeeked);
+            resolve();
+          };
+          // If already at the start time, resolve immediately
+          if (Math.abs(videoElement.currentTime - startTime) < 0.1) {
+            resolve();
+          } else {
+            videoElement.addEventListener('seeked', handleSeeked);
+          }
+        });
+
+        if (isCancelledRef.current) {
+          return;
         }
 
         setExportState((prev) => ({
           ...prev,
           phase: 'Setting up video stream...',
-          progress: 5,
+          progress: 10,
         }));
 
         // Capture canvas stream
         const canvasStream = canvas.captureStream(frameRate);
         canvasStreamRef.current = canvasStream;
 
-        // Capture audio stream if requested
+        // AUDIO SYNCHRONIZATION STEP 2:
+        // Capture audio stream AFTER seeking to ensure synchronization.
+        // The captured stream is tied to the video element's current playback position.
         let audioStream: MediaStream | null = null;
+        let hasAudioTrack = false;
+
         if (includeAudio) {
           setExportState((prev) => ({
             ...prev,
             phase: 'Capturing audio...',
-            progress: 10,
+            progress: 15,
           }));
+
           audioStream = captureAudioStream(videoElement);
+          audioStreamRef.current = audioStream;
+
+          // Check if we successfully captured audio
+          if (audioStream && audioStream.getAudioTracks().length > 0) {
+            hasAudioTrack = true;
+            // Verify audio tracks are active and ready for recording
+            const audioTracks = audioStream.getAudioTracks();
+            const hasActiveTrack = audioTracks.some(
+              (track) => track.readyState === 'live' && track.enabled
+            );
+            if (!hasActiveTrack) {
+              hasAudioTrack = false;
+            }
+          }
+
+          // Update state with audio status
+          setExportState((prev) => ({
+            ...prev,
+            hasAudio: hasAudioTrack,
+          }));
         }
 
-        // Combine streams
+        if (isCancelledRef.current) {
+          return;
+        }
+
+        // AUDIO SYNCHRONIZATION STEP 3:
+        // Select MIME type AFTER determining audio availability.
+        // When audio is present, prefer MIME types with audio codec (opus) for better encoding.
+        const mimeType = getBestMimeType(hasAudioTrack);
+        if (!mimeType) {
+          throw new Error('No supported video format available');
+        }
+
+        // Combine streams - this creates a single stream with both video and audio
+        // that the MediaRecorder will encode together, maintaining synchronization
         const combinedStream = combineStreams(canvasStream, audioStream);
         combinedStreamRef.current = combinedStream;
 
         setExportState((prev) => ({
           ...prev,
           phase: 'Creating encoder...',
-          progress: 15,
+          progress: 20,
         }));
 
-        // Create MediaRecorder
-        const mediaRecorder = new MediaRecorder(combinedStream, {
+        // Create MediaRecorder with appropriate settings for video and audio
+        const recorderOptions: MediaRecorderOptions = {
           mimeType,
           videoBitsPerSecond: videoBitrate,
-        });
+        };
+
+        // Add audio bitrate if we have audio for better quality encoding
+        if (hasAudioTrack && mergedOptions.audioBitrate) {
+          recorderOptions.audioBitsPerSecond = mergedOptions.audioBitrate;
+        }
+
+        const mediaRecorder = new MediaRecorder(combinedStream, recorderOptions);
         mediaRecorderRef.current = mediaRecorder;
 
         // Set up data handler
@@ -491,13 +670,14 @@ export function useVideoExport(): UseVideoExportReturn {
                 URL.revokeObjectURL(url);
               }, 1000);
 
-              setExportState({
+              setExportState((prev) => ({
+                ...prev,
                 isExporting: false,
                 progress: 100,
                 phase: 'Export complete!',
                 error: null,
                 isCancelled: false,
-              });
+              }));
 
               resolve();
             } catch (err) {
@@ -511,28 +691,23 @@ export function useVideoExport(): UseVideoExportReturn {
           };
         });
 
-        // Start recording
+        // Start recording AFTER all streams are set up
         mediaRecorder.start(1000); // Collect data every second
 
         setExportState((prev) => ({
           ...prev,
-          phase: 'Rendering video...',
-          progress: 20,
+          phase: hasAudioTrack ? 'Recording video with audio...' : 'Recording video (no audio)...',
+          progress: 25,
         }));
 
-        // Seek video to start time
-        videoElement.currentTime = startTime;
-
-        // Wait for seek to complete
-        await new Promise<void>((resolve) => {
-          const handleSeeked = () => {
-            videoElement.removeEventListener('seeked', handleSeeked);
-            resolve();
-          };
-          videoElement.addEventListener('seeked', handleSeeked);
-        });
-
-        // Play video and track progress
+        // AUDIO SYNCHRONIZATION STEP 4:
+        // Play video to start recording. Audio synchronization is maintained because:
+        // 1. We seeked to start time before capturing the audio stream
+        // 2. The audio stream is captured from the video element's live captureStream()
+        // 3. The canvas renders the video's frames via VideoTexture
+        // 4. Both video and audio tracks are in the same MediaRecorder stream
+        // 5. When the video plays, the audio stream automatically stays in sync
+        //    because both are derived from the same video element playback
         videoElement.play();
 
         const totalDuration = endTime - startTime;
@@ -578,6 +753,7 @@ export function useVideoExport(): UseVideoExportReturn {
           phase: '',
           error: errorMessage,
           isCancelled: false,
+          hasAudio: false,
         });
       } finally {
         cleanup();

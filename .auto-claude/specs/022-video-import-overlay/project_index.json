@@ -1,0 +1,52 @@
+{
+  "project_root": "C:\\Users\\mitch\\PycharmProjects\\afl_coaching_board",
+  "project_type": "single",
+  "services": {
+    "main": {
+      "name": "main",
+      "path": "C:\\Users\\mitch\\PycharmProjects\\afl_coaching_board",
+      "language": "TypeScript",
+      "framework": "React",
+      "type": "frontend",
+      "package_manager": "npm",
+      "default_port": 3000,
+      "build_tool": "Vite",
+      "styling": "Tailwind CSS",
+      "state_management": "Zustand",
+      "dev_command": "npm run dev",
+      "key_directories": {
+        "src": {
+          "path": "src",
+          "purpose": "Source code"
+        }
+      },
+      "entry_point": "src/App.tsx",
+      "dependencies": [
+        "@react-three/drei",
+        "@react-three/fiber",
+        "dexie",
+        "framer-motion",
+        "react",
+        "react-dom",
+        "three",
+        "zustand"
+      ],
+      "dev_dependencies": [
+        "@types/react",
+        "@types/react-dom",
+        "@types/three",
+        "@typescript-eslint/eslint-plugin",
+        "@typescript-eslint/parser",
+        "@vitejs/plugin-react",
+        "autoprefixer",
+        "eslint",
+        "eslint-plugin-react-hooks",
+        "eslint-plugin-react-refresh"
+      ]
+    }
+  },
+  "infrastructure": {},
+  "conventions": {
+    "typescript": true
+  }
+}
