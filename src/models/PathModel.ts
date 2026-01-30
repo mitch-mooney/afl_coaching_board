@@ -29,12 +29,14 @@ export interface MovementPath {
   entityType: PathEntityType; // 'ball' or 'player'
   keyframes: Keyframe[]; // Ordered by timestamp
   duration: number; // Total duration in seconds
+  startTimeOffset: number; // Time offset in seconds relative to event start (default 0)
 }
 
 // Path system defaults
 export const PATH_DEFAULTS = {
   duration: 5, // Default 5 second animation
   minKeyframes: 2, // Minimum keyframes for a valid path (start + end)
+  startTimeOffset: 0, // Default start time offset (0 = starts immediately)
 } as const;
 
 /**
@@ -59,7 +61,8 @@ export function createMovementPath(
   startPosition: [number, number, number],
   endPosition: [number, number, number],
   duration: number = PATH_DEFAULTS.duration,
-  id?: string
+  id?: string,
+  startTimeOffset: number = PATH_DEFAULTS.startTimeOffset
 ): MovementPath {
   return {
     id: id ?? `path-${entityType}-${entityId}-${Date.now()}`,
@@ -70,6 +73,7 @@ export function createMovementPath(
       createKeyframe(duration, endPosition),
     ],
     duration,
+    startTimeOffset,
   };
 }
 
@@ -80,7 +84,8 @@ export function createPathFromWaypoints(
   entityId: string,
   entityType: PathEntityType,
   waypoints: Waypoint[],
-  id?: string
+  id?: string,
+  startTimeOffset: number = PATH_DEFAULTS.startTimeOffset
 ): MovementPath {
   if (waypoints.length < PATH_DEFAULTS.minKeyframes) {
     throw new Error(`Path requires at least ${PATH_DEFAULTS.minKeyframes} waypoints`);
@@ -98,6 +103,7 @@ export function createPathFromWaypoints(
     entityType,
     keyframes: sortedKeyframes,
     duration,
+    startTimeOffset,
   };
 }
 
