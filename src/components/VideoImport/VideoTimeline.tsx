@@ -14,6 +14,7 @@ import { formatTime } from '../../utils/videoUtils';
  * - Play/pause button with visual state indication
  * - Frame step buttons (forward/back) for fine control
  * - Keyboard shortcuts (spacebar for play/pause, arrow keys for frame step)
+ * - Full accessibility with ARIA labels and screen reader support
  */
 export function VideoTimeline() {
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -21,6 +22,7 @@ export function VideoTimeline() {
   const [isHovering, setIsHovering] = useState(false);
   const [hoverTime, setHoverTime] = useState<number>(0);
   const [hoverPosition, setHoverPosition] = useState<number>(0);
+  const [statusMessage, setStatusMessage] = useState<string>('');
 
   // Store state
   const currentTime = useVideoStore((state) => state.currentTime);
@@ -165,6 +167,72 @@ export function VideoTimeline() {
   }, [isDragging, handleMouseMove, handleDragEnd]);
 
   /**
+   * Handle keyboard navigation on the timeline slider
+   */
+  const handleTimelineKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!isLoaded || duration === 0) return;
+
+      const step = duration * 0.01; // 1% of duration
+      const largeStep = duration * 0.1; // 10% of duration
+
+      switch (event.key) {
+        case 'ArrowRight':
+          event.preventDefault();
+          event.stopPropagation();
+          if (event.shiftKey) {
+            const newTime = Math.min(duration, currentTime + largeStep);
+            setCurrentTime(newTime);
+            seekTo(newTime);
+            setStatusMessage(`Skipped forward to ${formatTime(newTime)}`);
+          } else {
+            const newTime = Math.min(duration, currentTime + step);
+            setCurrentTime(newTime);
+            seekTo(newTime);
+          }
+          break;
+        case 'ArrowLeft':
+          event.preventDefault();
+          event.stopPropagation();
+          if (event.shiftKey) {
+            const newTime = Math.max(0, currentTime - largeStep);
+            setCurrentTime(newTime);
+            seekTo(newTime);
+            setStatusMessage(`Skipped backward to ${formatTime(newTime)}`);
+          } else {
+            const newTime = Math.max(0, currentTime - step);
+            setCurrentTime(newTime);
+            seekTo(newTime);
+          }
+          break;
+        case 'Home':
+          event.preventDefault();
+          event.stopPropagation();
+          setCurrentTime(0);
+          seekTo(0);
+          setStatusMessage('Jumped to start');
+          break;
+        case 'End':
+          event.preventDefault();
+          event.stopPropagation();
+          setCurrentTime(duration);
+          seekTo(duration);
+          setStatusMessage('Jumped to end');
+          break;
+      }
+    },
+    [isLoaded, duration, currentTime, setCurrentTime, seekTo]
+  );
+
+  /**
+   * Announce play/pause state changes for screen readers
+   */
+  const handlePlayPauseClick = useCallback(() => {
+    togglePlayPause();
+    setStatusMessage(isPlaying ? 'Paused' : 'Playing');
+  }, [togglePlayPause, isPlaying]);
+
+  /**
    * Keyboard shortcuts for playback control
    */
   useEffect(() => {
@@ -231,14 +299,32 @@ export function VideoTimeline() {
   ]);
 
   return (
-    <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 w-full">
+    <div
+      className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 w-full"
+      role="region"
+      aria-label="Video playback controls"
+    >
+      {/* Screen reader status announcements */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {statusMessage}
+      </div>
+
       {/* Playback Controls */}
-      <div className="flex items-center gap-3 mb-2">
+      <div
+        className="flex items-center gap-3 mb-2"
+        role="group"
+        aria-label="Playback buttons"
+      >
         {/* Skip Backward Button */}
         <button
           onClick={() => seekBackward(5)}
           disabled={!isLoaded}
-          className="p-2 rounded hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          className="p-2 rounded hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
           aria-label="Skip backward 5 seconds"
           title="Skip backward 5 seconds (Shift+←)"
         >
@@ -261,7 +347,7 @@ export function VideoTimeline() {
         <button
           onClick={() => stepFrameBackward(1)}
           disabled={!isLoaded}
-          className="p-2 rounded hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          className="p-2 rounded hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
           aria-label="Step backward 1 frame"
           title="Step backward 1 frame (←)"
         >
@@ -282,14 +368,15 @@ export function VideoTimeline() {
 
         {/* Play/Pause Button */}
         <button
-          onClick={togglePlayPause}
+          onClick={handlePlayPauseClick}
           disabled={!isLoaded}
-          className={`p-3 rounded-full transition disabled:opacity-40 disabled:cursor-not-allowed ${
+          className={`p-3 rounded-full transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${
             isPlaying
               ? 'bg-blue-500 hover:bg-blue-600 text-white'
               : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
           }`}
-          aria-label={isPlaying ? 'Pause' : 'Play'}
+          aria-label={isPlaying ? 'Pause video' : 'Play video'}
+          aria-pressed={isPlaying}
           title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
         >
           {isPlaying ? (
@@ -307,7 +394,7 @@ export function VideoTimeline() {
         <button
           onClick={() => stepFrameForward(1)}
           disabled={!isLoaded}
-          className="p-2 rounded hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          className="p-2 rounded hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
           aria-label="Step forward 1 frame"
           title="Step forward 1 frame (→)"
         >
@@ -330,7 +417,7 @@ export function VideoTimeline() {
         <button
           onClick={() => seekForward(5)}
           disabled={!isLoaded}
-          className="p-2 rounded hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          className="p-2 rounded hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
           aria-label="Skip forward 5 seconds"
           title="Skip forward 5 seconds (Shift+→)"
         >
@@ -353,19 +440,28 @@ export function VideoTimeline() {
         <div className="flex-1" />
 
         {/* Time Display */}
-        <div className="flex items-center gap-2 text-sm font-mono">
-          <span className="text-gray-800 min-w-[50px] text-right">
+        <div
+          className="flex items-center gap-2 text-sm font-mono"
+          role="timer"
+          aria-label={`Current time: ${formatTime(currentTime)} of ${formatTime(duration)}`}
+        >
+          <span
+            className="text-gray-800 min-w-[50px] text-right"
+            aria-hidden="true"
+          >
             {formatTime(currentTime)}
           </span>
-          <span className="text-gray-400">/</span>
-          <span className="text-gray-500 min-w-[50px]">{formatTime(duration)}</span>
+          <span className="text-gray-400" aria-hidden="true">/</span>
+          <span className="text-gray-500 min-w-[50px]" aria-hidden="true">
+            {formatTime(duration)}
+          </span>
         </div>
       </div>
 
       {/* Timeline Scrubber */}
       <div
         ref={timelineRef}
-        className={`relative h-3 bg-gray-200 rounded-full cursor-pointer group ${
+        className={`relative h-3 bg-gray-200 rounded-full cursor-pointer group focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${
           !isLoaded ? 'opacity-50 cursor-not-allowed' : ''
         }`}
         onClick={handleTimelineClick}
@@ -373,12 +469,14 @@ export function VideoTimeline() {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onMouseMove={handleTimelineMouseMove}
+        onKeyDown={handleTimelineKeyDown}
         role="slider"
-        aria-label="Video timeline"
+        aria-label="Video timeline - Use left and right arrow keys to seek, Home for start, End for end"
         aria-valuemin={0}
-        aria-valuemax={duration}
-        aria-valuenow={currentTime}
+        aria-valuemax={Math.round(duration)}
+        aria-valuenow={Math.round(currentTime)}
         aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+        aria-orientation="horizontal"
         tabIndex={isLoaded ? 0 : -1}
       >
         {/* Progress Fill */}
@@ -415,9 +513,16 @@ export function VideoTimeline() {
       </div>
 
       {/* Keyboard Shortcuts Hint */}
-      <div className="mt-2 text-xs text-gray-400 text-center">
-        <span className="hidden sm:inline">
+      <div
+        className="mt-2 text-xs text-gray-400 text-center"
+        aria-label="Keyboard shortcuts available"
+      >
+        <span className="hidden sm:inline" aria-hidden="true">
           Space: Play/Pause • ←/→: Frame step • Shift+←/→: Skip 5s
+        </span>
+        <span className="sr-only">
+          Keyboard shortcuts: Space bar to play or pause, left and right arrows to step frames,
+          Shift with arrows to skip 5 seconds, Home for start, End for end of video.
         </span>
       </div>
     </div>

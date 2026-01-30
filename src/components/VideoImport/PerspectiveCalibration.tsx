@@ -5,19 +5,32 @@ import { useVideoStore } from '../../store/videoStore';
  * Configuration for a slider control
  */
 interface SliderConfig {
+  /** Unique identifier for the slider */
+  id: string;
+  /** Display label for the slider */
   label: string;
+  /** Minimum value */
   min: number;
+  /** Maximum value */
   max: number;
+  /** Step increment */
   step: number;
+  /** Current value */
   value: number;
+  /** Unit suffix (e.g., "°", "x") */
   unit?: string;
+  /** Change handler */
   onChange: (value: number) => void;
+  /** Optional description for screen readers */
+  description?: string;
 }
 
 /**
  * Reusable slider component with numeric input
+ * Provides full keyboard accessibility and screen reader support
  */
 function CalibrationSlider({
+  id,
   label,
   min,
   max,
@@ -25,8 +38,12 @@ function CalibrationSlider({
   value,
   unit = '',
   onChange,
+  description,
 }: SliderConfig) {
   const [inputValue, setInputValue] = useState(value.toString());
+  const sliderId = `${id}-slider`;
+  const inputId = `${id}-input`;
+  const descriptionId = description ? `${id}-description` : undefined;
 
   // Sync input value when external value changes
   useEffect(() => {
@@ -68,43 +85,72 @@ function CalibrationSlider({
     [handleInputBlur]
   );
 
+  const displayValue = `${value.toFixed(step < 1 ? 2 : 0)}${unit}`;
+
   return (
     <div className="flex flex-col gap-1">
       <div className="flex justify-between items-center">
-        <label className="text-xs text-gray-600 font-medium">{label}</label>
+        <label
+          htmlFor={sliderId}
+          className="text-xs text-gray-600 font-medium"
+          id={`${id}-label`}
+        >
+          {label}
+        </label>
         <div className="flex items-center gap-1">
           <input
             type="text"
+            id={inputId}
             value={inputValue}
             onChange={handleInputChange}
             onBlur={handleInputBlur}
             onKeyDown={handleInputKeyDown}
-            className="w-16 px-2 py-0.5 text-xs border border-gray-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-blue-400"
-            aria-label={`${label} value`}
+            className="w-16 px-2 py-0.5 text-xs border border-gray-300 rounded text-right focus:outline-none focus:ring-2 focus:ring-blue-400"
+            aria-label={`${label} numeric input`}
+            aria-describedby={descriptionId}
           />
-          {unit && <span className="text-xs text-gray-500">{unit}</span>}
+          {unit && (
+            <span className="text-xs text-gray-500" aria-hidden="true">
+              {unit}
+            </span>
+          )}
         </div>
       </div>
       <input
         type="range"
+        id={sliderId}
         min={min}
         max={max}
         step={step}
         value={value}
         onChange={handleSliderChange}
-        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
         aria-label={label}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={value}
+        aria-valuetext={displayValue}
+        aria-describedby={descriptionId}
       />
+      {description && (
+        <span id={descriptionId} className="sr-only">
+          {description}
+        </span>
+      )}
     </div>
   );
 }
 
 /**
  * Section header component for grouping controls
+ * Acts as a visual legend for a group of related sliders
  */
-function SectionHeader({ title }: { title: string }) {
+function SectionHeader({ title, id }: { title: string; id: string }) {
   return (
-    <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider mt-3 mb-2 first:mt-0">
+    <h4
+      id={id}
+      className="text-xs font-semibold text-gray-700 uppercase tracking-wider mt-3 mb-2 first:mt-0"
+    >
       {title}
     </h4>
   );
@@ -263,13 +309,18 @@ export function PerspectiveCalibration({
   }
 
   return (
-    <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden">
+    <div
+      className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden"
+      role="region"
+      aria-label="Perspective calibration settings"
+    >
       {/* Panel Header */}
       <button
         onClick={onToggleExpand}
-        className="w-full px-4 py-3 flex items-center justify-between bg-gradient-to-r from-blue-50 to-white hover:from-blue-100 transition"
+        className="w-full px-4 py-3 flex items-center justify-between bg-gradient-to-r from-blue-50 to-white hover:from-blue-100 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400"
         aria-expanded={isExpanded}
         aria-controls="perspective-calibration-panel"
+        aria-label={`Perspective Calibration panel, ${isExpanded ? 'expanded' : 'collapsed'}. Press to ${isExpanded ? 'collapse' : 'expand'}.`}
       >
         <div className="flex items-center gap-2">
           <svg
@@ -311,164 +362,222 @@ export function PerspectiveCalibration({
           className="px-4 py-3 border-t border-gray-100 space-y-3"
         >
           {/* Camera Position */}
-          <SectionHeader title="Camera Position" />
-          <CalibrationSlider
-            label="X (Left/Right)"
-            min={-200}
-            max={200}
-            step={1}
-            value={perspectiveSettings.cameraPosition[0]}
-            unit=""
-            onChange={(value) => handlePositionChange(0, value)}
-          />
-          <CalibrationSlider
-            label="Y (Height)"
-            min={10}
-            max={300}
-            step={1}
-            value={perspectiveSettings.cameraPosition[1]}
-            unit=""
-            onChange={(value) => handlePositionChange(1, value)}
-          />
-          <CalibrationSlider
-            label="Z (Forward/Back)"
-            min={-200}
-            max={300}
-            step={1}
-            value={perspectiveSettings.cameraPosition[2]}
-            unit=""
-            onChange={(value) => handlePositionChange(2, value)}
-          />
+          <div role="group" aria-labelledby="camera-position-header">
+            <SectionHeader title="Camera Position" id="camera-position-header" />
+            <div className="space-y-2">
+              <CalibrationSlider
+                id="camera-pos-x"
+                label="X (Left/Right)"
+                min={-200}
+                max={200}
+                step={1}
+                value={perspectiveSettings.cameraPosition[0]}
+                unit=""
+                onChange={(value) => handlePositionChange(0, value)}
+                description="Adjust camera horizontal position"
+              />
+              <CalibrationSlider
+                id="camera-pos-y"
+                label="Y (Height)"
+                min={10}
+                max={300}
+                step={1}
+                value={perspectiveSettings.cameraPosition[1]}
+                unit=""
+                onChange={(value) => handlePositionChange(1, value)}
+                description="Adjust camera height"
+              />
+              <CalibrationSlider
+                id="camera-pos-z"
+                label="Z (Forward/Back)"
+                min={-200}
+                max={300}
+                step={1}
+                value={perspectiveSettings.cameraPosition[2]}
+                unit=""
+                onChange={(value) => handlePositionChange(2, value)}
+                description="Adjust camera depth"
+              />
+            </div>
+          </div>
 
           {/* Camera Rotation */}
-          <SectionHeader title="Camera Rotation" />
-          <CalibrationSlider
-            label="Pitch (Up/Down)"
-            min={-90}
-            max={90}
-            step={1}
-            value={getRotationDegrees(0)}
-            unit="°"
-            onChange={(value) => handleRotationChange(0, value)}
-          />
-          <CalibrationSlider
-            label="Yaw (Left/Right)"
-            min={-180}
-            max={180}
-            step={1}
-            value={getRotationDegrees(1)}
-            unit="°"
-            onChange={(value) => handleRotationChange(1, value)}
-          />
-          <CalibrationSlider
-            label="Roll (Tilt)"
-            min={-180}
-            max={180}
-            step={1}
-            value={getRotationDegrees(2)}
-            unit="°"
-            onChange={(value) => handleRotationChange(2, value)}
-          />
+          <div role="group" aria-labelledby="camera-rotation-header">
+            <SectionHeader title="Camera Rotation" id="camera-rotation-header" />
+            <div className="space-y-2">
+              <CalibrationSlider
+                id="camera-rot-pitch"
+                label="Pitch (Up/Down)"
+                min={-90}
+                max={90}
+                step={1}
+                value={getRotationDegrees(0)}
+                unit="°"
+                onChange={(value) => handleRotationChange(0, value)}
+                description="Tilt camera up or down"
+              />
+              <CalibrationSlider
+                id="camera-rot-yaw"
+                label="Yaw (Left/Right)"
+                min={-180}
+                max={180}
+                step={1}
+                value={getRotationDegrees(1)}
+                unit="°"
+                onChange={(value) => handleRotationChange(1, value)}
+                description="Rotate camera left or right"
+              />
+              <CalibrationSlider
+                id="camera-rot-roll"
+                label="Roll (Tilt)"
+                min={-180}
+                max={180}
+                step={1}
+                value={getRotationDegrees(2)}
+                unit="°"
+                onChange={(value) => handleRotationChange(2, value)}
+                description="Roll camera clockwise or counterclockwise"
+              />
+            </div>
+          </div>
 
           {/* Field of View */}
-          <SectionHeader title="Field of View" />
-          <CalibrationSlider
-            label="FOV"
-            min={30}
-            max={120}
-            step={1}
-            value={perspectiveSettings.fieldOfView}
-            unit="°"
-            onChange={setFieldOfView}
-          />
+          <div role="group" aria-labelledby="fov-header">
+            <SectionHeader title="Field of View" id="fov-header" />
+            <CalibrationSlider
+              id="camera-fov"
+              label="FOV"
+              min={30}
+              max={120}
+              step={1}
+              value={perspectiveSettings.fieldOfView}
+              unit="°"
+              onChange={setFieldOfView}
+              description="Camera field of view angle in degrees"
+            />
+          </div>
 
           {/* Field Settings */}
-          <SectionHeader title="Field Overlay" />
-          <CalibrationSlider
-            label="Field Scale"
-            min={0.5}
-            max={2}
-            step={0.01}
-            value={perspectiveSettings.fieldScale}
-            unit="x"
-            onChange={setFieldScale}
-          />
-          <CalibrationSlider
-            label="Field Opacity"
-            min={0}
-            max={1}
-            step={0.05}
-            value={perspectiveSettings.fieldOpacity}
-            unit=""
-            onChange={setFieldOpacity}
-          />
+          <div role="group" aria-labelledby="field-overlay-header">
+            <SectionHeader title="Field Overlay" id="field-overlay-header" />
+            <div className="space-y-2">
+              <CalibrationSlider
+                id="field-scale"
+                label="Field Scale"
+                min={0.5}
+                max={2}
+                step={0.01}
+                value={perspectiveSettings.fieldScale}
+                unit="x"
+                onChange={setFieldScale}
+                description="Scale the field overlay size"
+              />
+              <CalibrationSlider
+                id="field-opacity"
+                label="Field Opacity"
+                min={0}
+                max={1}
+                step={0.05}
+                value={perspectiveSettings.fieldOpacity}
+                unit=""
+                onChange={setFieldOpacity}
+                description="Field overlay transparency, 0 is invisible, 1 is fully opaque"
+              />
+            </div>
+          </div>
 
           {/* Field Position Offset */}
-          <SectionHeader title="Field Position" />
-          <CalibrationSlider
-            label="Offset X (Left/Right)"
-            min={-100}
-            max={100}
-            step={1}
-            value={perspectiveSettings.fieldOffset[0]}
-            unit=""
-            onChange={(value) => handleOffsetChange(0, value)}
-          />
-          <CalibrationSlider
-            label="Offset Y (Up/Down)"
-            min={-50}
-            max={50}
-            step={1}
-            value={perspectiveSettings.fieldOffset[1]}
-            unit=""
-            onChange={(value) => handleOffsetChange(1, value)}
-          />
-          <CalibrationSlider
-            label="Offset Z (Forward/Back)"
-            min={-100}
-            max={100}
-            step={1}
-            value={perspectiveSettings.fieldOffset[2]}
-            unit=""
-            onChange={(value) => handleOffsetChange(2, value)}
-          />
+          <div role="group" aria-labelledby="field-position-header">
+            <SectionHeader title="Field Position" id="field-position-header" />
+            <div className="space-y-2">
+              <CalibrationSlider
+                id="field-offset-x"
+                label="Offset X (Left/Right)"
+                min={-100}
+                max={100}
+                step={1}
+                value={perspectiveSettings.fieldOffset[0]}
+                unit=""
+                onChange={(value) => handleOffsetChange(0, value)}
+                description="Move field overlay left or right"
+              />
+              <CalibrationSlider
+                id="field-offset-y"
+                label="Offset Y (Up/Down)"
+                min={-50}
+                max={50}
+                step={1}
+                value={perspectiveSettings.fieldOffset[1]}
+                unit=""
+                onChange={(value) => handleOffsetChange(1, value)}
+                description="Move field overlay up or down"
+              />
+              <CalibrationSlider
+                id="field-offset-z"
+                label="Offset Z (Forward/Back)"
+                min={-100}
+                max={100}
+                step={1}
+                value={perspectiveSettings.fieldOffset[2]}
+                unit=""
+                onChange={(value) => handleOffsetChange(2, value)}
+                description="Move field overlay forward or backward"
+              />
+            </div>
+          </div>
 
           {/* Controls Lock */}
-          <SectionHeader title="Calibration Mode" />
-          <div className="flex items-center justify-between py-2">
-            <span className="text-xs text-gray-600">Lock Camera Controls</span>
-            <button
-              onClick={toggleLockOrbitControls}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                perspectiveSettings.lockOrbitControls
-                  ? 'bg-blue-500'
-                  : 'bg-gray-300'
-              }`}
-              role="switch"
-              aria-checked={perspectiveSettings.lockOrbitControls}
-              aria-label="Lock camera controls for precise calibration"
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+          <div role="group" aria-labelledby="calibration-mode-header">
+            <SectionHeader title="Calibration Mode" id="calibration-mode-header" />
+            <div className="flex items-center justify-between py-2">
+              <span id="lock-controls-label" className="text-xs text-gray-600">
+                Lock Camera Controls
+              </span>
+              <button
+                onClick={toggleLockOrbitControls}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleLockOrbitControls();
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${
                   perspectiveSettings.lockOrbitControls
-                    ? 'translate-x-6'
-                    : 'translate-x-1'
+                    ? 'bg-blue-500'
+                    : 'bg-gray-300'
                 }`}
-              />
-            </button>
+                role="switch"
+                aria-checked={perspectiveSettings.lockOrbitControls}
+                aria-labelledby="lock-controls-label"
+                aria-describedby="lock-controls-description"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    perspectiveSettings.lockOrbitControls
+                      ? 'translate-x-6'
+                      : 'translate-x-1'
+                  }`}
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
+            <p id="lock-controls-description" className="text-xs text-gray-500 -mt-1">
+              {perspectiveSettings.lockOrbitControls
+                ? 'Camera locked - use sliders to adjust'
+                : 'Drag to orbit camera freely'}
+            </p>
           </div>
-          <p className="text-xs text-gray-500 -mt-1">
-            {perspectiveSettings.lockOrbitControls
-              ? 'Camera locked - use sliders to adjust'
-              : 'Drag to orbit camera freely'}
-          </p>
 
           {/* Action Buttons */}
-          <div className="flex gap-2 pt-3 border-t border-gray-100">
+          <div
+            className="flex gap-2 pt-3 border-t border-gray-100"
+            role="group"
+            aria-label="Calibration actions"
+          >
             <button
               onClick={handleReset}
-              className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition flex items-center justify-center gap-1"
-              aria-label="Reset calibration to defaults"
+              className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition flex items-center justify-center gap-1 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
+              aria-label="Reset all calibration settings to default values"
               title="Reset to defaults"
             >
               <svg
@@ -489,8 +598,9 @@ export function PerspectiveCalibration({
             <button
               onClick={handleSave}
               disabled={isSaving || isPersisting}
-              className="flex-1 px-3 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed rounded transition flex items-center justify-center gap-1"
-              aria-label="Save calibration settings"
+              className="flex-1 px-3 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed rounded transition flex items-center justify-center gap-1 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
+              aria-label={isSaving || isPersisting ? 'Saving calibration settings...' : 'Save calibration settings'}
+              aria-busy={isSaving || isPersisting}
               title="Save calibration"
             >
               {isSaving || isPersisting ? (
