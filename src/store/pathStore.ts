@@ -20,7 +20,8 @@ interface PathState {
     entityType: PathEntityType,
     startPosition: [number, number, number],
     endPosition: [number, number, number],
-    duration?: number
+    duration?: number,
+    startTimeOffset?: number
   ) => MovementPath;
   updatePath: (pathId: string, updates: Partial<Omit<MovementPath, 'id'>>) => void;
   removePath: (pathId: string) => void;
@@ -51,13 +52,15 @@ export const usePathStore = create<PathState>((set, get) => ({
     }));
   },
 
-  createPath: (entityId, entityType, startPosition, endPosition, duration) => {
+  createPath: (entityId, entityType, startPosition, endPosition, duration, startTimeOffset) => {
     const newPath = createMovementPath(
       entityId,
       entityType,
       startPosition,
       endPosition,
-      duration
+      duration,
+      undefined, // id - let the factory generate it
+      startTimeOffset
     );
     get().addPath(newPath);
     return newPath;
