@@ -9,9 +9,12 @@ import { Toolbar } from '../UI/Toolbar';
 import { PlaybookPanel } from '../UI/PlaybookPanel';
 import { AnnotationToolbar } from '../UI/AnnotationToolbar';
 import { HelpOverlay } from '../UI/HelpOverlay';
+import { VideoWorkspace } from '../VideoImport/VideoWorkspace';
+import { VideoPiP } from '../VideoImport/VideoPiP';
 import { usePlayerStore } from '../../store/playerStore';
 import { useBallStore } from '../../store/ballStore';
 import { usePathStore } from '../../store/pathStore';
+import { useVideoStore } from '../../store/videoStore';
 import { useEffect, useRef, useState } from 'react';
 import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
 import {
@@ -33,6 +36,16 @@ export function MainLayout() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
 
+  // Video mode state from video store
+  const isVideoMode = useVideoStore((state) => state.isVideoMode);
+  const isLoaded = useVideoStore((state) => state.isLoaded);
+  const displayMode = useVideoStore((state) => state.displayMode);
+
+  // Determine if we should show video workspace (full calibration mode)
+  const showVideoWorkspace = isVideoMode && isLoaded && displayMode === 'calibration';
+  // Determine if we should show PiP (picture-in-picture mode)
+  const showVideoPiP = isVideoMode && isLoaded && displayMode === 'pip';
+
   // Initialize keyboard shortcuts
   const registry = getGlobalShortcutRegistry();
   useKeyboardShortcuts(registry);
@@ -47,7 +60,16 @@ export function MainLayout() {
     initializeBall();
   }, [initializePlayers, initializeBall]);
 
+  // When in video mode, render VideoWorkspace as full-screen experience
+  if (showVideoWorkspace) {
+    return (
+      <div className="w-full h-full relative">
+        <VideoWorkspace showFieldOverlay={true} />
+      </div>
+    );
+  }
 
+  // Normal field view (with optional PiP overlay)
   return (
     <div className="w-full h-full relative">
       <Canvas
@@ -65,17 +87,18 @@ export function MainLayout() {
         <CameraController />
         <AnnotationLayer />
 
-
         {/* FIX: moved inside Canvas so R3F hooks work */}
         <AnnotationInteractionHandler />
       </Canvas>
-
 
       {/* All DOM-layer UI stays outside */}
       <Toolbar canvas={canvasRef.current} />
       <PlaybookPanel />
       <AnnotationToolbar />
       <HelpOverlay />
+
+      {/* Video PiP overlay when in pip mode */}
+      {showVideoPiP && <VideoPiP />}
     </div>
   );
 }
