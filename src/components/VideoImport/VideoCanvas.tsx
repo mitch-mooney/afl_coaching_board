@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, memo, useCallback } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
@@ -9,6 +9,18 @@ import { VideoBackgroundPlane } from './VideoBackgroundPlane';
 import { CalibrationGrid3D, GridSettings } from './CalibrationGrid';
 import { useVideoStore } from '../../store/videoStore';
 import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
+
+/**
+ * Performance constants for rendering optimization
+ */
+const PERFORMANCE_CONFIG = {
+  /** Threshold for considering interpolation "close enough" to skip */
+  CONVERGENCE_THRESHOLD: 0.001,
+  /** Threshold for FOV changes to trigger projection matrix update */
+  FOV_THRESHOLD: 0.01,
+  /** Interpolation speed for smooth transitions */
+  LERP_FACTOR: 0.15,
+} as const;
 
 /**
  * Props for the VideoCanvas component
@@ -25,18 +37,45 @@ interface VideoCanvasProps {
 }
 
 /**
+ * Helper function to check if a value has converged to its target
+ */
+function hasConverged(current: number, target: number, threshold = PERFORMANCE_CONFIG.CONVERGENCE_THRESHOLD): boolean {
+  return Math.abs(current - target) < threshold;
+}
+
+/**
+ * Helper function to check if a Vector3 has converged to its target
+ */
+function hasVector3Converged(current: THREE.Vector3, target: THREE.Vector3, threshold = PERFORMANCE_CONFIG.CONVERGENCE_THRESHOLD): boolean {
+  return (
+    hasConverged(current.x, target.x, threshold) &&
+    hasConverged(current.y, target.y, threshold) &&
+    hasConverged(current.z, target.z, threshold)
+  );
+}
+
+/**
  * Internal camera controller that responds to perspective settings from the video store.
  * Manages camera position, rotation, and field of view for video overlay mode.
  * Uses useFrame for smooth real-time updates during calibration.
+ *
+ * Performance optimizations:
+ * - Convergence checks to skip interpolation when values are at target
+ * - Only updates projection matrix when FOV changes significantly
+ * - Uses getState() for values only needed in useFrame
  */
-function VideoCameraController() {
+const VideoCameraController = memo(function VideoCameraController() {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
+
+  // Track if we're currently animating
+  const isAnimatingRef = useRef(false);
+  const lastFovRef = useRef<number>(0);
 
   // Get perspective settings from video store
   const perspectiveSettings = useVideoStore((state) => state.perspectiveSettings);
 
-  // Store target values for smooth interpolation
+  // Store target values for smooth interpolation - reuse objects to avoid GC
   const targetPosition = useMemo(() => new THREE.Vector3(), []);
   const targetRotation = useMemo(() => new THREE.Euler(), []);
 
@@ -44,29 +83,62 @@ function VideoCameraController() {
   useEffect(() => {
     targetPosition.set(...perspectiveSettings.cameraPosition);
     targetRotation.set(...perspectiveSettings.cameraRotation);
+    // Mark that we need to animate
+    isAnimatingRef.current = true;
   }, [perspectiveSettings.cameraPosition, perspectiveSettings.cameraRotation, targetPosition, targetRotation]);
 
   // Apply camera updates using useFrame for smooth real-time response
   useFrame(() => {
     if (!camera) return;
 
-    // Smoothly interpolate camera position
-    camera.position.lerp(targetPosition, 0.15);
+    // Skip expensive calculations if we've converged
+    const positionConverged = hasVector3Converged(camera.position, targetPosition);
+    const rotationConverged = (
+      hasConverged(camera.rotation.x, targetRotation.x) &&
+      hasConverged(camera.rotation.y, targetRotation.y) &&
+      hasConverged(camera.rotation.z, targetRotation.z)
+    );
 
-    // Smoothly interpolate camera rotation
-    camera.rotation.x += (targetRotation.x - camera.rotation.x) * 0.15;
-    camera.rotation.y += (targetRotation.y - camera.rotation.y) * 0.15;
-    camera.rotation.z += (targetRotation.z - camera.rotation.z) * 0.15;
+    // Get current FOV target from store without subscribing
+    const { perspectiveSettings: currentSettings } = useVideoStore.getState();
+    const targetFov = currentSettings.fieldOfView;
+    const fovConverged = camera instanceof THREE.PerspectiveCamera &&
+      hasConverged(camera.fov, targetFov, PERFORMANCE_CONFIG.FOV_THRESHOLD);
 
-    // Update field of view if it's a PerspectiveCamera
-    if (camera instanceof THREE.PerspectiveCamera) {
-      const targetFov = perspectiveSettings.fieldOfView;
-      camera.fov += (targetFov - camera.fov) * 0.15;
-      camera.updateProjectionMatrix();
+    // If everything has converged, skip frame updates
+    if (positionConverged && rotationConverged && fovConverged) {
+      isAnimatingRef.current = false;
+      return;
     }
 
-    // Keep orbit controls target centered
-    if (controlsRef.current && !perspectiveSettings.lockOrbitControls) {
+    isAnimatingRef.current = true;
+
+    // Only interpolate position if not converged
+    if (!positionConverged) {
+      camera.position.lerp(targetPosition, PERFORMANCE_CONFIG.LERP_FACTOR);
+    }
+
+    // Only interpolate rotation if not converged
+    if (!rotationConverged) {
+      camera.rotation.x += (targetRotation.x - camera.rotation.x) * PERFORMANCE_CONFIG.LERP_FACTOR;
+      camera.rotation.y += (targetRotation.y - camera.rotation.y) * PERFORMANCE_CONFIG.LERP_FACTOR;
+      camera.rotation.z += (targetRotation.z - camera.rotation.z) * PERFORMANCE_CONFIG.LERP_FACTOR;
+    }
+
+    // Update field of view if it's a PerspectiveCamera and FOV changed significantly
+    if (camera instanceof THREE.PerspectiveCamera && !fovConverged) {
+      const newFov = camera.fov + (targetFov - camera.fov) * PERFORMANCE_CONFIG.LERP_FACTOR;
+
+      // Only update projection matrix if FOV changed significantly
+      if (Math.abs(newFov - lastFovRef.current) > PERFORMANCE_CONFIG.FOV_THRESHOLD) {
+        camera.fov = newFov;
+        camera.updateProjectionMatrix();
+        lastFovRef.current = newFov;
+      }
+    }
+
+    // Keep orbit controls target centered (only if controls are active)
+    if (controlsRef.current && !currentSettings.lockOrbitControls) {
       controlsRef.current.target.set(0, 0, 0);
     }
   });
@@ -92,18 +164,26 @@ function VideoCameraController() {
       panSpeed={0.5}
     />
   );
-}
+});
 
 /**
  * Field overlay component with opacity, scale, and position controlled by perspective settings.
  * Renders the 3D field geometry on top of the video background.
  * Uses useFrame for smooth real-time updates during calibration.
+ *
+ * Performance optimizations:
+ * - Convergence checks to skip interpolation when values are at target
+ * - Only traverses field meshes when opacity changes
+ * - Memoized to prevent unnecessary re-renders
  */
-function FieldOverlay() {
+const FieldOverlay = memo(function FieldOverlay() {
   const groupRef = useRef<THREE.Group>(null);
   const perspectiveSettings = useVideoStore((state) => state.perspectiveSettings);
 
-  // Store target values for smooth interpolation
+  // Track animation state
+  const isAnimatingRef = useRef(false);
+
+  // Store target values for smooth interpolation - reuse objects to avoid GC
   const targetScale = useMemo(() => new THREE.Vector3(1, 1, 1), []);
   const targetPosition = useMemo(() => new THREE.Vector3(0, 0, 0), []);
 
@@ -112,24 +192,49 @@ function FieldOverlay() {
     const scale = perspectiveSettings.fieldScale;
     targetScale.set(scale, scale, scale);
     targetPosition.set(...perspectiveSettings.fieldOffset);
+    // Mark that we need to animate
+    isAnimatingRef.current = true;
   }, [perspectiveSettings.fieldScale, perspectiveSettings.fieldOffset, targetScale, targetPosition]);
 
   // Apply field transformations using useFrame for smooth real-time updates
   useFrame(() => {
     if (!groupRef.current) return;
 
-    // Smoothly interpolate scale
-    groupRef.current.scale.lerp(targetScale, 0.15);
+    // Check convergence for scale and position
+    const scaleConverged = hasVector3Converged(groupRef.current.scale, targetScale);
+    const positionConverged = hasVector3Converged(groupRef.current.position, targetPosition);
 
-    // Smoothly interpolate position
-    groupRef.current.position.lerp(targetPosition, 0.15);
+    // If both converged, skip updates
+    if (scaleConverged && positionConverged) {
+      isAnimatingRef.current = false;
+      return;
+    }
+
+    isAnimatingRef.current = true;
+
+    // Only interpolate scale if not converged
+    if (!scaleConverged) {
+      groupRef.current.scale.lerp(targetScale, PERFORMANCE_CONFIG.LERP_FACTOR);
+    }
+
+    // Only interpolate position if not converged
+    if (!positionConverged) {
+      groupRef.current.position.lerp(targetPosition, PERFORMANCE_CONFIG.LERP_FACTOR);
+    }
   });
 
   // Apply opacity to field materials (this can be done via useEffect since it's a material property)
+  // Cache the last opacity to avoid unnecessary traversals
+  const lastOpacityRef = useRef<number>(-1);
+
   useEffect(() => {
     if (!groupRef.current) return;
 
     const opacity = perspectiveSettings.fieldOpacity;
+
+    // Skip if opacity hasn't changed
+    if (opacity === lastOpacityRef.current) return;
+    lastOpacityRef.current = opacity;
 
     // Traverse all meshes and update their material opacity
     groupRef.current.traverse((child) => {
@@ -151,22 +256,25 @@ function FieldOverlay() {
       <Field />
     </group>
   );
-}
+});
 
 /**
  * Component to handle annotation interactions within the Three.js context.
  * Must be rendered inside the Canvas component to access R3F hooks.
+ * Memoized to prevent unnecessary re-initialization.
  */
-function AnnotationInteractionHandler() {
+const AnnotationInteractionHandler = memo(function AnnotationInteractionHandler() {
   useAnnotationInteraction();
   return null;
-}
+});
 
 /**
  * Scene contents that are rendered inside the Canvas.
  * Includes video background, field overlay, calibration grid, players, and annotations.
+ *
+ * Memoized to prevent unnecessary re-renders when parent state changes.
  */
-function VideoSceneContents({
+const VideoSceneContents = memo(function VideoSceneContents({
   showField = true,
   gridSettings,
 }: {
@@ -227,7 +335,7 @@ function VideoSceneContents({
       <directionalLight position={[50, 100, 50]} intensity={0.8} castShadow />
     </>
   );
-}
+});
 
 /**
  * VideoCanvas - The main canvas component for video overlay mode.
@@ -264,7 +372,15 @@ export function VideoCanvas({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const perspectiveSettings = useVideoStore((state) => state.perspectiveSettings);
 
-  // Notify parent when canvas is ready
+  // Memoize canvas creation callback to prevent unnecessary re-renders
+  const handleCanvasCreated = useCallback(({ gl }: { gl: THREE.WebGLRenderer }) => {
+    canvasRef.current = gl.domElement;
+    if (onCanvasReady) {
+      onCanvasReady(gl.domElement);
+    }
+  }, [onCanvasReady]);
+
+  // Notify parent when canvas is ready (backup for when ref changes)
   useEffect(() => {
     if (onCanvasReady && canvasRef.current) {
       onCanvasReady(canvasRef.current);
@@ -282,13 +398,18 @@ export function VideoCanvas({
         antialias: true,
         alpha: false,
         preserveDrawingBuffer: true, // Enable for video export
+        // Performance optimizations
+        powerPreference: 'high-performance', // Request high-performance GPU
+        stencil: false, // Disable stencil buffer if not needed
+        depth: true,
       }}
-      onCreated={({ gl }) => {
-        canvasRef.current = gl.domElement;
-        if (onCanvasReady) {
-          onCanvasReady(gl.domElement);
-        }
-      }}
+      // Performance: Use "always" frameloop for video playback
+      // This ensures consistent frame updates for video texture
+      frameloop="always"
+      // Performance settings
+      dpr={[1, 2]} // Limit device pixel ratio to avoid excessive GPU work
+      performance={{ min: 0.5 }} // Allow adaptive performance degradation
+      onCreated={handleCanvasCreated}
     >
       <VideoSceneContents showField={showField} gridSettings={gridSettings} />
     </Canvas>

@@ -1,7 +1,17 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, memo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useVideoStore } from '../../store/videoStore';
+
+/**
+ * Performance constants for video texture rendering
+ */
+const PERFORMANCE_CONFIG = {
+  /** Minimum time between texture updates in milliseconds (for ~30fps cap) */
+  MIN_UPDATE_INTERVAL_MS: 33,
+  /** Priority for useFrame callback (lower = earlier execution) */
+  FRAME_PRIORITY: -1,
+} as const;
 
 /**
  * Props for the VideoBackgroundPlane component
@@ -50,11 +60,15 @@ export function VideoBackgroundPlane({
   const textureRef = useRef<THREE.VideoTexture | null>(null);
   const lastVideoElementRef = useRef<HTMLVideoElement | null>(null);
 
-  // Store state
+  // Performance tracking refs
+  const lastUpdateTimeRef = useRef<number>(0);
+  const lastVideoTimeRef = useRef<number>(0);
+
+  // Store state - subscribe only to values that trigger re-renders when changed
+  // isPlaying and isLoaded are accessed via getState() in useFrame to avoid re-renders
   const videoElement = useVideoStore((state) => state.videoElement);
   const videoMetadata = useVideoStore((state) => state.videoMetadata);
   const isLoaded = useVideoStore((state) => state.isLoaded);
-  const isPlaying = useVideoStore((state) => state.isPlaying);
 
   /**
    * Calculate plane dimensions based on video aspect ratio
@@ -129,15 +143,6 @@ export function VideoBackgroundPlane({
     textureRef.current = texture;
     lastVideoElementRef.current = videoElement;
 
-    // Apply texture to mesh material
-    if (meshRef.current) {
-      const material = meshRef.current.material as THREE.MeshBasicMaterial;
-      if (material) {
-        material.map = texture;
-        material.needsUpdate = true;
-      }
-    }
-
     // Cleanup on unmount or when video element changes
     return () => {
       if (textureRef.current) {
@@ -149,48 +154,132 @@ export function VideoBackgroundPlane({
 
   /**
    * Update texture on each frame for smooth video playback
-   * Only updates when video is loaded and playing to optimize performance
+   * Optimized for performance with frame throttling and state checks
+   *
+   * Performance optimizations:
+   * - Uses getState() to avoid re-renders from isPlaying changes
+   * - Throttles updates to ~30fps to reduce GPU overhead
+   * - Only updates when video time has actually changed
+   * - Uses negative priority to run before other frame callbacks
    */
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!enableFrameUpdate || !textureRef.current || !videoElement) {
       return;
     }
 
-    // Mark texture for update on each frame when video is playing
-    // This ensures the Three.js renderer picks up the latest video frame
-    if (isLoaded && (isPlaying || videoElement.seeking)) {
-      textureRef.current.needsUpdate = true;
+    // Get current state without subscribing (avoids re-renders)
+    const { isPlaying, isLoaded: loaded } = useVideoStore.getState();
+
+    // Skip if video not loaded
+    if (!loaded) {
+      return;
     }
-  });
+
+    // Check if video is playing or seeking
+    const shouldUpdate = isPlaying || videoElement.seeking;
+    if (!shouldUpdate) {
+      return;
+    }
+
+    // Throttle texture updates to ~30fps for performance
+    // This reduces GPU overhead while maintaining smooth video playback
+    const now = performance.now();
+    const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
+
+    if (timeSinceLastUpdate < PERFORMANCE_CONFIG.MIN_UPDATE_INTERVAL_MS) {
+      return;
+    }
+
+    // Only update if video time has actually changed
+    // This prevents unnecessary GPU texture uploads when video is paused
+    const currentVideoTime = videoElement.currentTime;
+    if (currentVideoTime === lastVideoTimeRef.current && !videoElement.seeking) {
+      return;
+    }
+
+    // Mark texture for update
+    textureRef.current.needsUpdate = true;
+    lastUpdateTimeRef.current = now;
+    lastVideoTimeRef.current = currentVideoTime;
+  }, PERFORMANCE_CONFIG.FRAME_PRIORITY);
 
   /**
    * Update texture when video is paused but seeked
    * Ensures frame updates are visible when scrubbing timeline
+   *
+   * Performance optimizations:
+   * - Only triggers on seeked (not continuous timeupdate)
+   * - Debounced to prevent rapid fire updates during scrubbing
    */
   useEffect(() => {
     if (!videoElement || !textureRef.current) return;
 
+    let seekDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
+
     const handleSeeked = () => {
-      if (textureRef.current) {
-        textureRef.current.needsUpdate = true;
+      // Clear any pending debounced update
+      if (seekDebounceTimeout) {
+        clearTimeout(seekDebounceTimeout);
       }
+
+      // Debounce seek updates to prevent rapid fire during scrubbing
+      seekDebounceTimeout = setTimeout(() => {
+        if (textureRef.current) {
+          textureRef.current.needsUpdate = true;
+          lastVideoTimeRef.current = videoElement.currentTime;
+        }
+      }, 16); // ~60fps max for seek updates
     };
 
-    const handleTimeUpdate = () => {
-      // Update texture periodically even when paused during scrubbing
-      if (textureRef.current && videoElement.paused) {
-        textureRef.current.needsUpdate = true;
-      }
-    };
-
+    // Use seeked event instead of timeupdate for better performance
+    // timeupdate fires very frequently and causes unnecessary work
     videoElement.addEventListener('seeked', handleSeeked);
-    videoElement.addEventListener('timeupdate', handleTimeUpdate);
 
     return () => {
+      if (seekDebounceTimeout) {
+        clearTimeout(seekDebounceTimeout);
+      }
       videoElement.removeEventListener('seeked', handleSeeked);
-      videoElement.removeEventListener('timeupdate', handleTimeUpdate);
     };
   }, [videoElement]);
+
+  /**
+   * Memoize geometry to prevent recreation on every render
+   * Only recreates when dimensions actually change
+   */
+  const geometry = useMemo(() => {
+    return new THREE.PlaneGeometry(planeDimensions.width, planeDimensions.height);
+  }, [planeDimensions.width, planeDimensions.height]);
+
+  /**
+   * Memoize material to prevent recreation on every render
+   * Material texture is updated via effect when texture changes
+   */
+  const material = useMemo(() => {
+    return new THREE.MeshBasicMaterial({
+      side: THREE.FrontSide,
+      toneMapped: false, // Preserve video colors without tone mapping
+      transparent: false,
+      depthWrite: true,
+      depthTest: true,
+    });
+  }, []);
+
+  // Sync material map with texture ref when video element changes
+  useEffect(() => {
+    if (material && textureRef.current) {
+      material.map = textureRef.current;
+      material.needsUpdate = true;
+    }
+  }, [material, videoElement]);
+
+  // Cleanup geometry and material on unmount
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+      material.dispose();
+    };
+  }, [geometry, material]);
 
   // Don't render if no video is loaded
   if (!isLoaded || !videoElement) {
@@ -203,17 +292,9 @@ export function VideoBackgroundPlane({
       position={[0, positionY, positionZ]}
       rotation={[-Math.PI / 2, 0, 0]} // Rotate to lie flat like field
       renderOrder={-1} // Render before other objects to ensure it's behind
-    >
-      <planeGeometry args={[planeDimensions.width, planeDimensions.height]} />
-      <meshBasicMaterial
-        map={textureRef.current}
-        side={THREE.FrontSide}
-        toneMapped={false} // Preserve video colors without tone mapping
-        transparent={false}
-        depthWrite={true}
-        depthTest={true}
-      />
-    </mesh>
+      geometry={geometry}
+      material={material}
+    />
   );
 }
 
@@ -229,8 +310,10 @@ export interface VideoBackgroundControlProps {
 /**
  * VideoBackgroundWithControls - A wrapper component that adds visibility
  * and opacity controls to the video background plane.
+ *
+ * Memoized to prevent unnecessary re-renders when parent state changes.
  */
-export function VideoBackgroundWithControls({
+export const VideoBackgroundWithControls = memo(function VideoBackgroundWithControls({
   visible,
   opacity = 1,
   scale = 1,
@@ -254,4 +337,4 @@ export function VideoBackgroundWithControls({
   }
 
   return <VideoBackgroundPlane scale={scale} />;
-}
+});
