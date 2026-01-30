@@ -113,6 +113,39 @@ export function getPositionAtTime(
 }
 
 /**
+ * Get the interpolated position at a global time, accounting for startTimeOffset
+ * Handles three cases:
+ * 1. globalTime < startTimeOffset: returns start position (animation hasn't started yet)
+ * 2. globalTime > startTimeOffset + duration: returns end position (animation finished)
+ * 3. Otherwise: interpolates using local time (globalTime - startTimeOffset)
+ */
+export function getPositionAtTimeWithOffset(
+  path: MovementPath,
+  globalTime: number
+): Position3D {
+  const { keyframes, duration, startTimeOffset } = path;
+
+  // Handle empty path
+  if (keyframes.length === 0) {
+    return [0, 0, 0];
+  }
+
+  // Case 1: Animation hasn't started yet - return start position
+  if (globalTime < startTimeOffset) {
+    return [...keyframes[0].position] as Position3D;
+  }
+
+  // Case 2: Animation has finished - return end position
+  if (globalTime > startTimeOffset + duration) {
+    return [...keyframes[keyframes.length - 1].position] as Position3D;
+  }
+
+  // Case 3: Animation is in progress - interpolate using local time
+  const localTime = globalTime - startTimeOffset;
+  return getPositionAtTime(path, localTime);
+}
+
+/**
  * Get the interpolated position at a progress value (0 to 1)
  * Useful for animation playback where progress is normalized
  */
