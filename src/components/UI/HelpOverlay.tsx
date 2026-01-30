@@ -74,6 +74,59 @@ export function HelpOverlay() {
               <li>Clear all annotations with the "Clear" button</li>
             </ul>
           </section>
+
+          <section>
+            <h3 className="font-semibold text-lg mb-2">Video Import</h3>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li><strong>Import Video:</strong> Click "Import Video" in the toolbar to load game footage (MP4 or WebM)</li>
+              <li><strong>Drag & Drop:</strong> You can also drag video files directly onto the upload area</li>
+              <li><strong>Video Workspace:</strong> Once loaded, you'll enter the video workspace with timeline controls</li>
+              <li><strong>Overlay Players:</strong> Position 3D player models over the video to analyze plays</li>
+              <li><strong>Exit Video Mode:</strong> Click the "X" button or press Escape to return to normal field view</li>
+            </ul>
+          </section>
+
+          <section>
+            <h3 className="font-semibold text-lg mb-2">Video Playback Shortcuts</h3>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li><strong>Space:</strong> Play/Pause video</li>
+              <li><strong>Left/Right Arrows:</strong> Step back/forward one frame</li>
+              <li><strong>Shift + Left/Right:</strong> Skip back/forward 5 seconds</li>
+              <li><strong>Home / End:</strong> Jump to start/end of video</li>
+              <li><strong>J:</strong> Slow down playback speed</li>
+              <li><strong>K:</strong> Pause playback</li>
+              <li><strong>L:</strong> Speed up playback</li>
+              <li><strong>Tab:</strong> Toggle sidebar visibility</li>
+              <li><strong>Escape:</strong> Exit video mode</li>
+            </ul>
+          </section>
+
+          <section>
+            <h3 className="font-semibold text-lg mb-2">Perspective Calibration</h3>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li><strong>Open Calibration Panel:</strong> Click the "Calibration" tab in the sidebar</li>
+              <li><strong>Camera Position:</strong> Adjust X, Y, Z sliders to move the camera viewpoint</li>
+              <li><strong>Camera Rotation:</strong> Use Pitch, Yaw, Roll sliders to rotate the view</li>
+              <li><strong>Field of View:</strong> Widen or narrow the perspective (30° - 120°)</li>
+              <li><strong>Field Scale:</strong> Resize the 3D field to match the video</li>
+              <li><strong>Field Opacity:</strong> Make the field semi-transparent to see through it</li>
+              <li><strong>Calibration Mode:</strong> Lock orbit controls for precise adjustments</li>
+              <li><strong>Calibration Grid:</strong> Enable grid overlay to help align field markings</li>
+              <li><strong>Save Calibration:</strong> Save your settings for future sessions</li>
+            </ul>
+          </section>
+
+          <section>
+            <h3 className="font-semibold text-lg mb-2">Video Export</h3>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li><strong>Open Export Panel:</strong> Click the "Export" tab in the sidebar</li>
+              <li><strong>Format Selection:</strong> Choose WebM or MP4 output format</li>
+              <li><strong>Resolution:</strong> Select 720p, 1080p, or original resolution</li>
+              <li><strong>Include Audio:</strong> Toggle to include the original audio track</li>
+              <li><strong>Export:</strong> Click "Start Export" to render and download the video with 3D overlays</li>
+              <li><strong>Cancel:</strong> Stop an in-progress export if needed</li>
+            </ul>
+          </section>
         </div>
       </div>
     </div>
