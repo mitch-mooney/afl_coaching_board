@@ -46,6 +46,10 @@ interface AnimationState {
   hasAnimation: boolean;
   /** Whether the animation should loop when reaching the end */
   loop: boolean;
+  /** Whether event mode is active (vs. normal path preview mode) */
+  isEventMode: boolean;
+  /** Current playback time in milliseconds (used in event mode for scrubbing) */
+  currentTime: number;
 
   // Playback Actions
   /** Start playing the animation */
@@ -74,6 +78,8 @@ interface AnimationState {
   jumpToStart: () => void;
   /** Jump to the end of the animation */
   jumpToEnd: () => void;
+  /** Jump to a specific time in milliseconds (for event mode scrubbing) */
+  jumpToTime: (timeMs: number) => void;
 
   // Configuration
   /** Set the total duration of the animation */
@@ -84,6 +90,16 @@ interface AnimationState {
   setLoop: (loop: boolean) => void;
   /** Toggle loop on/off */
   toggleLoop: () => void;
+
+  // Event Mode Control
+  /** Enable event mode for multi-player animation */
+  enableEventMode: () => void;
+  /** Disable event mode and return to normal path preview */
+  disableEventMode: () => void;
+  /** Set event mode on or off */
+  setEventMode: (enabled: boolean) => void;
+  /** Set the current playback time in milliseconds */
+  setCurrentTime: (timeMs: number) => void;
 
   // Reset
   /** Reset animation state to defaults */
@@ -98,11 +114,14 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
   duration: 0,
   hasAnimation: false,
   loop: false,
+  isEventMode: false,
+  currentTime: 0,
 
   play: () => {
-    const { hasAnimation } = get();
-    // Only allow playing if there's an animation loaded
-    if (!hasAnimation) {
+    const { hasAnimation, isEventMode } = get();
+    // In event mode, allow playing even without hasAnimation flag
+    // since the event itself determines what can be played
+    if (!hasAnimation && !isEventMode) {
       return;
     }
 
@@ -129,14 +148,15 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
       isPlaying: false,
       playbackState: 'stopped',
       progress: DEFAULT_PROGRESS,
+      currentTime: 0,
     });
   },
 
   togglePlayback: () => {
-    const { isPlaying, hasAnimation } = get();
+    const { isPlaying, hasAnimation, isEventMode } = get();
 
-    // If no animation is loaded, do nothing
-    if (!hasAnimation) {
+    // If no animation is loaded and not in event mode, do nothing
+    if (!hasAnimation && !isEventMode) {
       return;
     }
 
@@ -211,6 +231,19 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
     set({ progress: 1 });
   },
 
+  jumpToTime: (timeMs) => {
+    const { duration } = get();
+    // Clamp time to valid range
+    const clampedTime = Math.max(0, Math.min(timeMs, duration));
+    set({ currentTime: clampedTime });
+
+    // Also update progress if duration is set
+    if (duration > 0) {
+      const newProgress = clampedTime / duration;
+      set({ progress: Math.max(0, Math.min(1, newProgress)) });
+    }
+  },
+
   setDuration: (duration) => {
     set({ duration: Math.max(0, duration) });
   },
@@ -235,6 +268,40 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
     set((state) => ({ loop: !state.loop }));
   },
 
+  enableEventMode: () => {
+    set({ isEventMode: true });
+  },
+
+  disableEventMode: () => {
+    set({
+      isEventMode: false,
+      // Stop playback when exiting event mode
+      isPlaying: false,
+      playbackState: 'stopped',
+      currentTime: 0,
+    });
+  },
+
+  setEventMode: (enabled) => {
+    if (enabled) {
+      set({ isEventMode: true });
+    } else {
+      set({
+        isEventMode: false,
+        isPlaying: false,
+        playbackState: 'stopped',
+        currentTime: 0,
+      });
+    }
+  },
+
+  setCurrentTime: (timeMs) => {
+    const { duration } = get();
+    // Clamp time to valid range
+    const clampedTime = Math.max(0, Math.min(timeMs, duration));
+    set({ currentTime: clampedTime });
+  },
+
   reset: () => {
     set({
       isPlaying: false,
@@ -244,6 +311,8 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
       duration: 0,
       hasAnimation: false,
       loop: false,
+      isEventMode: false,
+      currentTime: 0,
     });
   },
 }));
