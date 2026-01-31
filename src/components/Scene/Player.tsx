@@ -6,6 +6,7 @@ import { Player } from '../../models/PlayerModel';
 import { usePlayerStore } from '../../store/playerStore';
 import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore, createPlayerSnapshot } from '../../store/historyStore';
+import { useAnimationStore } from '../../store/animationStore';
 import { snapToField } from '../../utils/fieldGeometry';
 import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
 
@@ -49,8 +50,12 @@ export function PlayerComponent({ player }: PlayerProps) {
   const { selectedPlayerId, selectPlayer, updatePlayerPosition, showPlayerNames, startEditingPlayerName, setDragging, players } = usePlayerStore();
   const { addPath, getPathByEntity, removePath } = usePathStore();
   const { pushSnapshot } = useHistoryStore();
+  const { isEventMode, isPlaying } = useAnimationStore();
   const { camera, raycaster } = useThree();
   const isSelected = selectedPlayerId === player.id;
+
+  // Check if dragging should be disabled (during event mode animation playback)
+  const isDragDisabled = isEventMode && isPlaying;
 
   // Get existing path for this player (if any)
   const existingPath = getPathByEntity(player.id, 'player');
@@ -101,8 +106,10 @@ export function PlayerComponent({ player }: PlayerProps) {
   const handleClick = (e: any) => {
     e.stopPropagation();
     if (isSelected) {
-      // Click on already-selected player opens name edit
-      startEditingPlayerName(player.id);
+      // Click on already-selected player opens name edit, but not during animation
+      if (!isDragDisabled) {
+        startEditingPlayerName(player.id);
+      }
     } else {
       selectPlayer(player.id);
     }
@@ -111,12 +118,20 @@ export function PlayerComponent({ player }: PlayerProps) {
   const handlePointerDown = (e: any) => {
     e.stopPropagation();
 
+    // Always allow selection (for POV camera targeting), but skip drag setup during animation
+    selectPlayer(player.id);
+
+    // During event mode animation playback, disable dragging to prevent conflicts
+    // Players should still be selectable for POV camera targeting
+    if (isDragDisabled) {
+      return;
+    }
+
     // Capture pointer for smooth dragging - prevents camera from stealing events
     if (e.target && e.target.setPointerCapture) {
       e.target.setPointerCapture(e.pointerId);
     }
 
-    selectPlayer(player.id);
     setIsDragging(true);
     setDragging(true);  // Notify store to disable camera controls
 
