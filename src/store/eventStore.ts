@@ -148,6 +148,8 @@ export const useEventStore = create<EventState>((set, get) => ({
       activeEventId: eventId,
       // Reset global time when switching events
       globalTime: DEFAULT_GLOBAL_TIME,
+      // Enable event mode when an event is selected, disable when cleared
+      isEventMode: eventId !== null,
     });
   },
 
@@ -155,6 +157,7 @@ export const useEventStore = create<EventState>((set, get) => ({
     set({
       activeEventId: null,
       globalTime: DEFAULT_GLOBAL_TIME,
+      isEventMode: false,
     });
   },
 

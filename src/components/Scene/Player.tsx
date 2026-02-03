@@ -7,6 +7,7 @@ import { usePlayerStore } from '../../store/playerStore';
 import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore, createPlayerSnapshot } from '../../store/historyStore';
 import { useAnimationStore } from '../../store/animationStore';
+import { useEventStore } from '../../store/eventStore';
 import { snapToField } from '../../utils/fieldGeometry';
 import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
 
@@ -50,7 +51,8 @@ export function PlayerComponent({ player }: PlayerProps) {
   const { selectedPlayerId, selectPlayer, updatePlayerPosition, showPlayerNames, startEditingPlayerName, setDragging, players } = usePlayerStore();
   const { addPath, getPathByEntity, removePath } = usePathStore();
   const { pushSnapshot } = useHistoryStore();
-  const { isEventMode, isPlaying } = useAnimationStore();
+  const isPlaying = useAnimationStore((state) => state.isPlaying);
+  const isEventMode = useEventStore((state) => state.isEventMode);
   const { camera, raycaster } = useThree();
   const isSelected = selectedPlayerId === player.id;
 

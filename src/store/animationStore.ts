@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useEventStore } from './eventStore';
 
 /**
  * Animation playback speed presets
@@ -119,9 +120,11 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
 
   play: () => {
     const { hasAnimation, isEventMode } = get();
-    // In event mode, allow playing even without hasAnimation flag
+    // Check if there's an active event in eventStore
+    const hasActiveEvent = useEventStore.getState().activeEventId !== null;
+    // In event mode or with an active event, allow playing even without hasAnimation flag
     // since the event itself determines what can be played
-    if (!hasAnimation && !isEventMode) {
+    if (!hasAnimation && !isEventMode && !hasActiveEvent) {
       return;
     }
 
@@ -154,9 +157,11 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
 
   togglePlayback: () => {
     const { isPlaying, hasAnimation, isEventMode } = get();
+    // Check if there's an active event in eventStore
+    const hasActiveEvent = useEventStore.getState().activeEventId !== null;
 
-    // If no animation is loaded and not in event mode, do nothing
-    if (!hasAnimation && !isEventMode) {
+    // If no animation is loaded and not in event mode and no active event, do nothing
+    if (!hasAnimation && !isEventMode && !hasActiveEvent) {
       return;
     }
 
