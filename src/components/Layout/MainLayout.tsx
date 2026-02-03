@@ -9,6 +9,7 @@ import { Toolbar } from '../UI/Toolbar';
 import { PlaybookPanel } from '../UI/PlaybookPanel';
 import { AnnotationToolbar } from '../UI/AnnotationToolbar';
 import { HelpOverlay } from '../UI/HelpOverlay';
+import { EventTimeline } from '../UI/EventTimeline';
 import { VideoWorkspace } from '../VideoImport/VideoWorkspace';
 import { VideoPiP } from '../VideoImport/VideoPiP';
 import { usePlayerStore } from '../../store/playerStore';
@@ -96,6 +97,9 @@ export function MainLayout() {
       <PlaybookPanel />
       <AnnotationToolbar />
       <HelpOverlay />
+
+      {/* Event Timeline (renders when event is active) */}
+      <EventTimeline />
 
       {/* Video PiP overlay when in pip mode */}
       {showVideoPiP && <VideoPiP />}

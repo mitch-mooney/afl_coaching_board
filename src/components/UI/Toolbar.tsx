@@ -5,11 +5,13 @@ import { useAnimationStore } from '../../store/animationStore';
 import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore } from '../../store/historyStore';
 import { useVideoStore } from '../../store/videoStore';
+import { useEventStore } from '../../store/eventStore';
 import { useVideoRecorder } from '../../hooks/useVideoRecorder';
 import { usePlaybook } from '../../hooks/usePlaybook';
 import { useState, useEffect, useCallback } from 'react';
 import { FormationSelector } from './FormationSelector';
 import { VideoUploader } from '../VideoImport/VideoUploader';
+import { EventEditor } from './EventEditor';
 
 interface ToolbarProps {
   canvas: HTMLCanvasElement | null;
@@ -27,7 +29,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const selectedPlayerId = usePlayerStore((state) => state.selectedPlayerId);
   const players = usePlayerStore((state) => state.players);
   const updateMultiplePlayers = usePlayerStore((state) => state.updateMultiplePlayers);
-  const { setPresetView, resetCamera } = useCameraStore();
+  const { setPresetView, resetCamera, povMode, povPlayerId, enablePOV, disablePOV } = useCameraStore();
   const ball = useBallStore((state) => state.ball);
   const isBallSelected = useBallStore((state) => state.isBallSelected);
   const assignBallToPlayer = useBallStore((state) => state.assignBallToPlayer);
@@ -41,6 +43,13 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const isLoading = useVideoStore((state) => state.isLoading);
   const videoMetadata = useVideoStore((state) => state.videoMetadata);
   const clearVideo = useVideoStore((state) => state.clearVideo);
+
+  // Event store state
+  const activeEventId = useEventStore((state) => state.activeEventId);
+  const getActiveEvent = useEventStore((state) => state.getActiveEvent);
+  const clearActiveEvent = useEventStore((state) => state.clearActiveEvent);
+  const events = useEventStore((state) => state.events);
+  const setActiveEvent = useEventStore((state) => state.setActiveEvent);
   
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [playbookName, setPlaybookName] = useState('');
@@ -50,6 +59,8 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const [selectedTeam, setSelectedTeam] = useState<'all' | 'team1' | 'team2'>('all');
   const [editingName, setEditingName] = useState('');
   const [showVideoUploader, setShowVideoUploader] = useState(false);
+  const [showEventEditor, setShowEventEditor] = useState(false);
+  const [showPOVSelector, setShowPOVSelector] = useState(false);
 
   // Get the player being edited
   const editingPlayer = editingPlayerId ? getPlayer(editingPlayerId) : undefined;
@@ -72,6 +83,14 @@ export function Toolbar({ canvas }: ToolbarProps) {
   // Get the selected player for display
   const selectedPlayer = selectedPlayerId
     ? players.find(p => p.id === selectedPlayerId)
+    : null;
+
+  // Get active event info
+  const activeEvent = getActiveEvent();
+
+  // Get the POV target player for display
+  const povPlayer = povPlayerId
+    ? players.find(p => p.id === povPlayerId)
     : null;
 
   const handleSavePlayerName = () => {
@@ -184,6 +203,28 @@ export function Toolbar({ canvas }: ToolbarProps) {
     setRosterText('');
     setSelectedTeam('all');
   };
+
+  // Handle POV mode toggle
+  const handleTogglePOV = useCallback(() => {
+    if (povMode) {
+      disablePOV();
+    } else if (selectedPlayerId) {
+      enablePOV(selectedPlayerId);
+    }
+    setShowPOVSelector(false);
+  }, [povMode, selectedPlayerId, enablePOV, disablePOV]);
+
+  // Handle POV player selection
+  const handleSelectPOVPlayer = useCallback((playerId: string) => {
+    enablePOV(playerId);
+    setShowPOVSelector(false);
+  }, [enablePOV]);
+
+  // Handle clearing active event
+  const handleClearEvent = useCallback(() => {
+    clearActiveEvent();
+    stop();
+  }, [clearActiveEvent, stop]);
 
   return (
     <div className="absolute top-4 left-4 right-4 z-10 flex gap-2 flex-wrap">
@@ -374,6 +415,250 @@ export function Toolbar({ canvas }: ToolbarProps) {
 
         <div className="w-px bg-gray-300 mx-1" />
 
+        {/* Event Controls */}
+        <button
+          onClick={() => setShowEventEditor(true)}
+          className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition flex items-center gap-1"
+          title="Create a new animation event"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+            />
+          </svg>
+          Create Event
+        </button>
+
+        {/* Event Selector - show when there are events */}
+        {events.length > 0 && (
+          <select
+            value={activeEventId ?? ''}
+            onChange={(e) => setActiveEvent(e.target.value || null)}
+            className="px-3 py-2 bg-purple-100 border border-purple-300 text-purple-800 rounded hover:bg-purple-200 transition cursor-pointer text-sm"
+            title="Select an event to play"
+          >
+            <option value="">Select Event...</option>
+            {events.map((event) => (
+              <option key={event.id} value={event.id}>
+                {event.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* Active Event Indicator */}
+        {activeEvent && (
+          <div className="flex items-center gap-1">
+            <span className="px-3 py-2 bg-purple-100 text-purple-800 rounded text-sm font-medium flex items-center gap-2">
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              {activeEvent.name}
+            </span>
+            <button
+              onClick={handleClearEvent}
+              className="px-2 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition"
+              title="Clear active event"
+              aria-label="Clear active event"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        <div className="w-px bg-gray-300 mx-1" />
+
+        {/* POV Camera Controls */}
+        <div className="relative">
+          {povMode ? (
+            <div className="flex items-center gap-1">
+              <span className="px-3 py-2 bg-indigo-100 text-indigo-800 rounded text-sm font-medium flex items-center gap-2">
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  />
+                </svg>
+                POV: #{povPlayer?.number ?? '?'}
+              </span>
+              <button
+                onClick={disablePOV}
+                className="px-2 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition"
+                title="Exit POV mode"
+                aria-label="Exit POV mode"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={() => setShowPOVSelector(!showPOVSelector)}
+                className={`px-4 py-2 rounded transition flex items-center gap-1 ${
+                  showPOVSelector
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-indigo-500 text-white hover:bg-indigo-600'
+                }`}
+                title="Enable POV camera mode"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  />
+                </svg>
+                POV Mode
+              </button>
+
+              {/* POV Player Selector Dropdown */}
+              {showPOVSelector && (
+                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border border-gray-200 z-50 min-w-[200px] max-h-[300px] overflow-y-auto">
+                  <div className="p-2 border-b border-gray-100">
+                    <span className="text-xs font-medium text-gray-500">Select Player for POV</span>
+                  </div>
+                  <div className="py-1">
+                    {/* Quick option: selected player */}
+                    {selectedPlayer && (
+                      <button
+                        onClick={() => handleSelectPOVPlayer(selectedPlayer.id)}
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 flex items-center gap-2 border-b border-gray-100"
+                      >
+                        <span className="w-6 h-6 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs font-bold">
+                          {selectedPlayer.number}
+                        </span>
+                        <span className="font-medium">Selected: #{selectedPlayer.number}</span>
+                        {selectedPlayer.playerName && (
+                          <span className="text-gray-500 text-xs">{selectedPlayer.playerName}</span>
+                        )}
+                      </button>
+                    )}
+                    {/* Team 1 Players */}
+                    <div className="px-2 py-1 bg-blue-50 text-xs font-medium text-blue-700">Team 1</div>
+                    {players
+                      .filter(p => p.teamId === 'team1')
+                      .map(player => (
+                        <button
+                          key={player.id}
+                          onClick={() => handleSelectPOVPlayer(player.id)}
+                          className="w-full px-3 py-1.5 text-left text-sm hover:bg-blue-50 flex items-center gap-2"
+                        >
+                          <span className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
+                            {player.number}
+                          </span>
+                          <span>#{player.number}</span>
+                          {player.playerName && (
+                            <span className="text-gray-500 text-xs">{player.playerName}</span>
+                          )}
+                        </button>
+                      ))}
+                    {/* Team 2 Players */}
+                    <div className="px-2 py-1 bg-red-50 text-xs font-medium text-red-700">Team 2</div>
+                    {players
+                      .filter(p => p.teamId === 'team2')
+                      .map(player => (
+                        <button
+                          key={player.id}
+                          onClick={() => handleSelectPOVPlayer(player.id)}
+                          className="w-full px-3 py-1.5 text-left text-sm hover:bg-red-50 flex items-center gap-2"
+                        >
+                          <span className="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold">
+                            {player.number}
+                          </span>
+                          <span>#{player.number}</span>
+                          {player.playerName && (
+                            <span className="text-gray-500 text-xs">{player.playerName}</span>
+                          )}
+                        </button>
+                      ))}
+                  </div>
+                  <button
+                    onClick={() => setShowPOVSelector(false)}
+                    className="w-full px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 border-t border-gray-100"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="w-px bg-gray-300 mx-1" />
+
         {/* Video Import Controls */}
         {isVideoMode && isLoaded ? (
           <>
@@ -555,6 +840,21 @@ export function Toolbar({ canvas }: ToolbarProps) {
           {/* Modal content */}
           <div className="relative z-10">
             <VideoUploader onClose={() => setShowVideoUploader(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* Event Editor Modal */}
+      {showEventEditor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowEventEditor(false)}
+          />
+          {/* Modal content */}
+          <div className="relative z-10">
+            <EventEditor onClose={() => setShowEventEditor(false)} />
           </div>
         </div>
       )}
