@@ -5,7 +5,7 @@ import { useAnimationStore } from '../../store/animationStore';
 import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore } from '../../store/historyStore';
 import { useVideoStore } from '../../store/videoStore';
-import { useEventStore } from '../../store/eventStore';
+import { useEventStore, formatEventTime } from '../../store/eventStore';
 import { useVideoRecorder } from '../../hooks/useVideoRecorder';
 import { usePlaybook } from '../../hooks/usePlaybook';
 import { useState, useEffect, useCallback } from 'react';
@@ -50,6 +50,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const clearActiveEvent = useEventStore((state) => state.clearActiveEvent);
   const events = useEventStore((state) => state.events);
   const setActiveEvent = useEventStore((state) => state.setActiveEvent);
+  const deleteEvent = useEventStore((state) => state.deleteEvent);
   
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [playbookName, setPlaybookName] = useState('');
@@ -61,6 +62,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const [showVideoUploader, setShowVideoUploader] = useState(false);
   const [showEventEditor, setShowEventEditor] = useState(false);
   const [showPOVSelector, setShowPOVSelector] = useState(false);
+  const [showEventDropdown, setShowEventDropdown] = useState(false);
 
   // Get the player being edited
   const editingPlayer = editingPlayerId ? getPlayer(editingPlayerId) : undefined;
@@ -225,6 +227,19 @@ export function Toolbar({ canvas }: ToolbarProps) {
     clearActiveEvent();
     stop();
   }, [clearActiveEvent, stop]);
+
+  // Handle deleting an event
+  const handleDeleteEvent = useCallback((eventId: string) => {
+    if (confirm('Delete this event?')) {
+      deleteEvent(eventId);
+    }
+  }, [deleteEvent]);
+
+  // Handle selecting an event from the custom dropdown
+  const handleSelectEvent = useCallback((eventId: string | null) => {
+    setActiveEvent(eventId);
+    setShowEventDropdown(false);
+  }, [setActiveEvent]);
 
   return (
     <div className="absolute top-4 left-4 right-4 z-10 flex gap-2 flex-wrap">
@@ -416,42 +431,125 @@ export function Toolbar({ canvas }: ToolbarProps) {
         <div className="w-px bg-gray-300 mx-1" />
 
         {/* Event Controls */}
-        <button
-          onClick={() => setShowEventEditor(true)}
-          className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition flex items-center gap-1"
-          title="Create a new animation event"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowEventEditor(true)}
+            className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition flex items-center gap-1"
+            title="Create a new animation event"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-            />
-          </svg>
-          Create Event
-        </button>
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+              />
+            </svg>
+            Create Event
+          </button>
+          {/* Event Counter Badge */}
+          {events.length > 0 && (
+            <span className="bg-purple-200 text-purple-800 text-xs rounded-full px-2 py-1">
+              {events.length}
+            </span>
+          )}
+        </div>
 
-        {/* Event Selector - show when there are events */}
+        {/* Event Selector - Custom dropdown with preview */}
         {events.length > 0 && (
-          <select
-            value={activeEventId ?? ''}
-            onChange={(e) => setActiveEvent(e.target.value || null)}
-            className="px-3 py-2 bg-purple-100 border border-purple-300 text-purple-800 rounded hover:bg-purple-200 transition cursor-pointer text-sm"
-            title="Select an event to play"
+          <div className="relative">
+            <button
+              onClick={() => setShowEventDropdown(!showEventDropdown)}
+              className={`px-3 py-2 bg-purple-100 border border-purple-300 text-purple-800 rounded hover:bg-purple-200 transition cursor-pointer text-sm flex items-center gap-2 min-w-[160px] ${
+                showEventDropdown ? 'bg-purple-200' : ''
+              }`}
+              title="Select an event to play"
+            >
+              <span className="flex-1 text-left truncate">
+                {activeEvent ? activeEvent.name : 'Select Event...'}
+              </span>
+              <svg
+                className={`w-4 h-4 transition-transform ${showEventDropdown ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {/* Custom Dropdown */}
+            {showEventDropdown && (
+              <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border border-gray-200 z-50 min-w-[250px] max-h-[300px] overflow-y-auto">
+                <div className="p-2 border-b border-gray-100">
+                  <span className="text-xs font-medium text-gray-500">Select Event</span>
+                </div>
+                <div className="py-1">
+                  {/* Clear selection option */}
+                  <button
+                    onClick={() => handleSelectEvent(null)}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                      !activeEventId ? 'bg-purple-50' : ''
+                    }`}
+                  >
+                    <span className="text-gray-500 italic">No event selected</span>
+                  </button>
+                  {/* Event list */}
+                  {events.map((event) => (
+                    <button
+                      key={event.id}
+                      onClick={() => handleSelectEvent(event.id)}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-purple-50 flex flex-col gap-0.5 ${
+                        activeEventId === event.id ? 'bg-purple-100' : ''
+                      }`}
+                    >
+                      <span className="font-medium text-gray-800">{event.name}</span>
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <span>{formatEventTime(event.duration)}</span>
+                        <span className="w-1 h-1 bg-gray-300 rounded-full" />
+                        <span>{event.playerPaths.length} player{event.playerPaths.length !== 1 ? 's' : ''}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setShowEventDropdown(false)}
+                  className="w-full px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 border-t border-gray-100"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Delete Event Button - show when an event is selected */}
+        {activeEventId && (
+          <button
+            onClick={() => handleDeleteEvent(activeEventId)}
+            className="px-2 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition"
+            title="Delete event"
+            aria-label="Delete event"
           >
-            <option value="">Select Event...</option>
-            {events.map((event) => (
-              <option key={event.id} value={event.id}>
-                {event.name}
-              </option>
-            ))}
-          </select>
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+          </button>
         )}
 
         {/* Active Event Indicator */}

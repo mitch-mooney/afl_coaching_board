@@ -1,10 +1,12 @@
-import { useCallback, useRef, useState, useEffect } from 'react';
+import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import {
   useAnimationStore,
   ANIMATION_SPEED_PRESETS,
   AnimationSpeed,
 } from '../../store/animationStore';
 import { useEventStore, formatEventTime } from '../../store/eventStore';
+import { usePlayerStore } from '../../store/playerStore';
+import { useCameraStore } from '../../store/cameraStore';
 
 /**
  * EventTimeline component with scrubber and time display
@@ -36,9 +38,69 @@ export function EventTimeline() {
   const getActiveEvent = useEventStore((state) => state.getActiveEvent);
   const setGlobalTime = useEventStore((state) => state.setGlobalTime);
 
+  // Player store state
+  const players = usePlayerStore((state) => state.players);
+
+  // Camera store state for POV
+  const povMode = useCameraStore((state) => state.povMode);
+  const povPlayerId = useCameraStore((state) => state.povPlayerId);
+  const enablePOV = useCameraStore((state) => state.enablePOV);
+  const disablePOV = useCameraStore((state) => state.disablePOV);
+
   // Get active event
   const activeEvent = getActiveEvent();
   const duration = activeEvent?.duration ?? 0;
+
+  // Get participating players grouped by team
+  const participatingPlayers = useMemo(() => {
+    if (!activeEvent) return { team1: [], team2: [] };
+
+    const playerIds = new Set(activeEvent.playerPaths.map((pp) => pp.playerId));
+    const team1: typeof players = [];
+    const team2: typeof players = [];
+
+    players.forEach((player) => {
+      if (playerIds.has(player.id)) {
+        if (player.teamId === 'team1') {
+          team1.push(player);
+        } else {
+          team2.push(player);
+        }
+      }
+    });
+
+    return { team1, team2 };
+  }, [activeEvent, players]);
+
+  // Determine which players are currently animating based on time offset
+  const animatingPlayerIds = useMemo(() => {
+    if (!activeEvent) return new Set<string>();
+
+    const animating = new Set<string>();
+    activeEvent.playerPaths.forEach((pp) => {
+      // Player is animating if globalTime >= their startTimeOffset
+      if (globalTime >= pp.startTimeOffset) {
+        animating.add(pp.playerId);
+      }
+    });
+    return animating;
+  }, [activeEvent, globalTime]);
+
+  /**
+   * Handle clicking on a player badge to toggle POV
+   */
+  const handlePlayerPOVClick = useCallback(
+    (playerId: string) => {
+      if (povMode && povPlayerId === playerId) {
+        // If already viewing this player's POV, disable it
+        disablePOV();
+      } else {
+        // Enable POV for this player
+        enablePOV(playerId);
+      }
+    },
+    [povMode, povPlayerId, enablePOV, disablePOV]
+  );
 
   // Calculate progress (0-1) for timeline display
   const progress = duration > 0 ? globalTime / duration : 0;
@@ -158,7 +220,7 @@ export function EventTimeline() {
     <div className="absolute bottom-4 left-4 right-4 z-10">
       <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-4">
         {/* Event Name Header */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold text-gray-700 truncate max-w-xs">
             {activeEvent.name}
           </h3>
@@ -166,6 +228,75 @@ export function EventTimeline() {
             Duration: {formatEventTime(duration)}
           </span>
         </div>
+
+        {/* Participating Players */}
+        {(participatingPlayers.team1.length > 0 || participatingPlayers.team2.length > 0) && (
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs text-gray-500">Players:</span>
+            <div className="flex gap-3">
+              {/* Team 1 Players */}
+              {participatingPlayers.team1.length > 0 && (
+                <div className="flex gap-1">
+                  {participatingPlayers.team1.map((player) => {
+                    const isAnimating = animatingPlayerIds.has(player.id);
+                    const isPOVTarget = povMode && povPlayerId === player.id;
+                    return (
+                      <button
+                        key={player.id}
+                        onClick={() => handlePlayerPOVClick(player.id)}
+                        className={`text-white text-xs px-2 py-1 rounded font-medium transition-all cursor-pointer hover:scale-105 ${
+                          isPOVTarget
+                            ? 'bg-indigo-600 ring-2 ring-indigo-400 ring-offset-1'
+                            : isAnimating
+                            ? 'bg-blue-500 ring-2 ring-blue-300 ring-offset-1'
+                            : 'bg-blue-300 hover:bg-blue-400'
+                        }`}
+                        title={`${isPOVTarget ? 'Exit POV' : 'Watch POV'}: ${player.playerName || `Player #${player.number}`}`}
+                      >
+                        {isPOVTarget && (
+                          <svg className="w-3 h-3 inline mr-0.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                          </svg>
+                        )}
+                        #{player.number}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {/* Team 2 Players */}
+              {participatingPlayers.team2.length > 0 && (
+                <div className="flex gap-1">
+                  {participatingPlayers.team2.map((player) => {
+                    const isAnimating = animatingPlayerIds.has(player.id);
+                    const isPOVTarget = povMode && povPlayerId === player.id;
+                    return (
+                      <button
+                        key={player.id}
+                        onClick={() => handlePlayerPOVClick(player.id)}
+                        className={`text-white text-xs px-2 py-1 rounded font-medium transition-all cursor-pointer hover:scale-105 ${
+                          isPOVTarget
+                            ? 'bg-indigo-600 ring-2 ring-indigo-400 ring-offset-1'
+                            : isAnimating
+                            ? 'bg-red-500 ring-2 ring-red-300 ring-offset-1'
+                            : 'bg-red-300 hover:bg-red-400'
+                        }`}
+                        title={`${isPOVTarget ? 'Exit POV' : 'Watch POV'}: ${player.playerName || `Player #${player.number}`}`}
+                      >
+                        {isPOVTarget && (
+                          <svg className="w-3 h-3 inline mr-0.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                          </svg>
+                        )}
+                        #{player.number}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Timeline Scrubber */}
         <div

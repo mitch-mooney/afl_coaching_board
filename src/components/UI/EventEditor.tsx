@@ -41,7 +41,6 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
   const [durationSeconds, setDurationSeconds] = useState(
     (existingEvent?.duration ?? EVENT_DEFAULTS.duration) / 1000
   );
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Local state for path offsets (used when creating or before saving)
@@ -222,6 +221,70 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
     return playerPaths.filter((path) => pathOffsets.has(path.entityId));
   }, [playerPaths, pathOffsets]);
 
+  // Get uncaptured paths (available for capture)
+  const uncapturedPaths = useMemo(() => {
+    return playerPaths.filter((path) => !pathOffsets.has(path.entityId));
+  }, [playerPaths, pathOffsets]);
+
+  // Group uncaptured paths by team
+  const uncapturedByTeam = useMemo(() => {
+    const team1: typeof uncapturedPaths = [];
+    const team2: typeof uncapturedPaths = [];
+    uncapturedPaths.forEach((path) => {
+      const player = getPlayerInfo(path.entityId);
+      if (player?.teamId === 'team1') {
+        team1.push(path);
+      } else {
+        team2.push(path);
+      }
+    });
+    return { team1, team2 };
+  }, [uncapturedPaths, getPlayerInfo]);
+
+  // Calculate suggested duration based on longest path
+  const suggestedDuration = useMemo(() => {
+    if (capturedPaths.length === 0) return null;
+    const maxPathDuration = Math.max(...capturedPaths.map((p) => p.duration));
+    // Add 10% buffer, round up to nearest second
+    return Math.ceil(maxPathDuration * 1.1);
+  }, [capturedPaths]);
+
+  /**
+   * Apply the suggested duration
+   */
+  const handleApplySuggestedDuration = useCallback(() => {
+    if (suggestedDuration !== null) {
+      setDurationSeconds(suggestedDuration);
+    }
+  }, [suggestedDuration]);
+
+  /**
+   * Capture a single path
+   */
+  const handleCapturePathSingle = useCallback((playerId: string) => {
+    setPathOffsets((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(playerId, 0);
+      return newMap;
+    });
+  }, []);
+
+  /**
+   * Auto-stagger offsets for all captured paths
+   */
+  const handleAutoStagger = useCallback(() => {
+    const staggerInterval = 500; // 0.5 second stagger between players
+    setPathOffsets((prev) => {
+      const newMap = new Map<string, number>();
+      let offset = 0;
+      prev.forEach((_, playerId) => {
+        newMap.set(playerId, offset);
+        offset += staggerInterval;
+      });
+      return newMap;
+    });
+  }, []);
+
   return (
     <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 min-w-[400px] max-w-[500px]">
       <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
@@ -305,6 +368,30 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
               ({formatEventTime(durationSeconds * 1000)})
             </span>
           </div>
+          {/* Suggested Duration */}
+          {suggestedDuration !== null && suggestedDuration !== durationSeconds && (
+            <div className="flex items-center gap-2 mt-2 text-sm">
+              <span className="text-gray-500">
+                Suggested: {suggestedDuration}s (based on paths)
+              </span>
+              <button
+                type="button"
+                onClick={handleApplySuggestedDuration}
+                className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition"
+              >
+                Apply
+              </button>
+            </div>
+          )}
+          {/* Warning if duration is shorter than longest path */}
+          {suggestedDuration !== null && durationSeconds < suggestedDuration && (
+            <div className="flex items-center gap-1 mt-1 text-xs text-amber-600">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span>Duration shorter than longest path</span>
+            </div>
+          )}
         </div>
 
         {/* Capture Paths Section */}
@@ -322,9 +409,93 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
             </p>
           ) : (
             <>
+              {/* Available Paths - grouped by team */}
+              {uncapturedPaths.length > 0 && (
+                <div className="mb-3 border rounded overflow-hidden">
+                  <div className="px-3 py-2 bg-gray-50 text-xs font-medium text-gray-600 border-b">
+                    Available Paths ({uncapturedPaths.length})
+                  </div>
+                  {/* Team 1 */}
+                  {uncapturedByTeam.team1.length > 0 && (
+                    <div>
+                      <div className="px-2 py-1 bg-blue-50 text-xs font-medium text-blue-700">Team 1</div>
+                      <div className="divide-y divide-blue-100">
+                        {uncapturedByTeam.team1.map((path) => {
+                          const player = getPlayerInfo(path.entityId);
+                          return (
+                            <div
+                              key={path.id}
+                              className="px-3 py-1.5 bg-blue-50/50 flex items-center justify-between"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
+                                  {player?.number ?? '?'}
+                                </span>
+                                {player?.playerName && (
+                                  <span className="text-xs text-gray-600">{player.playerName}</span>
+                                )}
+                                <span className="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 rounded">
+                                  {path.duration.toFixed(1)}s
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => handleCapturePathSingle(path.entityId)}
+                                className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
+                              >
+                                Capture
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {/* Team 2 */}
+                  {uncapturedByTeam.team2.length > 0 && (
+                    <div>
+                      <div className="px-2 py-1 bg-red-50 text-xs font-medium text-red-700">Team 2</div>
+                      <div className="divide-y divide-red-100">
+                        {uncapturedByTeam.team2.map((path) => {
+                          const player = getPlayerInfo(path.entityId);
+                          return (
+                            <div
+                              key={path.id}
+                              className="px-3 py-1.5 bg-red-50/50 flex items-center justify-between"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold">
+                                  {player?.number ?? '?'}
+                                </span>
+                                {player?.playerName && (
+                                  <span className="text-xs text-gray-600">{player.playerName}</span>
+                                )}
+                                <span className="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 rounded">
+                                  {path.duration.toFixed(1)}s
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => handleCapturePathSingle(path.entityId)}
+                                className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition"
+                              >
+                                Capture
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <button
                 onClick={handleCapturePaths}
-                className="w-full px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition flex items-center justify-center gap-2"
+                disabled={uncapturedPaths.length === 0}
+                className={`w-full px-4 py-2 rounded transition flex items-center justify-center gap-2 ${
+                  uncapturedPaths.length > 0
+                    ? 'bg-purple-500 text-white hover:bg-purple-600'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
               >
                 <svg
                   className="w-4 h-4"
@@ -339,7 +510,9 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
                   />
                 </svg>
-                Capture All Paths ({captureablePathsCount})
+                {uncapturedPaths.length > 0
+                  ? `Capture All Paths (${uncapturedPaths.length})`
+                  : 'All Paths Captured'}
               </button>
             </>
           )}
@@ -347,71 +520,54 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
 
         {/* Captured Paths List */}
         {capturedPaths.length > 0 && (
-          <div className="border rounded max-h-48 overflow-y-auto">
+          <div className="border rounded max-h-64 overflow-y-auto">
             <div className="sticky top-0 bg-gray-50 px-3 py-2 border-b flex justify-between items-center">
               <span className="text-xs font-medium text-gray-600">
                 Captured Paths ({capturedPaths.length})
               </span>
-              <button
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="text-xs text-purple-600 hover:text-purple-800 transition"
-              >
-                {showAdvanced ? 'Hide Offsets' : 'Edit Offsets'}
-              </button>
+              {capturedPaths.length > 1 && (
+                <button
+                  onClick={handleAutoStagger}
+                  className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded hover:bg-purple-200 transition"
+                  title="Automatically stagger player start times"
+                >
+                  Stagger
+                </button>
+              )}
             </div>
             <div className="divide-y">
               {capturedPaths.map((path) => {
                 const player = getPlayerInfo(path.entityId);
                 const offset = pathOffsets.get(path.entityId) ?? 0;
                 const teamColor =
-                  player?.teamId === 'team1' ? 'bg-blue-100' : 'bg-red-100';
+                  player?.teamId === 'team1' ? 'bg-blue-50' : 'bg-red-50';
+                const sliderColor =
+                  player?.teamId === 'team1' ? 'accent-blue-500' : 'accent-red-500';
 
                 return (
                   <div
                     key={path.id}
-                    className={`px-3 py-2 flex items-center justify-between ${teamColor}`}
+                    className={`px-3 py-2 ${teamColor}`}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">
-                        #{player?.number ?? '?'}
-                      </span>
-                      {player?.playerName && (
-                        <span className="text-xs text-gray-600">
-                          {player.playerName}
+                    {/* Player Info Row */}
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`w-6 h-6 rounded-full text-white flex items-center justify-center text-xs font-bold ${
+                            player?.teamId === 'team1' ? 'bg-blue-500' : 'bg-red-500'
+                          }`}
+                        >
+                          {player?.number ?? '?'}
                         </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {showAdvanced ? (
-                        <div className="flex items-center gap-1">
-                          <label
-                            htmlFor={`offset-${path.entityId}`}
-                            className="text-xs text-gray-500"
-                          >
-                            Start:
-                          </label>
-                          <input
-                            id={`offset-${path.entityId}`}
-                            type="number"
-                            min="0"
-                            max={durationSeconds}
-                            step="0.1"
-                            value={offset / 1000}
-                            onChange={(e) =>
-                              handleOffsetChange(
-                                path.entityId,
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                            className="w-16 px-2 py-1 text-xs border rounded"
-                          />
-                          <span className="text-xs text-gray-500">s</span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-500">
-                          {offset > 0 ? `+${(offset / 1000).toFixed(1)}s` : '0s'}
+                        {player?.playerName && (
+                          <span className="text-xs text-gray-600">
+                            {player.playerName}
+                          </span>
+                        )}
+                        <span className="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 rounded">
+                          {path.duration.toFixed(1)}s
                         </span>
-                      )}
+                      </div>
                       <button
                         onClick={() => handleRemovePathFromCapture(path.entityId)}
                         className="p-1 text-red-500 hover:text-red-700 transition"
@@ -432,6 +588,25 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
                           />
                         </svg>
                       </button>
+                    </div>
+                    {/* Offset Slider Row */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-10">Start:</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max={durationSeconds * 1000}
+                        step="100"
+                        value={offset}
+                        onChange={(e) =>
+                          handleOffsetChange(path.entityId, parseInt(e.target.value, 10) / 1000)
+                        }
+                        className={`flex-1 h-2 rounded-lg cursor-pointer ${sliderColor}`}
+                        title={`Start time offset: ${(offset / 1000).toFixed(1)}s`}
+                      />
+                      <span className="text-xs text-gray-600 w-12 text-right font-mono">
+                        {(offset / 1000).toFixed(1)}s
+                      </span>
                     </div>
                   </div>
                 );
