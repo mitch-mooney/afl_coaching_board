@@ -219,7 +219,7 @@ export function FormationSelector() {
     <>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition"
+        className="px-4 py-2 min-h-[44px] bg-indigo-500 text-white rounded hover:bg-indigo-600 transition touch-manipulation"
       >
         {isOpen ? '✕ Close' : '📋 Formations'}
       </button>
@@ -230,7 +230,7 @@ export function FormationSelector() {
             <h2 className="text-lg font-bold">Formation Templates</h2>
             <button
               onClick={() => setShowSaveDialog(true)}
-              className="px-3 py-1.5 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition"
+              className="px-3 py-2 min-h-[44px] bg-green-500 text-white text-sm rounded hover:bg-green-600 transition touch-manipulation"
               title="Save current formation as template"
             >
               + Save Current
@@ -300,7 +300,7 @@ export function FormationSelector() {
                 type="text"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
-                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-3 py-2 min-h-[44px] border rounded focus:outline-none focus:ring-2 focus:ring-green-500 touch-manipulation"
                 placeholder="Enter formation name"
                 autoFocus
                 disabled={isSaving}
@@ -311,7 +311,7 @@ export function FormationSelector() {
               <textarea
                 value={templateDescription}
                 onChange={(e) => setTemplateDescription(e.target.value)}
-                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-green-500 touch-manipulation"
                 placeholder="Enter description (optional)"
                 rows={3}
                 disabled={isSaving}
@@ -325,14 +325,14 @@ export function FormationSelector() {
                   setTemplateDescription('');
                 }}
                 disabled={isSaving}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition disabled:opacity-50"
+                className="px-4 py-2 min-h-[44px] bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition disabled:opacity-50 touch-manipulation"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveTemplate}
                 disabled={isSaving || !templateName.trim()}
-                className={`px-4 py-2 text-white rounded transition ${
+                className={`px-4 py-2 min-h-[44px] text-white rounded transition touch-manipulation ${
                   isSaving || !templateName.trim()
                     ? 'bg-green-300 cursor-not-allowed'
                     : 'bg-green-500 hover:bg-green-600'
@@ -401,7 +401,7 @@ function FormationItem({ formation, onApply, showDelete = false, isApplying = fa
           <button
             onClick={handleApply}
             disabled={isApplying}
-            className={`px-3 py-1.5 text-white text-sm rounded transition ${
+            className={`px-3 py-2 min-h-[44px] text-white text-sm rounded transition touch-manipulation ${
               isApplying
                 ? 'bg-indigo-300 cursor-not-allowed'
                 : 'bg-indigo-500 hover:bg-indigo-600'
@@ -413,7 +413,7 @@ function FormationItem({ formation, onApply, showDelete = false, isApplying = fa
             <button
               onClick={handleDelete}
               disabled={isApplying || isDeleting}
-              className={`px-2 py-1.5 text-white text-sm rounded transition ${
+              className={`min-w-[44px] min-h-[44px] px-2 py-2 text-white text-sm rounded transition touch-manipulation ${
                 isDeleting
                   ? 'bg-red-300 cursor-not-allowed opacity-100'
                   : 'bg-red-500 hover:bg-red-600 opacity-0 group-hover:opacity-100'
