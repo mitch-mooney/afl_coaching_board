@@ -48,6 +48,10 @@ export function PlayerComponent({ player }: PlayerProps) {
   const dragStartTime = useRef<number>(0);
   // Store pre-drag position for undo
   const preDragSnapshot = useRef<{ position: [number, number, number] } | null>(null);
+  // Track touch count to distinguish single-finger drag from multi-touch camera gestures
+  const touchCountRef = useRef<number>(0);
+  // Store the pointer ID that initiated the drag to track it specifically
+  const dragPointerIdRef = useRef<number | null>(null);
   const { selectedPlayerId, selectPlayer, updatePlayerPosition, showPlayerNames, startEditingPlayerName, setDragging, players } = usePlayerStore();
   const { addPath, getPathByEntity, removePath } = usePathStore();
   const { pushSnapshot } = useHistoryStore();
@@ -129,10 +133,19 @@ export function PlayerComponent({ player }: PlayerProps) {
       return;
     }
 
+    // For touch events, check if this is a multi-touch gesture (2+ fingers)
+    // If so, don't start player drag - let camera gestures handle it instead
+    if (e.pointerType === 'touch' && touchCountRef.current > 1) {
+      return;
+    }
+
     // Capture pointer for smooth dragging - prevents camera from stealing events
     if (e.target && e.target.setPointerCapture) {
       e.target.setPointerCapture(e.pointerId);
     }
+
+    // Store the pointer ID that initiated the drag
+    dragPointerIdRef.current = e.pointerId;
 
     setIsDragging(true);
     setDragging(true);  // Notify store to disable camera controls
@@ -224,6 +237,7 @@ export function PlayerComponent({ player }: PlayerProps) {
 
     setIsDragging(false);
     setDragging(false);
+    dragPointerIdRef.current = null;
     createPathFromMovement();
   }, [isDragging, setDragging, createPathFromMovement]);
 
@@ -244,6 +258,44 @@ export function PlayerComponent({ player }: PlayerProps) {
       window.removeEventListener('pointercancel', handleWindowPointerUp);
     };
   }, [isDragging, endDragging]);
+
+  // Track global touch count to cancel drag when multi-touch is detected
+  // This prevents player drag from conflicting with two-finger camera gestures
+  useEffect(() => {
+    const handleTouchStart = (e: TouchEvent) => {
+      touchCountRef.current = e.touches.length;
+      // If we're dragging and a second finger is added, cancel the drag
+      // This allows two-finger gestures (pan/zoom) to take over
+      if (isDragging && e.touches.length > 1) {
+        // Cancel the drag without creating a path
+        setIsDragging(false);
+        setDragging(false);
+        dragPointerIdRef.current = null;
+        // Reset movement tracking without creating path
+        movementPoints.current = [];
+        lastRecordedPos.current = null;
+        preDragSnapshot.current = null;
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      touchCountRef.current = e.touches.length;
+    };
+
+    const handleTouchCancel = (e: TouchEvent) => {
+      touchCountRef.current = e.touches.length;
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', handleTouchCancel, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchCancel);
+    };
+  }, [isDragging, setDragging]);
 
   const handlePointerUp = (e: any) => {
     e.stopPropagation();
