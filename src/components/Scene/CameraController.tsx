@@ -13,7 +13,7 @@ import { useGestures } from '../../hooks/useGestures';
 export function CameraController() {
   const { camera, gl } = useThree();
   const controlsRef = useRef<any>(null);
-  const { position, target, zoom, povMode, povPlayerId, povHeight, povDistance, applyPinchZoom } = useCameraStore();
+  const { position, target, zoom, povMode, povPlayerId, povHeight, povDistance, applyPinchZoom, applyTwoFingerPan } = useCameraStore();
   const selectedTool = useAnnotationStore((state) => state.selectedTool);
   const isDraggingPlayer = usePlayerStore((state) => state.isDragging);
   const getPlayer = usePlayerStore((state) => state.getPlayer);
@@ -25,12 +25,17 @@ export function CameraController() {
 
   // Ref to track the initial zoom when a pinch gesture starts
   const initialZoomRef = useRef<number | null>(null);
-  // State to track if we're in an active pinch gesture (use state to trigger re-render for controls)
+  // Refs to track the initial camera state when a two-finger pan gesture starts
+  const initialPositionRef = useRef<[number, number, number] | null>(null);
+  const initialTargetRef = useRef<[number, number, number] | null>(null);
+  const initialPanCenterRef = useRef<{ x: number; y: number } | null>(null);
+  // State to track if we're in an active gesture (use state to trigger re-render for controls)
   const [isPinching, setIsPinching] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
 
-  // Disable orbit controls when annotation tool is active, player is being dragged, POV mode is active, or pinching
+  // Disable orbit controls when annotation tool is active, player is being dragged, POV mode is active, or gesturing
   const isAnnotating = selectedTool !== null;
-  const shouldDisableControls = isAnnotating || isDraggingPlayer || povMode || isPinching;
+  const shouldDisableControls = isAnnotating || isDraggingPlayer || povMode || isPinching || isPanning;
 
   // Update camera position when store changes (non-POV mode)
   useEffect(() => {
@@ -48,17 +53,28 @@ export function CameraController() {
     }
   }, [camera, position, target, zoom, povMode]);
 
-  // Handle touch start - capture initial zoom for pinch gestures
+  // Handle touch start - capture initial state for two-finger gestures
   const handleTouchStart = useCallback((event: TouchEvent) => {
     gestureHandlers.onTouchStart(event);
 
-    // If two fingers touch, prepare for potential pinch gesture
+    // If two fingers touch, prepare for potential pinch or pan gesture
     if (event.touches.length === 2) {
+      // Capture initial zoom for pinch-to-zoom
       initialZoomRef.current = zoom;
+      // Capture initial camera state for two-finger pan
+      initialPositionRef.current = [...position];
+      initialTargetRef.current = [...target];
+      // Capture initial pan center (midpoint of two touches)
+      const touch1 = event.touches[0];
+      const touch2 = event.touches[1];
+      initialPanCenterRef.current = {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2,
+      };
     }
-  }, [gestureHandlers, zoom]);
+  }, [gestureHandlers, zoom, position, target]);
 
-  // Handle touch move - process pinch-to-zoom gestures
+  // Handle touch move - process pinch-to-zoom and two-finger pan gestures
   const handleTouchMove = useCallback((event: TouchEvent) => {
     gestureHandlers.onTouchMove(event);
 
@@ -66,28 +82,45 @@ export function CameraController() {
 
     if (gestureState.type === 'pinch-to-zoom' && gestureState.isActive) {
       // Mark that we're pinching (to disable OrbitControls)
-      // Only set state if not already pinching to avoid excessive re-renders
       setIsPinching((prev) => prev || true);
+      setIsPanning(false);
 
       // Apply the zoom factor
       if (initialZoomRef.current !== null) {
         applyPinchZoom(gestureState.zoomFactor, initialZoomRef.current);
       }
-    }
-  }, [gestureHandlers, getGestureState, applyPinchZoom]);
+    } else if (gestureState.type === 'two-finger-pan' && gestureState.isActive) {
+      // Mark that we're panning (to disable OrbitControls)
+      setIsPanning((prev) => prev || true);
+      setIsPinching(false);
 
-  // Handle touch end - reset pinch state
+      // Calculate cumulative pan delta from initial pan center
+      if (
+        initialPositionRef.current !== null &&
+        initialTargetRef.current !== null &&
+        initialPanCenterRef.current !== null
+      ) {
+        const cumulativeDelta = {
+          x: gestureState.panCenter.x - initialPanCenterRef.current.x,
+          y: gestureState.panCenter.y - initialPanCenterRef.current.y,
+        };
+        applyTwoFingerPan(cumulativeDelta, initialPositionRef.current, initialTargetRef.current);
+      }
+    }
+  }, [gestureHandlers, getGestureState, applyPinchZoom, applyTwoFingerPan]);
+
+  // Handle touch end - reset gesture state
   const handleTouchEnd = useCallback((event: TouchEvent) => {
     gestureHandlers.onTouchEnd(event);
 
-    // If all fingers released, reset pinch state
-    if (event.touches.length === 0) {
+    // If all fingers released or went to single-touch, reset gesture state
+    if (event.touches.length <= 1) {
       setIsPinching(false);
+      setIsPanning(false);
       initialZoomRef.current = null;
-    } else if (event.touches.length === 1) {
-      // Went from multi-touch to single-touch
-      setIsPinching(false);
-      initialZoomRef.current = null;
+      initialPositionRef.current = null;
+      initialTargetRef.current = null;
+      initialPanCenterRef.current = null;
     }
   }, [gestureHandlers]);
 
@@ -95,7 +128,11 @@ export function CameraController() {
   const handleTouchCancel = useCallback((event: TouchEvent) => {
     gestureHandlers.onTouchCancel(event);
     setIsPinching(false);
+    setIsPanning(false);
     initialZoomRef.current = null;
+    initialPositionRef.current = null;
+    initialTargetRef.current = null;
+    initialPanCenterRef.current = null;
   }, [gestureHandlers]);
 
   // Set up touch event listeners on the canvas

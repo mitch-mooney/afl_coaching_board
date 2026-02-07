@@ -26,6 +26,13 @@ interface CameraState {
 
   // Pinch-to-zoom action
   applyPinchZoom: (zoomFactor: number, initialZoom: number) => void;
+
+  // Two-finger pan action
+  applyTwoFingerPan: (
+    panDelta: { x: number; y: number },
+    initialPosition: [number, number, number],
+    initialTarget: [number, number, number]
+  ) => void;
 }
 
 const DEFAULT_CAMERA_POSITION: [number, number, number] = [0, 100, 150];
@@ -141,5 +148,29 @@ export const useCameraStore = create<CameraState>((set) => ({
     // Clamp zoom within bounds
     const clampedZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
     set({ zoom: clampedZoom });
+  },
+
+  applyTwoFingerPan: (panDelta, initialPosition, initialTarget) => {
+    // Convert screen delta to world space movement
+    // Scale factor converts screen pixels to world units
+    // Negative values because dragging right should move camera left (view moves right)
+    const panScale = 0.5;
+    const worldDeltaX = -panDelta.x * panScale;
+    const worldDeltaZ = -panDelta.y * panScale;
+
+    // Apply pan to both position and target to maintain camera orientation
+    const newPosition: [number, number, number] = [
+      initialPosition[0] + worldDeltaX,
+      initialPosition[1], // Keep Y unchanged for horizontal panning
+      initialPosition[2] + worldDeltaZ,
+    ];
+
+    const newTarget: [number, number, number] = [
+      initialTarget[0] + worldDeltaX,
+      initialTarget[1], // Keep Y unchanged
+      initialTarget[2] + worldDeltaZ,
+    ];
+
+    set({ position: newPosition, target: newTarget });
   },
 }));
