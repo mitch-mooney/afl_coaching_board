@@ -30,13 +30,13 @@ export function AnnotationToolbar() {
   
   return (
     <div className="absolute bottom-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3">
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
         <span className="text-sm font-semibold">Annotations:</span>
         {tools.map((tool) => (
           <button
             key={tool.type}
             onClick={() => setSelectedTool(selectedTool === tool.type ? null : tool.type)}
-            className={`px-3 py-1 rounded text-sm transition ${
+            className={`min-w-[44px] min-h-[44px] px-3 py-2 rounded text-base transition touch-manipulation ${
               selectedTool === tool.type
                 ? 'bg-blue-500 text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -48,27 +48,27 @@ export function AnnotationToolbar() {
         ))}
         <button
           onClick={clearAnnotations}
-          className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition"
+          className="min-h-[44px] px-4 py-2 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition touch-manipulation"
         >
           Clear
         </button>
       </div>
       
       {selectedTool && (
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t">
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t flex-wrap">
           <span className="text-xs text-gray-600">Color:</span>
           {COLORS.map((color) => (
             <button
               key={color}
               onClick={() => setSelectedColor(color)}
-              className={`w-6 h-6 rounded border-2 ${
-                selectedColor === color ? 'border-gray-800' : 'border-gray-300'
+              className={`min-w-[44px] min-h-[44px] rounded border-2 touch-manipulation ${
+                selectedColor === color ? 'border-gray-800 border-4' : 'border-gray-300'
               }`}
               style={{ backgroundColor: color }}
               title={color}
             />
           ))}
-          
+
           {selectedTool !== 'text' && (
             <>
               <span className="text-xs text-gray-600 ml-2">Thickness:</span>
@@ -78,7 +78,7 @@ export function AnnotationToolbar() {
                 max="10"
                 value={thickness}
                 onChange={(e) => setThickness(Number(e.target.value))}
-                className="w-20"
+                className="w-24 h-[44px] touch-manipulation"
               />
               <span className="text-xs text-gray-600">{thickness}px</span>
             </>
