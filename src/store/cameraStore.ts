@@ -23,11 +23,18 @@ interface CameraState {
   enablePOV: (playerId: string) => void;
   disablePOV: () => void;
   setPOVSettings: (height: number, distance: number) => void;
+
+  // Pinch-to-zoom action
+  applyPinchZoom: (zoomFactor: number, initialZoom: number) => void;
 }
 
 const DEFAULT_CAMERA_POSITION: [number, number, number] = [0, 100, 150];
 const DEFAULT_TARGET: [number, number, number] = [0, 0, 0];
 const DEFAULT_ZOOM = 1;
+
+// Zoom constraints for pinch-to-zoom
+export const MIN_ZOOM = 0.5;
+export const MAX_ZOOM = 4;
 
 // POV mode defaults
 const DEFAULT_POV_HEIGHT = 3;
@@ -126,5 +133,13 @@ export const useCameraStore = create<CameraState>((set) => ({
       povHeight: height,
       povDistance: distance,
     });
+  },
+
+  applyPinchZoom: (zoomFactor, initialZoom) => {
+    // Calculate new zoom from initial zoom and pinch factor
+    const newZoom = initialZoom * zoomFactor;
+    // Clamp zoom within bounds
+    const clampedZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+    set({ zoom: clampedZoom });
   },
 }));

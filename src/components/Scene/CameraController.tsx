@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -8,20 +8,29 @@ import { usePlayerStore } from '../../store/playerStore';
 import { usePathStore } from '../../store/pathStore';
 import { useAnimationStore } from '../../store/animationStore';
 import { getVelocityAtProgress } from '../../utils/pathAnimation';
+import { useGestures } from '../../hooks/useGestures';
 
 export function CameraController() {
-  const { camera } = useThree();
+  const { camera, gl } = useThree();
   const controlsRef = useRef<any>(null);
-  const { position, target, zoom, povMode, povPlayerId, povHeight, povDistance } = useCameraStore();
+  const { position, target, zoom, povMode, povPlayerId, povHeight, povDistance, applyPinchZoom } = useCameraStore();
   const selectedTool = useAnnotationStore((state) => state.selectedTool);
   const isDraggingPlayer = usePlayerStore((state) => state.isDragging);
   const getPlayer = usePlayerStore((state) => state.getPlayer);
   const getPathByEntity = usePathStore((state) => state.getPathByEntity);
   const progress = useAnimationStore((state) => state.progress);
 
-  // Disable orbit controls when annotation tool is active, player is being dragged, or POV mode is active
+  // Gesture detection for pinch-to-zoom
+  const { handlers: gestureHandlers, getGestureState } = useGestures();
+
+  // Ref to track the initial zoom when a pinch gesture starts
+  const initialZoomRef = useRef<number | null>(null);
+  // State to track if we're in an active pinch gesture (use state to trigger re-render for controls)
+  const [isPinching, setIsPinching] = useState(false);
+
+  // Disable orbit controls when annotation tool is active, player is being dragged, POV mode is active, or pinching
   const isAnnotating = selectedTool !== null;
-  const shouldDisableControls = isAnnotating || isDraggingPlayer || povMode;
+  const shouldDisableControls = isAnnotating || isDraggingPlayer || povMode || isPinching;
 
   // Update camera position when store changes (non-POV mode)
   useEffect(() => {
@@ -38,6 +47,75 @@ export function CameraController() {
       controlsRef.current.update();
     }
   }, [camera, position, target, zoom, povMode]);
+
+  // Handle touch start - capture initial zoom for pinch gestures
+  const handleTouchStart = useCallback((event: TouchEvent) => {
+    gestureHandlers.onTouchStart(event);
+
+    // If two fingers touch, prepare for potential pinch gesture
+    if (event.touches.length === 2) {
+      initialZoomRef.current = zoom;
+    }
+  }, [gestureHandlers, zoom]);
+
+  // Handle touch move - process pinch-to-zoom gestures
+  const handleTouchMove = useCallback((event: TouchEvent) => {
+    gestureHandlers.onTouchMove(event);
+
+    const gestureState = getGestureState();
+
+    if (gestureState.type === 'pinch-to-zoom' && gestureState.isActive) {
+      // Mark that we're pinching (to disable OrbitControls)
+      // Only set state if not already pinching to avoid excessive re-renders
+      setIsPinching((prev) => prev || true);
+
+      // Apply the zoom factor
+      if (initialZoomRef.current !== null) {
+        applyPinchZoom(gestureState.zoomFactor, initialZoomRef.current);
+      }
+    }
+  }, [gestureHandlers, getGestureState, applyPinchZoom]);
+
+  // Handle touch end - reset pinch state
+  const handleTouchEnd = useCallback((event: TouchEvent) => {
+    gestureHandlers.onTouchEnd(event);
+
+    // If all fingers released, reset pinch state
+    if (event.touches.length === 0) {
+      setIsPinching(false);
+      initialZoomRef.current = null;
+    } else if (event.touches.length === 1) {
+      // Went from multi-touch to single-touch
+      setIsPinching(false);
+      initialZoomRef.current = null;
+    }
+  }, [gestureHandlers]);
+
+  // Handle touch cancel - reset all state
+  const handleTouchCancel = useCallback((event: TouchEvent) => {
+    gestureHandlers.onTouchCancel(event);
+    setIsPinching(false);
+    initialZoomRef.current = null;
+  }, [gestureHandlers]);
+
+  // Set up touch event listeners on the canvas
+  useEffect(() => {
+    const canvas = gl.domElement;
+    if (!canvas) return;
+
+    // Add touch event listeners with passive: false to allow preventDefault
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+    canvas.addEventListener('touchcancel', handleTouchCancel, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('touchstart', handleTouchStart);
+      canvas.removeEventListener('touchmove', handleTouchMove);
+      canvas.removeEventListener('touchend', handleTouchEnd);
+      canvas.removeEventListener('touchcancel', handleTouchCancel);
+    };
+  }, [gl.domElement, handleTouchStart, handleTouchMove, handleTouchEnd, handleTouchCancel]);
 
   // POV camera update - runs every frame when POV mode is active
   useFrame(() => {
