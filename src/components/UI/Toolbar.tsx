@@ -232,19 +232,19 @@ export function Toolbar({ canvas }: ToolbarProps) {
         {/* Camera Presets */}
         <button
           onClick={() => setPresetView('top')}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+          className="px-4 py-2 min-h-[44px] bg-blue-500 text-white rounded hover:bg-blue-600 transition touch-manipulation"
         >
           Top View
         </button>
         <button
           onClick={() => setPresetView('sideline')}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+          className="px-4 py-2 min-h-[44px] bg-blue-500 text-white rounded hover:bg-blue-600 transition touch-manipulation"
         >
           Sideline
         </button>
         <button
           onClick={() => setPresetView('end-to-end')}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+          className="px-4 py-2 min-h-[44px] bg-blue-500 text-white rounded hover:bg-blue-600 transition touch-manipulation"
         >
           End-to-End
         </button>
@@ -255,7 +255,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
         <button
           onClick={handleUndo}
           disabled={!canUndo()}
-          className={`px-4 py-2 rounded transition ${
+          className={`px-4 py-2 min-h-[44px] rounded transition touch-manipulation ${
             canUndo()
               ? 'bg-yellow-500 text-white hover:bg-yellow-600'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -267,7 +267,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
         <button
           onClick={clearPaths}
           disabled={paths.length === 0}
-          className={`px-4 py-2 rounded transition ${
+          className={`px-4 py-2 min-h-[44px] rounded transition touch-manipulation ${
             paths.length > 0
               ? 'bg-red-500 text-white hover:bg-red-600'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -278,14 +278,14 @@ export function Toolbar({ canvas }: ToolbarProps) {
         </button>
         <button
           onClick={resetPlayers}
-          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition"
+          className="px-4 py-2 min-h-[44px] bg-green-500 text-white rounded hover:bg-green-600 transition touch-manipulation"
         >
           Reset Players
         </button>
         <FormationSelector />
         <button
           onClick={togglePlayerNames}
-          className={`px-4 py-2 rounded transition ${
+          className={`px-4 py-2 min-h-[44px] rounded transition touch-manipulation ${
             showPlayerNames
               ? 'bg-teal-500 text-white hover:bg-teal-600'
               : 'bg-gray-500 text-white hover:bg-gray-600'
@@ -295,7 +295,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
         </button>
         <button
           onClick={() => setShowImportDialog(true)}
-          className="px-4 py-2 bg-cyan-500 text-white rounded hover:bg-cyan-600 transition"
+          className="px-4 py-2 min-h-[44px] bg-cyan-500 text-white rounded hover:bg-cyan-600 transition touch-manipulation"
         >
           📋 Import Roster
         </button>
@@ -308,7 +308,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
             <button
               onClick={handleAssignBall}
               disabled={!selectedPlayerId}
-              className={`px-4 py-2 rounded transition ${
+              className={`px-4 py-2 min-h-[44px] rounded transition touch-manipulation ${
                 selectedPlayerId
                   ? 'bg-amber-600 text-white hover:bg-amber-700'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -322,7 +322,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
             {assignedPlayer && (
               <button
                 onClick={handleUnassignBall}
-                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition"
+                className="px-4 py-2 min-h-[44px] bg-red-500 text-white rounded hover:bg-red-600 transition touch-manipulation"
                 title="Release ball from player"
               >
                 🏈 Release (#{assignedPlayer.number})
@@ -338,7 +338,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
             {!ballPath ? (
               <button
                 onClick={handleCreateBallPath}
-                className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition"
+                className="px-4 py-2 min-h-[44px] bg-indigo-500 text-white rounded hover:bg-indigo-600 transition touch-manipulation"
                 title="Create a test movement path for the ball"
               >
                 ➕ Add Ball Path
@@ -346,7 +346,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
             ) : (
               <button
                 onClick={handleRemoveBallPath}
-                className="px-4 py-2 bg-red-400 text-white rounded hover:bg-red-500 transition"
+                className="px-4 py-2 min-h-[44px] bg-red-400 text-white rounded hover:bg-red-500 transition touch-manipulation"
                 title="Remove ball movement path"
               >
                 ➖ Remove Path
@@ -359,10 +359,10 @@ export function Toolbar({ canvas }: ToolbarProps) {
         {/* Animation Playback Controls */}
         <button
           onClick={togglePlayback}
-          className={`px-4 py-2 rounded transition ${
+          className={`px-4 py-2 min-h-[44px] rounded transition touch-manipulation ${
             isPlaying
               ? 'bg-yellow-500 text-white hover:bg-yellow-600'
-: 'bg-green-600 text-white hover:bg-green-700'
+              : 'bg-green-600 text-white hover:bg-green-700'
           }`}
           title={isPlaying ? 'Pause animation' : 'Play animation'}
         >
@@ -370,12 +370,12 @@ export function Toolbar({ canvas }: ToolbarProps) {
         </button>
         <button
           onClick={handleStopAnimation}
-          className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition"
+          className="px-4 py-2 min-h-[44px] bg-gray-600 text-white rounded hover:bg-gray-700 transition touch-manipulation"
           title="Stop animation and reset to start"
         >
           ⏹ Stop
         </button>
-        <span className="px-2 py-2 text-sm text-gray-600 bg-gray-100 rounded">
+        <span className="px-2 py-2 min-h-[44px] text-sm text-gray-600 bg-gray-100 rounded flex items-center">
           {Math.round(progress * 100)}%
         </span>
 
@@ -384,7 +384,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
         {/* Camera Controls */}
         <button
           onClick={resetCamera}
-          className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition"
+          className="px-4 py-2 min-h-[44px] bg-purple-500 text-white rounded hover:bg-purple-600 transition touch-manipulation"
         >
           Reset Camera
         </button>
@@ -394,7 +394,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
         {/* Video Recording */}
         <button
           onClick={handleRecordingToggle}
-          className={`px-4 py-2 rounded transition ${
+          className={`px-4 py-2 min-h-[44px] rounded transition touch-manipulation ${
             isRecording
               ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse'
               : 'bg-gray-500 text-white hover:bg-gray-600'
@@ -408,7 +408,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
         {/* Save Playbook */}
         <button
           onClick={() => setShowSaveDialog(true)}
-          className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition"
+          className="px-4 py-2 min-h-[44px] bg-orange-500 text-white rounded hover:bg-orange-600 transition touch-manipulation"
         >
           Save Playbook
         </button>
@@ -418,7 +418,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
         {/* Event Controls */}
         <button
           onClick={() => setShowEventEditor(true)}
-          className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition flex items-center gap-1"
+          className="px-4 py-2 min-h-[44px] bg-purple-500 text-white rounded hover:bg-purple-600 transition touch-manipulation flex items-center gap-1"
           title="Create a new animation event"
         >
           <svg
@@ -442,7 +442,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
           <select
             value={activeEventId ?? ''}
             onChange={(e) => setActiveEvent(e.target.value || null)}
-            className="px-3 py-2 bg-purple-100 border border-purple-300 text-purple-800 rounded hover:bg-purple-200 transition cursor-pointer text-sm"
+            className="px-3 py-2 min-h-[44px] bg-purple-100 border border-purple-300 text-purple-800 rounded hover:bg-purple-200 transition cursor-pointer text-sm touch-manipulation"
             title="Select an event to play"
           >
             <option value="">Select Event...</option>
@@ -457,7 +457,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
         {/* Active Event Indicator */}
         {activeEvent && (
           <div className="flex items-center gap-1">
-            <span className="px-3 py-2 bg-purple-100 text-purple-800 rounded text-sm font-medium flex items-center gap-2">
+            <span className="px-3 py-2 min-h-[44px] bg-purple-100 text-purple-800 rounded text-sm font-medium flex items-center gap-2">
               <svg
                 className="w-4 h-4"
                 fill="none"
@@ -481,7 +481,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
             </span>
             <button
               onClick={handleClearEvent}
-              className="px-2 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition"
+              className="min-w-[44px] min-h-[44px] px-2 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition touch-manipulation flex items-center justify-center"
               title="Clear active event"
               aria-label="Clear active event"
             >
@@ -508,7 +508,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
         <div className="relative">
           {povMode ? (
             <div className="flex items-center gap-1">
-              <span className="px-3 py-2 bg-indigo-100 text-indigo-800 rounded text-sm font-medium flex items-center gap-2">
+              <span className="px-3 py-2 min-h-[44px] bg-indigo-100 text-indigo-800 rounded text-sm font-medium flex items-center gap-2">
                 <svg
                   className="w-4 h-4"
                   fill="none"
@@ -532,7 +532,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
               </span>
               <button
                 onClick={disablePOV}
-                className="px-2 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition"
+                className="min-w-[44px] min-h-[44px] px-2 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition touch-manipulation flex items-center justify-center"
                 title="Exit POV mode"
                 aria-label="Exit POV mode"
               >
@@ -555,7 +555,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
             <>
               <button
                 onClick={() => setShowPOVSelector(!showPOVSelector)}
-                className={`px-4 py-2 rounded transition flex items-center gap-1 ${
+                className={`px-4 py-2 min-h-[44px] rounded transition touch-manipulation flex items-center gap-1 ${
                   showPOVSelector
                     ? 'bg-indigo-600 text-white'
                     : 'bg-indigo-500 text-white hover:bg-indigo-600'
@@ -595,7 +595,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
                     {selectedPlayer && (
                       <button
                         onClick={() => handleSelectPOVPlayer(selectedPlayer.id)}
-                        className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 flex items-center gap-2 border-b border-gray-100"
+                        className="w-full min-h-[44px] px-3 py-2 text-left text-sm hover:bg-indigo-50 flex items-center gap-2 border-b border-gray-100 touch-manipulation"
                       >
                         <span className="w-6 h-6 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs font-bold">
                           {selectedPlayer.number}
@@ -614,7 +614,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
                         <button
                           key={player.id}
                           onClick={() => handleSelectPOVPlayer(player.id)}
-                          className="w-full px-3 py-1.5 text-left text-sm hover:bg-blue-50 flex items-center gap-2"
+                          className="w-full min-h-[44px] px-3 py-1.5 text-left text-sm hover:bg-blue-50 flex items-center gap-2 touch-manipulation"
                         >
                           <span className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
                             {player.number}
@@ -633,7 +633,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
                         <button
                           key={player.id}
                           onClick={() => handleSelectPOVPlayer(player.id)}
-                          className="w-full px-3 py-1.5 text-left text-sm hover:bg-red-50 flex items-center gap-2"
+                          className="w-full min-h-[44px] px-3 py-1.5 text-left text-sm hover:bg-red-50 flex items-center gap-2 touch-manipulation"
                         >
                           <span className="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold">
                             {player.number}
@@ -647,7 +647,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
                   </div>
                   <button
                     onClick={() => setShowPOVSelector(false)}
-                    className="w-full px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 border-t border-gray-100"
+                    className="w-full min-h-[44px] px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 border-t border-gray-100 touch-manipulation"
                   >
                     Cancel
                   </button>
@@ -664,7 +664,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
           <>
             {/* Show video info and clear button when video is loaded */}
             <div className="flex items-center gap-2">
-              <span className="px-3 py-2 bg-teal-100 text-teal-800 rounded text-sm font-medium flex items-center gap-2">
+              <span className="px-3 py-2 min-h-[44px] bg-teal-100 text-teal-800 rounded text-sm font-medium flex items-center gap-2">
                 <svg
                   className="w-4 h-4"
                   fill="none"
@@ -682,7 +682,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
               </span>
               <button
                 onClick={clearVideo}
-                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition flex items-center gap-1"
+                className="px-4 py-2 min-h-[44px] bg-red-500 text-white rounded hover:bg-red-600 transition touch-manipulation flex items-center gap-1"
                 aria-label="Clear video and return to field mode"
                 title="Clear video and return to field mode"
               >
@@ -707,7 +707,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
           <button
             onClick={() => setShowVideoUploader(true)}
             disabled={isLoading}
-            className={`px-4 py-2 rounded transition flex items-center gap-2 ${
+            className={`px-4 py-2 min-h-[44px] rounded transition touch-manipulation flex items-center gap-2 ${
               isLoading
                 ? 'bg-gray-400 text-white cursor-not-allowed'
                 : 'bg-teal-500 text-white hover:bg-teal-600'
@@ -743,7 +743,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
                 type="text"
                 value={playbookName}
                 onChange={(e) => setPlaybookName(e.target.value)}
-                className="w-full px-3 py-2 border rounded"
+                className="w-full px-3 py-2 min-h-[44px] border rounded touch-manipulation"
                 placeholder="Enter playbook name"
                 autoFocus
               />
@@ -753,7 +753,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
               <textarea
                 value={playbookDescription}
                 onChange={(e) => setPlaybookDescription(e.target.value)}
-                className="w-full px-3 py-2 border rounded"
+                className="w-full px-3 py-2 border rounded touch-manipulation"
                 placeholder="Enter description (optional)"
                 rows={3}
               />
@@ -765,13 +765,13 @@ export function Toolbar({ canvas }: ToolbarProps) {
                   setPlaybookName('');
                   setPlaybookDescription('');
                 }}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition"
+                className="px-4 py-2 min-h-[44px] bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition touch-manipulation"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
-                className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition"
+                className="px-4 py-2 min-h-[44px] bg-orange-500 text-white rounded hover:bg-orange-600 transition touch-manipulation"
               >
                 Save
               </button>
@@ -790,7 +790,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
               <select
                 value={selectedTeam}
                 onChange={(e) => setSelectedTeam(e.target.value as 'all' | 'team1' | 'team2')}
-                className="w-full px-3 py-2 border rounded"
+                className="w-full px-3 py-2 min-h-[44px] border rounded touch-manipulation"
               >
                 <option value="all">All Players</option>
                 <option value="team1">Team 1</option>
@@ -802,7 +802,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
               <textarea
                 value={rosterText}
                 onChange={(e) => setRosterText(e.target.value)}
-                className="w-full px-3 py-2 border rounded font-mono text-sm"
+                className="w-full px-3 py-2 border rounded font-mono text-sm touch-manipulation"
                 placeholder="Enter one name per line&#10;e.g.&#10;John Smith&#10;Jane Doe&#10;Mike Johnson"
                 rows={6}
               />
@@ -814,13 +814,13 @@ export function Toolbar({ canvas }: ToolbarProps) {
                   setRosterText('');
                   setSelectedTeam('all');
                 }}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition"
+                className="px-4 py-2 min-h-[44px] bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition touch-manipulation"
               >
                 Cancel
               </button>
               <button
                 onClick={handleImport}
-                className="px-4 py-2 bg-cyan-500 text-white rounded hover:bg-cyan-600 transition"
+                className="px-4 py-2 min-h-[44px] bg-cyan-500 text-white rounded hover:bg-cyan-600 transition touch-manipulation"
               >
                 Import
               </button>

@@ -1,7 +1,7 @@
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Text, Billboard } from '@react-three/drei';
-import { Mesh, Vector3, Plane } from 'three';
+import { Vector3, Plane } from 'three';
 import { Player } from '../../models/PlayerModel';
 import { usePlayerStore } from '../../store/playerStore';
 import { usePathStore } from '../../store/pathStore';
@@ -38,17 +38,25 @@ interface PlayerProps {
 }
 
 export function PlayerComponent({ player }: PlayerProps) {
-  const meshRef = useRef<Mesh>(null);
   const groupRef = useRef<any>(null);
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
   // Track all movement points during drag for curved path recording
   const movementPoints = useRef<[number, number, number][]>([]);
   const lastRecordedPos = useRef<[number, number, number] | null>(null);
   const dragStartTime = useRef<number>(0);
   // Store pre-drag position for undo
   const preDragSnapshot = useRef<{ position: [number, number, number] } | null>(null);
-  const { selectedPlayerId, selectPlayer, updatePlayerPosition, showPlayerNames, startEditingPlayerName, setDragging, players } = usePlayerStore();
+  // Track touch count to distinguish single-finger drag from multi-touch camera gestures
+  const touchCountRef = useRef<number>(0);
+  // Store the pointer ID that initiated the drag to track it specifically
+  const dragPointerIdRef = useRef<number | null>(null);
+  // Track previous position for auto-rotation during drag
+  const prevDragPos = useRef<[number, number, number] | null>(null);
+  // Track rotation start state for right-click rotation
+  const rotationStartRef = useRef<{ clientX: number; startRotation: number } | null>(null);
+  const { selectedPlayerId, selectPlayer, updatePlayerPosition, updatePlayerRotation, showPlayerNames, startEditingPlayerName, setDragging, players } = usePlayerStore();
   const { addPath, getPathByEntity, removePath } = usePathStore();
   const { pushSnapshot } = useHistoryStore();
   const isPlaying = useAnimationStore((state) => state.isPlaying);
@@ -69,12 +77,22 @@ export function PlayerComponent({ player }: PlayerProps) {
   );
   
   useFrame((state) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y = player.rotation;
+    // Apply rotation to the entire group so all body parts rotate together
+    if (groupRef.current) {
+      groupRef.current.rotation.y = player.rotation;
+    }
+
+    // Handle rotation (right-click drag)
+    if (isRotating && rotationStartRef.current) {
+      const clientX = state.pointer.x * window.innerWidth / 2;
+      const deltaX = clientX - (rotationStartRef.current.clientX - window.innerWidth / 2);
+      const rotationDelta = deltaX * 0.01; // Sensitivity factor
+      const newRotation = rotationStartRef.current.startRotation + rotationDelta;
+      updatePlayerRotation(player.id, newRotation);
     }
 
     // Handle dragging with global pointer events
-    if (isDragging) {
+    if (isDragging && !isRotating) {
       raycaster.setFromCamera(state.pointer, camera);
       const planeNormal = new Vector3(0, 1, 0);
       const planePoint = new Vector3(0, 0, 0);
@@ -87,6 +105,22 @@ export function PlayerComponent({ player }: PlayerProps) {
         const [x, z] = snapToField(intersection.x, intersection.z);
         const newPos: [number, number, number] = [x, 0, z];
         updatePlayerPosition(player.id, newPos);
+
+        // Auto-rotate player to face movement direction
+        if (prevDragPos.current) {
+          const deltaX = newPos[0] - prevDragPos.current[0];
+          const deltaZ = newPos[2] - prevDragPos.current[2];
+          const moveDist = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
+
+          // Only update rotation if moved enough to determine direction
+          if (moveDist > 0.3) {
+            const newRotation = Math.atan2(deltaX, deltaZ);
+            updatePlayerRotation(player.id, newRotation);
+            prevDragPos.current = newPos;
+          }
+        } else {
+          prevDragPos.current = newPos;
+        }
 
         // Record movement point if moved far enough from last recorded position
         if (lastRecordedPos.current) {
@@ -129,10 +163,19 @@ export function PlayerComponent({ player }: PlayerProps) {
       return;
     }
 
+    // For touch events, check if this is a multi-touch gesture (2+ fingers)
+    // If so, don't start player drag - let camera gestures handle it instead
+    if (e.pointerType === 'touch' && touchCountRef.current > 1) {
+      return;
+    }
+
     // Capture pointer for smooth dragging - prevents camera from stealing events
     if (e.target && e.target.setPointerCapture) {
       e.target.setPointerCapture(e.pointerId);
     }
+
+    // Store the pointer ID that initiated the drag
+    dragPointerIdRef.current = e.pointerId;
 
     setIsDragging(true);
     setDragging(true);  // Notify store to disable camera controls
@@ -154,9 +197,24 @@ export function PlayerComponent({ player }: PlayerProps) {
   
   const handlePointerMove = (e: any) => {
     // Movement is handled in useFrame for smoother dragging
-    if (isDragging) {
+    if (isDragging || isRotating) {
       e.stopPropagation();
     }
+  };
+
+  const handleContextMenu = (e: any) => {
+    e.nativeEvent.preventDefault();
+    e.stopPropagation();
+
+    if (isDragDisabled) return;
+
+    selectPlayer(player.id);
+    setIsRotating(true);
+    setDragging(true);
+    rotationStartRef.current = {
+      clientX: e.nativeEvent.clientX,
+      startRotation: player.rotation,
+    };
   };
   
   // Helper to create path from recorded movement points
@@ -216,6 +274,7 @@ export function PlayerComponent({ player }: PlayerProps) {
     movementPoints.current = [];
     lastRecordedPos.current = null;
     preDragSnapshot.current = null;
+    prevDragPos.current = null;
   }, [player.id, player.position, addPath, pushSnapshot, players]);
 
   // End dragging helper - used by both pointerUp and window events
@@ -224,6 +283,7 @@ export function PlayerComponent({ player }: PlayerProps) {
 
     setIsDragging(false);
     setDragging(false);
+    dragPointerIdRef.current = null;
     createPathFromMovement();
   }, [isDragging, setDragging, createPathFromMovement]);
 
@@ -244,6 +304,66 @@ export function PlayerComponent({ player }: PlayerProps) {
       window.removeEventListener('pointercancel', handleWindowPointerUp);
     };
   }, [isDragging, endDragging]);
+
+  // Track global touch count to cancel drag when multi-touch is detected
+  // This prevents player drag from conflicting with two-finger camera gestures
+  useEffect(() => {
+    const handleTouchStart = (e: TouchEvent) => {
+      touchCountRef.current = e.touches.length;
+      // If we're dragging and a second finger is added, cancel the drag
+      // This allows two-finger gestures (pan/zoom) to take over
+      if (isDragging && e.touches.length > 1) {
+        // Cancel the drag without creating a path
+        setIsDragging(false);
+        setDragging(false);
+        dragPointerIdRef.current = null;
+        // Reset movement tracking without creating path
+        movementPoints.current = [];
+        lastRecordedPos.current = null;
+        preDragSnapshot.current = null;
+        prevDragPos.current = null;
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      touchCountRef.current = e.touches.length;
+    };
+
+    const handleTouchCancel = (e: TouchEvent) => {
+      touchCountRef.current = e.touches.length;
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', handleTouchCancel, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchCancel);
+    };
+  }, [isDragging, setDragging]);
+
+  // Handle rotation end (right-click drag release)
+  useEffect(() => {
+    if (!isRotating) return;
+
+    const handleEnd = () => {
+      setIsRotating(false);
+      setDragging(false);
+      rotationStartRef.current = null;
+    };
+
+    const preventContextMenu = (e: MouseEvent) => e.preventDefault();
+
+    window.addEventListener('pointerup', handleEnd);
+    window.addEventListener('contextmenu', preventContextMenu);
+
+    return () => {
+      window.removeEventListener('pointerup', handleEnd);
+      window.removeEventListener('contextmenu', preventContextMenu);
+    };
+  }, [isRotating, setDragging]);
 
   const handlePointerUp = (e: any) => {
     e.stopPropagation();
@@ -269,6 +389,7 @@ export function PlayerComponent({ player }: PlayerProps) {
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onContextMenu={handleContextMenu}
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => {
         // Only update hover state, don't end drag here
@@ -277,7 +398,7 @@ export function PlayerComponent({ player }: PlayerProps) {
       }}
     >
       {/* Player body - torso with jersey */}
-      <mesh ref={meshRef} castShadow position={[0, 0.75, 0]}>
+      <mesh castShadow position={[0, 0.75, 0]}>
         <capsuleGeometry args={[0.35, 0.8, 8, 16]} />
         <meshStandardMaterial
           color={isSelected ? '#ffff00' : hovered ? '#ffffff' : player.color}
@@ -296,6 +417,18 @@ export function PlayerComponent({ player }: PlayerProps) {
           roughness={0.7}
           metalness={0}
         />
+      </mesh>
+
+      {/* Left eye - on front of head (positive Z is forward when rotation=0) */}
+      <mesh position={[-0.07, 1.58, 0.18]}>
+        <sphereGeometry args={[0.04, 8, 8]} />
+        <meshStandardMaterial color="#222222" />
+      </mesh>
+
+      {/* Right eye */}
+      <mesh position={[0.07, 1.58, 0.18]}>
+        <sphereGeometry args={[0.04, 8, 8]} />
+        <meshStandardMaterial color="#222222" />
       </mesh>
 
       {/* Hair/helmet */}
