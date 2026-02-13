@@ -40,3 +40,24 @@ canvas {
   max-width: 100%;
   touch-action: none; /* Prevent browser touch gestures on canvas */
 }
+
+/* Ensure smooth canvas resize transitions */
+.canvas-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: opacity 0.15s ease-out;
+}
+
+/* Prevent layout shift during canvas resize */
+.canvas-container canvas {
+  position: absolute;
+  inset: 0;
+}
+
+/* Reduce paint flicker on resize with will-change hint */
+@media (prefers-reduced-motion: no-preference) {
+  .canvas-container canvas {
+    will-change: contents;
+  }
+}
