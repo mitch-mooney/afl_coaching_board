@@ -88,7 +88,7 @@ export function MainLayout() {
   // When in video mode, render VideoWorkspace as full-screen experience
   if (showVideoWorkspace) {
     return (
-      <div className="w-full h-full relative">
+      <div className="w-full h-full min-h-screen max-w-full overflow-hidden relative">
         <VideoWorkspace showFieldOverlay={true} />
       </div>
     );
@@ -96,7 +96,7 @@ export function MainLayout() {
 
   // Normal field view (with optional PiP overlay)
   return (
-    <div className="w-full h-full relative">
+    <div className="w-full h-full min-h-screen max-w-full overflow-hidden relative">
       <Canvas
         shadows
         camera={{ position: [0, 100, 150], fov: 50 }}
