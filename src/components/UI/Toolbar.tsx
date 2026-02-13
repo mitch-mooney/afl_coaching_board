@@ -6,12 +6,15 @@ import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore } from '../../store/historyStore';
 import { useVideoStore } from '../../store/videoStore';
 import { useEventStore } from '../../store/eventStore';
+import { useUIStore } from '../../store/uiStore';
 import { useVideoRecorder } from '../../hooks/useVideoRecorder';
 import { usePlaybook } from '../../hooks/usePlaybook';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { FormationSelector } from './FormationSelector';
 import { VideoUploader } from '../VideoImport/VideoUploader';
 import { EventEditor } from './EventEditor';
+import { HamburgerIcon } from './HamburgerIcon';
+import { MobileMenu, createMenuSection, createMenuItem, type MenuSection } from './MobileMenu';
 
 interface ToolbarProps {
   canvas: HTMLCanvasElement | null;
@@ -50,7 +53,11 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const clearActiveEvent = useEventStore((state) => state.clearActiveEvent);
   const events = useEventStore((state) => state.events);
   const setActiveEvent = useEventStore((state) => state.setActiveEvent);
-  
+
+  // UI store state for responsive menu
+  const isMenuOpen = useUIStore((state) => state.isMenuOpen);
+  const toggleMenu = useUIStore((state) => state.toggleMenu);
+
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [playbookName, setPlaybookName] = useState('');
   const [playbookDescription, setPlaybookDescription] = useState('');
@@ -226,9 +233,151 @@ export function Toolbar({ canvas }: ToolbarProps) {
     stop();
   }, [clearActiveEvent, stop]);
 
+  // Build mobile menu sections from toolbar functionality
+  const mobileMenuSections: MenuSection[] = useMemo(() => {
+    const sections: MenuSection[] = [];
+
+    // Camera section
+    sections.push(
+      createMenuSection('camera', 'Camera', [
+        createMenuItem('top-view', 'Top View', () => setPresetView('top'), { variant: 'primary' }),
+        createMenuItem('sideline', 'Sideline', () => setPresetView('sideline'), { variant: 'primary' }),
+        createMenuItem('end-to-end', 'End-to-End', () => setPresetView('end-to-end'), { variant: 'primary' }),
+        createMenuItem('reset-camera', 'Reset Camera', resetCamera, { variant: 'purple' }),
+      ])
+    );
+
+    // Player Controls section
+    const playerItems = [
+      createMenuItem('undo', 'Undo', handleUndo, {
+        variant: 'warning',
+        disabled: !canUndo(),
+      }),
+      createMenuItem('clear-paths', 'Clear Paths', clearPaths, {
+        variant: 'danger',
+        disabled: paths.length === 0,
+      }),
+      createMenuItem('reset-players', 'Reset Players', resetPlayers, { variant: 'success' }),
+      createMenuItem('toggle-names', showPlayerNames ? 'Hide Names' : 'Show Names', togglePlayerNames, {
+        variant: 'teal',
+        active: showPlayerNames,
+      }),
+      createMenuItem('import-roster', 'Import Roster', () => setShowImportDialog(true), { variant: 'primary' }),
+    ];
+    sections.push(createMenuSection('players', 'Players', playerItems));
+
+    // Ball Controls section (if ball exists)
+    if (ball) {
+      const ballItems = [
+        createMenuItem('give-ball', selectedPlayer ? `Give Ball to #${selectedPlayer.number}` : 'Give Ball', handleAssignBall, {
+          variant: 'warning',
+          disabled: !selectedPlayerId,
+        }),
+      ];
+      if (assignedPlayer) {
+        ballItems.push(
+          createMenuItem('release-ball', `Release (#${assignedPlayer.number})`, handleUnassignBall, { variant: 'danger' })
+        );
+      }
+      if (isBallSelected) {
+        if (!ballPath) {
+          ballItems.push(
+            createMenuItem('add-ball-path', 'Add Ball Path', handleCreateBallPath, { variant: 'indigo' })
+          );
+        } else {
+          ballItems.push(
+            createMenuItem('remove-ball-path', 'Remove Path', handleRemoveBallPath, { variant: 'danger' })
+          );
+        }
+      }
+      sections.push(createMenuSection('ball', 'Ball', ballItems));
+    }
+
+    // Animation section
+    sections.push(
+      createMenuSection('animation', 'Animation', [
+        createMenuItem('play-pause', isPlaying ? 'Pause' : 'Play', togglePlayback, {
+          variant: isPlaying ? 'warning' : 'success',
+          active: isPlaying,
+        }),
+        createMenuItem('stop', 'Stop', handleStopAnimation, { variant: 'default' }),
+      ])
+    );
+
+    // Recording & Save section
+    sections.push(
+      createMenuSection('recording', 'Recording & Save', [
+        createMenuItem('recording', isRecording ? 'Stop Recording' : 'Start Recording', handleRecordingToggle, {
+          variant: isRecording ? 'danger' : 'default',
+          active: isRecording,
+        }),
+        createMenuItem('save-playbook', 'Save Playbook', () => setShowSaveDialog(true), { variant: 'warning' }),
+      ])
+    );
+
+    // Events section
+    const eventItems = [
+      createMenuItem('create-event', 'Create Event', () => setShowEventEditor(true), { variant: 'purple' }),
+    ];
+    if (activeEvent) {
+      eventItems.push(
+        createMenuItem('clear-event', `Clear: ${activeEvent.name}`, handleClearEvent, { variant: 'danger' })
+      );
+    }
+    sections.push(createMenuSection('events', 'Events', eventItems));
+
+    // POV section
+    const povItems = [];
+    if (povMode) {
+      povItems.push(
+        createMenuItem('exit-pov', `Exit POV (#${povPlayer?.number ?? '?'})`, disablePOV, { variant: 'danger' })
+      );
+    } else {
+      povItems.push(
+        createMenuItem('pov-mode', 'POV Mode', () => setShowPOVSelector(true), { variant: 'indigo' })
+      );
+    }
+    sections.push(createMenuSection('pov', 'POV Camera', povItems));
+
+    // Video section
+    const videoItems = [];
+    if (isVideoMode && isLoaded) {
+      videoItems.push(
+        createMenuItem('clear-video', 'Clear Video', clearVideo, { variant: 'danger' })
+      );
+    } else {
+      videoItems.push(
+        createMenuItem('import-video', isLoading ? 'Loading...' : 'Import Video', () => setShowVideoUploader(true), {
+          variant: 'teal',
+          disabled: isLoading,
+        })
+      );
+    }
+    sections.push(createMenuSection('video', 'Video', videoItems));
+
+    return sections;
+  }, [
+    setPresetView, resetCamera, handleUndo, canUndo, clearPaths, paths.length,
+    resetPlayers, showPlayerNames, togglePlayerNames, ball, selectedPlayer,
+    selectedPlayerId, handleAssignBall, assignedPlayer, handleUnassignBall,
+    isBallSelected, ballPath, handleCreateBallPath, handleRemoveBallPath,
+    isPlaying, togglePlayback, handleStopAnimation, isRecording, handleRecordingToggle,
+    activeEvent, handleClearEvent, povMode, povPlayer, disablePOV,
+    isVideoMode, isLoaded, isLoading, clearVideo,
+  ]);
+
   return (
     <div className="absolute top-4 left-4 right-4 z-10 flex gap-2 flex-wrap">
-      <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-2 flex gap-2">
+      {/* Mobile hamburger menu - visible only below md breakpoint */}
+      <div className="md:hidden">
+        <HamburgerIcon isOpen={isMenuOpen} onClick={toggleMenu} />
+      </div>
+
+      {/* Mobile menu dropdown */}
+      <MobileMenu sections={mobileMenuSections} />
+
+      {/* Desktop toolbar - visible only at md breakpoint and above */}
+      <div className="hidden md:flex bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-2 gap-2 flex-wrap">
         {/* Camera Presets */}
         <button
           onClick={() => setPresetView('top')}
