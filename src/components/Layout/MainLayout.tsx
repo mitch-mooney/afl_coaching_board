@@ -18,6 +18,7 @@ import { usePathStore } from '../../store/pathStore';
 import { useVideoStore } from '../../store/videoStore';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
+import { useCanvasResizeWithWindow } from '../../hooks/useCanvasResize';
 import {
   useKeyboardShortcuts,
   useCameraPresetShortcuts,
@@ -37,6 +38,19 @@ export function MainLayout() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [canvasReady, setCanvasReady] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+
+  // Canvas resize handling with debounced ResizeObserver
+  // React Three Fiber handles the actual resize through its built-in resize observer
+  // This hook provides additional debouncing and container measurement for smooth transitions
+
+  const {
+    containerRef: canvasContainerRef,
+    isReady: containerReady,
+  } = useCanvasResizeWithWindow({
+    debounceMs: 100,
+    minWidth: 320,
+    minHeight: 200,
+  });
 
   // Video mode state from video store
   const isVideoMode = useVideoStore((state) => state.isVideoMode);
@@ -88,7 +102,7 @@ export function MainLayout() {
   // When in video mode, render VideoWorkspace as full-screen experience
   if (showVideoWorkspace) {
     return (
-      <div className="w-full h-full relative">
+      <div className="w-full h-full min-h-screen max-w-full overflow-hidden relative">
         <VideoWorkspace showFieldOverlay={true} />
       </div>
     );
@@ -96,27 +110,55 @@ export function MainLayout() {
 
   // Normal field view (with optional PiP overlay)
   return (
-    <div className="w-full h-full relative">
-      <Canvas
-        shadows
-        camera={{ position: [0, 100, 150], fov: 50 }}
-        gl={{ antialias: true, alpha: false }}
-        style={{ touchAction: 'none' }}
-        onCreated={({ gl }) => {
-          canvasRef.current = gl.domElement;
-          setCanvasReady(true);
+    <div className="w-full h-full min-h-screen max-w-full overflow-hidden relative">
+      {/* Canvas container with resize observation */}
+      <div
+        ref={canvasContainerRef}
+        className="absolute inset-0 w-full h-full"
+        style={{
+          // Smooth transitions during resize
+          transition: 'opacity 0.15s ease-out',
+          opacity: containerReady ? 1 : 0,
         }}
       >
-        <Field />
-        <PlayerManager />
-        {ball && <BallComponent ball={ball} />}
-        <PathManager paths={paths} />
-        <CameraController />
-        <AnnotationLayer />
+        <Canvas
+          shadows
+          camera={{ position: [0, 100, 150], fov: 50 }}
+          gl={{
+            antialias: true,
+            alpha: false,
+            // Performance optimizations
+            powerPreference: 'high-performance',
+            stencil: false,
+            depth: true,
+          }}
+          // Limit device pixel ratio to prevent excessive GPU work on high-DPI screens
+          dpr={[1, 2]}
+          // Enable adaptive performance - allows R3F to reduce quality during high load
+          performance={{ min: 0.5 }}
+          style={{
+            touchAction: 'none',
+            width: '100%',
+            height: '100%',
+          }}
+          // Use resize: 'debounce' for smoother resize handling
+          resize={{ debounce: { scroll: 50, resize: 100 } }}
+          onCreated={({ gl }) => {
+            canvasRef.current = gl.domElement;
+            setCanvasReady(true);
+          }}
+        >
+          <Field />
+          <PlayerManager />
+          {ball && <BallComponent ball={ball} />}
+          <PathManager paths={paths} />
+          <CameraController />
+          <AnnotationLayer />
 
-        {/* FIX: moved inside Canvas so R3F hooks work */}
-        <AnnotationInteractionHandler />
-      </Canvas>
+          {/* FIX: moved inside Canvas so R3F hooks work */}
+          <AnnotationInteractionHandler />
+        </Canvas>
+      </div>
 
       {/* All DOM-layer UI stays outside */}
       <Toolbar canvas={canvasRef.current} />
