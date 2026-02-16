@@ -331,7 +331,7 @@ export function useGestures(config: GestureConfig = {}) {
   /**
    * Handles touch cancel events (treat same as touch end)
    */
-  const handleTouchCancel = useCallback((event: TouchEvent) => {
+  const handleTouchCancel = useCallback((_event: TouchEvent) => {
     // On cancel, reset all gesture state
     resetGestureState();
   }, [resetGestureState]);

@@ -449,7 +449,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
         perspectiveSettings: { ...perspectiveSettings },
         exportSettings: { ...exportSettings },
       };
-      const id = await videoDb.videos.add(record);
+      const id = await videoDb.videos.add(record) as number;
       set({ currentSavedVideoId: id, isPersisting: false });
       await useVideoStore.getState().loadSavedVideos();
       return id;

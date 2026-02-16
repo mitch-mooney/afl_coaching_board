@@ -162,7 +162,7 @@ export function VideoBackgroundPlane({
    * - Only updates when video time has actually changed
    * - Uses negative priority to run before other frame callbacks
    */
-  useFrame((_, delta) => {
+  useFrame((_) => {
     if (!enableFrameUpdate || !textureRef.current || !videoElement) {
       return;
     }

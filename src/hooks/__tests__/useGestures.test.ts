@@ -605,17 +605,16 @@ describe('useGestures', () => {
       // When finger distance changes significantly AND midpoint moves,
       // pinch should take precedence
 
-      const touch1a = createMockTouch(0, 100, 100);
-      const touch2a = createMockTouch(1, 200, 100);
+      createMockTouch(0, 100, 100);
+      createMockTouch(1, 200, 100);
       const initialDistance = 100;
 
       // Move fingers apart AND move midpoint
-      const touch1b = createMockTouch(0, 50, 150); // moved in and up
-      const touch2b = createMockTouch(1, 300, 150); // moved out and up
+      createMockTouch(0, 50, 150); // moved in and up
+      createMockTouch(1, 300, 150); // moved out and up
       const newDistance = 250;
 
       const distanceChange = Math.abs(newDistance - initialDistance);
-      const midpointChange = 50; // vertical shift
 
       // Distance change (150) is greater than typical pinch threshold (10)
       expect(distanceChange).toBeGreaterThan(10);

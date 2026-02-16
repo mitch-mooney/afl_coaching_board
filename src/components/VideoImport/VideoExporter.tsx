@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useVideoStore, ExportSettings } from '../../store/videoStore';
-import { useVideoExport, RESOLUTION_PRESETS } from '../../hooks/useVideoExport';
+import { useVideoExport } from '../../hooks/useVideoExport';
 import {
   formatTime,
   supportsMediaRecorder,

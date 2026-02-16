@@ -19,10 +19,10 @@ interface VideoFrameMetadata {
  * Extended HTMLVideoElement type with requestVideoFrameCallback support
  */
 interface VideoElementWithFrameCallback extends HTMLVideoElement {
-  requestVideoFrameCallback?: (
+  requestVideoFrameCallback: (
     callback: (now: DOMHighResTimeStamp, metadata: VideoFrameMetadata) => void
   ) => number;
-  cancelVideoFrameCallback?: (handle: number) => void;
+  cancelVideoFrameCallback: (handle: number) => void;
 }
 
 /**
@@ -160,7 +160,6 @@ export function useVideoPlayback(): UseVideoPlaybackReturn {
   const setDuration = useVideoStore((state) => state.setDuration);
   const setIsPlaying = useVideoStore((state) => state.setIsPlaying);
   const setPlaybackRate = useVideoStore((state) => state.setPlaybackRate);
-  const setIsLooping = useVideoStore((state) => state.setIsLooping);
   const setVolume = useVideoStore((state) => state.setVolume);
   const setIsMuted = useVideoStore((state) => state.setIsMuted);
   const toggleMute = useVideoStore((state) => state.toggleMute);
@@ -176,7 +175,7 @@ export function useVideoPlayback(): UseVideoPlaybackReturn {
    * Provides frame-accurate time synchronization
    */
   const handleFrameCallback = useCallback(
-    (now: DOMHighResTimeStamp, metadata: VideoFrameMetadata) => {
+    (_now: DOMHighResTimeStamp, metadata: VideoFrameMetadata) => {
       const video = videoRef.current as VideoElementWithFrameCallback;
       if (!video || video.paused || isSeekingRef.current) return;
 

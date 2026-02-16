@@ -294,8 +294,8 @@ export class VideoError extends Error {
     this.originalError = options?.originalError;
 
     // Maintain proper stack trace for where our error was thrown
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, VideoError);
+    if ((Error as any).captureStackTrace) {
+      (Error as any).captureStackTrace(this, VideoError);
     }
   }
 
@@ -862,7 +862,7 @@ export function createVideoElement(file: File): Promise<{ element: HTMLVideoElem
  * @param height - Video height
  * @returns Resolution label like "1080p" or "720p"
  */
-export function getResolutionLabel(width: number, height: number): string {
+export function getResolutionLabel(_width: number, height: number): string {
   // Common resolution labels based on height
   if (height >= 2160) return '4K';
   if (height >= 1440) return '1440p';

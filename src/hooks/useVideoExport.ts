@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { useVideoStore, ExportSettings } from '../store/videoStore';
+import { useVideoStore } from '../store/videoStore';
 import {
   supportsMediaRecorder,
   getSupportedExportFormats,
@@ -321,32 +321,6 @@ export function useVideoExport(): UseVideoExportReturn {
   /**
    * Get resolution dimensions based on settings
    */
-  const getExportDimensions = useCallback(
-    (canvas: HTMLCanvasElement): { width: number; height: number } => {
-      const resolution = exportSettings.resolution;
-
-      if (resolution === 'original') {
-        // Use canvas dimensions
-        return {
-          width: canvas.width,
-          height: canvas.height,
-        };
-      }
-
-      const preset = RESOLUTION_PRESETS[resolution];
-      if (preset) {
-        return preset;
-      }
-
-      // Default to canvas dimensions
-      return {
-        width: canvas.width,
-        height: canvas.height,
-      };
-    },
-    [exportSettings.resolution]
-  );
-
   /**
    * Capture and clone audio stream from video element.
    *
@@ -368,7 +342,7 @@ export function useVideoExport(): UseVideoExportReturn {
     (video: HTMLVideoElement): MediaStream | null => {
       try {
         // Check if captureStream is supported
-        if (!video.captureStream) {
+        if (!(video as any).captureStream) {
           return null;
         }
 
@@ -379,7 +353,7 @@ export function useVideoExport(): UseVideoExportReturn {
 
         // Capture the live stream from video element
         // This stream is inherently synchronized with the video's playback state
-        const videoStream = video.captureStream();
+        const videoStream = (video as any).captureStream();
         const audioTracks = videoStream.getAudioTracks();
 
         if (audioTracks.length === 0) {
@@ -390,7 +364,7 @@ export function useVideoExport(): UseVideoExportReturn {
         // Clone audio tracks to avoid interference with original video playback
         // Cloned tracks maintain synchronization with the source but can be
         // independently controlled (e.g., stopped without affecting original)
-        const clonedTracks = audioTracks.map((track) => {
+        const clonedTracks = audioTracks.map((track: MediaStreamTrack) => {
           const clonedTrack = track.clone();
           // Ensure cloned track is enabled for recording
           clonedTrack.enabled = true;
@@ -399,12 +373,12 @@ export function useVideoExport(): UseVideoExportReturn {
 
         // Verify at least one track is live and enabled
         const validTracks = clonedTracks.filter(
-          (track) => track.readyState === 'live' && track.enabled
+          (track: MediaStreamTrack) => track.readyState === 'live' && track.enabled
         );
 
         if (validTracks.length === 0) {
           // Clean up cloned tracks if none are valid
-          clonedTracks.forEach((track) => track.stop());
+          clonedTracks.forEach((track: MediaStreamTrack) => track.stop());
           return null;
         }
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { useVideoStore, videoDb } from '../videoStore';
 import type { PerspectiveSettings, ExportSettings, VideoMetadata } from '../videoStore';
 
@@ -20,7 +20,7 @@ const DEFAULT_EXPORT_SETTINGS: ExportSettings = {
 };
 
 // Helper to create a mock File
-const createMockFile = (name = 'test.mp4', size = 1000): File => {
+const createMockFile = (name = 'test.mp4', _size = 1000): File => {
   return new File(['video content'], name, { type: 'video/mp4' });
 };
 

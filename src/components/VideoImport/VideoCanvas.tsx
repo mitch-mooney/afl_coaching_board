@@ -39,7 +39,7 @@ interface VideoCanvasProps {
 /**
  * Helper function to check if a value has converged to its target
  */
-function hasConverged(current: number, target: number, threshold = PERFORMANCE_CONFIG.CONVERGENCE_THRESHOLD): boolean {
+function hasConverged(current: number, target: number, threshold: number = PERFORMANCE_CONFIG.CONVERGENCE_THRESHOLD): boolean {
   return Math.abs(current - target) < threshold;
 }
 
@@ -365,7 +365,6 @@ const VideoSceneContents = memo(function VideoSceneContents({
  */
 export function VideoCanvas({
   showField = true,
-  enableControls = true,
   onCanvasReady,
   gridSettings,
 }: VideoCanvasProps) {

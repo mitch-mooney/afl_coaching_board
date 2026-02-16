@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { VideoCanvas, useVideoCanvasRef, GridSettings } from './VideoCanvas';
+import { VideoCanvas, useVideoCanvasRef } from './VideoCanvas';
 import { VideoTimeline } from './VideoTimeline';
 import { PlaybackControls } from './PlaybackControls';
 import { PerspectiveCalibration } from './PerspectiveCalibration';

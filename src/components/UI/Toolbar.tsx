@@ -23,8 +23,6 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const togglePlayerNames = usePlayerStore((state) => state.togglePlayerNames);
   const importRoster = usePlayerStore((state) => state.importRoster);
   const editingPlayerId = usePlayerStore((state) => state.editingPlayerId);
-  const stopEditingPlayerName = usePlayerStore((state) => state.stopEditingPlayerName);
-  const setPlayerName = usePlayerStore((state) => state.setPlayerName);
   const getPlayer = usePlayerStore((state) => state.getPlayer);
   const selectedPlayerId = usePlayerStore((state) => state.selectedPlayerId);
   const players = usePlayerStore((state) => state.players);
@@ -57,7 +55,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [rosterText, setRosterText] = useState('');
   const [selectedTeam, setSelectedTeam] = useState<'all' | 'team1' | 'team2'>('all');
-  const [editingName, setEditingName] = useState('');
+  const [, setEditingName] = useState('');
   const [showVideoUploader, setShowVideoUploader] = useState(false);
   const [showEventEditor, setShowEventEditor] = useState(false);
   const [showPOVSelector, setShowPOVSelector] = useState(false);
@@ -92,19 +90,6 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const povPlayer = povPlayerId
     ? players.find(p => p.id === povPlayerId)
     : null;
-
-  const handleSavePlayerName = () => {
-    if (editingPlayerId) {
-      setPlayerName(editingPlayerId, editingName.trim());
-      stopEditingPlayerName();
-      setEditingName('');
-    }
-  };
-
-  const handleCancelEditPlayerName = () => {
-    stopEditingPlayerName();
-    setEditingName('');
-  };
 
   const handleAssignBall = () => {
     if (selectedPlayerId) {
@@ -203,16 +188,6 @@ export function Toolbar({ canvas }: ToolbarProps) {
     setRosterText('');
     setSelectedTeam('all');
   };
-
-  // Handle POV mode toggle
-  const handleTogglePOV = useCallback(() => {
-    if (povMode) {
-      disablePOV();
-    } else if (selectedPlayerId) {
-      enablePOV(selectedPlayerId);
-    }
-    setShowPOVSelector(false);
-  }, [povMode, selectedPlayerId, enablePOV, disablePOV]);
 
   // Handle POV player selection
   const handleSelectPOVPlayer = useCallback((playerId: string) => {
