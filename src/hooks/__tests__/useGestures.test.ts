@@ -28,12 +28,13 @@ function createMockTouch(id: number, clientX: number, clientY: number): Touch {
  * Helper to create a mock TouchList
  */
 function createMockTouchList(touches: Touch[]): TouchList {
-  const list = touches as unknown as TouchList;
-  Object.defineProperty(list, 'length', { value: touches.length });
-  Object.defineProperty(list, 'item', {
-    value: (index: number) => touches[index] || null,
-  });
-  return list;
+  const list: Record<number, Touch> = {};
+  touches.forEach((t, i) => { list[i] = t; });
+  return Object.assign(list, {
+    length: touches.length,
+    item: (index: number) => touches[index] || null,
+    [Symbol.iterator]: () => touches[Symbol.iterator](),
+  }) as unknown as TouchList;
 }
 
 /**
