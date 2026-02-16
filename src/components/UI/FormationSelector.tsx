@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useFormationStore } from '../../store/formationStore';
 import { usePlayerStore, PlayerUpdate } from '../../store/playerStore';
 import { PRE_BUILT_FORMATIONS, validateFormation } from '../../data/formations';
 import { Formation, PlayerPosition } from '../../types/Formation';
+import { useResponsive } from '../../hooks/useResponsive';
 
 /** Helper to check if an error is an IndexedDB quota error */
 function isQuotaExceededError(error: unknown): boolean {
@@ -23,11 +25,47 @@ function generateUniqueName(baseName: string, suffix: number = 1): string {
   return `${baseName} (${suffix})`;
 }
 
+// Animation variants for the panel
+const panelVariants = {
+  hidden: {
+    opacity: 0,
+    y: -10,
+    scale: 0.98,
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      duration: 0.2,
+      ease: 'easeOut',
+    },
+  },
+  exit: {
+    opacity: 0,
+    y: -10,
+    scale: 0.98,
+    transition: {
+      duration: 0.15,
+      ease: 'easeIn',
+    },
+  },
+};
+
+// Backdrop animation for mobile
+const backdropVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.2 } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};
+
 export function FormationSelector() {
   const { customFormations, isLoading, loadCustomFormations, setCurrentFormation, saveCustomFormation, checkNameExists } = useFormationStore();
   const { players, updateMultiplePlayers, canApplyFormation } = usePlayerStore();
   const [isOpen, setIsOpen] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const { isMobile } = useResponsive();
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Save dialog state
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -35,10 +73,54 @@ export function FormationSelector() {
   const [templateDescription, setTemplateDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Handle close function
+  const handleClose = useCallback(() => {
+    setIsOpen(false);
+    setShowSaveDialog(false);
+  }, []);
+
   // Load custom formations on mount
   useEffect(() => {
     loadCustomFormations();
   }, [loadCustomFormations]);
+
+  // Handle click outside to close (mobile only)
+  useEffect(() => {
+    if (!isMobile || !isOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        // Don't close if clicking on the trigger button
+        const target = event.target as HTMLElement;
+        if (target.closest('[data-formation-trigger]')) return;
+        handleClose();
+      }
+    };
+
+    // Add delay to prevent immediate close from the same click that opened
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMobile, isOpen, handleClose]);
+
+  // Handle escape key to close
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        handleClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen, handleClose]);
 
   /**
    * Convert formation positions to player updates
@@ -219,131 +301,241 @@ export function FormationSelector() {
     <>
       <button
         onClick={() => setIsOpen(!isOpen)}
+        data-formation-trigger
+        aria-expanded={isOpen}
+        aria-label={isOpen ? 'Close formations panel' : 'Open formations panel'}
         className="px-4 py-2 min-h-[44px] bg-indigo-500 text-white rounded hover:bg-indigo-600 transition touch-manipulation"
       >
         {isOpen ? '✕ Close' : '📋 Formations'}
       </button>
 
-      {isOpen && (
-        <div className="absolute top-16 left-4 z-20 w-80 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 max-h-[calc(100vh-120px)] overflow-y-auto">
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="text-lg font-bold">Formation Templates</h2>
-            <button
-              onClick={() => setShowSaveDialog(true)}
-              className="px-3 py-2 min-h-[44px] bg-green-500 text-white text-sm rounded hover:bg-green-600 transition touch-manipulation"
-              title="Save current formation as template"
-            >
-              + Save Current
-            </button>
-          </div>
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            {/* Backdrop for mobile - click to close */}
+            {isMobile && (
+              <motion.div
+                className="fixed inset-0 bg-black/30 z-10"
+                variants={backdropVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                aria-hidden="true"
+              />
+            )}
 
-          {isLoading ? (
-            <div className="text-center py-8 text-gray-500">Loading...</div>
-          ) : (
-            <div className="space-y-4">
-              {/* Pre-built Formations Section */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                  Pre-built Formations
-                </h3>
-                <div className="space-y-2">
-                  {PRE_BUILT_FORMATIONS.map((formation) => (
-                    <FormationItem
-                      key={formation.id}
-                      formation={formation}
-                      onApply={handleApplyFormation}
-                      isApplying={isApplying}
-                    />
-                  ))}
+            <motion.div
+              ref={panelRef}
+              role="dialog"
+              aria-label="Formation Templates"
+              className={`
+                absolute z-20 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl
+                overflow-hidden
+                ${isMobile
+                  ? 'top-14 left-2 right-2 max-w-none'
+                  : 'top-16 left-4 w-80 sm:w-96'
+                }
+              `}
+              variants={panelVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              {/* Fixed header */}
+              <div className="sticky top-0 bg-white/95 backdrop-blur-sm p-3 sm:p-4 border-b border-gray-100 z-10">
+                <div className="flex justify-between items-center gap-2">
+                  <h2 className="text-base sm:text-lg font-bold truncate">Formation Templates</h2>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => setShowSaveDialog(true)}
+                      className="px-2 sm:px-3 py-2 min-h-[44px] bg-green-500 text-white text-xs sm:text-sm rounded hover:bg-green-600 transition touch-manipulation whitespace-nowrap"
+                      title="Save current formation as template"
+                    >
+                      + Save
+                    </button>
+                    {/* Close button on mobile */}
+                    {isMobile && (
+                      <button
+                        onClick={handleClose}
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition touch-manipulation"
+                        aria-label="Close panel"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Custom Formations Section */}
-              {customFormations.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                    Custom Formations
-                  </h3>
-                  <div className="space-y-2">
-                    {customFormations.map((formation) => (
-                      <FormationItem
-                        key={formation.id}
-                        formation={formation}
-                        onApply={handleApplyFormation}
-                        showDelete
-                        isApplying={isApplying}
-                      />
-                    ))}
+              {/* Scrollable content */}
+              <div className={`
+                overflow-y-auto overflow-x-hidden p-3 sm:p-4
+                ${isMobile
+                  ? 'max-h-[calc(100vh-180px)]'
+                  : 'max-h-[calc(100vh-160px)]'
+                }
+              `}>
+                {isLoading ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <div className="animate-spin inline-block w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full mb-2" />
+                    <p>Loading...</p>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="space-y-4">
+                    {/* Pre-built Formations Section */}
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        Pre-built Formations
+                      </h3>
+                      <div className="space-y-2">
+                        {PRE_BUILT_FORMATIONS.map((formation) => (
+                          <FormationItem
+                            key={formation.id}
+                            formation={formation}
+                            onApply={handleApplyFormation}
+                            isApplying={isApplying}
+                            isMobile={isMobile}
+                          />
+                        ))}
+                      </div>
+                    </div>
 
-              {/* Empty state for custom formations */}
-              {customFormations.length === 0 && (
-                <div className="text-center py-4 text-gray-400 text-sm">
-                  No custom formations saved yet.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+                    {/* Custom Formations Section */}
+                    {customFormations.length > 0 && (
+                      <div>
+                        <h3 className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                          Custom Formations
+                        </h3>
+                        <div className="space-y-2">
+                          {customFormations.map((formation) => (
+                            <FormationItem
+                              key={formation.id}
+                              formation={formation}
+                              onApply={handleApplyFormation}
+                              showDelete
+                              isApplying={isApplying}
+                              isMobile={isMobile}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Empty state for custom formations */}
+                    {customFormations.length === 0 && (
+                      <div className="text-center py-4 text-gray-400 text-sm">
+                        No custom formations saved yet.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Save Template Dialog */}
-      {showSaveDialog && (
-        <div className="absolute top-16 left-4 z-30 w-80 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4">
-          <h3 className="text-lg font-bold mb-3">Save Formation Template</h3>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium mb-1">Name *</label>
-              <input
-                type="text"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                className="w-full px-3 py-2 min-h-[44px] border rounded focus:outline-none focus:ring-2 focus:ring-green-500 touch-manipulation"
-                placeholder="Enter formation name"
-                autoFocus
-                disabled={isSaving}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Description</label>
-              <textarea
-                value={templateDescription}
-                onChange={(e) => setTemplateDescription(e.target.value)}
-                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-green-500 touch-manipulation"
-                placeholder="Enter description (optional)"
-                rows={3}
-                disabled={isSaving}
-              />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => {
-                  setShowSaveDialog(false);
-                  setTemplateName('');
-                  setTemplateDescription('');
-                }}
-                disabled={isSaving}
-                className="px-4 py-2 min-h-[44px] bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition disabled:opacity-50 touch-manipulation"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveTemplate}
-                disabled={isSaving || !templateName.trim()}
-                className={`px-4 py-2 min-h-[44px] text-white rounded transition touch-manipulation ${
-                  isSaving || !templateName.trim()
-                    ? 'bg-green-300 cursor-not-allowed'
-                    : 'bg-green-500 hover:bg-green-600'
-                }`}
-              >
-                {isSaving ? 'Saving...' : 'Save'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {showSaveDialog && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              className="fixed inset-0 bg-black/40 z-30"
+              variants={backdropVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              onClick={() => {
+                setShowSaveDialog(false);
+                setTemplateName('');
+                setTemplateDescription('');
+              }}
+              aria-hidden="true"
+            />
+
+            <motion.div
+              role="dialog"
+              aria-label="Save Formation Template"
+              className={`
+                fixed z-40 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4
+                ${isMobile
+                  ? 'left-2 right-2 top-1/4 max-w-none'
+                  : 'left-1/2 top-1/3 -translate-x-1/2 w-80 sm:w-96'
+                }
+              `}
+              variants={panelVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-base sm:text-lg font-bold">Save Formation Template</h3>
+                <button
+                  onClick={() => {
+                    setShowSaveDialog(false);
+                    setTemplateName('');
+                    setTemplateDescription('');
+                  }}
+                  className="min-w-[36px] min-h-[36px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center text-gray-500 hover:text-gray-700 transition touch-manipulation"
+                  aria-label="Close dialog"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Name *</label>
+                  <input
+                    type="text"
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    className="w-full px-3 py-2 min-h-[44px] border rounded focus:outline-none focus:ring-2 focus:ring-green-500 touch-manipulation"
+                    placeholder="Enter formation name"
+                    autoFocus
+                    disabled={isSaving}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Description</label>
+                  <textarea
+                    value={templateDescription}
+                    onChange={(e) => setTemplateDescription(e.target.value)}
+                    className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-green-500 touch-manipulation"
+                    placeholder="Enter description (optional)"
+                    rows={3}
+                    disabled={isSaving}
+                  />
+                </div>
+                <div className="flex gap-2 justify-end pt-1">
+                  <button
+                    onClick={() => {
+                      setShowSaveDialog(false);
+                      setTemplateName('');
+                      setTemplateDescription('');
+                    }}
+                    disabled={isSaving}
+                    className="px-4 py-2 min-h-[44px] bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition disabled:opacity-50 touch-manipulation"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveTemplate}
+                    disabled={isSaving || !templateName.trim()}
+                    className={`px-4 py-2 min-h-[44px] text-white rounded transition touch-manipulation ${
+                      isSaving || !templateName.trim()
+                        ? 'bg-green-300 cursor-not-allowed'
+                        : 'bg-green-500 hover:bg-green-600'
+                    }`}
+                  >
+                    {isSaving ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 }
@@ -353,9 +545,10 @@ interface FormationItemProps {
   onApply: (formation: Formation) => void;
   showDelete?: boolean;
   isApplying?: boolean;
+  isMobile?: boolean;
 }
 
-function FormationItem({ formation, onApply, showDelete = false, isApplying = false }: FormationItemProps) {
+function FormationItem({ formation, onApply, showDelete = false, isApplying = false, isMobile = false }: FormationItemProps) {
   const { deleteCustomFormation } = useFormationStore();
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -386,26 +579,29 @@ function FormationItem({ formation, onApply, showDelete = false, isApplying = fa
   }, [isApplying, onApply, formation]);
 
   return (
-    <div className="border rounded-lg p-3 hover:bg-gray-50 transition cursor-pointer group">
-      <div className="flex justify-between items-start">
+    <div className="border rounded-lg p-2 sm:p-3 hover:bg-gray-50 transition cursor-pointer group">
+      <div className={`flex ${isMobile ? 'flex-col gap-2' : 'flex-row justify-between items-start'}`}>
         <div className="flex-1 min-w-0" onClick={handleApply}>
-          <h4 className="font-semibold text-gray-900 truncate">{formation.name}</h4>
-          <p className="text-sm text-gray-600 mt-1 line-clamp-2">{formation.description}</p>
+          <h4 className="font-semibold text-gray-900 truncate text-sm sm:text-base">{formation.name}</h4>
+          <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2">{formation.description}</p>
           {formation.createdAt && (
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-[10px] sm:text-xs text-gray-400 mt-1">
               {new Date(formation.createdAt).toLocaleDateString()}
             </p>
           )}
         </div>
-        <div className="flex gap-2 ml-2 flex-shrink-0">
+        <div className={`flex gap-2 flex-shrink-0 ${isMobile ? 'w-full' : 'ml-2'}`}>
           <button
             onClick={handleApply}
             disabled={isApplying}
-            className={`px-3 py-2 min-h-[44px] text-white text-sm rounded transition touch-manipulation ${
-              isApplying
+            className={`
+              ${isMobile ? 'flex-1' : ''}
+              px-3 py-2 min-h-[44px] text-white text-xs sm:text-sm rounded transition touch-manipulation
+              ${isApplying
                 ? 'bg-indigo-300 cursor-not-allowed'
-                : 'bg-indigo-500 hover:bg-indigo-600'
-            }`}
+                : 'bg-indigo-500 hover:bg-indigo-600 active:bg-indigo-700'
+              }
+            `}
           >
             {isApplying ? 'Applying...' : 'Apply'}
           </button>
@@ -413,12 +609,16 @@ function FormationItem({ formation, onApply, showDelete = false, isApplying = fa
             <button
               onClick={handleDelete}
               disabled={isApplying || isDeleting}
-              className={`min-w-[44px] min-h-[44px] px-2 py-2 text-white text-sm rounded transition touch-manipulation ${
-                isDeleting
-                  ? 'bg-red-300 cursor-not-allowed opacity-100'
-                  : 'bg-red-500 hover:bg-red-600 opacity-0 group-hover:opacity-100'
-              } disabled:opacity-50`}
+              className={`
+                min-w-[44px] min-h-[44px] px-2 py-2 text-white text-sm rounded transition touch-manipulation
+                ${isDeleting
+                  ? 'bg-red-300 cursor-not-allowed'
+                  : `bg-red-500 hover:bg-red-600 active:bg-red-700 ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`
+                }
+                disabled:opacity-50
+              `}
               title="Delete formation"
+              aria-label={`Delete ${formation.name}`}
             >
               {isDeleting ? '...' : '✕'}
             </button>
