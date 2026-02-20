@@ -9,12 +9,13 @@ import { useEventStore } from '../../store/eventStore';
 import { useUIStore } from '../../store/uiStore';
 import { useVideoRecorder } from '../../hooks/useVideoRecorder';
 import { usePlaybook } from '../../hooks/usePlaybook';
+import { AFL_POSITIONS } from '../../data/aflPositions';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { FormationSelector } from './FormationSelector';
 import { VideoUploader } from '../VideoImport/VideoUploader';
 import { EventEditor } from './EventEditor';
 import { HamburgerIcon } from './HamburgerIcon';
 import { MobileMenu, createMenuSection, createMenuItem, type MenuSection } from './MobileMenu';
+import { useAuthStore } from '../../store/authStore';
 
 interface ToolbarProps {
   canvas: HTMLCanvasElement | null;
@@ -30,31 +31,32 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const selectedPlayerId = usePlayerStore((state) => state.selectedPlayerId);
   const players = usePlayerStore((state) => state.players);
   const updateMultiplePlayers = usePlayerStore((state) => state.updateMultiplePlayers);
+  const setPlayerPosition = usePlayerStore((state) => state.setPlayerPosition);
   const { setPresetView, resetCamera, povMode, povPlayerId, enablePOV, disablePOV } = useCameraStore();
   const ball = useBallStore((state) => state.ball);
   const isBallSelected = useBallStore((state) => state.isBallSelected);
   const assignBallToPlayer = useBallStore((state) => state.assignBallToPlayer);
-  const { isPlaying, progress, togglePlayback, stop } = useAnimationStore();
+  const { isPlaying, togglePlayback, stop } = useAnimationStore();
   const { createPath, getPathByEntity, removePath, clearPaths, paths } = usePathStore();
-  const { isRecording, toggleRecording } = useVideoRecorder(canvas);
+  const { isRecording, isConverting, conversionProgress, exportFormat, setExportFormat, toggleRecording } = useVideoRecorder(canvas);
   const { saveCurrentScenario } = usePlaybook();
   const { undo, canUndo, pauseRecording, resumeRecording } = useHistoryStore();
   const isVideoMode = useVideoStore((state) => state.isVideoMode);
   const isLoaded = useVideoStore((state) => state.isLoaded);
   const isLoading = useVideoStore((state) => state.isLoading);
-  const videoMetadata = useVideoStore((state) => state.videoMetadata);
   const clearVideo = useVideoStore((state) => state.clearVideo);
 
   // Event store state
-  const activeEventId = useEventStore((state) => state.activeEventId);
   const getActiveEvent = useEventStore((state) => state.getActiveEvent);
   const clearActiveEvent = useEventStore((state) => state.clearActiveEvent);
-  const events = useEventStore((state) => state.events);
-  const setActiveEvent = useEventStore((state) => state.setActiveEvent);
 
   // UI store state for responsive menu
   const isMenuOpen = useUIStore((state) => state.isMenuOpen);
   const toggleMenu = useUIStore((state) => state.toggleMenu);
+
+  const authUser = useAuthStore((state) => state.user);
+  const authIsConfigured = useAuthStore((state) => state.isConfigured);
+  const authSignOut = useAuthStore((state) => state.signOut);
 
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [playbookName, setPlaybookName] = useState('');
@@ -268,27 +270,41 @@ export function Toolbar({ canvas }: ToolbarProps) {
       sections.push(createMenuSection('ball', 'Ball', ballItems));
     }
 
-    // Animation section
+    // Animation Playback section
     sections.push(
-      createMenuSection('animation', 'Animation', [
-        createMenuItem('play-pause', isPlaying ? 'Pause' : 'Play', togglePlayback, {
+      createMenuSection('animation', 'Animation Playback', [
+        createMenuItem('play-pause', isPlaying ? 'Pause' : 'Play Animation', togglePlayback, {
           variant: isPlaying ? 'warning' : 'success',
           active: isPlaying,
         }),
-        createMenuItem('stop', 'Stop', handleStopAnimation, { variant: 'default' }),
+        createMenuItem('stop', 'Stop & Reset', handleStopAnimation, { variant: 'default' }),
       ])
     );
 
-    // Recording & Save section
-    sections.push(
-      createMenuSection('recording', 'Recording & Save', [
-        createMenuItem('recording', isRecording ? 'Stop Recording' : 'Start Recording', handleRecordingToggle, {
-          variant: isRecording ? 'danger' : 'default',
-          active: isRecording,
-        }),
-        createMenuItem('save-playbook', 'Save Playbook', () => setShowSaveDialog(true), { variant: 'warning' }),
-      ])
-    );
+    // Video Recording section
+    const recordingItems = [
+      createMenuItem('recording', isRecording ? 'Stop Recording' : `Record Video (${exportFormat.toUpperCase()})`, handleRecordingToggle, {
+        variant: isRecording ? 'danger' : 'default',
+        active: isRecording,
+        disabled: isConverting,
+      }),
+      createMenuItem('format-toggle', `Format: ${exportFormat.toUpperCase()}`, () => setExportFormat(exportFormat === 'mp4' ? 'webm' : 'mp4'), {
+        variant: 'primary',
+        disabled: isRecording || isConverting,
+      }),
+      createMenuItem('save-playbook', 'Save Playbook', () => setShowSaveDialog(true), { variant: 'warning' }),
+    ];
+    if (isConverting && conversionProgress) {
+      const label = conversionProgress.phase === 'loading'
+        ? 'Loading FFmpeg...'
+        : `Converting: ${Math.round(conversionProgress.progress * 100)}%`;
+      recordingItems.splice(1, 0, createMenuItem('converting', label, () => {}, {
+        variant: 'warning',
+        active: true,
+        disabled: true,
+      }));
+    }
+    sections.push(createMenuSection('recording', 'Video Recording', recordingItems));
 
     // Events section
     const eventItems = [
@@ -330,6 +346,15 @@ export function Toolbar({ canvas }: ToolbarProps) {
     }
     sections.push(createMenuSection('video', 'Video', videoItems));
 
+    // User section (if authenticated)
+    if (authIsConfigured && authUser) {
+      sections.push(
+        createMenuSection('user', `Account: ${authUser.email ?? ''}`, [
+          createMenuItem('sign-out', 'Sign Out', authSignOut, { variant: 'danger' }),
+        ])
+      );
+    }
+
     return sections;
   }, [
     setPresetView, resetCamera, handleUndo, canUndo, clearPaths, paths.length,
@@ -337,524 +362,42 @@ export function Toolbar({ canvas }: ToolbarProps) {
     selectedPlayerId, handleAssignBall, assignedPlayer, handleUnassignBall,
     isBallSelected, ballPath, handleCreateBallPath, handleRemoveBallPath,
     isPlaying, togglePlayback, handleStopAnimation, isRecording, handleRecordingToggle,
+    isConverting, conversionProgress, exportFormat, setExportFormat,
     activeEvent, handleClearEvent, povMode, povPlayer, disablePOV,
     isVideoMode, isLoaded, isLoading, clearVideo,
+    authUser, authIsConfigured, authSignOut,
   ]);
 
   return (
     <div className="absolute top-4 left-4 right-4 z-10 flex gap-2 flex-wrap">
-      {/* Mobile hamburger menu - visible only below md breakpoint */}
-      <div className="md:hidden">
+      {/* Hamburger menu - visible at all screen sizes */}
+      <div>
         <HamburgerIcon isOpen={isMenuOpen} onClick={toggleMenu} />
       </div>
 
-      {/* Mobile menu dropdown */}
+      {/* Menu dropdown */}
       <MobileMenu sections={mobileMenuSections} />
 
-      {/* Desktop toolbar - visible only at md breakpoint and above */}
-      <div className="hidden md:flex bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-2 gap-2 flex-wrap">
-        {/* Camera Presets */}
-        <button
-          onClick={() => setPresetView('top')}
-          className="px-4 py-2 min-h-[44px] bg-blue-500 text-white rounded hover:bg-blue-600 transition touch-manipulation"
-        >
-          Top View
-        </button>
-        <button
-          onClick={() => setPresetView('sideline')}
-          className="px-4 py-2 min-h-[44px] bg-blue-500 text-white rounded hover:bg-blue-600 transition touch-manipulation"
-        >
-          Sideline
-        </button>
-        <button
-          onClick={() => setPresetView('end-to-end')}
-          className="px-4 py-2 min-h-[44px] bg-blue-500 text-white rounded hover:bg-blue-600 transition touch-manipulation"
-        >
-          End-to-End
-        </button>
-
-        <div className="w-px bg-gray-300 mx-1" />
-
-        {/* Player Controls */}
-        <button
-          onClick={handleUndo}
-          disabled={!canUndo()}
-          className={`px-4 py-2 min-h-[44px] rounded transition touch-manipulation ${
-            canUndo()
-              ? 'bg-yellow-500 text-white hover:bg-yellow-600'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          }`}
-          title="Undo last player move (Ctrl+Z)"
-        >
-          Undo
-        </button>
-        <button
-          onClick={clearPaths}
-          disabled={paths.length === 0}
-          className={`px-4 py-2 min-h-[44px] rounded transition touch-manipulation ${
-            paths.length > 0
-              ? 'bg-red-500 text-white hover:bg-red-600'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          }`}
-          title="Clear all movement paths"
-        >
-          Clear Paths
-        </button>
-        <button
-          onClick={resetPlayers}
-          className="px-4 py-2 min-h-[44px] bg-green-500 text-white rounded hover:bg-green-600 transition touch-manipulation"
-        >
-          Reset Players
-        </button>
-        <FormationSelector />
-        <button
-          onClick={togglePlayerNames}
-          className={`px-4 py-2 min-h-[44px] rounded transition touch-manipulation ${
-            showPlayerNames
-              ? 'bg-teal-500 text-white hover:bg-teal-600'
-              : 'bg-gray-500 text-white hover:bg-gray-600'
-          }`}
-        >
-          {showPlayerNames ? '👤 Hide Names' : '👤 Show Names'}
-        </button>
-        <button
-          onClick={() => setShowImportDialog(true)}
-          className="px-4 py-2 min-h-[44px] bg-cyan-500 text-white rounded hover:bg-cyan-600 transition touch-manipulation"
-        >
-          📋 Import Roster
-        </button>
-
-        <div className="w-px bg-gray-300 mx-1" />
-
-        {/* Ball Assignment Controls */}
-        {ball && (
-          <>
-            <button
-              onClick={handleAssignBall}
-              disabled={!selectedPlayerId}
-              className={`px-4 py-2 min-h-[44px] rounded transition touch-manipulation ${
-                selectedPlayerId
-                  ? 'bg-amber-600 text-white hover:bg-amber-700'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-              title={selectedPlayerId
-                ? `Assign ball to ${selectedPlayer?.number || 'player'}`
-                : 'Select a player first'}
-            >
-              🏈 Give Ball{selectedPlayer ? ` to #${selectedPlayer.number}` : ''}
-            </button>
-            {assignedPlayer && (
-              <button
-                onClick={handleUnassignBall}
-                className="px-4 py-2 min-h-[44px] bg-red-500 text-white rounded hover:bg-red-600 transition touch-manipulation"
-                title="Release ball from player"
-              >
-                🏈 Release (#{assignedPlayer.number})
-              </button>
-            )}
-            <div className="w-px bg-gray-300 mx-1" />
-          </>
-        )}
-
-        {/* Ball Path Controls */}
-        {ball && isBallSelected && (
-          <>
-            {!ballPath ? (
-              <button
-                onClick={handleCreateBallPath}
-                className="px-4 py-2 min-h-[44px] bg-indigo-500 text-white rounded hover:bg-indigo-600 transition touch-manipulation"
-                title="Create a test movement path for the ball"
-              >
-                ➕ Add Ball Path
-              </button>
-            ) : (
-              <button
-                onClick={handleRemoveBallPath}
-                className="px-4 py-2 min-h-[44px] bg-red-400 text-white rounded hover:bg-red-500 transition touch-manipulation"
-                title="Remove ball movement path"
-              >
-                ➖ Remove Path
-              </button>
-            )}
-            <div className="w-px bg-gray-300 mx-1" />
-          </>
-        )}
-
-        {/* Animation Playback Controls */}
-        <button
-          onClick={togglePlayback}
-          className={`px-4 py-2 min-h-[44px] rounded transition touch-manipulation ${
-            isPlaying
-              ? 'bg-yellow-500 text-white hover:bg-yellow-600'
-              : 'bg-green-600 text-white hover:bg-green-700'
-          }`}
-          title={isPlaying ? 'Pause animation' : 'Play animation'}
-        >
-          {isPlaying ? '⏸ Pause' : '▶ Play'}
-        </button>
-        <button
-          onClick={handleStopAnimation}
-          className="px-4 py-2 min-h-[44px] bg-gray-600 text-white rounded hover:bg-gray-700 transition touch-manipulation"
-          title="Stop animation and reset to start"
-        >
-          ⏹ Stop
-        </button>
-        <span className="px-2 py-2 min-h-[44px] text-sm text-gray-600 bg-gray-100 rounded flex items-center">
-          {Math.round(progress * 100)}%
-        </span>
-
-        <div className="w-px bg-gray-300 mx-1" />
-
-        {/* Camera Controls */}
-        <button
-          onClick={resetCamera}
-          className="px-4 py-2 min-h-[44px] bg-purple-500 text-white rounded hover:bg-purple-600 transition touch-manipulation"
-        >
-          Reset Camera
-        </button>
-
-        <div className="w-px bg-gray-300 mx-1" />
-
-        {/* Video Recording */}
-        <button
-          onClick={handleRecordingToggle}
-          className={`px-4 py-2 min-h-[44px] rounded transition touch-manipulation ${
-            isRecording
-              ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse'
-              : 'bg-gray-500 text-white hover:bg-gray-600'
-          }`}
-        >
-          {isRecording ? '⏹ Stop Recording' : '⏺ Start Recording'}
-        </button>
-
-        <div className="w-px bg-gray-300 mx-1" />
-
-        {/* Save Playbook */}
-        <button
-          onClick={() => setShowSaveDialog(true)}
-          className="px-4 py-2 min-h-[44px] bg-orange-500 text-white rounded hover:bg-orange-600 transition touch-manipulation"
-        >
-          Save Playbook
-        </button>
-
-        <div className="w-px bg-gray-300 mx-1" />
-
-        {/* Event Controls */}
-        <button
-          onClick={() => setShowEventEditor(true)}
-          className="px-4 py-2 min-h-[44px] bg-purple-500 text-white rounded hover:bg-purple-600 transition touch-manipulation flex items-center gap-1"
-          title="Create a new animation event"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-            />
-          </svg>
-          Create Event
-        </button>
-
-        {/* Event Selector - show when there are events */}
-        {events.length > 0 && (
+      {/* Selected player position selector */}
+      {selectedPlayer && !isMenuOpen && (
+        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-2 flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-700">
+            #{selectedPlayer.number}{selectedPlayer.playerName ? ` ${selectedPlayer.playerName}` : ''}
+          </span>
           <select
-            value={activeEventId ?? ''}
-            onChange={(e) => setActiveEvent(e.target.value || null)}
-            className="px-3 py-2 min-h-[44px] bg-purple-100 border border-purple-300 text-purple-800 rounded hover:bg-purple-200 transition cursor-pointer text-sm touch-manipulation"
-            title="Select an event to play"
+            value={selectedPlayer.positionName || ''}
+            onChange={(e) => setPlayerPosition(selectedPlayer.id, e.target.value || undefined)}
+            className="px-2 py-1 min-h-[36px] text-sm border rounded bg-white touch-manipulation"
           >
-            <option value="">Select Event...</option>
-            {events.map((event) => (
-              <option key={event.id} value={event.id}>
-                {event.name}
+            <option value="">Position...</option>
+            {AFL_POSITIONS.map((pos) => (
+              <option key={pos.code} value={pos.code}>
+                {pos.code} - {pos.name}
               </option>
             ))}
           </select>
-        )}
-
-        {/* Active Event Indicator */}
-        {activeEvent && (
-          <div className="flex items-center gap-1">
-            <span className="px-3 py-2 min-h-[44px] bg-purple-100 text-purple-800 rounded text-sm font-medium flex items-center gap-2">
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              {activeEvent.name}
-            </span>
-            <button
-              onClick={handleClearEvent}
-              className="min-w-[44px] min-h-[44px] px-2 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition touch-manipulation flex items-center justify-center"
-              title="Clear active event"
-              aria-label="Clear active event"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-        )}
-
-        <div className="w-px bg-gray-300 mx-1" />
-
-        {/* POV Camera Controls */}
-        <div className="relative">
-          {povMode ? (
-            <div className="flex items-center gap-1">
-              <span className="px-3 py-2 min-h-[44px] bg-indigo-100 text-indigo-800 rounded text-sm font-medium flex items-center gap-2">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                  />
-                </svg>
-                POV: #{povPlayer?.number ?? '?'}
-              </span>
-              <button
-                onClick={disablePOV}
-                className="min-w-[44px] min-h-[44px] px-2 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition touch-manipulation flex items-center justify-center"
-                title="Exit POV mode"
-                aria-label="Exit POV mode"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-          ) : (
-            <>
-              <button
-                onClick={() => setShowPOVSelector(!showPOVSelector)}
-                className={`px-4 py-2 min-h-[44px] rounded transition touch-manipulation flex items-center gap-1 ${
-                  showPOVSelector
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-indigo-500 text-white hover:bg-indigo-600'
-                }`}
-                title="Enable POV camera mode"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                  />
-                </svg>
-                POV Mode
-              </button>
-
-              {/* POV Player Selector Dropdown */}
-              {showPOVSelector && (
-                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border border-gray-200 z-50 min-w-[200px] max-h-[300px] overflow-y-auto">
-                  <div className="p-2 border-b border-gray-100">
-                    <span className="text-xs font-medium text-gray-500">Select Player for POV</span>
-                  </div>
-                  <div className="py-1">
-                    {/* Quick option: selected player */}
-                    {selectedPlayer && (
-                      <button
-                        onClick={() => handleSelectPOVPlayer(selectedPlayer.id)}
-                        className="w-full min-h-[44px] px-3 py-2 text-left text-sm hover:bg-indigo-50 flex items-center gap-2 border-b border-gray-100 touch-manipulation"
-                      >
-                        <span className="w-6 h-6 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs font-bold">
-                          {selectedPlayer.number}
-                        </span>
-                        <span className="font-medium">Selected: #{selectedPlayer.number}</span>
-                        {selectedPlayer.playerName && (
-                          <span className="text-gray-500 text-xs">{selectedPlayer.playerName}</span>
-                        )}
-                      </button>
-                    )}
-                    {/* Team 1 Players */}
-                    <div className="px-2 py-1 bg-blue-50 text-xs font-medium text-blue-700">Team 1</div>
-                    {players
-                      .filter(p => p.teamId === 'team1')
-                      .map(player => (
-                        <button
-                          key={player.id}
-                          onClick={() => handleSelectPOVPlayer(player.id)}
-                          className="w-full min-h-[44px] px-3 py-1.5 text-left text-sm hover:bg-blue-50 flex items-center gap-2 touch-manipulation"
-                        >
-                          <span className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
-                            {player.number}
-                          </span>
-                          <span>#{player.number}</span>
-                          {player.playerName && (
-                            <span className="text-gray-500 text-xs">{player.playerName}</span>
-                          )}
-                        </button>
-                      ))}
-                    {/* Team 2 Players */}
-                    <div className="px-2 py-1 bg-red-50 text-xs font-medium text-red-700">Team 2</div>
-                    {players
-                      .filter(p => p.teamId === 'team2')
-                      .map(player => (
-                        <button
-                          key={player.id}
-                          onClick={() => handleSelectPOVPlayer(player.id)}
-                          className="w-full min-h-[44px] px-3 py-1.5 text-left text-sm hover:bg-red-50 flex items-center gap-2 touch-manipulation"
-                        >
-                          <span className="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold">
-                            {player.number}
-                          </span>
-                          <span>#{player.number}</span>
-                          {player.playerName && (
-                            <span className="text-gray-500 text-xs">{player.playerName}</span>
-                          )}
-                        </button>
-                      ))}
-                  </div>
-                  <button
-                    onClick={() => setShowPOVSelector(false)}
-                    className="w-full min-h-[44px] px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 border-t border-gray-100 touch-manipulation"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
-            </>
-          )}
         </div>
-
-        <div className="w-px bg-gray-300 mx-1" />
-
-        {/* Video Import Controls */}
-        {isVideoMode && isLoaded ? (
-          <>
-            {/* Show video info and clear button when video is loaded */}
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-2 min-h-[44px] bg-teal-100 text-teal-800 rounded text-sm font-medium flex items-center gap-2">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-                {videoMetadata?.fileName || 'Video Loaded'}
-              </span>
-              <button
-                onClick={clearVideo}
-                className="px-4 py-2 min-h-[44px] bg-red-500 text-white rounded hover:bg-red-600 transition touch-manipulation flex items-center gap-1"
-                aria-label="Clear video and return to field mode"
-                title="Clear video and return to field mode"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-                Clear Video
-              </button>
-            </div>
-          </>
-        ) : (
-          <button
-            onClick={() => setShowVideoUploader(true)}
-            disabled={isLoading}
-            className={`px-4 py-2 min-h-[44px] rounded transition touch-manipulation flex items-center gap-2 ${
-              isLoading
-                ? 'bg-gray-400 text-white cursor-not-allowed'
-                : 'bg-teal-500 text-white hover:bg-teal-600'
-            }`}
-            aria-label="Import video file"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-              />
-            </svg>
-            {isLoading ? 'Loading...' : 'Import Video'}
-          </button>
-        )}
-      </div>
+      )}
 
       {/* Save Dialog */}
       {showSaveDialog && (
@@ -927,7 +470,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
                 value={rosterText}
                 onChange={(e) => setRosterText(e.target.value)}
                 className="w-full px-3 py-2 border rounded font-mono text-sm touch-manipulation"
-                placeholder="Enter one name per line&#10;e.g.&#10;John Smith&#10;Jane Doe&#10;Mike Johnson"
+                placeholder="Enter one player per line&#10;Format: Name, Position&#10;e.g.&#10;John Smith, FB&#10;Jane Doe, CHB&#10;Mike Johnson, RK"
                 rows={6}
               />
             </div>
@@ -964,6 +507,79 @@ export function Toolbar({ canvas }: ToolbarProps) {
           {/* Modal content */}
           <div className="relative z-10">
             <VideoUploader onClose={() => setShowVideoUploader(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* POV Player Selector Modal */}
+      {showPOVSelector && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowPOVSelector(false)}
+          />
+          <div className="relative z-10 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[250px] max-h-[400px] overflow-y-auto">
+            <div className="p-3 border-b border-gray-100">
+              <span className="text-sm font-medium text-gray-700">Select Player for POV</span>
+            </div>
+            <div className="py-1">
+              {selectedPlayer && (
+                <button
+                  onClick={() => handleSelectPOVPlayer(selectedPlayer.id)}
+                  className="w-full min-h-[44px] px-3 py-2 text-left text-sm hover:bg-indigo-50 flex items-center gap-2 border-b border-gray-100 touch-manipulation"
+                >
+                  <span className="w-6 h-6 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs font-bold">
+                    {selectedPlayer.number}
+                  </span>
+                  <span className="font-medium">Selected: #{selectedPlayer.number}</span>
+                  {selectedPlayer.playerName && (
+                    <span className="text-gray-500 text-xs">{selectedPlayer.playerName}</span>
+                  )}
+                </button>
+              )}
+              <div className="px-2 py-1 bg-blue-50 text-xs font-medium text-blue-700">Team 1</div>
+              {players
+                .filter(p => p.teamId === 'team1')
+                .map(player => (
+                  <button
+                    key={player.id}
+                    onClick={() => handleSelectPOVPlayer(player.id)}
+                    className="w-full min-h-[44px] px-3 py-1.5 text-left text-sm hover:bg-blue-50 flex items-center gap-2 touch-manipulation"
+                  >
+                    <span className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
+                      {player.number}
+                    </span>
+                    <span>#{player.number}</span>
+                    {player.playerName && (
+                      <span className="text-gray-500 text-xs">{player.playerName}</span>
+                    )}
+                  </button>
+                ))}
+              <div className="px-2 py-1 bg-red-50 text-xs font-medium text-red-700">Team 2</div>
+              {players
+                .filter(p => p.teamId === 'team2')
+                .map(player => (
+                  <button
+                    key={player.id}
+                    onClick={() => handleSelectPOVPlayer(player.id)}
+                    className="w-full min-h-[44px] px-3 py-1.5 text-left text-sm hover:bg-red-50 flex items-center gap-2 touch-manipulation"
+                  >
+                    <span className="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold">
+                      {player.number}
+                    </span>
+                    <span>#{player.number}</span>
+                    {player.playerName && (
+                      <span className="text-gray-500 text-xs">{player.playerName}</span>
+                    )}
+                  </button>
+                ))}
+            </div>
+            <button
+              onClick={() => setShowPOVSelector(false)}
+              className="w-full min-h-[44px] px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 border-t border-gray-100 touch-manipulation"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}

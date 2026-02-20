@@ -2,8 +2,9 @@ import { create } from 'zustand';
 import Dexie, { Table, IndexableType } from 'dexie';
 import { Player } from '../models/PlayerModel';
 
-interface Playbook {
+export interface Playbook {
   id?: number;
+  cloudId?: string;
   name: string;
   description?: string;
   createdAt: Date;

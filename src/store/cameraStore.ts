@@ -23,6 +23,7 @@ interface CameraState {
   enablePOV: (playerId: string) => void;
   disablePOV: () => void;
   setPOVSettings: (height: number, distance: number) => void;
+  setPOVDistance: (distance: number) => void;
 
   // Pinch-to-zoom action
   applyPinchZoom: (zoomFactor: number, initialZoom: number) => void;
@@ -43,9 +44,11 @@ const DEFAULT_ZOOM = 1;
 export const MIN_ZOOM = 0.5;
 export const MAX_ZOOM = 4;
 
-// POV mode defaults
+// POV mode defaults and constraints
 const DEFAULT_POV_HEIGHT = 3;
 const DEFAULT_POV_DISTANCE = 10;
+export const MIN_POV_DISTANCE = 3;
+export const MAX_POV_DISTANCE = 40;
 
 export const useCameraStore = create<CameraState>((set) => ({
   position: DEFAULT_CAMERA_POSITION,
@@ -140,6 +143,11 @@ export const useCameraStore = create<CameraState>((set) => ({
       povHeight: height,
       povDistance: distance,
     });
+  },
+
+  setPOVDistance: (distance) => {
+    const clamped = Math.max(MIN_POV_DISTANCE, Math.min(MAX_POV_DISTANCE, distance));
+    set({ povDistance: clamped });
   },
 
   applyPinchZoom: (zoomFactor, initialZoom) => {

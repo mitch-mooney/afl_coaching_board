@@ -62,15 +62,9 @@ export const useUIStore = create<UIState>((set) => {
     // Responsive actions
     updateScreenSize: (width: number) => {
       const newIsMobile = isMobileWidth(width);
-      set((state) => {
-        // Auto-close menu when switching to desktop
-        const shouldCloseMenu = state.isMobile && !newIsMobile && state.isMenuOpen;
-
-        return {
-          screenWidth: width,
-          isMobile: newIsMobile,
-          ...(shouldCloseMenu && { isMenuOpen: false }),
-        };
+      set({
+        screenWidth: width,
+        isMobile: newIsMobile,
       });
     },
   };

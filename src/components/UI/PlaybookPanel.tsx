@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { usePlaybookStore } from '../../store/playbookStore';
+import { usePlaybookStore, type Playbook } from '../../store/playbookStore';
 import { usePlaybook } from '../../hooks/usePlaybook';
 import { useResponsive } from '../../hooks/useResponsive';
+import { SharePlaybookDialog } from './SharePlaybookDialog';
+import { useAuthStore } from '../../store/authStore';
 
 /**
  * PlaybookPanel - Responsive panel for loading and managing saved playbooks.
@@ -22,7 +24,10 @@ export function PlaybookPanel() {
   const { playbooks, isLoading, loadPlaybooks } = usePlaybookStore();
   const { loadScenario } = usePlaybook();
   const [isOpen, setIsOpen] = useState(false);
+  const [sharingPlaybook, setSharingPlaybook] = useState<Playbook | null>(null);
   const { isMobile } = useResponsive();
+  const authIsConfigured = useAuthStore((state) => state.isConfigured);
+  const authUser = useAuthStore((state) => state.user);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -313,6 +318,23 @@ export function PlaybookPanel() {
                           >
                             Load
                           </button>
+                          {authIsConfigured && authUser && (
+                            <button
+                              onClick={() => setSharingPlaybook(playbook)}
+                              className="
+                                px-4 py-2.5
+                                min-h-[44px]
+                                bg-green-100 text-green-700
+                                text-sm font-medium
+                                rounded-lg
+                                hover:bg-green-200 active:bg-green-300
+                                transition-colors touch-manipulation
+                              "
+                              aria-label={`Share ${playbook.name}`}
+                            >
+                              Share
+                            </button>
+                          )}
                           <button
                             onClick={() => playbook.id && handleDelete(playbook.id)}
                             className="
@@ -362,6 +384,13 @@ export function PlaybookPanel() {
           </>
         )}
       </AnimatePresence>
+
+      {sharingPlaybook && (
+        <SharePlaybookDialog
+          playbook={sharingPlaybook}
+          onClose={() => setSharingPlaybook(null)}
+        />
+      )}
     </>
   );
 }

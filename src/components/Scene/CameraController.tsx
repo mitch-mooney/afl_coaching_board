@@ -5,21 +5,15 @@ import * as THREE from 'three';
 import { useCameraStore } from '../../store/cameraStore';
 import { useAnnotationStore } from '../../store/annotationStore';
 import { usePlayerStore } from '../../store/playerStore';
-import { usePathStore } from '../../store/pathStore';
-import { useAnimationStore } from '../../store/animationStore';
-import { getVelocityAtProgress } from '../../utils/pathAnimation';
 import { useGestures } from '../../hooks/useGestures';
 
 export function CameraController() {
   const { camera, gl } = useThree();
   const controlsRef = useRef<any>(null);
-  const { position, target, zoom, povMode, povPlayerId, povHeight, povDistance, applyPinchZoom, applyTwoFingerPan } = useCameraStore();
+  const { position, target, zoom, povMode, povPlayerId, povHeight, povDistance, applyPinchZoom, applyTwoFingerPan, setPOVDistance } = useCameraStore();
   const selectedTool = useAnnotationStore((state) => state.selectedTool);
   const isDraggingPlayer = usePlayerStore((state) => state.isDragging);
   const getPlayer = usePlayerStore((state) => state.getPlayer);
-  const getPathByEntity = usePathStore((state) => state.getPathByEntity);
-  const progress = useAnimationStore((state) => state.progress);
-
   // Gesture detection for pinch-to-zoom
   const { handlers: gestureHandlers, getGestureState } = useGestures();
 
@@ -85,8 +79,14 @@ export function CameraController() {
       setIsPinching((prev) => prev || true);
       setIsPanning(false);
 
-      // Apply the zoom factor
-      if (initialZoomRef.current !== null) {
+      if (povMode) {
+        // In POV mode, route pinch to POV distance (inverse: pinch out = closer)
+        if (initialZoomRef.current !== null) {
+          const newDistance = povDistance / gestureState.zoomFactor;
+          setPOVDistance(newDistance);
+        }
+      } else if (initialZoomRef.current !== null) {
+        // Normal mode: apply pinch-to-zoom
         applyPinchZoom(gestureState.zoomFactor, initialZoomRef.current);
       }
     } else if (gestureState.type === 'two-finger-pan' && gestureState.isActive) {
@@ -135,7 +135,15 @@ export function CameraController() {
     initialPanCenterRef.current = null;
   }, [gestureHandlers]);
 
-  // Set up touch event listeners on the canvas
+  // Handle wheel event for POV zoom
+  const handleWheel = useCallback((event: WheelEvent) => {
+    if (!povMode) return;
+    event.preventDefault();
+    const delta = event.deltaY * 0.05;
+    setPOVDistance(povDistance + delta);
+  }, [povMode, povDistance, setPOVDistance]);
+
+  // Set up touch and wheel event listeners on the canvas
   useEffect(() => {
     const canvas = gl.domElement;
     if (!canvas) return;
@@ -145,14 +153,16 @@ export function CameraController() {
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
     canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
     canvas.addEventListener('touchcancel', handleTouchCancel, { passive: false });
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
       canvas.removeEventListener('touchstart', handleTouchStart);
       canvas.removeEventListener('touchmove', handleTouchMove);
       canvas.removeEventListener('touchend', handleTouchEnd);
       canvas.removeEventListener('touchcancel', handleTouchCancel);
+      canvas.removeEventListener('wheel', handleWheel);
     };
-  }, [gl.domElement, handleTouchStart, handleTouchMove, handleTouchEnd, handleTouchCancel]);
+  }, [gl.domElement, handleTouchStart, handleTouchMove, handleTouchEnd, handleTouchCancel, handleWheel]);
 
   // POV camera update - runs every frame when POV mode is active
   useFrame(() => {
@@ -164,27 +174,11 @@ export function CameraController() {
 
     const [px, py, pz] = player.position;
 
-    // Get the player's path to determine look direction from velocity
-    const playerPath = getPathByEntity(povPlayerId, 'player');
-
-    // Default direction derived from player's facing rotation
+    // Always use player's facing rotation for camera direction
     // rotation=0 means facing positive Z, so:
     // directionX = sin(rotation), directionZ = cos(rotation)
-    let directionX = Math.sin(player.rotation);
-    let directionZ = Math.cos(player.rotation);
-
-    if (playerPath && playerPath.keyframes.length >= 2) {
-      // Calculate velocity/direction from path at current progress
-      const velocity = getVelocityAtProgress(playerPath, progress);
-      const velMagnitude = Math.sqrt(velocity[0] * velocity[0] + velocity[2] * velocity[2]);
-
-      // Only use velocity direction if player is moving significantly
-      // Otherwise stick to facing direction
-      if (velMagnitude > 0.5) {
-        directionX = velocity[0] / velMagnitude;
-        directionZ = velocity[2] / velMagnitude;
-      }
-    }
+    const directionX = Math.sin(player.rotation);
+    const directionZ = Math.cos(player.rotation);
 
     // Position camera behind and above the player
     // Camera is positioned opposite to the direction of movement

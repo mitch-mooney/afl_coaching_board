@@ -174,7 +174,7 @@ export function MobileMenu({ sections, onClose }: MobileMenuProps) {
         <>
           {/* Backdrop */}
           <motion.div
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden"
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
             variants={backdropVariants}
             initial="closed"
             animate="open"
@@ -186,14 +186,14 @@ export function MobileMenu({ sections, onClose }: MobileMenuProps) {
           <motion.div
             ref={menuRef}
             className="
-              absolute top-16 left-4 right-4 z-50
+              absolute top-16 left-4 z-50
               bg-white/95 backdrop-blur-md
               rounded-xl shadow-2xl
               border border-gray-200/50
               max-h-[calc(100vh-6rem)]
               overflow-y-auto
               overflow-x-hidden
-              md:hidden
+              w-[calc(100vw-2rem)] max-w-sm md:max-w-md
             "
             variants={menuVariants}
             initial="closed"

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Player, createTeamPlayers, DEFAULT_TEAM_COLORS } from '../models/PlayerModel';
 import { getFormationById } from '../data/formations';
+import { getPositionByCode } from '../data/aflPositions';
 
 export interface PlayerUpdate {
   playerId: string;
@@ -32,6 +33,7 @@ interface PlayerState {
   /** Check if safe to apply formation (not dragging or updating) */
   canApplyFormation: () => boolean;
   setPlayerName: (playerId: string, name: string) => void;
+  setPlayerPosition: (playerId: string, positionName: string | undefined) => void;
   togglePlayerNames: () => void;
   importRoster: (names: string[], teamId?: 'team1' | 'team2') => void;
   startEditingPlayerName: (playerId: string) => void;
@@ -225,6 +227,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }));
   },
 
+  setPlayerPosition: (playerId, positionName) => {
+    set((state) => ({
+      players: state.players.map((player) =>
+        player.id === playerId ? { ...player, positionName: positionName || undefined } : player
+      ),
+    }));
+  },
+
   togglePlayerNames: () => {
     set((state) => ({ showPlayerNames: !state.showPlayerNames }));
   },
@@ -236,21 +246,44 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         ? state.players.filter((p) => p.teamId === teamId)
         : state.players;
 
-      // Create a map of player IDs to their new names
-      const playerIdToName = new Map<string, string | undefined>();
+      // Create a map of player IDs to their new names and positions
+      const playerUpdates = new Map<string, { playerName?: string; positionName?: string }>();
       targetPlayers.forEach((player, index) => {
         if (index < names.length) {
-          const name = names[index].trim();
-          // Store undefined for empty names (same behavior as setPlayerName)
-          playerIdToName.set(player.id, name || undefined);
+          const line = names[index].trim();
+          if (!line) return;
+
+          // Parse "Name, POS" format (e.g., "John Smith, FB")
+          const commaIndex = line.lastIndexOf(',');
+          let name = line;
+          let positionName: string | undefined;
+
+          if (commaIndex !== -1) {
+            const possiblePos = line.substring(commaIndex + 1).trim().toUpperCase();
+            const position = getPositionByCode(possiblePos);
+            if (position) {
+              name = line.substring(0, commaIndex).trim();
+              positionName = position.code;
+            }
+          }
+
+          playerUpdates.set(player.id, {
+            playerName: name || undefined,
+            positionName,
+          });
         }
       });
 
-      // Update players with new names
+      // Update players with new names and positions
       return {
         players: state.players.map((player) => {
-          if (playerIdToName.has(player.id)) {
-            return { ...player, playerName: playerIdToName.get(player.id) };
+          const update = playerUpdates.get(player.id);
+          if (update) {
+            return {
+              ...player,
+              playerName: update.playerName,
+              ...(update.positionName !== undefined && { positionName: update.positionName }),
+            };
           }
           return player;
         }),

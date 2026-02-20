@@ -6,6 +6,7 @@ export interface Player {
   color: string;
   number?: number; // Player number
   playerName?: string; // Player name for display labels
+  positionName?: string; // AFL position code (e.g., 'FB', 'CHB', 'RK')
 }
 
 export interface Team {

@@ -71,10 +71,13 @@ export function PlayerComponent({ player }: PlayerProps) {
   const existingPath = getPathByEntity(player.id, 'player');
 
   // Memoize the formatted display name for performance with many players
-  const displayName = useMemo(
-    () => formatDisplayName(player.playerName),
-    [player.playerName]
-  );
+  const displayName = useMemo(() => {
+    const name = formatDisplayName(player.playerName);
+    const pos = player.positionName;
+    if (name && pos) return `${name} (${pos})`;
+    if (pos) return pos;
+    return name;
+  }, [player.playerName, player.positionName]);
   
   useFrame((state) => {
     // Apply rotation to the entire group so all body parts rotate together
