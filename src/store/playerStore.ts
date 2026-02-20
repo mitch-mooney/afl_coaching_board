@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Player, createTeamPlayers, DEFAULT_TEAM_COLORS } from '../models/PlayerModel';
 import { getFormationById } from '../data/formations';
 import { getPositionByCode } from '../data/aflPositions';
+import { getTeamById } from '../data/aflTeams';
 
 export interface PlayerUpdate {
   playerId: string;
@@ -18,6 +19,8 @@ interface PlayerState {
   isDragging: boolean;
   editingPlayerId: string | null;
   showPlayerNames: boolean;
+  team1PresetId: string | null;
+  team2PresetId: string | null;
 
   // Actions
   initializePlayers: () => void;
@@ -38,6 +41,7 @@ interface PlayerState {
   importRoster: (names: string[], teamId?: 'team1' | 'team2') => void;
   startEditingPlayerName: (playerId: string) => void;
   stopEditingPlayerName: () => void;
+  setTeamPreset: (teamId: 'team1' | 'team2', presetId: string | null) => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -47,6 +51,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isDragging: false,
   editingPlayerId: null,
   showPlayerNames: false,
+  team1PresetId: null,
+  team2PresetId: null,
 
   initializePlayers: () => {
     const team1Players = createTeamPlayers('team1', DEFAULT_TEAM_COLORS.team1);
@@ -297,5 +303,29 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   stopEditingPlayerName: () => {
     set({ editingPlayerId: null });
+  },
+
+  setTeamPreset: (teamId, presetId) => {
+    const preset = presetId ? getTeamById(presetId) : null;
+    const presetKey = teamId === 'team1' ? 'team1PresetId' : 'team2PresetId';
+    set((state) => ({
+      [presetKey]: presetId,
+      players: state.players.map((player) => {
+        if (player.teamId !== teamId) return player;
+        if (preset) {
+          return {
+            ...player,
+            color: preset.primaryColor,
+            teamPresetId: preset.id,
+          };
+        }
+        // Reset to default
+        return {
+          ...player,
+          color: DEFAULT_TEAM_COLORS[teamId],
+          teamPresetId: undefined,
+        };
+      }),
+    }));
   },
 }));

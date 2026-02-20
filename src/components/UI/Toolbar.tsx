@@ -16,6 +16,9 @@ import { EventEditor } from './EventEditor';
 import { HamburgerIcon } from './HamburgerIcon';
 import { MobileMenu, createMenuSection, createMenuItem, type MenuSection } from './MobileMenu';
 import { useAuthStore } from '../../store/authStore';
+import { useMatchStore, formatAFLScore } from '../../store/matchStore';
+import { AFL_TEAMS } from '../../data/aflTeams';
+import type { Quarter } from '../../store/matchStore';
 
 interface ToolbarProps {
   canvas: HTMLCanvasElement | null;
@@ -68,6 +71,27 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const [showVideoUploader, setShowVideoUploader] = useState(false);
   const [showEventEditor, setShowEventEditor] = useState(false);
   const [showPOVSelector, setShowPOVSelector] = useState(false);
+  const [showTeamSelector, setShowTeamSelector] = useState(false);
+  const [showMatchSetup, setShowMatchSetup] = useState(false);
+
+  // Team preset state
+  const team1PresetId = usePlayerStore((state) => state.team1PresetId);
+  const team2PresetId = usePlayerStore((state) => state.team2PresetId);
+  const setTeamPreset = usePlayerStore((state) => state.setTeamPreset);
+
+  // Match store state
+  const matchHome = useMatchStore((s) => s.homeTeamName);
+  const matchAway = useMatchStore((s) => s.awayTeamName);
+  const matchHomeScore = useMatchStore((s) => s.homeScore);
+  const matchAwayScore = useMatchStore((s) => s.awayScore);
+  const matchQuarter = useMatchStore((s) => s.quarter);
+  const matchShowScoreboard = useMatchStore((s) => s.showScoreboard);
+  const setMatchHome = useMatchStore((s) => s.setHomeTeamName);
+  const setMatchAway = useMatchStore((s) => s.setAwayTeamName);
+  const setMatchHomeScore = useMatchStore((s) => s.setHomeScore);
+  const setMatchAwayScore = useMatchStore((s) => s.setAwayScore);
+  const setMatchQuarter = useMatchStore((s) => s.setQuarter);
+  const toggleScoreboard = useMatchStore((s) => s.toggleScoreboard);
 
   // Get the player being edited
   const editingPlayer = editingPlayerId ? getPlayer(editingPlayerId) : undefined;
@@ -270,6 +294,26 @@ export function Toolbar({ canvas }: ToolbarProps) {
       sections.push(createMenuSection('ball', 'Ball', ballItems));
     }
 
+    // Teams section
+    const team1Name = team1PresetId ? AFL_TEAMS.find(t => t.id === team1PresetId)?.abbreviation : null;
+    const team2Name = team2PresetId ? AFL_TEAMS.find(t => t.id === team2PresetId)?.abbreviation : null;
+    sections.push(
+      createMenuSection('teams', 'Teams', [
+        createMenuItem('team-select', `Jerseys${team1Name || team2Name ? ` (${team1Name ?? '?'} vs ${team2Name ?? '?'})` : ''}`, () => setShowTeamSelector(true), { variant: 'purple' }),
+      ])
+    );
+
+    // Match section
+    sections.push(
+      createMenuSection('match', 'Match', [
+        createMenuItem('match-setup', 'Match Setup', () => setShowMatchSetup(true), { variant: 'teal' }),
+        createMenuItem('toggle-scoreboard', matchShowScoreboard ? 'Hide Scoreboard' : 'Show Scoreboard', toggleScoreboard, {
+          variant: 'primary',
+          active: matchShowScoreboard,
+        }),
+      ])
+    );
+
     // Animation Playback section
     sections.push(
       createMenuSection('animation', 'Animation Playback', [
@@ -366,6 +410,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
     activeEvent, handleClearEvent, povMode, povPlayer, disablePOV,
     isVideoMode, isLoaded, isLoading, clearVideo,
     authUser, authIsConfigured, authSignOut,
+    team1PresetId, team2PresetId, matchShowScoreboard, toggleScoreboard,
   ]);
 
   return (
@@ -595,6 +640,180 @@ export function Toolbar({ canvas }: ToolbarProps) {
           {/* Modal content */}
           <div className="relative z-10">
             <EventEditor onClose={() => setShowEventEditor(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* Team Selector Modal */}
+      {showTeamSelector && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowTeamSelector(false)}
+          />
+          <div className="relative z-10 bg-white rounded-lg shadow-xl border border-gray-200 w-[380px] max-h-[80vh] overflow-y-auto">
+            <div className="p-3 border-b border-gray-100">
+              <span className="text-sm font-medium text-gray-700">Select AFL Team Jerseys</span>
+            </div>
+            <div className="p-3 space-y-4">
+              {/* Team 1 selector */}
+              <div>
+                <label className="block text-sm font-medium mb-1 text-blue-700">Team 1 (Home)</label>
+                <select
+                  value={team1PresetId ?? ''}
+                  onChange={(e) => {
+                    setTeamPreset('team1', e.target.value || null);
+                    const team = AFL_TEAMS.find(t => t.id === e.target.value);
+                    if (team && !matchHome) setMatchHome(team.name);
+                  }}
+                  className="w-full px-3 py-2 min-h-[44px] border rounded touch-manipulation"
+                >
+                  <option value="">Default (Blue)</option>
+                  {AFL_TEAMS.map((team) => (
+                    <option key={team.id} value={team.id}>{team.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Team 2 selector */}
+              <div>
+                <label className="block text-sm font-medium mb-1 text-red-700">Team 2 (Away)</label>
+                <select
+                  value={team2PresetId ?? ''}
+                  onChange={(e) => {
+                    setTeamPreset('team2', e.target.value || null);
+                    const team = AFL_TEAMS.find(t => t.id === e.target.value);
+                    if (team && !matchAway) setMatchAway(team.name);
+                  }}
+                  className="w-full px-3 py-2 min-h-[44px] border rounded touch-manipulation"
+                >
+                  <option value="">Default (Red)</option>
+                  {AFL_TEAMS.map((team) => (
+                    <option key={team.id} value={team.id}>{team.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowTeamSelector(false)}
+              className="w-full min-h-[44px] px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 border-t border-gray-100 touch-manipulation"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Match Setup Modal */}
+      {showMatchSetup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowMatchSetup(false)}
+          />
+          <div className="relative z-10 bg-white rounded-lg shadow-xl border border-gray-200 w-[400px] max-h-[80vh] overflow-y-auto">
+            <div className="p-3 border-b border-gray-100">
+              <span className="text-sm font-medium text-gray-700">Match Setup</span>
+            </div>
+            <div className="p-4 space-y-4">
+              {/* Team names */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium mb-1 text-blue-700">Home Team</label>
+                  <input
+                    type="text"
+                    value={matchHome}
+                    onChange={(e) => setMatchHome(e.target.value)}
+                    className="w-full px-2 py-1.5 min-h-[36px] text-sm border rounded touch-manipulation"
+                    placeholder="Home team"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1 text-red-700">Away Team</label>
+                  <input
+                    type="text"
+                    value={matchAway}
+                    onChange={(e) => setMatchAway(e.target.value)}
+                    className="w-full px-2 py-1.5 min-h-[36px] text-sm border rounded touch-manipulation"
+                    placeholder="Away team"
+                  />
+                </div>
+              </div>
+
+              {/* Scores */}
+              <div>
+                <label className="block text-xs font-medium mb-2 text-gray-600">Scores</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="border rounded p-2">
+                    <div className="text-xs text-blue-700 font-medium mb-1">{matchHome || 'Home'}: {formatAFLScore(matchHomeScore)}</div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-500">G</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={matchHomeScore.goals}
+                        onChange={(e) => setMatchHomeScore({ ...matchHomeScore, goals: Math.max(0, parseInt(e.target.value) || 0) })}
+                        className="w-14 px-1 py-1 text-sm border rounded text-center touch-manipulation"
+                      />
+                      <label className="text-xs text-gray-500">B</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={matchHomeScore.behinds}
+                        onChange={(e) => setMatchHomeScore({ ...matchHomeScore, behinds: Math.max(0, parseInt(e.target.value) || 0) })}
+                        className="w-14 px-1 py-1 text-sm border rounded text-center touch-manipulation"
+                      />
+                    </div>
+                  </div>
+                  <div className="border rounded p-2">
+                    <div className="text-xs text-red-700 font-medium mb-1">{matchAway || 'Away'}: {formatAFLScore(matchAwayScore)}</div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-500">G</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={matchAwayScore.goals}
+                        onChange={(e) => setMatchAwayScore({ ...matchAwayScore, goals: Math.max(0, parseInt(e.target.value) || 0) })}
+                        className="w-14 px-1 py-1 text-sm border rounded text-center touch-manipulation"
+                      />
+                      <label className="text-xs text-gray-500">B</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={matchAwayScore.behinds}
+                        onChange={(e) => setMatchAwayScore({ ...matchAwayScore, behinds: Math.max(0, parseInt(e.target.value) || 0) })}
+                        className="w-14 px-1 py-1 text-sm border rounded text-center touch-manipulation"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quarter */}
+              <div>
+                <label className="block text-xs font-medium mb-1 text-gray-600">Quarter</label>
+                <div className="flex gap-2">
+                  {(['Q1', 'Q2', 'Q3', 'Q4'] as Quarter[]).map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => setMatchQuarter(q)}
+                      className={`flex-1 min-h-[36px] px-2 py-1 text-sm rounded border touch-manipulation transition ${
+                        matchQuarter === q
+                          ? 'bg-indigo-500 text-white border-indigo-500'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowMatchSetup(false)}
+              className="w-full min-h-[44px] px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 border-t border-gray-100 touch-manipulation"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

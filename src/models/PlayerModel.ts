@@ -7,6 +7,7 @@ export interface Player {
   number?: number; // Player number
   playerName?: string; // Player name for display labels
   positionName?: string; // AFL position code (e.g., 'FB', 'CHB', 'RK')
+  teamPresetId?: string; // AFL team preset ID for jersey texture
 }
 
 export interface Team {

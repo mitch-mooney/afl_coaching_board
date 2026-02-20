@@ -75,7 +75,7 @@ function GoalPosts({ position, rotation = [0, 0, 0] }: { position: [number, numb
   const behindPostSpacing = FIELD_CONFIG.behindPostSpacing;
   const behindPostHeight = FIELD_CONFIG.behindPostHeight;
   // Goal posts (middle two) are 1.25x taller than behind posts (outer two)
-  const goalPostHeight = behindPostHeight * 1.25;
+  const goalPostHeight = behindPostHeight * 1.3;
   const postThickness = 0.15;
 
   return (
@@ -190,8 +190,20 @@ function GoalSquares() {
           </bufferGeometry>
           <lineBasicMaterial color="#ffffff" linewidth={1} />
         </line>
+        {/* Closing line (goal-line side) */}
+        <line>
+          <bufferGeometry>
+            <bufferAttribute
+              attach="attributes-position"
+              count={2}
+              array={new Float32Array([squareDepth / 2, 0, -halfWidth, squareDepth / 2, 0, halfWidth])}
+              itemSize={3}
+            />
+          </bufferGeometry>
+          <lineBasicMaterial color="#ffffff" linewidth={1} />
+        </line>
       </group>
-     
+
       {/* Goal square at Team 2 end (positive X) */}
       <group position={[squareX, 0.02, 0]}>
         {/* Front line (kick-off line) - parallel to goal line */}
@@ -225,6 +237,18 @@ function GoalSquares() {
               attach="attributes-position"
               count={2}
               array={new Float32Array([-squareDepth / 2, 0, halfWidth, squareDepth / 2, 0, halfWidth])}
+              itemSize={3}
+            />
+          </bufferGeometry>
+          <lineBasicMaterial color="#ffffff" linewidth={1} />
+        </line>
+        {/* Closing line (goal-line side) */}
+        <line>
+          <bufferGeometry>
+            <bufferAttribute
+              attach="attributes-position"
+              count={2}
+              array={new Float32Array([-squareDepth / 2, 0, -halfWidth, -squareDepth / 2, 0, halfWidth])}
               itemSize={3}
             />
           </bufferGeometry>

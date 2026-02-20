@@ -5,6 +5,7 @@ import { CameraController } from '../Scene/CameraController';
 import { AnnotationLayer } from '../Scene/AnnotationLayer';
 import { BallComponent } from '../Scene/Ball';
 import { PathManager } from '../Scene/Path';
+import { Scoreboard } from '../Scene/Scoreboard';
 import { Toolbar } from '../UI/Toolbar';
 import { PlaybookPanel } from '../UI/PlaybookPanel';
 import { AnnotationToolbar } from '../UI/AnnotationToolbar';
@@ -153,6 +154,7 @@ export function MainLayout() {
           {ball && <BallComponent ball={ball} />}
           <PathManager paths={paths} />
           <CameraController />
+          <Scoreboard />
           <AnnotationLayer />
 
           {/* FIX: moved inside Canvas so R3F hooks work */}
