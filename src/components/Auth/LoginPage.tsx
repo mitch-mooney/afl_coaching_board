@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useNavigate } from 'react-router-dom';
-import logoImage from '../../../img/logo_image.png';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -37,7 +36,7 @@ export function LoginPage() {
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <img
-            src={logoImage}
+            src="/logo_image.png"
             alt="AFL Coaching Board"
             className="mx-auto mb-4 w-32 h-32 object-contain"
           />
