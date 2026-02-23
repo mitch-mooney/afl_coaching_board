@@ -55,15 +55,33 @@ export interface PersistedVideoMetadata {
 }
 
 /**
+ * Stored video blob entry for attaching clips to playbooks
+ */
+export interface PersistedVideoBlob {
+  id?: number;
+  videoId: string; // opaque key (e.g. playbook name + timestamp)
+  blob: Blob;
+  mimeType: string;
+  createdAt: Date;
+}
+
+const MAX_BLOB_SIZE = 50 * 1024 * 1024; // 50 MB
+
+/**
  * Dexie database class for video metadata persistence
  */
 class VideoDatabase extends Dexie {
   videos!: Table<PersistedVideoMetadata>;
+  videoBlobs!: Table<PersistedVideoBlob>;
 
   constructor() {
     super('VideoImportDB');
     this.version(1).stores({
       videos: '++id, fileName, createdAt, updatedAt',
+    });
+    this.version(2).stores({
+      videos: '++id, fileName, createdAt, updatedAt',
+      videoBlobs: '++id, videoId',
     });
   }
 }
@@ -161,6 +179,11 @@ interface VideoState {
   updateVideoMetadata: (id: number) => Promise<void>;
   deleteVideoMetadata: (id: number) => Promise<void>;
   loadVideoSettings: (id: number) => Promise<void>;
+
+  // Actions - Video blob storage
+  saveVideoBlob: (videoId: string, blob: Blob) => Promise<number>;
+  loadVideoBlob: (videoId: string) => Promise<PersistedVideoBlob | undefined>;
+  deleteVideoBlob: (id: number) => Promise<void>;
 
   // Actions - Full reset
   resetStore: () => void;
@@ -513,6 +536,29 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       set({ isPersisting: false });
       throw error;
     }
+  },
+
+  // Actions - Video blob storage
+  saveVideoBlob: async (videoId, blob) => {
+    if (blob.size > MAX_BLOB_SIZE) {
+      throw new Error(`Video clip is ${(blob.size / (1024 * 1024)).toFixed(1)} MB — exceeds the 50 MB limit. Try a shorter trim or lower quality source.`);
+    }
+    const record: PersistedVideoBlob = {
+      videoId,
+      blob,
+      mimeType: blob.type || 'video/mp4',
+      createdAt: new Date(),
+    };
+    const id = await videoDb.videoBlobs.add(record) as number;
+    return id;
+  },
+
+  loadVideoBlob: async (videoId) => {
+    return videoDb.videoBlobs.where('videoId').equals(videoId).first();
+  },
+
+  deleteVideoBlob: async (id) => {
+    await videoDb.videoBlobs.delete(id);
   },
 
   // Actions - Full reset

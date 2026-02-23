@@ -35,6 +35,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const players = usePlayerStore((state) => state.players);
   const updateMultiplePlayers = usePlayerStore((state) => state.updateMultiplePlayers);
   const setPlayerPosition = usePlayerStore((state) => state.setPlayerPosition);
+  const autoAssignPositions = usePlayerStore((state) => state.autoAssignPositions);
   const { setPresetView, resetCamera, povMode, povPlayerId, enablePOV, disablePOV } = useCameraStore();
   const ball = useBallStore((state) => state.ball);
   const isBallSelected = useBallStore((state) => state.isBallSelected);
@@ -264,6 +265,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
         active: showPlayerNames,
       }),
       createMenuItem('import-roster', 'Import Roster', () => setShowImportDialog(true), { variant: 'primary' }),
+      createMenuItem('auto-assign', 'Auto-Assign Positions', () => autoAssignPositions(), { variant: 'teal' }),
     ];
     sections.push(createMenuSection('players', 'Players', playerItems));
 
@@ -402,7 +404,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
     return sections;
   }, [
     setPresetView, resetCamera, handleUndo, canUndo, clearPaths, paths.length,
-    resetPlayers, showPlayerNames, togglePlayerNames, ball, selectedPlayer,
+    resetPlayers, showPlayerNames, togglePlayerNames, autoAssignPositions, ball, selectedPlayer,
     selectedPlayerId, handleAssignBall, assignedPlayer, handleUnassignBall,
     isBallSelected, ballPath, handleCreateBallPath, handleRemoveBallPath,
     isPlaying, togglePlayback, handleStopAnimation, isRecording, handleRecordingToggle,
@@ -425,7 +427,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
 
       {/* Selected player position selector */}
       {selectedPlayer && !isMenuOpen && (
-        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-2 flex items-center gap-2">
+        <div className="absolute top-4 right-36 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-2 flex items-center gap-2">
           <span className="text-sm font-medium text-gray-700">
             #{selectedPlayer.number}{selectedPlayer.playerName ? ` ${selectedPlayer.playerName}` : ''}
           </span>

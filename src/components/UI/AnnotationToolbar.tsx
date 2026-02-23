@@ -83,12 +83,13 @@ export function AnnotationToolbar() {
   return (
     <div
       className="
-        absolute bottom-4 left-2 right-2 z-10
+        absolute left-2 right-2 z-10
         sm:left-4 sm:right-auto
         bg-white/95 backdrop-blur-sm rounded-lg shadow-lg
         max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl
         overflow-hidden
       "
+      style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
     >
       {/* Main toolbar content */}
       <div className="p-2 sm:p-3">

@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useVideoStore } from '../../store/videoStore';
+import { usePlaybookStore } from '../../store/playbookStore';
+import { VideoTrimmer } from './VideoTrimmer';
 import {
   validateVideoFile,
   getAcceptedMimeTypes,
@@ -18,6 +20,11 @@ import {
  * Loading phase for video import
  */
 type LoadingPhase = 'idle' | 'validating' | 'loading' | 'processing' | 'ready';
+
+/**
+ * Top-level step in the import flow
+ */
+type ImportStep = 'upload' | 'trim';
 
 /**
  * Loading progress state
@@ -230,6 +237,9 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [lastFailedFile, setLastFailedFile] = useState<File | null>(null);
+  const [importStep, setImportStep] = useState<ImportStep>('upload');
+  const [readyFile, setReadyFile] = useState<File | null>(null);
+  const [readyDuration, setReadyDuration] = useState(0);
 
   const {
     isLoading,
@@ -241,7 +251,9 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
     setIsLoading,
     setError: setStoreError,
     setIsVideoMode,
+    saveVideoBlob,
   } = useVideoStore();
+  const { currentPlaybook, savePlaybook } = usePlaybookStore();
 
   const handleFileSelect = useCallback(
     async (file: File) => {
@@ -322,13 +334,13 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
 
         // Reset progress state
         setLoadingProgress({ phase: 'idle', percent: 0, message: '' });
-        setSelectedFile(null);
         setLastFailedFile(null);
 
-        // Call onClose to dismiss the uploader if provided
-        if (onClose) {
-          onClose();
-        }
+        // Transition to trim step so user can optionally trim and save to playbook
+        setReadyFile(file);
+        setReadyDuration(element.duration);
+        setSelectedFile(null);
+        setImportStep('trim');
       } catch (err) {
         // Convert to VideoError for structured error handling
         const videoError = createVideoError(err, VideoErrorCode.UNKNOWN_LOAD_ERROR);
@@ -351,7 +363,6 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
       setIsLoading,
       setStoreError,
       setIsVideoMode,
-      onClose,
     ]
   );
 
@@ -414,6 +425,39 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
   };
 
   const supportedFormats = getSupportedFormats();
+
+  // Trim step: show VideoTrimmer after video is loaded
+  if (importStep === 'trim' && readyFile) {
+    const handleTrimSave = async (blob: Blob) => {
+      try {
+        const videoId = `${readyFile.name}-${Date.now()}`;
+        const blobDbId = await saveVideoBlob(videoId, blob);
+        // If there's an active playbook, associate the video blob with it
+        if (currentPlaybook) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { id: _id, createdAt: _createdAt, ...playbookData } = currentPlaybook;
+          await savePlaybook({ ...playbookData, videoBlobId: blobDbId });
+        }
+      } catch (err) {
+        // Non-fatal: video is already loaded, just couldn't save to playbook
+        console.warn('Could not save video blob to playbook:', err);
+      }
+      if (onClose) onClose();
+    };
+
+    const handleTrimSkip = () => {
+      if (onClose) onClose();
+    };
+
+    return (
+      <VideoTrimmer
+        file={readyFile}
+        duration={readyDuration}
+        onSkip={handleTrimSkip}
+        onSave={handleTrimSave}
+      />
+    );
+  }
 
   return (
     <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-6 max-w-md w-full">

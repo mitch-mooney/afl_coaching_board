@@ -11,6 +11,9 @@ interface UIState {
   isMobile: boolean;
   screenWidth: number;
 
+  // Apple Pencil / pen drawing state
+  isPenDrawing: boolean;
+
   // Menu actions
   toggleMenu: () => void;
   openMenu: () => void;
@@ -18,6 +21,9 @@ interface UIState {
 
   // Responsive actions
   updateScreenSize: (width: number) => void;
+
+  // Pen drawing actions
+  setPenDrawing: (val: boolean) => void;
 }
 
 /**
@@ -45,6 +51,7 @@ export const useUIStore = create<UIState>((set) => {
     isMenuOpen: false,
     isMobile: isMobileWidth(initialWidth),
     screenWidth: initialWidth,
+    isPenDrawing: false,
 
     // Menu actions
     toggleMenu: () => {
@@ -66,6 +73,11 @@ export const useUIStore = create<UIState>((set) => {
         screenWidth: width,
         isMobile: newIsMobile,
       });
+    },
+
+    // Pen drawing actions
+    setPenDrawing: (val: boolean) => {
+      set({ isPenDrawing: val });
     },
   };
 });

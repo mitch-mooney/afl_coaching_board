@@ -25,3 +25,12 @@ dist-ssr
 
 # Auto Claude data directory
 .auto-claude/
+.claude/
+auto-claude/
+.worktrees/
+
+# Generated / scratch files
+complexity_assessment.json
+nul
+img/
+playerstats/

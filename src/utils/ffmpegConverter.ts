@@ -32,6 +32,60 @@ async function getFFmpeg(onProgress?: (progress: ConversionProgress) => void): P
   return ffmpeg;
 }
 
+/**
+ * Trim a video blob and convert to MP4.
+ * MP4 inputs use stream copy for speed; WebM inputs are re-encoded.
+ */
+export async function trimAndConvertVideo(
+  inputBlob: Blob,
+  trimStart: number,
+  trimEnd: number,
+  onProgress?: (progress: ConversionProgress) => void
+): Promise<{ blob: Blob; duration: number }> {
+  const ff = await getFFmpeg(onProgress);
+  const trimDuration = trimEnd - trimStart;
+  const isMP4 = inputBlob.type === 'video/mp4' || inputBlob.type === 'video/quicktime';
+  const inputName = isMP4 ? 'trim_input.mp4' : 'trim_input.webm';
+  const outputName = 'trim_output.mp4';
+
+  onProgress?.({ phase: 'converting', progress: 0 });
+
+  await ff.writeFile(inputName, await fetchFile(inputBlob));
+
+  if (isMP4) {
+    // Fast path: stream copy, no re-encode
+    await ff.exec([
+      '-ss', String(trimStart),
+      '-i', inputName,
+      '-t', String(trimDuration),
+      '-c', 'copy',
+      outputName,
+    ]);
+  } else {
+    // Re-encode WebM to MP4 with slightly more compression
+    await ff.exec([
+      '-ss', String(trimStart),
+      '-i', inputName,
+      '-t', String(trimDuration),
+      '-c:v', 'libx264',
+      '-preset', 'fast',
+      '-crf', '28',
+      outputName,
+    ]);
+  }
+
+  const data = await ff.readFile(outputName);
+  await ff.deleteFile(inputName);
+  await ff.deleteFile(outputName);
+
+  onProgress?.({ phase: 'done', progress: 1 });
+
+  const uint8 = data instanceof Uint8Array ? data : new TextEncoder().encode(data as string);
+  const copy = new Uint8Array(uint8.length);
+  copy.set(uint8);
+  return { blob: new Blob([copy], { type: 'video/mp4' }), duration: trimDuration };
+}
+
 export async function convertWebMToMP4(
   webmBlob: Blob,
   onProgress?: (progress: ConversionProgress) => void

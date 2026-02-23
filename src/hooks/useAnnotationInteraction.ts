@@ -2,20 +2,28 @@ import { useEffect, useRef } from 'react';
 import { useThree } from '@react-three/fiber';
 import { Vector3, Plane } from 'three';
 import { useAnnotationStore } from '../store/annotationStore';
+import { useUIStore } from '../store/uiStore';
 import { snapToField } from '../utils/fieldGeometry';
 
 export function useAnnotationInteraction() {
   const { camera, raycaster, gl } = useThree();
   const { selectedTool, selectedColor, thickness, addAnnotation } = useAnnotationStore();
+  const setPenDrawing = useUIStore((state) => state.setPenDrawing);
   const isDrawingRef = useRef(false);
   const startPointRef = useRef<Vector3 | null>(null);
   const currentPointsRef = useRef<number[][]>([]);
-  
+
   useEffect(() => {
     if (!selectedTool) return;
-    
+
     const handlePointerDown = (event: PointerEvent) => {
-      if (event.button !== 0) return; // Only left mouse button
+      // Allow left mouse button or Apple Pencil; skip other buttons
+      if (event.button !== 0 && event.pointerType !== 'pen') return;
+
+      // Track Apple Pencil drawing state so Player drag can be suppressed
+      if (event.pointerType === 'pen') {
+        setPenDrawing(true);
+      }
       
       const rect = gl.domElement.getBoundingClientRect();
       const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -68,7 +76,12 @@ export function useAnnotationInteraction() {
       }
     };
     
-    const handlePointerUp = () => {
+    const handlePointerUp = (event: PointerEvent) => {
+      // Clear pen drawing state when Apple Pencil lifts
+      if (event.pointerType === 'pen') {
+        setPenDrawing(false);
+      }
+
       if (isDrawingRef.current && currentPointsRef.current.length >= 2) {
         addAnnotation({
           type: selectedTool!,
@@ -77,22 +90,33 @@ export function useAnnotationInteraction() {
           thickness,
         });
       }
-      
+
       isDrawingRef.current = false;
       startPointRef.current = null;
       currentPointsRef.current = [];
     };
-    
+
+    const handlePointerCancel = (event: PointerEvent) => {
+      if (event.pointerType === 'pen') {
+        setPenDrawing(false);
+      }
+      isDrawingRef.current = false;
+      startPointRef.current = null;
+      currentPointsRef.current = [];
+    };
+
     gl.domElement.addEventListener('pointerdown', handlePointerDown);
     gl.domElement.addEventListener('pointermove', handlePointerMove);
     gl.domElement.addEventListener('pointerup', handlePointerUp);
-    
+    gl.domElement.addEventListener('pointercancel', handlePointerCancel);
+
     return () => {
       gl.domElement.removeEventListener('pointerdown', handlePointerDown);
       gl.domElement.removeEventListener('pointermove', handlePointerMove);
       gl.domElement.removeEventListener('pointerup', handlePointerUp);
+      gl.domElement.removeEventListener('pointercancel', handlePointerCancel);
     };
-  }, [selectedTool, selectedColor, thickness, camera, raycaster, gl, addAnnotation]);
+  }, [selectedTool, selectedColor, thickness, camera, raycaster, gl, addAnnotation, setPenDrawing]);
   
   return null;
 }

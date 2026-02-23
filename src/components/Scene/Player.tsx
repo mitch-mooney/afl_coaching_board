@@ -1,17 +1,19 @@
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Text, Billboard } from '@react-three/drei';
-import { Vector3, Plane } from 'three';
+import { Vector3, Plane, CanvasTexture } from 'three';
 import { Player } from '../../models/PlayerModel';
 import { usePlayerStore } from '../../store/playerStore';
 import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore, createPlayerSnapshot } from '../../store/historyStore';
 import { useAnimationStore } from '../../store/animationStore';
 import { useEventStore } from '../../store/eventStore';
-import { snapToField } from '../../utils/fieldGeometry';
+import { useUIStore } from '../../store/uiStore';
+import { useAnnotationStore } from '../../store/annotationStore';
+import { snapToField, positionToZone } from '../../utils/fieldGeometry';
 import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
 import { getTeamById } from '../../data/aflTeams';
-import { generateJerseyTexture } from '../../utils/jerseyTexture';
+import { generateJerseySVGTexture } from '../../utils/jerseyTexture';
 
 // Minimum distance (in meters) between recorded path points to avoid excessive waypoints
 const MIN_PATH_POINT_DISTANCE = 1.5;
@@ -58,7 +60,7 @@ export function PlayerComponent({ player }: PlayerProps) {
   const prevDragPos = useRef<[number, number, number] | null>(null);
   // Track rotation start state for right-click rotation
   const rotationStartRef = useRef<{ clientX: number; startRotation: number } | null>(null);
-  const { selectedPlayerId, selectPlayer, updatePlayerPosition, updatePlayerRotation, showPlayerNames, startEditingPlayerName, setDragging, players } = usePlayerStore();
+  const { selectedPlayerId, selectPlayer, updatePlayerPosition, updatePlayerRotation, showPlayerNames, startEditingPlayerName, setDragging, setPlayerPosition, players } = usePlayerStore();
   const { addPath, getPathByEntity, removePath } = usePathStore();
   const { pushSnapshot } = useHistoryStore();
   const isPlaying = useAnimationStore((state) => state.isPlaying);
@@ -80,7 +82,27 @@ export function PlayerComponent({ player }: PlayerProps) {
     if (pos) return pos;
     return name;
   }, [player.playerName, player.positionName]);
-  
+
+  // --- F5: Async SVG jersey texture ---
+  const [jerseyTexture, setJerseyTexture] = useState<CanvasTexture | null>(null);
+
+  useEffect(() => {
+    if (!player.teamPresetId) {
+      setJerseyTexture(null);
+      return;
+    }
+    const team = getTeamById(player.teamPresetId);
+    if (!team) {
+      setJerseyTexture(null);
+      return;
+    }
+    let cancelled = false;
+    generateJerseySVGTexture(team, player.number).then((tex) => {
+      if (!cancelled) setJerseyTexture(tex);
+    });
+    return () => { cancelled = true; };
+  }, [player.teamPresetId, player.number]);
+
   useFrame((state) => {
     // Apply rotation to the entire group so all body parts rotate together
     if (groupRef.current) {
@@ -143,7 +165,7 @@ export function PlayerComponent({ player }: PlayerProps) {
       }
     }
   });
-  
+
   const handleClick = (e: any) => {
     e.stopPropagation();
     if (isSelected) {
@@ -155,7 +177,7 @@ export function PlayerComponent({ player }: PlayerProps) {
       selectPlayer(player.id);
     }
   };
-  
+
   const handlePointerDown = (e: any) => {
     e.stopPropagation();
 
@@ -166,6 +188,15 @@ export function PlayerComponent({ player }: PlayerProps) {
     // Players should still be selectable for POV camera targeting
     if (isDragDisabled) {
       return;
+    }
+
+    // F3: Apple Pencil — if an annotation tool is active and the input is a pen, skip drag
+    // This lets the pencil draw annotations without inadvertently moving players
+    if (e.pointerType === 'pen') {
+      const { selectedTool } = useAnnotationStore.getState();
+      if (selectedTool) return;
+      // Also check the global isPenDrawing flag (set by useAnnotationInteraction)
+      if (useUIStore.getState().isPenDrawing) return;
     }
 
     // For touch events, check if this is a multi-touch gesture (2+ fingers)
@@ -199,7 +230,7 @@ export function PlayerComponent({ player }: PlayerProps) {
       removePath(existingPath.id);
     }
   };
-  
+
   const handlePointerMove = (e: any) => {
     // Movement is handled in useFrame for smoother dragging
     if (isDragging || isRotating) {
@@ -221,7 +252,7 @@ export function PlayerComponent({ player }: PlayerProps) {
       startRotation: player.rotation,
     };
   };
-  
+
   // Helper to create path from recorded movement points
   const createPathFromMovement = useCallback(() => {
     // Add final position if different from last recorded
@@ -275,12 +306,21 @@ export function PlayerComponent({ player }: PlayerProps) {
       }
     }
 
+    // F6: Auto-suggest position from drop zone if player has none
+    if (!player.positionName) {
+      const [fx, fz] = [player.position[0], player.position[2]];
+      const suggested = positionToZone(fx, fz);
+      if (suggested) {
+        setPlayerPosition(player.id, suggested);
+      }
+    }
+
     // Reset tracking
     movementPoints.current = [];
     lastRecordedPos.current = null;
     preDragSnapshot.current = null;
     prevDragPos.current = null;
-  }, [player.id, player.position, addPath, pushSnapshot, players]);
+  }, [player.id, player.position, player.positionName, addPath, pushSnapshot, players, setPlayerPosition]);
 
   // End dragging helper - used by both pointerUp and window events
   const endDragging = useCallback(() => {
@@ -385,15 +425,12 @@ export function PlayerComponent({ player }: PlayerProps) {
     // Delegate to endDragging which handles everything
     endDragging();
   };
-  
-  // Jersey texture for AFL team presets
-  const jerseyTexture = useMemo(() => {
-    if (isSelected || hovered) return null; // Override with solid color
-    if (!player.teamPresetId) return null;
-    const team = getTeamById(player.teamPresetId);
-    if (!team) return null;
-    return generateJerseyTexture(team);
-  }, [player.teamPresetId, isSelected, hovered]);
+
+  // --- F7: Skin tone and derived colors ---
+  const skinColor =
+    player.skinTone === 'dark' ? '#5c3317' :
+    player.skinTone === 'medium' ? '#c68642' :
+    '#f5c5a0';
 
   const teamPreset = useMemo(() => {
     return player.teamPresetId ? getTeamById(player.teamPresetId) : null;
@@ -403,7 +440,9 @@ export function PlayerComponent({ player }: PlayerProps) {
   const jerseyEmissive = isSelected ? '#ffff00' : player.color;
   const jerseyEmissiveIntensity = isSelected ? 0.3 : 0.1;
   const shortsColor = isSelected ? '#cccc00' : (teamPreset?.shortsColor ?? '#2a2a2a');
-  const skinColor = '#e8c4a0';
+
+  // Texture applied only when not selected/hovered (those override with solid colour)
+  const activeTexture = (isSelected || hovered) ? null : jerseyTexture;
 
   return (
     <group
@@ -419,22 +458,31 @@ export function PlayerComponent({ player }: PlayerProps) {
         setHovered(false);
       }}
     >
-      {/* Player body - torso with jersey */}
+      {/* Player body - torso with jersey (F7: slimmer, taller) */}
       <mesh castShadow position={[0, 0.75, 0]}>
-        <capsuleGeometry args={[0.35, 0.8, 8, 16]} />
+        <capsuleGeometry args={[0.28, 0.95, 8, 16]} />
         <meshStandardMaterial
           color={jerseyColor}
           emissive={jerseyEmissive}
           emissiveIntensity={jerseyEmissiveIntensity}
           roughness={0.6}
           metalness={0.1}
-          map={jerseyTexture}
+          map={activeTexture}
         />
       </mesh>
 
-      {/* Shoulders */}
-      <mesh castShadow position={[0, 1.15, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <capsuleGeometry args={[0.12, 0.55, 4, 8]} />
+      {/* F7: Replace shoulder capsule with two sphere shoulder caps */}
+      <mesh castShadow position={[-0.32, 1.22, 0]}>
+        <sphereGeometry args={[0.14, 8, 8]} />
+        <meshStandardMaterial
+          color={jerseyColor}
+          emissive={jerseyEmissive}
+          emissiveIntensity={isSelected ? 0.3 : 0.05}
+          roughness={0.6}
+        />
+      </mesh>
+      <mesh castShadow position={[0.32, 1.22, 0]}>
+        <sphereGeometry args={[0.14, 8, 8]} />
         <meshStandardMaterial
           color={jerseyColor}
           emissive={jerseyEmissive}
@@ -443,38 +491,56 @@ export function PlayerComponent({ player }: PlayerProps) {
         />
       </mesh>
 
+      {/* F5/F7: Jersey collar torus — shown when team preset is active */}
+      {teamPreset && (
+        <mesh position={[0, 1.28, 0]}>
+          <torusGeometry args={[0.12, 0.025, 8, 16]} />
+          <meshStandardMaterial color={teamPreset.secondaryColor} roughness={0.7} />
+        </mesh>
+      )}
+
       {/* Neck */}
       <mesh position={[0, 1.35, 0]}>
         <cylinderGeometry args={[0.08, 0.08, 0.15, 8]} />
         <meshStandardMaterial color={skinColor} roughness={0.7} />
       </mesh>
 
-      {/* Player head */}
+      {/* Player head (F7: slightly smaller) */}
       <mesh castShadow position={[0, 1.6, 0]}>
-        <sphereGeometry args={[0.22, 16, 16]} />
+        <sphereGeometry args={[0.20, 16, 16]} />
         <meshStandardMaterial color={skinColor} roughness={0.7} metalness={0} />
       </mesh>
 
       {/* Left eye */}
-      <mesh position={[-0.07, 1.63, 0.18]}>
-        <sphereGeometry args={[0.04, 8, 8]} />
+      <mesh position={[-0.07, 1.63, 0.17]}>
+        <sphereGeometry args={[0.035, 8, 8]} />
         <meshStandardMaterial color="#222222" />
       </mesh>
 
       {/* Right eye */}
-      <mesh position={[0.07, 1.63, 0.18]}>
-        <sphereGeometry args={[0.04, 8, 8]} />
+      <mesh position={[0.07, 1.63, 0.17]}>
+        <sphereGeometry args={[0.035, 8, 8]} />
         <meshStandardMaterial color="#222222" />
+      </mesh>
+
+      {/* F7: Ear spheres */}
+      <mesh position={[-0.20, 1.60, 0]}>
+        <sphereGeometry args={[0.04, 6, 6]} />
+        <meshStandardMaterial color={skinColor} roughness={0.8} />
+      </mesh>
+      <mesh position={[0.20, 1.60, 0]}>
+        <sphereGeometry args={[0.04, 6, 6]} />
+        <meshStandardMaterial color={skinColor} roughness={0.8} />
       </mesh>
 
       {/* Hair/helmet */}
       <mesh position={[0, 1.70, 0]}>
-        <sphereGeometry args={[0.18, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <sphereGeometry args={[0.17, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
         <meshStandardMaterial color="#4a3728" roughness={0.9} metalness={0} />
       </mesh>
 
-      {/* Left upper arm (jersey color) */}
-      <mesh castShadow position={[-0.48, 0.95, 0]} rotation={[0, 0, 0.3]}>
+      {/* Left upper arm — F7: slight forward tilt */}
+      <mesh castShadow position={[-0.48, 0.95, 0.04]} rotation={[0.1, 0, 0.35]}>
         <capsuleGeometry args={[0.09, 0.28, 4, 8]} />
         <meshStandardMaterial
           color={jerseyColor}
@@ -494,8 +560,8 @@ export function PlayerComponent({ player }: PlayerProps) {
         <meshStandardMaterial color={skinColor} roughness={0.7} />
       </mesh>
 
-      {/* Right upper arm (jersey color) */}
-      <mesh castShadow position={[0.48, 0.95, 0]} rotation={[0, 0, -0.3]}>
+      {/* Right upper arm — F7: slight forward tilt */}
+      <mesh castShadow position={[0.48, 0.95, 0.04]} rotation={[0.1, 0, -0.35]}>
         <capsuleGeometry args={[0.09, 0.28, 4, 8]} />
         <meshStandardMaterial
           color={jerseyColor}
@@ -515,8 +581,8 @@ export function PlayerComponent({ player }: PlayerProps) {
         <meshStandardMaterial color={skinColor} roughness={0.7} />
       </mesh>
 
-      {/* Left upper leg (shorts) */}
-      <mesh castShadow position={[-0.15, 0.28, 0]}>
+      {/* Left upper leg (shorts) — F7: slightly wider stance */}
+      <mesh castShadow position={[-0.16, 0.22, 0]}>
         <capsuleGeometry args={[0.11, 0.22, 4, 8]} />
         <meshStandardMaterial color={shortsColor} roughness={0.7} />
       </mesh>
@@ -525,14 +591,19 @@ export function PlayerComponent({ player }: PlayerProps) {
         <capsuleGeometry args={[0.09, 0.22, 4, 8]} />
         <meshStandardMaterial color={skinColor} roughness={0.7} />
       </mesh>
-      {/* Left foot */}
-      <mesh position={[-0.16, -0.12, 0.1]}>
-        <boxGeometry args={[0.1, 0.06, 0.18]} />
+      {/* Left shoe */}
+      <mesh position={[-0.16, -0.12, 0.10]}>
+        <boxGeometry args={[0.10, 0.06, 0.18]} />
         <meshStandardMaterial color="#333333" roughness={0.8} />
       </mesh>
+      {/* F7: Left shoe sole */}
+      <mesh position={[-0.16, -0.16, 0.10]}>
+        <boxGeometry args={[0.12, 0.02, 0.20]} />
+        <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
+      </mesh>
 
-      {/* Right upper leg (shorts) */}
-      <mesh castShadow position={[0.15, 0.28, 0]}>
+      {/* Right upper leg (shorts) — F7: slightly wider stance */}
+      <mesh castShadow position={[0.16, 0.22, 0]}>
         <capsuleGeometry args={[0.11, 0.22, 4, 8]} />
         <meshStandardMaterial color={shortsColor} roughness={0.7} />
       </mesh>
@@ -541,14 +612,19 @@ export function PlayerComponent({ player }: PlayerProps) {
         <capsuleGeometry args={[0.09, 0.22, 4, 8]} />
         <meshStandardMaterial color={skinColor} roughness={0.7} />
       </mesh>
-      {/* Right foot */}
-      <mesh position={[0.16, -0.12, 0.1]}>
-        <boxGeometry args={[0.1, 0.06, 0.18]} />
+      {/* Right shoe */}
+      <mesh position={[0.16, -0.12, 0.10]}>
+        <boxGeometry args={[0.10, 0.06, 0.18]} />
         <meshStandardMaterial color="#333333" roughness={0.8} />
       </mesh>
+      {/* F7: Right shoe sole */}
+      <mesh position={[0.16, -0.16, 0.10]}>
+        <boxGeometry args={[0.12, 0.02, 0.20]} />
+        <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
+      </mesh>
 
-      {/* Player number on jersey (front) */}
-      {player.number && (
+      {/* Player number on jersey (front) — hidden when SVG texture has baked-in number */}
+      {player.number && !(jerseyTexture && !isSelected && !hovered) && (
         <Billboard position={[0, 0.9, 0.36]} follow={false}>
           <Text
             fontSize={0.25}

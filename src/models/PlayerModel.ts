@@ -8,6 +8,7 @@ export interface Player {
   playerName?: string; // Player name for display labels
   positionName?: string; // AFL position code (e.g., 'FB', 'CHB', 'RK')
   teamPresetId?: string; // AFL team preset ID for jersey texture
+  skinTone?: 'fair' | 'medium' | 'dark'; // Skin tone for 3D model
 }
 
 export interface Team {
@@ -22,6 +23,8 @@ export const DEFAULT_TEAM_COLORS = {
   team2: '#cc0000', // Red
 } as const;
 
+const SKIN_TONES: Array<'fair' | 'medium' | 'dark'> = ['fair', 'fair', 'medium', 'medium', 'dark'];
+
 // Create initial players for a team (18 on-field + 4 interchange = 22 total)
 export function createTeamPlayers(
   teamId: 'team1' | 'team2',
@@ -29,7 +32,7 @@ export function createTeamPlayers(
   count: number = 22
 ): Player[] {
   const players: Player[] = [];
-  
+
   for (let i = 0; i < count; i++) {
     players.push({
       id: `${teamId}-player-${i + 1}`,
@@ -38,8 +41,9 @@ export function createTeamPlayers(
       rotation: 0,
       color,
       number: i + 1,
+      skinTone: SKIN_TONES[i % SKIN_TONES.length],
     });
   }
-  
+
   return players;
 }

@@ -149,6 +149,7 @@ export function MainLayout() {
             setCanvasReady(true);
           }}
         >
+          <color attach="background" args={['#2d5a27']} />
           <Field />
           <PlayerManager />
           {ball && <BallComponent ball={ball} />}

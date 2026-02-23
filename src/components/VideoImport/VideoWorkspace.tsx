@@ -305,7 +305,7 @@ export function VideoWorkspace({
         )}
 
         {/* Bottom Controls Container */}
-        <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col gap-3">
+        <div className="absolute left-4 right-4 z-10 flex flex-col gap-3" style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
           {/* Playback Controls Row */}
           <div className="flex items-center justify-center gap-4">
             <PlaybackControls />

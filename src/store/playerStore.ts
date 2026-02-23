@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Player, createTeamPlayers, DEFAULT_TEAM_COLORS } from '../models/PlayerModel';
 import { getFormationById } from '../data/formations';
-import { getPositionByCode } from '../data/aflPositions';
+import { getPositionByCode, NUMBER_TO_POSITION } from '../data/aflPositions';
 import { getTeamById } from '../data/aflTeams';
 
 export interface PlayerUpdate {
@@ -42,6 +42,8 @@ interface PlayerState {
   startEditingPlayerName: (playerId: string) => void;
   stopEditingPlayerName: () => void;
   setTeamPreset: (teamId: 'team1' | 'team2', presetId: string | null) => void;
+  /** Auto-assign positions from jersey numbers. Only fills in players with no existing positionName. */
+  autoAssignPositions: (teamId?: 'team1' | 'team2') => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -303,6 +305,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   stopEditingPlayerName: () => {
     set({ editingPlayerId: null });
+  },
+
+  autoAssignPositions: (teamId) => {
+    set((state) => ({
+      players: state.players.map((player) => {
+        // Filter by team if specified
+        if (teamId && player.teamId !== teamId) return player;
+        // Only assign if player has no existing positionName
+        if (player.positionName) return player;
+        const posCode = player.number !== undefined ? NUMBER_TO_POSITION[player.number] : undefined;
+        if (!posCode) return player;
+        return { ...player, positionName: posCode };
+      }),
+    }));
   },
 
   setTeamPreset: (teamId, presetId) => {

@@ -13,6 +13,8 @@ export interface Playbook {
   cameraTarget: [number, number, number];
   cameraZoom: number;
   annotations?: any[]; // Will be defined when annotations are implemented
+  /** ID of an attached video blob in the videoBlobs Dexie table */
+  videoBlobId?: number;
 }
 
 class PlaybookDatabase extends Dexie {
@@ -22,6 +24,10 @@ class PlaybookDatabase extends Dexie {
     super('AFLPlaybookDB');
     this.version(1).stores({
       playbooks: '++id, name, createdAt',
+    });
+    // v2: index videoBlobId so playbooks with video can be queried
+    this.version(2).stores({
+      playbooks: '++id, name, createdAt, videoBlobId',
     });
   }
 }
