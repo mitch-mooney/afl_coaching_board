@@ -55,6 +55,7 @@ export function AnnotationToolbar() {
     { type: 'circle', label: 'Circle', icon: '○' },
     { type: 'rectangle', label: 'Rectangle', icon: '▭' },
     { type: 'text', label: 'Text', icon: 'T' },
+    { type: 'measure', label: 'Measure Distance', icon: '⇔' },
   ];
 
   // Handle tool selection and expand options on mobile when tool selected
@@ -216,8 +217,8 @@ export function AnnotationToolbar() {
                         </div>
                       </div>
 
-                      {/* Thickness slider - only for non-text tools */}
-                      {selectedTool !== 'text' && (
+                      {/* Thickness slider - only for drawing tools, not text or measure */}
+                      {selectedTool !== 'text' && selectedTool !== 'measure' && (
                         <div className="flex flex-wrap items-center gap-2 mt-2">
                           <span className="text-xs text-gray-600 font-medium">
                             Thickness:
@@ -250,7 +251,9 @@ export function AnnotationToolbar() {
 
               {/* Helper text - desktop only */}
               <div className="hidden sm:block mt-2 text-xs text-gray-500">
-                Click and drag on the field to draw
+                {selectedTool === 'measure'
+                  ? 'Click and drag to measure distance in metres'
+                  : 'Click and drag on the field to draw'}
               </div>
             </motion.div>
           )}

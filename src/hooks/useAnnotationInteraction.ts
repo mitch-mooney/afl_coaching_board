@@ -7,7 +7,7 @@ import { snapToField } from '../utils/fieldGeometry';
 
 export function useAnnotationInteraction() {
   const { camera, raycaster, gl } = useThree();
-  const { selectedTool, selectedColor, thickness, addAnnotation } = useAnnotationStore();
+  const { selectedTool, selectedColor, thickness, addAnnotation, setLivePreview } = useAnnotationStore();
   const setPenDrawing = useUIStore((state) => state.setPenDrawing);
   const isDrawingRef = useRef(false);
   const startPointRef = useRef<Vector3 | null>(null);
@@ -67,12 +67,8 @@ export function useAnnotationInteraction() {
       if (intersection) {
         const [x, z] = snapToField(intersection.x, intersection.z);
         const point = [x, 0, z];
-        
-        if (selectedTool === 'line' || selectedTool === 'arrow') {
-          currentPointsRef.current = [currentPointsRef.current[0], point];
-        } else {
-          currentPointsRef.current = [currentPointsRef.current[0], point];
-        }
+        currentPointsRef.current = [currentPointsRef.current[0], point];
+        setLivePreview({ type: selectedTool!, points: currentPointsRef.current });
       }
     };
     
@@ -91,6 +87,7 @@ export function useAnnotationInteraction() {
         });
       }
 
+      setLivePreview(null);
       isDrawingRef.current = false;
       startPointRef.current = null;
       currentPointsRef.current = [];
@@ -100,6 +97,7 @@ export function useAnnotationInteraction() {
       if (event.pointerType === 'pen') {
         setPenDrawing(false);
       }
+      setLivePreview(null);
       isDrawingRef.current = false;
       startPointRef.current = null;
       currentPointsRef.current = [];
@@ -116,7 +114,7 @@ export function useAnnotationInteraction() {
       gl.domElement.removeEventListener('pointerup', handlePointerUp);
       gl.domElement.removeEventListener('pointercancel', handlePointerCancel);
     };
-  }, [selectedTool, selectedColor, thickness, camera, raycaster, gl, addAnnotation, setPenDrawing]);
+  }, [selectedTool, selectedColor, thickness, camera, raycaster, gl, addAnnotation, setLivePreview, setPenDrawing]);
   
   return null;
 }

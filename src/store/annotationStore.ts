@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type AnnotationType = 'line' | 'arrow' | 'circle' | 'rectangle' | 'text';
+export type AnnotationType = 'line' | 'arrow' | 'circle' | 'rectangle' | 'text' | 'measure';
 
 export interface Annotation {
   id: string;
@@ -17,7 +17,8 @@ interface AnnotationState {
   selectedTool: AnnotationType | null;
   selectedColor: string;
   thickness: number;
-  
+  livePreview: { type: AnnotationType; points: number[][] } | null;
+
   // Actions
   addAnnotation: (annotation: Omit<Annotation, 'id' | 'createdAt'>) => void;
   removeAnnotation: (id: string) => void;
@@ -25,6 +26,7 @@ interface AnnotationState {
   setSelectedTool: (tool: AnnotationType | null) => void;
   setSelectedColor: (color: string) => void;
   setThickness: (thickness: number) => void;
+  setLivePreview: (preview: { type: AnnotationType; points: number[][] } | null) => void;
 }
 
 export const useAnnotationStore = create<AnnotationState>((set) => ({
@@ -32,6 +34,7 @@ export const useAnnotationStore = create<AnnotationState>((set) => ({
   selectedTool: null,
   selectedColor: '#ffff00', // Yellow default
   thickness: 2,
+  livePreview: null,
   
   addAnnotation: (annotation) => {
     const newAnnotation: Annotation = {
@@ -64,5 +67,9 @@ export const useAnnotationStore = create<AnnotationState>((set) => ({
   
   setThickness: (thickness) => {
     set({ thickness });
+  },
+
+  setLivePreview: (preview) => {
+    set({ livePreview: preview });
   },
 }));

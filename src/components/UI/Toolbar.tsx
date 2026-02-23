@@ -448,47 +448,57 @@ export function Toolbar({ canvas }: ToolbarProps) {
 
       {/* Save Dialog */}
       {showSaveDialog && (
-        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 min-w-[300px]">
-          <h3 className="text-lg font-bold mb-3">Save Playbook</h3>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium mb-1">Name *</label>
-              <input
-                type="text"
-                value={playbookName}
-                onChange={(e) => setPlaybookName(e.target.value)}
-                className="w-full px-3 py-2 min-h-[44px] border rounded touch-manipulation"
-                placeholder="Enter playbook name"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Description</label>
-              <textarea
-                value={playbookDescription}
-                onChange={(e) => setPlaybookDescription(e.target.value)}
-                className="w-full px-3 py-2 border rounded touch-manipulation"
-                placeholder="Enter description (optional)"
-                rows={3}
-              />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => {
-                  setShowSaveDialog(false);
-                  setPlaybookName('');
-                  setPlaybookDescription('');
-                }}
-                className="px-4 py-2 min-h-[44px] bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition touch-manipulation"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                className="px-4 py-2 min-h-[44px] bg-orange-500 text-white rounded hover:bg-orange-600 transition touch-manipulation"
-              >
-                Save
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              setShowSaveDialog(false);
+              setPlaybookName('');
+              setPlaybookDescription('');
+            }}
+          />
+          <div className="relative z-10 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 w-[90vw] max-w-sm">
+            <h3 className="text-lg font-bold mb-3">Save Playbook</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">Name *</label>
+                <input
+                  type="text"
+                  value={playbookName}
+                  onChange={(e) => setPlaybookName(e.target.value)}
+                  className="w-full px-3 py-2 min-h-[44px] border rounded touch-manipulation"
+                  placeholder="Enter playbook name"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <textarea
+                  value={playbookDescription}
+                  onChange={(e) => setPlaybookDescription(e.target.value)}
+                  className="w-full px-3 py-2 border rounded touch-manipulation"
+                  placeholder="Enter description (optional)"
+                  rows={3}
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => {
+                    setShowSaveDialog(false);
+                    setPlaybookName('');
+                    setPlaybookDescription('');
+                  }}
+                  className="px-4 py-2 min-h-[44px] bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition touch-manipulation"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="px-4 py-2 min-h-[44px] bg-orange-500 text-white rounded hover:bg-orange-600 transition touch-manipulation"
+                >
+                  Save
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -496,48 +506,58 @@ export function Toolbar({ canvas }: ToolbarProps) {
 
       {/* Import Roster Dialog */}
       {showImportDialog && (
-        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 min-w-[350px]">
-          <h3 className="text-lg font-bold mb-3">Import Roster</h3>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium mb-1">Team</label>
-              <select
-                value={selectedTeam}
-                onChange={(e) => setSelectedTeam(e.target.value as 'all' | 'team1' | 'team2')}
-                className="w-full px-3 py-2 min-h-[44px] border rounded touch-manipulation"
-              >
-                <option value="all">All Players</option>
-                <option value="team1">Team 1</option>
-                <option value="team2">Team 2</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Player Names *</label>
-              <textarea
-                value={rosterText}
-                onChange={(e) => setRosterText(e.target.value)}
-                className="w-full px-3 py-2 border rounded font-mono text-sm touch-manipulation"
-                placeholder="Enter one player per line&#10;Format: Name, Position&#10;e.g.&#10;John Smith, FB&#10;Jane Doe, CHB&#10;Mike Johnson, RK"
-                rows={6}
-              />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => {
-                  setShowImportDialog(false);
-                  setRosterText('');
-                  setSelectedTeam('all');
-                }}
-                className="px-4 py-2 min-h-[44px] bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition touch-manipulation"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleImport}
-                className="px-4 py-2 min-h-[44px] bg-cyan-500 text-white rounded hover:bg-cyan-600 transition touch-manipulation"
-              >
-                Import
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              setShowImportDialog(false);
+              setRosterText('');
+              setSelectedTeam('all');
+            }}
+          />
+          <div className="relative z-10 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 w-[90vw] max-w-sm">
+            <h3 className="text-lg font-bold mb-3">Import Roster</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">Team</label>
+                <select
+                  value={selectedTeam}
+                  onChange={(e) => setSelectedTeam(e.target.value as 'all' | 'team1' | 'team2')}
+                  className="w-full px-3 py-2 min-h-[44px] border rounded touch-manipulation"
+                >
+                  <option value="all">All Players</option>
+                  <option value="team1">Team 1</option>
+                  <option value="team2">Team 2</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Player Names *</label>
+                <textarea
+                  value={rosterText}
+                  onChange={(e) => setRosterText(e.target.value)}
+                  className="w-full px-3 py-2 border rounded font-mono text-sm touch-manipulation"
+                  placeholder="Enter one player per line&#10;Format: Name, Position&#10;e.g.&#10;John Smith, FB&#10;Jane Doe, CHB&#10;Mike Johnson, RK"
+                  rows={6}
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => {
+                    setShowImportDialog(false);
+                    setRosterText('');
+                    setSelectedTeam('all');
+                  }}
+                  className="px-4 py-2 min-h-[44px] bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition touch-manipulation"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleImport}
+                  className="px-4 py-2 min-h-[44px] bg-cyan-500 text-white rounded hover:bg-cyan-600 transition touch-manipulation"
+                >
+                  Import
+                </button>
+              </div>
             </div>
           </div>
         </div>
