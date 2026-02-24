@@ -1,4 +1,6 @@
 import { Canvas } from '@react-three/fiber';
+import { GradientTexture } from '@react-three/drei';
+import { BackSide } from 'three';
 import { Field } from '../Scene/Field';
 import { PlayerManager } from '../Scene/PlayerManager';
 import { CameraController } from '../Scene/CameraController';
@@ -17,9 +19,32 @@ import { usePlayerStore } from '../../store/playerStore';
 import { useBallStore } from '../../store/ballStore';
 import { usePathStore } from '../../store/pathStore';
 import { useVideoStore } from '../../store/videoStore';
+import { useCameraStore } from '../../store/cameraStore';
+import { useAnnotationStore } from '../../store/annotationStore';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
 import { useCanvasResizeWithWindow } from '../../hooks/useCanvasResize';
+import { getSharedPlaybook } from '../../services/sharingService';
+
+/**
+ * Stadium sky dome — large inverted sphere with a twilight gradient.
+ * Colours run horizon (UV.y=0) → zenith (UV.y=1): warm light horizon,
+ * mid stadium blue, dark navy at the top.
+ */
+function SkyDome() {
+  return (
+    <mesh renderOrder={-1}>
+      <sphereGeometry args={[800, 32, 16]} />
+      <meshBasicMaterial side={BackSide} depthWrite={false}>
+        <GradientTexture
+          stops={[0, 0.25, 0.55, 1]}
+          colors={['#6ba8cc', '#2f6da8', '#143d7a', '#0b1a30']}
+          size={512}
+        />
+      </meshBasicMaterial>
+    </mesh>
+  );
+}
 import {
   useKeyboardShortcuts,
   useCameraPresetShortcuts,
@@ -75,6 +100,31 @@ export function MainLayout() {
   useEffect(() => {
     initializePlayers();
     initializeBall();
+
+    // Check for ?loadShared=<token> query param from shared playbook links
+    const params = new URLSearchParams(window.location.search);
+    const shareToken = params.get('loadShared');
+    if (shareToken) {
+      // Remove the param from the URL immediately so it won't reload on refresh
+      window.history.replaceState({}, '', window.location.pathname);
+      getSharedPlaybook(shareToken).then((shared) => {
+        if (!shared) return;
+        const data = shared.playbook_data;
+        if (data.playerPositions) {
+          usePlayerStore.setState({ players: data.playerPositions });
+        }
+        if (data.cameraPosition) {
+          useCameraStore.setState({
+            position: data.cameraPosition,
+            target: data.cameraTarget,
+            zoom: data.cameraZoom,
+          });
+        }
+        if (data.annotations) {
+          useAnnotationStore.setState({ annotations: data.annotations });
+        }
+      });
+    }
   }, [initializePlayers, initializeBall]);
 
   // Touch event prevention handler for canvas - prevents browser gestures like pinch-to-zoom
@@ -149,7 +199,7 @@ export function MainLayout() {
             setCanvasReady(true);
           }}
         >
-          <color attach="background" args={['#2d5a27']} />
+          <SkyDome />
           <Field />
           <PlayerManager />
           {ball && <BallComponent ball={ball} />}

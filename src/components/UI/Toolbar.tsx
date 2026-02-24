@@ -28,6 +28,8 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const resetPlayers = usePlayerStore((state) => state.resetPlayers);
   const showPlayerNames = usePlayerStore((state) => state.showPlayerNames);
   const togglePlayerNames = usePlayerStore((state) => state.togglePlayerNames);
+  const showPositionNames = usePlayerStore((state) => state.showPositionNames);
+  const togglePositionNames = usePlayerStore((state) => state.togglePositionNames);
   const importRoster = usePlayerStore((state) => state.importRoster);
   const editingPlayerId = usePlayerStore((state) => state.editingPlayerId);
   const getPlayer = usePlayerStore((state) => state.getPlayer);
@@ -68,6 +70,8 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [rosterText, setRosterText] = useState('');
   const [selectedTeam, setSelectedTeam] = useState<'all' | 'team1' | 'team2'>('all');
+  const [importStep, setImportStep] = useState<1 | 2>(1);
+  const [pendingNames, setPendingNames] = useState<string[]>([]);
   const [, setEditingName] = useState('');
   const [showVideoUploader, setShowVideoUploader] = useState(false);
   const [showEventEditor, setShowEventEditor] = useState(false);
@@ -204,10 +208,19 @@ export function Toolbar({ canvas }: ToolbarProps) {
     resumeRecording();
   }, [undo, canUndo, pauseRecording, resumeRecording, updateMultiplePlayers]);
 
-  const handleImport = () => {
+  const closeImportDialog = () => {
+    setShowImportDialog(false);
+    setRosterText('');
+    setSelectedTeam('all');
+    setImportStep(1);
+    setPendingNames([]);
+  };
+
+  const handleImportNext = () => {
+    // Strip leading number prefixes (e.g. "1. ", "2 ", "3. ") from PlayHQ lists
     const names = rosterText
       .split('\n')
-      .map((name) => name.trim())
+      .map((line) => line.trim().replace(/^\d+[\.\s]+/, '').trim())
       .filter((name) => name.length > 0);
 
     if (names.length === 0) {
@@ -215,12 +228,21 @@ export function Toolbar({ canvas }: ToolbarProps) {
       return;
     }
 
-    const teamId = selectedTeam === 'all' ? undefined : selectedTeam;
-    importRoster(names, teamId);
+    setPendingNames(names);
+    setImportStep(2);
+  };
 
-    setShowImportDialog(false);
-    setRosterText('');
-    setSelectedTeam('all');
+  const handleImportNamesOnly = () => {
+    const teamId = selectedTeam === 'all' ? undefined : selectedTeam;
+    importRoster(pendingNames, teamId);
+    closeImportDialog();
+  };
+
+  const handleImportAutoAssign = () => {
+    const teamId = selectedTeam === 'all' ? undefined : selectedTeam;
+    importRoster(pendingNames, teamId);
+    autoAssignPositions(teamId);
+    closeImportDialog();
   };
 
   // Handle POV player selection
@@ -266,6 +288,11 @@ export function Toolbar({ canvas }: ToolbarProps) {
         variant: 'teal',
         active: showPlayerNames,
         description: 'Toggle player name labels above each player',
+      }),
+      createMenuItem('toggle-positions', showPositionNames ? 'Hide Positions' : 'Show Positions', togglePositionNames, {
+        variant: 'teal',
+        active: showPositionNames,
+        description: 'Toggle AFL position code labels (FB, CHF, etc.) above each player',
       }),
       createMenuItem('import-roster', 'Import Roster', () => setShowImportDialog(true), { variant: 'primary', description: 'Load player names and numbers from a text list' }),
       createMenuItem('auto-assign', 'Auto-Assign Positions', () => autoAssignPositions(), { variant: 'teal', description: 'Automatically assign positions based on field location' }),
@@ -413,7 +440,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
     return sections;
   }, [
     setPresetView, resetCamera, handleUndo, canUndo, clearPaths, paths.length,
-    resetPlayers, showPlayerNames, togglePlayerNames, autoAssignPositions, ball, selectedPlayer,
+    resetPlayers, showPlayerNames, togglePlayerNames, showPositionNames, togglePositionNames, autoAssignPositions, ball, selectedPlayer,
     selectedPlayerId, handleAssignBall, assignedPlayer, handleUnassignBall,
     isBallSelected, ballPath, handleCreateBallPath, handleRemoveBallPath,
     isPlaying, togglePlayback, handleStopAnimation, isRecording, handleRecordingToggle,
@@ -518,56 +545,81 @@ export function Toolbar({ canvas }: ToolbarProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => {
-              setShowImportDialog(false);
-              setRosterText('');
-              setSelectedTeam('all');
-            }}
+            onClick={closeImportDialog}
           />
           <div className="relative z-10 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 w-[90vw] max-w-sm">
-            <h3 className="text-lg font-bold mb-3">Import Roster</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium mb-1">Team</label>
-                <select
-                  value={selectedTeam}
-                  onChange={(e) => setSelectedTeam(e.target.value as 'all' | 'team1' | 'team2')}
-                  className="w-full px-3 py-2 min-h-[44px] border rounded touch-manipulation"
-                >
-                  <option value="all">All Players</option>
-                  <option value="team1">Team 1</option>
-                  <option value="team2">Team 2</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Player Names *</label>
-                <textarea
-                  value={rosterText}
-                  onChange={(e) => setRosterText(e.target.value)}
-                  className="w-full px-3 py-2 border rounded font-mono text-sm touch-manipulation"
-                  placeholder="Enter one player per line&#10;Format: Name, Position&#10;e.g.&#10;John Smith, FB&#10;Jane Doe, CHB&#10;Mike Johnson, RK"
-                  rows={6}
-                />
-              </div>
-              <div className="flex gap-2 justify-end">
-                <button
-                  onClick={() => {
-                    setShowImportDialog(false);
-                    setRosterText('');
-                    setSelectedTeam('all');
-                  }}
-                  className="px-4 py-2 min-h-[44px] bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition touch-manipulation"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleImport}
-                  className="px-4 py-2 min-h-[44px] bg-cyan-500 text-white rounded hover:bg-cyan-600 transition touch-manipulation"
-                >
-                  Import
-                </button>
-              </div>
-            </div>
+            {importStep === 1 ? (
+              <>
+                <h3 className="text-lg font-bold mb-1">Import Roster</h3>
+                <p className="text-xs text-gray-500 mb-3">Paste names from PlayHQ (one per line). Leading numbers are stripped automatically.</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Team</label>
+                    <select
+                      value={selectedTeam}
+                      onChange={(e) => setSelectedTeam(e.target.value as 'all' | 'team1' | 'team2')}
+                      className="w-full px-3 py-2 min-h-[44px] border rounded touch-manipulation"
+                    >
+                      <option value="all">All Players</option>
+                      <option value="team1">Team 1</option>
+                      <option value="team2">Team 2</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Player Names *</label>
+                    <textarea
+                      value={rosterText}
+                      onChange={(e) => setRosterText(e.target.value)}
+                      className="w-full px-3 py-2 border rounded font-mono text-sm touch-manipulation"
+                      placeholder="1. John Smith&#10;2. Jane Doe&#10;3. Mike Johnson"
+                      rows={6}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={closeImportDialog}
+                      className="px-4 py-2 min-h-[44px] bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition touch-manipulation"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleImportNext}
+                      className="px-4 py-2 min-h-[44px] bg-cyan-500 text-white rounded hover:bg-cyan-600 transition touch-manipulation"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-bold mb-1">Assign Positions</h3>
+                <p className="text-xs text-gray-500 mb-3">{pendingNames.length} players ready to import. How should positions be assigned?</p>
+                <div className="space-y-3">
+                  <button
+                    onClick={handleImportAutoAssign}
+                    className="w-full px-4 py-3 min-h-[52px] bg-green-600 text-white rounded-lg hover:bg-green-700 transition touch-manipulation text-left"
+                  >
+                    <div className="font-medium">Auto-assign by jersey number</div>
+                    <div className="text-xs text-green-100 mt-0.5">Uses PlayHQ jersey order: #1→FB, #6→C, #15→FF etc.</div>
+                  </button>
+                  <button
+                    onClick={handleImportNamesOnly}
+                    className="w-full px-4 py-3 min-h-[52px] bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition touch-manipulation text-left"
+                  >
+                    <div className="font-medium">Import names only</div>
+                    <div className="text-xs text-cyan-100 mt-0.5">Assign positions manually afterwards</div>
+                  </button>
+                  <button
+                    onClick={() => setImportStep(1)}
+                    className="w-full px-4 py-2 min-h-[44px] bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition touch-manipulation"
+                  >
+                    ← Back
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

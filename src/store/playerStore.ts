@@ -19,6 +19,7 @@ interface PlayerState {
   isDragging: boolean;
   editingPlayerId: string | null;
   showPlayerNames: boolean;
+  showPositionNames: boolean;
   team1PresetId: string | null;
   team2PresetId: string | null;
 
@@ -38,6 +39,7 @@ interface PlayerState {
   setPlayerName: (playerId: string, name: string) => void;
   setPlayerPosition: (playerId: string, positionName: string | undefined) => void;
   togglePlayerNames: () => void;
+  togglePositionNames: () => void;
   importRoster: (names: string[], teamId?: 'team1' | 'team2') => void;
   startEditingPlayerName: (playerId: string) => void;
   stopEditingPlayerName: () => void;
@@ -53,6 +55,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isDragging: false,
   editingPlayerId: null,
   showPlayerNames: false,
+  showPositionNames: false,
   team1PresetId: null,
   team2PresetId: null,
 
@@ -245,6 +248,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   togglePlayerNames: () => {
     set((state) => ({ showPlayerNames: !state.showPlayerNames }));
+  },
+
+  togglePositionNames: () => {
+    set((state) => ({ showPositionNames: !state.showPositionNames }));
   },
 
   importRoster: (names, teamId) => {

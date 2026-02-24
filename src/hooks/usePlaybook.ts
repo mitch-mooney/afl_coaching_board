@@ -3,16 +3,18 @@ import { usePlaybookStore } from '../store/playbookStore';
 import { usePlayerStore } from '../store/playerStore';
 import { useCameraStore } from '../store/cameraStore';
 import { useAnnotationStore } from '../store/annotationStore';
+import { uploadPlaybook } from '../services/playbookSync';
+import { isSupabaseConfigured } from '../lib/supabase';
 
 export function usePlaybook() {
   const { savePlaybook, loadPlaybook: loadPlaybookFromStore } = usePlaybookStore();
   const players = usePlayerStore((state) => state.players);
   const { position, target, zoom } = useCameraStore();
   const annotations = useAnnotationStore((state) => state.annotations);
-  
+
   const saveCurrentScenario = useCallback(async (name: string, description?: string) => {
     try {
-      const id = await savePlaybook({
+      const playbookData = {
         name,
         description,
         playerPositions: players,
@@ -20,7 +22,12 @@ export function usePlaybook() {
         cameraTarget: target,
         cameraZoom: zoom,
         annotations: annotations,
-      });
+      };
+      const id = await savePlaybook(playbookData);
+      // Fire-and-forget upload to Supabase if configured
+      if (isSupabaseConfigured()) {
+        uploadPlaybook({ ...playbookData, id: id as number, createdAt: new Date() });
+      }
       return id;
     } catch (error) {
       console.error('Error saving scenario:', error);

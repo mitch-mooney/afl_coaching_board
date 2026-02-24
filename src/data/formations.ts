@@ -347,7 +347,7 @@ const MAN_ON_MAN: Formation = {
  */
 const CENTRE_BOUNCE_TEAM1_POSITIONS = [
   // Defence - stationed behind 50m arc
-  { x: 0, z: -58, role: 'FB', rotation: 0 },
+  { x: 0, z: -77, role: 'FB', rotation: 0 },
   { x: -25, z: -55, role: 'BP', rotation: 0 },
   { x: 25, z: -55, role: 'BP', rotation: 0 },
   { x: 0, z: -48, role: 'CHB', rotation: 0 },
@@ -355,8 +355,8 @@ const CENTRE_BOUNCE_TEAM1_POSITIONS = [
   { x: 35, z: -45, role: 'HBF', rotation: 0 },
 
   // Centre square players
-  { x: -24, z: 0, role: 'W', rotation: Math.PI / 2 },  // On center square edge
-  { x: 24, z: 0, role: 'W', rotation: -Math.PI / 2 }, // On center square edge
+  { x: -30, z: 0, role: 'W', rotation: Math.PI / 2 },  // Outside centre square edge
+  { x: 30, z: 0, role: 'W', rotation: -Math.PI / 2 }, // Outside centre square edge
   { x: -10, z: -10, role: 'C', rotation: 0 },          // In centre square
   { x: 0, z: 2, role: 'R', rotation: 0 },              // Ruckman at ball-up
   { x: 10, z: -10, role: 'RR', rotation: 0 },          // In centre square
@@ -366,7 +366,7 @@ const CENTRE_BOUNCE_TEAM1_POSITIONS = [
   { x: 0, z: 48, role: 'CHF', rotation: Math.PI },
   { x: -35, z: 45, role: 'HFF', rotation: Math.PI },
   { x: 35, z: 45, role: 'HFF', rotation: Math.PI },
-  { x: 0, z: 58, role: 'FF', rotation: Math.PI },
+  { x: 0, z: 77, role: 'FF', rotation: Math.PI },
   { x: -25, z: 55, role: 'FP', rotation: Math.PI },
   { x: 25, z: 55, role: 'FP', rotation: Math.PI },
 

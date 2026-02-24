@@ -59,7 +59,7 @@ export function PlayerComponent({ player }: PlayerProps) {
   const prevDragPos = useRef<[number, number, number] | null>(null);
   // Track rotation start state for right-click rotation
   const rotationStartRef = useRef<{ clientX: number; startRotation: number } | null>(null);
-  const { selectedPlayerId, selectPlayer, updatePlayerPosition, updatePlayerRotation, showPlayerNames, startEditingPlayerName, setDragging, setPlayerPosition, players } = usePlayerStore();
+  const { selectedPlayerId, selectPlayer, updatePlayerPosition, updatePlayerRotation, showPlayerNames, showPositionNames, startEditingPlayerName, setDragging, setPlayerPosition, players } = usePlayerStore();
   const { addPath, getPathByEntity, removePath } = usePathStore();
   const { pushSnapshot } = useHistoryStore();
   const isPlaying = useAnimationStore((state) => state.isPlaying);
@@ -551,6 +551,23 @@ export function PlayerComponent({ player }: PlayerProps) {
             maxWidth={3}
           >
             {displayName}
+          </Text>
+        </Billboard>
+      )}
+
+      {/* Position code label - shown independently of name label */}
+      {showPositionNames && player.positionName && (
+        <Billboard position={[0, showPlayerNames && displayName ? 2.65 : 2.1, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
+          <Text
+            font="/fonts/Inter-Bold.woff"
+            fontSize={0.38}
+            color="#ffeb3b"
+            anchorX="center"
+            anchorY="middle"
+            outlineWidth={0.05}
+            outlineColor="#000000"
+          >
+            {player.positionName}
           </Text>
         </Billboard>
       )}
