@@ -38,6 +38,7 @@ export function Scoreboard() {
 
       {/* Home team name */}
       <Text
+        font="/fonts/Inter-Bold.woff"
         position={[-5, boardY + 2, 0.2]}
         fontSize={1.2}
         color="#ffffff"
@@ -50,6 +51,7 @@ export function Scoreboard() {
 
       {/* VS */}
       <Text
+        font="/fonts/Inter-Bold.woff"
         position={[0, boardY + 2, 0.2]}
         fontSize={0.8}
         color="#aaaaaa"
@@ -61,6 +63,7 @@ export function Scoreboard() {
 
       {/* Away team name */}
       <Text
+        font="/fonts/Inter-Bold.woff"
         position={[5, boardY + 2, 0.2]}
         fontSize={1.2}
         color="#ffffff"
@@ -73,6 +76,7 @@ export function Scoreboard() {
 
       {/* Home score */}
       <Text
+        font="/fonts/Inter-Bold.woff"
         position={[-5, boardY, 0.2]}
         fontSize={1.0}
         color="#FFD200"
@@ -84,6 +88,7 @@ export function Scoreboard() {
 
       {/* Away score */}
       <Text
+        font="/fonts/Inter-Bold.woff"
         position={[5, boardY, 0.2]}
         fontSize={1.0}
         color="#FFD200"
@@ -95,6 +100,7 @@ export function Scoreboard() {
 
       {/* Quarter */}
       <Text
+        font="/fonts/Inter-Bold.woff"
         position={[0, boardY - 1.5, 0.2]}
         fontSize={0.9}
         color="#cccccc"

@@ -520,10 +520,11 @@ export function PlayerComponent({ player }: PlayerProps) {
         <meshStandardMaterial color="#111111" />
       </mesh>
 
-      {/* Player number on front of body */}
+      {/* Player number — Billboard faces camera so it's always readable */}
       {player.number && (
-        <Billboard position={[0, 1.08, 0.15]} follow={false}>
+        <Billboard position={[0, 1.08, 0.15]} follow={true}>
           <Text
+            font="/fonts/Inter-Bold.woff"
             fontSize={0.22}
             color="#ffffff"
             anchorX="center"
@@ -540,6 +541,7 @@ export function PlayerComponent({ player }: PlayerProps) {
       {showPlayerNames && displayName && (
         <Billboard position={[0, 2.1, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
           <Text
+            font="/fonts/Inter-Bold.woff"
             fontSize={0.4}
             color="#ffffff"
             anchorX="center"

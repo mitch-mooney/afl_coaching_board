@@ -165,6 +165,7 @@ function TextAnnotation({ annotation }: { annotation: Annotation }) {
   return (
     <Billboard position={[x, 2, z]}>
       <Text
+        font="/fonts/Inter-Bold.woff"
         fontSize={3}
         color={annotation.color}
         anchorX="center"
@@ -226,6 +227,7 @@ function MeasurementAnnotation({ annotation, isPreview }: { annotation: Annotati
       {/* Distance label */}
       <Billboard position={[midX, 3, midZ]}>
         <Text
+          font="/fonts/Inter-Bold.woff"
           fontSize={4}
           color={color}
           anchorX="center"
