@@ -83,20 +83,33 @@ interface PathLineProps {
 }
 
 /**
- * PathLine - Renders the continuous line path between keyframes
+ * PathLine - Renders the continuous path as flat ribbon planes lying on the field surface.
+ * Uses PlaneGeometry instead of WebGL lines (which are always 1px regardless of linewidth).
  */
 function PathLine({ points, color }: PathLineProps) {
-  // Render as multiple connected line segments (same pattern as Field.tsx)
-  const segments = useMemo(() => {
-    const result: Array<{ start: [number, number, number]; end: [number, number, number] }> = [];
+  const ribbons = useMemo(() => {
+    const result: Array<{
+      midpoint: [number, number, number];
+      length: number;
+      angle: number;
+    }> = [];
     const numPoints = points.length / 3;
 
     for (let i = 0; i < numPoints - 1; i++) {
-      const startIdx = i * 3;
-      const endIdx = (i + 1) * 3;
+      const ax = points[i * 3];
+      const az = points[i * 3 + 2];
+      const bx = points[(i + 1) * 3];
+      const bz = points[(i + 1) * 3 + 2];
+
+      const dx = bx - ax;
+      const dz = bz - az;
+      const length = Math.sqrt(dx * dx + dz * dz);
+      if (length < 0.001) continue;
+
       result.push({
-        start: [points[startIdx], points[startIdx + 1], points[startIdx + 2]],
-        end: [points[endIdx], points[endIdx + 1], points[endIdx + 2]],
+        midpoint: [(ax + bx) / 2, 0.03, (az + bz) / 2],
+        length,
+        angle: Math.atan2(dx, dz),
       });
     }
 
@@ -105,21 +118,21 @@ function PathLine({ points, color }: PathLineProps) {
 
   return (
     <group>
-      {segments.map((segment, index) => (
-        <line key={`path-segment-${index}`}>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              count={2}
-              array={new Float32Array([
-                segment.start[0], segment.start[1], segment.start[2],
-                segment.end[0], segment.end[1], segment.end[2],
-              ])}
-              itemSize={3}
-            />
-          </bufferGeometry>
-          <lineBasicMaterial color={color} linewidth={2} />
-        </line>
+      {ribbons.map((ribbon, index) => (
+        <mesh
+          key={`ribbon-${index}`}
+          position={ribbon.midpoint}
+          rotation={[-Math.PI / 2, 0, ribbon.angle]}
+        >
+          <planeGeometry args={[0.6, ribbon.length]} />
+          <meshStandardMaterial
+            color={color}
+            transparent={true}
+            opacity={0.65}
+            depthWrite={false}
+            roughness={0.8}
+          />
+        </mesh>
       ))}
     </group>
   );

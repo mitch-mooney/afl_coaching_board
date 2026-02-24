@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useUIStore } from '../../store/uiStore';
 
 interface MenuItem {
@@ -11,6 +11,7 @@ interface MenuItem {
   variant?: 'default' | 'danger' | 'success' | 'warning' | 'primary' | 'purple' | 'teal' | 'indigo';
   active?: boolean;
   badge?: string;
+  description?: string;
 }
 
 interface MenuSection {
@@ -33,6 +34,7 @@ export function MobileMenu({ sections, onClose }: MobileMenuProps) {
   const isMenuOpen = useUIStore((state) => state.isMenuOpen);
   const closeMenu = useUIStore((state) => state.closeMenu);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
   // Handle close - notify parent and close menu
   const handleClose = useCallback(() => {
@@ -213,34 +215,53 @@ export function MobileMenu({ sections, onClose }: MobileMenuProps) {
                   {/* Section items */}
                   <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
                     {section.items.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => handleItemClick(item)}
-                        disabled={item.disabled}
-                        className={`
-                          flex items-center gap-2 px-3 py-2.5
-                          min-h-[44px]
-                          rounded-lg
-                          text-sm font-medium
-                          transition-colors
-                          touch-manipulation
-                          ${getVariantStyles(item.variant, item.active, item.disabled)}
-                        `}
-                        role="menuitem"
-                        aria-disabled={item.disabled}
-                      >
-                        {item.icon && (
-                          <span className="flex-shrink-0 w-4 h-4">
-                            {item.icon}
-                          </span>
-                        )}
-                        <span className="truncate">{item.label}</span>
-                        {item.badge && (
-                          <span className="ml-auto text-xs bg-white/30 px-1.5 py-0.5 rounded-full">
-                            {item.badge}
-                          </span>
-                        )}
-                      </button>
+                      <div key={item.id} className="relative">
+                        <button
+                          onClick={() => handleItemClick(item)}
+                          disabled={item.disabled}
+                          onMouseEnter={() => setHoveredItemId(item.id)}
+                          onMouseLeave={() => setHoveredItemId(null)}
+                          className={`
+                            w-full flex items-center gap-2 px-3 py-2.5
+                            min-h-[44px]
+                            rounded-lg
+                            text-sm font-medium
+                            transition-colors
+                            touch-manipulation
+                            ${getVariantStyles(item.variant, item.active, item.disabled)}
+                          `}
+                          role="menuitem"
+                          aria-disabled={item.disabled}
+                        >
+                          {item.icon && (
+                            <span className="flex-shrink-0 w-4 h-4">
+                              {item.icon}
+                            </span>
+                          )}
+                          <span className="truncate">{item.label}</span>
+                          {item.badge && (
+                            <span className="ml-auto text-xs bg-white/30 px-1.5 py-0.5 rounded-full">
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+                        {/* Hover tooltip showing item description */}
+                        <AnimatePresence>
+                          {hoveredItemId === item.id && item.description && (
+                            <motion.div
+                              className="absolute bottom-full left-0 mb-1.5 z-50
+                                bg-gray-900/95 text-white text-xs rounded-md px-2.5 py-1.5
+                                max-w-[200px] whitespace-normal pointer-events-none shadow-lg"
+                              initial={{ opacity: 0, y: 4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: 4 }}
+                              transition={{ duration: 0.15 }}
+                            >
+                              {item.description}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -297,6 +318,7 @@ export function createMenuItem(
     variant?: MenuItem['variant'];
     active?: boolean;
     badge?: string;
+    description?: string;
   }
 ): MenuItem {
   return {

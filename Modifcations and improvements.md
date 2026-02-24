@@ -1,10 +1,6 @@
 # Modifcations and improvements
 
-* Make the player look more human like
-* Manage playing positions better e.g. Assign positions based on location enable number assigned to position.
-* Have guernsey display a more realistic guernsey e.g. https://www.footyjumpers.com/2025.htm
-* iPad screen size doesn't show the bottom elements well e.g. Annotations playback functions.
-* Ensure can use apple pencil on iPad
-* Playbooks dropdown is covering the player assignment drop down
-* The application looks quite dark can we lighten it up a little bit
-* When uploading a video clip enable trimming (maybe compression) and storing of small videos <50mb to transport with playbook
+* make the players track more opaque so it leave like a snail trail on the field
+* After logging in highlight the Hamburger options for the user to know they are there and have capacity to hover over options for a description of what it does.
+* There needs to be a two tone jersey color at the moment only one color is rendering
+* Players need to look more like generic minecraft charectors

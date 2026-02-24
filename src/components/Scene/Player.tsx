@@ -1,7 +1,7 @@
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Text, Billboard } from '@react-three/drei';
-import { Vector3, Plane, CanvasTexture } from 'three';
+import { Vector3, Plane } from 'three';
 import { Player } from '../../models/PlayerModel';
 import { usePlayerStore } from '../../store/playerStore';
 import { usePathStore } from '../../store/pathStore';
@@ -13,7 +13,6 @@ import { useAnnotationStore } from '../../store/annotationStore';
 import { snapToField, positionToZone } from '../../utils/fieldGeometry';
 import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
 import { getTeamById } from '../../data/aflTeams';
-import { generateJerseySVGTexture } from '../../utils/jerseyTexture';
 
 // Minimum distance (in meters) between recorded path points to avoid excessive waypoints
 const MIN_PATH_POINT_DISTANCE = 1.5;
@@ -82,26 +81,6 @@ export function PlayerComponent({ player }: PlayerProps) {
     if (pos) return pos;
     return name;
   }, [player.playerName, player.positionName]);
-
-  // --- F5: Async SVG jersey texture ---
-  const [jerseyTexture, setJerseyTexture] = useState<CanvasTexture | null>(null);
-
-  useEffect(() => {
-    if (!player.teamPresetId) {
-      setJerseyTexture(null);
-      return;
-    }
-    const team = getTeamById(player.teamPresetId);
-    if (!team) {
-      setJerseyTexture(null);
-      return;
-    }
-    let cancelled = false;
-    generateJerseySVGTexture(team, player.number).then((tex) => {
-      if (!cancelled) setJerseyTexture(tex);
-    });
-    return () => { cancelled = true; };
-  }, [player.teamPresetId, player.number]);
 
   useFrame((state) => {
     // Apply rotation to the entire group so all body parts rotate together
@@ -426,7 +405,7 @@ export function PlayerComponent({ player }: PlayerProps) {
     endDragging();
   };
 
-  // --- F7: Skin tone and derived colors ---
+  // Skin tone and derived colors
   const skinColor =
     player.skinTone === 'dark' ? '#5c3317' :
     player.skinTone === 'medium' ? '#c68642' :
@@ -440,9 +419,9 @@ export function PlayerComponent({ player }: PlayerProps) {
   const jerseyEmissive = isSelected ? '#ffff00' : player.color;
   const jerseyEmissiveIntensity = isSelected ? 0.3 : 0.1;
   const shortsColor = isSelected ? '#cccc00' : (teamPreset?.shortsColor ?? '#2a2a2a');
-
-  // Texture applied only when not selected/hovered (those override with solid colour)
-  const activeTexture = (isSelected || hovered) ? null : jerseyTexture;
+  // Arms show secondary colour for Minecraft-style two-tone
+  const armColor = isSelected ? '#ffff00' : hovered ? '#ffffff' : (teamPreset?.secondaryColor ?? player.color);
+  const armEmissive = isSelected ? '#ffff00' : (teamPreset?.secondaryColor ?? player.color);
 
   return (
     <group
@@ -458,176 +437,94 @@ export function PlayerComponent({ player }: PlayerProps) {
         setHovered(false);
       }}
     >
-      {/* Player body - torso with jersey (F7: slimmer, taller) */}
-      <mesh castShadow position={[0, 0.75, 0]}>
-        <capsuleGeometry args={[0.28, 0.95, 8, 16]} />
+      {/* ── Minecraft-style box geometry player ── */}
+
+      {/* Body (torso) */}
+      <mesh castShadow position={[0, 1.08, 0]}>
+        <boxGeometry args={[0.50, 0.70, 0.28]} />
         <meshStandardMaterial
           color={jerseyColor}
           emissive={jerseyEmissive}
           emissiveIntensity={jerseyEmissiveIntensity}
           roughness={0.6}
-          metalness={0.1}
-          map={activeTexture}
         />
       </mesh>
 
-      {/* F7: Replace shoulder capsule with two sphere shoulder caps */}
-      <mesh castShadow position={[-0.32, 1.22, 0]}>
-        <sphereGeometry args={[0.14, 8, 8]} />
-        <meshStandardMaterial
-          color={jerseyColor}
-          emissive={jerseyEmissive}
-          emissiveIntensity={isSelected ? 0.3 : 0.05}
-          roughness={0.6}
-        />
-      </mesh>
-      <mesh castShadow position={[0.32, 1.22, 0]}>
-        <sphereGeometry args={[0.14, 8, 8]} />
-        <meshStandardMaterial
-          color={jerseyColor}
-          emissive={jerseyEmissive}
-          emissiveIntensity={isSelected ? 0.3 : 0.05}
-          roughness={0.6}
-        />
-      </mesh>
-
-      {/* F5/F7: Jersey collar torus — shown when team preset is active */}
-      {teamPreset && (
-        <mesh position={[0, 1.28, 0]}>
-          <torusGeometry args={[0.12, 0.025, 8, 16]} />
-          <meshStandardMaterial color={teamPreset.secondaryColor} roughness={0.7} />
-        </mesh>
-      )}
-
-      {/* Neck */}
-      <mesh position={[0, 1.35, 0]}>
-        <cylinderGeometry args={[0.08, 0.08, 0.15, 8]} />
+      {/* Head */}
+      <mesh castShadow position={[0, 1.62, 0]}>
+        <boxGeometry args={[0.38, 0.38, 0.38]} />
         <meshStandardMaterial color={skinColor} roughness={0.7} />
       </mesh>
 
-      {/* Player head (F7: slightly smaller) */}
-      <mesh castShadow position={[0, 1.6, 0]}>
-        <sphereGeometry args={[0.20, 16, 16]} />
-        <meshStandardMaterial color={skinColor} roughness={0.7} metalness={0} />
+      {/* Hair (top half of head) */}
+      <mesh position={[0, 1.72, 0]}>
+        <boxGeometry args={[0.39, 0.19, 0.40]} />
+        <meshStandardMaterial color="#3a2a1a" roughness={0.9} />
+      </mesh>
+
+      {/* Left arm — secondary colour for two-tone effect */}
+      <mesh castShadow position={[-0.35, 1.08, 0]}>
+        <boxGeometry args={[0.18, 0.60, 0.18]} />
+        <meshStandardMaterial
+          color={armColor}
+          emissive={armEmissive}
+          emissiveIntensity={isSelected ? 0.3 : 0.05}
+          roughness={0.6}
+        />
+      </mesh>
+
+      {/* Right arm — secondary colour for two-tone effect */}
+      <mesh castShadow position={[0.35, 1.08, 0]}>
+        <boxGeometry args={[0.18, 0.60, 0.18]} />
+        <meshStandardMaterial
+          color={armColor}
+          emissive={armEmissive}
+          emissiveIntensity={isSelected ? 0.3 : 0.05}
+          roughness={0.6}
+        />
+      </mesh>
+
+      {/* Left leg */}
+      <mesh castShadow position={[-0.11, 0.41, 0]}>
+        <boxGeometry args={[0.22, 0.65, 0.22]} />
+        <meshStandardMaterial color={shortsColor} roughness={0.7} />
+      </mesh>
+
+      {/* Right leg */}
+      <mesh castShadow position={[0.11, 0.41, 0]}>
+        <boxGeometry args={[0.22, 0.65, 0.22]} />
+        <meshStandardMaterial color={shortsColor} roughness={0.7} />
+      </mesh>
+
+      {/* Left shoe */}
+      <mesh position={[-0.11, 0.04, 0.05]}>
+        <boxGeometry args={[0.24, 0.08, 0.28]} />
+        <meshStandardMaterial color="#333333" roughness={0.8} />
+      </mesh>
+
+      {/* Right shoe */}
+      <mesh position={[0.11, 0.04, 0.05]}>
+        <boxGeometry args={[0.24, 0.08, 0.28]} />
+        <meshStandardMaterial color="#333333" roughness={0.8} />
       </mesh>
 
       {/* Left eye */}
-      <mesh position={[-0.07, 1.63, 0.17]}>
-        <sphereGeometry args={[0.035, 8, 8]} />
-        <meshStandardMaterial color="#222222" />
+      <mesh position={[-0.09, 1.65, 0.19]}>
+        <boxGeometry args={[0.08, 0.06, 0.02]} />
+        <meshStandardMaterial color="#111111" />
       </mesh>
 
       {/* Right eye */}
-      <mesh position={[0.07, 1.63, 0.17]}>
-        <sphereGeometry args={[0.035, 8, 8]} />
-        <meshStandardMaterial color="#222222" />
+      <mesh position={[0.09, 1.65, 0.19]}>
+        <boxGeometry args={[0.08, 0.06, 0.02]} />
+        <meshStandardMaterial color="#111111" />
       </mesh>
 
-      {/* F7: Ear spheres */}
-      <mesh position={[-0.20, 1.60, 0]}>
-        <sphereGeometry args={[0.04, 6, 6]} />
-        <meshStandardMaterial color={skinColor} roughness={0.8} />
-      </mesh>
-      <mesh position={[0.20, 1.60, 0]}>
-        <sphereGeometry args={[0.04, 6, 6]} />
-        <meshStandardMaterial color={skinColor} roughness={0.8} />
-      </mesh>
-
-      {/* Hair/helmet */}
-      <mesh position={[0, 1.70, 0]}>
-        <sphereGeometry args={[0.17, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color="#4a3728" roughness={0.9} metalness={0} />
-      </mesh>
-
-      {/* Left upper arm — F7: slight forward tilt */}
-      <mesh castShadow position={[-0.48, 0.95, 0.04]} rotation={[0.1, 0, 0.35]}>
-        <capsuleGeometry args={[0.09, 0.28, 4, 8]} />
-        <meshStandardMaterial
-          color={jerseyColor}
-          emissive={jerseyEmissive}
-          emissiveIntensity={isSelected ? 0.3 : 0.05}
-          roughness={0.6}
-        />
-      </mesh>
-      {/* Left forearm (skin) */}
-      <mesh castShadow position={[-0.58, 0.62, 0.05]} rotation={[0.15, 0, 0.4]}>
-        <capsuleGeometry args={[0.07, 0.25, 4, 8]} />
-        <meshStandardMaterial color={skinColor} roughness={0.7} />
-      </mesh>
-      {/* Left hand */}
-      <mesh position={[-0.63, 0.44, 0.08]}>
-        <sphereGeometry args={[0.06, 8, 8]} />
-        <meshStandardMaterial color={skinColor} roughness={0.7} />
-      </mesh>
-
-      {/* Right upper arm — F7: slight forward tilt */}
-      <mesh castShadow position={[0.48, 0.95, 0.04]} rotation={[0.1, 0, -0.35]}>
-        <capsuleGeometry args={[0.09, 0.28, 4, 8]} />
-        <meshStandardMaterial
-          color={jerseyColor}
-          emissive={jerseyEmissive}
-          emissiveIntensity={isSelected ? 0.3 : 0.05}
-          roughness={0.6}
-        />
-      </mesh>
-      {/* Right forearm (skin) */}
-      <mesh castShadow position={[0.58, 0.62, 0.05]} rotation={[0.15, 0, -0.4]}>
-        <capsuleGeometry args={[0.07, 0.25, 4, 8]} />
-        <meshStandardMaterial color={skinColor} roughness={0.7} />
-      </mesh>
-      {/* Right hand */}
-      <mesh position={[0.63, 0.44, 0.08]}>
-        <sphereGeometry args={[0.06, 8, 8]} />
-        <meshStandardMaterial color={skinColor} roughness={0.7} />
-      </mesh>
-
-      {/* Left upper leg (shorts) — F7: slightly wider stance */}
-      <mesh castShadow position={[-0.16, 0.22, 0]}>
-        <capsuleGeometry args={[0.11, 0.22, 4, 8]} />
-        <meshStandardMaterial color={shortsColor} roughness={0.7} />
-      </mesh>
-      {/* Left lower leg (skin) */}
-      <mesh castShadow position={[-0.16, 0.02, 0.04]} rotation={[0.1, 0, 0]}>
-        <capsuleGeometry args={[0.09, 0.22, 4, 8]} />
-        <meshStandardMaterial color={skinColor} roughness={0.7} />
-      </mesh>
-      {/* Left shoe */}
-      <mesh position={[-0.16, -0.12, 0.10]}>
-        <boxGeometry args={[0.10, 0.06, 0.18]} />
-        <meshStandardMaterial color="#333333" roughness={0.8} />
-      </mesh>
-      {/* F7: Left shoe sole */}
-      <mesh position={[-0.16, -0.16, 0.10]}>
-        <boxGeometry args={[0.12, 0.02, 0.20]} />
-        <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
-      </mesh>
-
-      {/* Right upper leg (shorts) — F7: slightly wider stance */}
-      <mesh castShadow position={[0.16, 0.22, 0]}>
-        <capsuleGeometry args={[0.11, 0.22, 4, 8]} />
-        <meshStandardMaterial color={shortsColor} roughness={0.7} />
-      </mesh>
-      {/* Right lower leg (skin) */}
-      <mesh castShadow position={[0.16, 0.02, 0.04]} rotation={[0.1, 0, 0]}>
-        <capsuleGeometry args={[0.09, 0.22, 4, 8]} />
-        <meshStandardMaterial color={skinColor} roughness={0.7} />
-      </mesh>
-      {/* Right shoe */}
-      <mesh position={[0.16, -0.12, 0.10]}>
-        <boxGeometry args={[0.10, 0.06, 0.18]} />
-        <meshStandardMaterial color="#333333" roughness={0.8} />
-      </mesh>
-      {/* F7: Right shoe sole */}
-      <mesh position={[0.16, -0.16, 0.10]}>
-        <boxGeometry args={[0.12, 0.02, 0.20]} />
-        <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
-      </mesh>
-
-      {/* Player number on jersey (front) — hidden when SVG texture has baked-in number */}
-      {player.number && !(jerseyTexture && !isSelected && !hovered) && (
-        <Billboard position={[0, 0.9, 0.36]} follow={false}>
+      {/* Player number on front of body */}
+      {player.number && (
+        <Billboard position={[0, 1.08, 0.15]} follow={false}>
           <Text
-            fontSize={0.25}
+            fontSize={0.22}
             color="#ffffff"
             anchorX="center"
             anchorY="middle"
@@ -641,7 +538,7 @@ export function PlayerComponent({ player }: PlayerProps) {
 
       {/* Player name label - uses Billboard to always face camera */}
       {showPlayerNames && displayName && (
-        <Billboard position={[0, 2.2, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
+        <Billboard position={[0, 2.1, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
           <Text
             fontSize={0.4}
             color="#ffffff"

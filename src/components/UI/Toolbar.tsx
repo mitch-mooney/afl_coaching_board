@@ -242,10 +242,10 @@ export function Toolbar({ canvas }: ToolbarProps) {
     // Camera section
     sections.push(
       createMenuSection('camera', 'Camera', [
-        createMenuItem('top-view', 'Top View', () => setPresetView('top'), { variant: 'primary' }),
-        createMenuItem('sideline', 'Sideline', () => setPresetView('sideline'), { variant: 'primary' }),
-        createMenuItem('end-to-end', 'End-to-End', () => setPresetView('end-to-end'), { variant: 'primary' }),
-        createMenuItem('reset-camera', 'Reset Camera', resetCamera, { variant: 'purple' }),
+        createMenuItem('top-view', 'Top View', () => setPresetView('top'), { variant: 'primary', description: "Bird's-eye view of the full field" }),
+        createMenuItem('sideline', 'Sideline', () => setPresetView('sideline'), { variant: 'primary', description: 'View from the sideline at ground level' }),
+        createMenuItem('end-to-end', 'End-to-End', () => setPresetView('end-to-end'), { variant: 'primary', description: 'View from behind the goals looking upfield' }),
+        createMenuItem('reset-camera', 'Reset Camera', resetCamera, { variant: 'purple', description: 'Return camera to default position' }),
       ])
     );
 
@@ -254,18 +254,21 @@ export function Toolbar({ canvas }: ToolbarProps) {
       createMenuItem('undo', 'Undo', handleUndo, {
         variant: 'warning',
         disabled: !canUndo(),
+        description: 'Undo the last player movement',
       }),
       createMenuItem('clear-paths', 'Clear Paths', clearPaths, {
         variant: 'danger',
         disabled: paths.length === 0,
+        description: 'Remove all movement trails from the field',
       }),
-      createMenuItem('reset-players', 'Reset Players', resetPlayers, { variant: 'success' }),
+      createMenuItem('reset-players', 'Reset Players', resetPlayers, { variant: 'success', description: 'Reset all players to their starting positions' }),
       createMenuItem('toggle-names', showPlayerNames ? 'Hide Names' : 'Show Names', togglePlayerNames, {
         variant: 'teal',
         active: showPlayerNames,
+        description: 'Toggle player name labels above each player',
       }),
-      createMenuItem('import-roster', 'Import Roster', () => setShowImportDialog(true), { variant: 'primary' }),
-      createMenuItem('auto-assign', 'Auto-Assign Positions', () => autoAssignPositions(), { variant: 'teal' }),
+      createMenuItem('import-roster', 'Import Roster', () => setShowImportDialog(true), { variant: 'primary', description: 'Load player names and numbers from a text list' }),
+      createMenuItem('auto-assign', 'Auto-Assign Positions', () => autoAssignPositions(), { variant: 'teal', description: 'Automatically assign positions based on field location' }),
     ];
     sections.push(createMenuSection('players', 'Players', playerItems));
 
@@ -275,21 +278,22 @@ export function Toolbar({ canvas }: ToolbarProps) {
         createMenuItem('give-ball', selectedPlayer ? `Give Ball to #${selectedPlayer.number}` : 'Give Ball', handleAssignBall, {
           variant: 'warning',
           disabled: !selectedPlayerId,
+          description: 'Assign the ball to the selected player',
         }),
       ];
       if (assignedPlayer) {
         ballItems.push(
-          createMenuItem('release-ball', `Release (#${assignedPlayer.number})`, handleUnassignBall, { variant: 'danger' })
+          createMenuItem('release-ball', `Release (#${assignedPlayer.number})`, handleUnassignBall, { variant: 'danger', description: "Remove ball from player's possession" })
         );
       }
       if (isBallSelected) {
         if (!ballPath) {
           ballItems.push(
-            createMenuItem('add-ball-path', 'Add Ball Path', handleCreateBallPath, { variant: 'indigo' })
+            createMenuItem('add-ball-path', 'Add Ball Path', handleCreateBallPath, { variant: 'indigo', description: 'Add a movement path for the ball' })
           );
         } else {
           ballItems.push(
-            createMenuItem('remove-ball-path', 'Remove Path', handleRemoveBallPath, { variant: 'danger' })
+            createMenuItem('remove-ball-path', 'Remove Path', handleRemoveBallPath, { variant: 'danger', description: "Remove the ball's movement path" })
           );
         }
       }
@@ -301,17 +305,18 @@ export function Toolbar({ canvas }: ToolbarProps) {
     const team2Name = team2PresetId ? AFL_TEAMS.find(t => t.id === team2PresetId)?.abbreviation : null;
     sections.push(
       createMenuSection('teams', 'Teams', [
-        createMenuItem('team-select', `Jerseys${team1Name || team2Name ? ` (${team1Name ?? '?'} vs ${team2Name ?? '?'})` : ''}`, () => setShowTeamSelector(true), { variant: 'purple' }),
+        createMenuItem('team-select', `Jerseys${team1Name || team2Name ? ` (${team1Name ?? '?'} vs ${team2Name ?? '?'})` : ''}`, () => setShowTeamSelector(true), { variant: 'purple', description: 'Select AFL team jerseys for each side' }),
       ])
     );
 
     // Match section
     sections.push(
       createMenuSection('match', 'Match', [
-        createMenuItem('match-setup', 'Match Setup', () => setShowMatchSetup(true), { variant: 'teal' }),
+        createMenuItem('match-setup', 'Match Setup', () => setShowMatchSetup(true), { variant: 'teal', description: 'Configure team names, scores and quarter' }),
         createMenuItem('toggle-scoreboard', matchShowScoreboard ? 'Hide Scoreboard' : 'Show Scoreboard', toggleScoreboard, {
           variant: 'primary',
           active: matchShowScoreboard,
+          description: 'Show or hide the 3D scoreboard on the field',
         }),
       ])
     );
@@ -322,8 +327,9 @@ export function Toolbar({ canvas }: ToolbarProps) {
         createMenuItem('play-pause', isPlaying ? 'Pause' : 'Play Animation', togglePlayback, {
           variant: isPlaying ? 'warning' : 'success',
           active: isPlaying,
+          description: 'Play or pause the movement animation',
         }),
-        createMenuItem('stop', 'Stop & Reset', handleStopAnimation, { variant: 'default' }),
+        createMenuItem('stop', 'Stop & Reset', handleStopAnimation, { variant: 'default', description: 'Stop animation and reset to the start position' }),
       ])
     );
 
@@ -333,12 +339,14 @@ export function Toolbar({ canvas }: ToolbarProps) {
         variant: isRecording ? 'danger' : 'default',
         active: isRecording,
         disabled: isConverting,
+        description: 'Capture a video of the current board animation',
       }),
       createMenuItem('format-toggle', `Format: ${exportFormat.toUpperCase()}`, () => setExportFormat(exportFormat === 'mp4' ? 'webm' : 'mp4'), {
         variant: 'primary',
         disabled: isRecording || isConverting,
+        description: 'Toggle between MP4 and WebM export formats',
       }),
-      createMenuItem('save-playbook', 'Save Playbook', () => setShowSaveDialog(true), { variant: 'warning' }),
+      createMenuItem('save-playbook', 'Save Playbook', () => setShowSaveDialog(true), { variant: 'warning', description: 'Save this formation to your playbook library' }),
     ];
     if (isConverting && conversionProgress) {
       const label = conversionProgress.phase === 'loading'
@@ -354,11 +362,11 @@ export function Toolbar({ canvas }: ToolbarProps) {
 
     // Events section
     const eventItems = [
-      createMenuItem('create-event', 'Create Event', () => setShowEventEditor(true), { variant: 'purple' }),
+      createMenuItem('create-event', 'Create Event', () => setShowEventEditor(true), { variant: 'purple', description: 'Create a scripted event sequence with timed animations' }),
     ];
     if (activeEvent) {
       eventItems.push(
-        createMenuItem('clear-event', `Clear: ${activeEvent.name}`, handleClearEvent, { variant: 'danger' })
+        createMenuItem('clear-event', `Clear: ${activeEvent.name}`, handleClearEvent, { variant: 'danger', description: 'Remove the current active event sequence' })
       );
     }
     sections.push(createMenuSection('events', 'Events', eventItems));
@@ -367,11 +375,11 @@ export function Toolbar({ canvas }: ToolbarProps) {
     const povItems = [];
     if (povMode) {
       povItems.push(
-        createMenuItem('exit-pov', `Exit POV (#${povPlayer?.number ?? '?'})`, disablePOV, { variant: 'danger' })
+        createMenuItem('exit-pov', `Exit POV (#${povPlayer?.number ?? '?'})`, disablePOV, { variant: 'danger', description: 'Exit first-person player view' })
       );
     } else {
       povItems.push(
-        createMenuItem('pov-mode', 'POV Mode', () => setShowPOVSelector(true), { variant: 'indigo' })
+        createMenuItem('pov-mode', 'POV Mode', () => setShowPOVSelector(true), { variant: 'indigo', description: "Switch to first-person view from a player's perspective" })
       );
     }
     sections.push(createMenuSection('pov', 'POV Camera', povItems));
@@ -380,13 +388,14 @@ export function Toolbar({ canvas }: ToolbarProps) {
     const videoItems = [];
     if (isVideoMode && isLoaded) {
       videoItems.push(
-        createMenuItem('clear-video', 'Clear Video', clearVideo, { variant: 'danger' })
+        createMenuItem('clear-video', 'Clear Video', clearVideo, { variant: 'danger', description: 'Remove the imported background video' })
       );
     } else {
       videoItems.push(
         createMenuItem('import-video', isLoading ? 'Loading...' : 'Import Video', () => setShowVideoUploader(true), {
           variant: 'teal',
           disabled: isLoading,
+          description: 'Import a video to overlay on the field',
         })
       );
     }
@@ -396,7 +405,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
     if (authIsConfigured && authUser) {
       sections.push(
         createMenuSection('user', `Account: ${authUser.email ?? ''}`, [
-          createMenuItem('sign-out', 'Sign Out', authSignOut, { variant: 'danger' }),
+          createMenuItem('sign-out', 'Sign Out', authSignOut, { variant: 'danger', description: 'Sign out of your account' }),
         ])
       );
     }

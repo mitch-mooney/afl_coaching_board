@@ -18,26 +18,18 @@ function getContrastColor(hex: string): string {
   return luminance > 0.5 ? '#000000' : '#ffffff';
 }
 
-// Build SVG <defs> with named patterns for secondary and sleeve colour zones.
-// The diagonal-stripe overlay on secondary zones adds a visual texture cue that
-// helps differentiate teams even when 3D lighting washes out hue differences.
-function buildDefs(team: AFLTeamPreset): string {
-  const sleeveColor = team.tertiaryColor ?? team.secondaryColor;
-  const secLine = getContrastColor(team.secondaryColor);
-  const slvLine = getContrastColor(sleeveColor);
-
-  return `<defs>
-    <!-- Diagonal stripe texture for secondary colour zones -->
-    <pattern id="secTex" patternUnits="userSpaceOnUse" width="14" height="14" patternTransform="rotate(45)">
-      <rect width="14" height="14" fill="${team.secondaryColor}"/>
-      <line x1="0" y1="0" x2="0" y2="14" stroke="${secLine}" stroke-width="3" opacity="0.18"/>
-    </pattern>
-    <!-- Diagonal stripe texture for sleeve/tertiary colour zones -->
-    <pattern id="slvTex" patternUnits="userSpaceOnUse" width="14" height="14" patternTransform="rotate(45)">
-      <rect width="14" height="14" fill="${sleeveColor}"/>
-      <line x1="0" y1="0" x2="0" y2="14" stroke="${slvLine}" stroke-width="3" opacity="0.18"/>
-    </pattern>
-  </defs>`;
+/**
+ * Renders diagonal lines clipped to a rectangular zone, used to add a visual
+ * texture cue to secondary colour zones without relying on SVG <pattern> references
+ * (which fail when SVG is loaded as an image via blob URL in some browsers).
+ */
+function diagonalOverlay(clipId: string, x: number, y: number, w: number, h: number, strokeColor: string, opacity: number): string {
+  const spacing = 14;
+  let lines = '';
+  for (let start = x - h; start < x + w + h; start += spacing) {
+    lines += `<line x1="${start.toFixed(1)}" y1="${y}" x2="${(start + h).toFixed(1)}" y2="${y + h}" stroke="${strokeColor}" stroke-width="3" opacity="${opacity}"/>`;
+  }
+  return `<clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${w}" height="${h}"/></clipPath><g clip-path="url(#${clipId})">${lines}</g>`;
 }
 
 // Pattern functions now receive explicit fill strings so they can be either
@@ -114,18 +106,23 @@ function buildJerseySVG(team: AFLTeamPreset, playerNumber?: number): string {
   const S = TEX_SIZE;
   const numberColor = getContrastColor(team.primaryColor);
 
-  // Primary zones are plain hex; secondary/sleeve zones use the textured pattern fills
+  // Direct hex fills — no SVG <pattern> references which fail when SVG is loaded
+  // as an image via blob URL in some browsers/rendering contexts.
   const priFill = team.primaryColor;
-  const secFill = 'url(#secTex)';
-  const slvFill = 'url(#slvTex)';
+  const secFill = team.secondaryColor;
+  const slvFill = team.tertiaryColor ?? team.secondaryColor;
+  const secLine = getContrastColor(secFill);
+  const slvLine = getContrastColor(slvFill);
 
   // Body pattern
   const patternEl = (patternSVG[team.pattern] ?? patternSVG.solid)(priFill, secFill, S, BODY_Y, BODY_H);
 
-  // Sleeve overlays on left and right sides (textured)
+  // Sleeve overlays on left and right sides with diagonal texture overlay
   const sleeves = `
     <rect x="0" y="${BODY_Y}" width="${SLEEVE_W}" height="${BODY_H}" fill="${slvFill}"/>
+    ${diagonalOverlay('clip_slv_l', 0, BODY_Y, SLEEVE_W, BODY_H, slvLine, 0.18)}
     <rect x="${S - SLEEVE_W}" y="${BODY_Y}" width="${SLEEVE_W}" height="${BODY_H}" fill="${slvFill}"/>
+    ${diagonalOverlay('clip_slv_r', S - SLEEVE_W, BODY_Y, SLEEVE_W, BODY_H, slvLine, 0.18)}
   `;
 
   // Seam lines between body and sleeves
@@ -134,8 +131,11 @@ function buildJerseySVG(team: AFLTeamPreset, playerNumber?: number): string {
     <line x1="${S - SLEEVE_W}" y1="${BODY_Y}" x2="${S - SLEEVE_W}" y2="${BODY_Y + BODY_H}" stroke="${team.secondaryColor}" stroke-width="2" opacity="0.35"/>
   `;
 
-  // Collar zone — textured secondary
-  const collarEl = `<rect x="0" y="0" width="${S}" height="${COLLAR_H}" fill="${secFill}"/>`;
+  // Collar zone — secondary colour with diagonal texture overlay
+  const collarEl = `
+    <rect x="0" y="0" width="${S}" height="${COLLAR_H}" fill="${secFill}"/>
+    ${diagonalOverlay('clip_collar', 0, 0, S, COLLAR_H, secLine, 0.18)}
+  `;
 
   // Hem zone — plain primary
   const hemEl = `
@@ -143,13 +143,12 @@ function buildJerseySVG(team: AFLTeamPreset, playerNumber?: number): string {
     <line x1="0" y1="${S - HEM_H}" x2="${S}" y2="${S - HEM_H}" stroke="${team.secondaryColor}" stroke-width="3" opacity="0.5"/>
   `;
 
-  // Player number — centered horizontally (UV 0.5 = front face of capsule), upper body
+  // Player number — centered horizontally (UV 0.5 = front face), upper body
   const numberEl = playerNumber
     ? `<text x="${S / 2}" y="${BODY_Y + BODY_H * 0.42}" font-family="Arial Black, Arial, sans-serif" font-size="88" font-weight="900" text-anchor="middle" dominant-baseline="middle" fill="${numberColor}" stroke="#00000055" stroke-width="3">${playerNumber}</text>`
     : '';
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}">
-    ${buildDefs(team)}
     ${patternEl}
     ${sleeves}
     ${seams}

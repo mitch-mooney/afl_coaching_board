@@ -6,6 +6,8 @@ const MOBILE_BREAKPOINT = 768;
 interface UIState {
   // Menu state
   isMenuOpen: boolean;
+  // Onboarding: pulse hamburger until user opens menu for the first time
+  showMenuPulse: boolean;
 
   // Responsive state
   isMobile: boolean;
@@ -25,6 +27,17 @@ interface UIState {
   // Pen drawing actions
   setPenDrawing: (val: boolean) => void;
 }
+
+/**
+ * Pulse is shown until the user opens the menu for the first time.
+ * Uses localStorage so it persists across page reloads.
+ */
+const getInitialMenuPulse = (): boolean => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('hasSeenMenu') === null;
+  }
+  return false;
+};
 
 /**
  * Get initial screen width (handles SSR case)
@@ -49,17 +62,28 @@ export const useUIStore = create<UIState>((set) => {
   return {
     // Initial state
     isMenuOpen: false,
+    showMenuPulse: getInitialMenuPulse(),
     isMobile: isMobileWidth(initialWidth),
     screenWidth: initialWidth,
     isPenDrawing: false,
 
     // Menu actions
     toggleMenu: () => {
-      set((state) => ({ isMenuOpen: !state.isMenuOpen }));
+      set((state) => {
+        const opening = !state.isMenuOpen;
+        if (opening) {
+          localStorage.setItem('hasSeenMenu', '1');
+        }
+        return {
+          isMenuOpen: opening,
+          showMenuPulse: opening ? false : state.showMenuPulse,
+        };
+      });
     },
 
     openMenu: () => {
-      set({ isMenuOpen: true });
+      localStorage.setItem('hasSeenMenu', '1');
+      set({ isMenuOpen: true, showMenuPulse: false });
     },
 
     closeMenu: () => {
