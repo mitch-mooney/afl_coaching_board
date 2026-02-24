@@ -25,6 +25,15 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
 import { useCanvasResizeWithWindow } from '../../hooks/useCanvasResize';
 import { getSharedPlaybook } from '../../services/sharingService';
+import {
+  useKeyboardShortcuts,
+  useCameraPresetShortcuts,
+  useToolSelectionShortcuts,
+  useAnimationControlShortcuts,
+  useHelpOverlayShortcuts,
+  useEditOperationShortcuts,
+  getGlobalShortcutRegistry,
+} from '../../hooks/useKeyboardShortcuts';
 
 /**
  * Stadium sky dome — large inverted sphere with a twilight gradient.
@@ -45,15 +54,6 @@ function SkyDome() {
     </mesh>
   );
 }
-import {
-  useKeyboardShortcuts,
-  useCameraPresetShortcuts,
-  useToolSelectionShortcuts,
-  useAnimationControlShortcuts,
-  useHelpOverlayShortcuts,
-  useEditOperationShortcuts,
-  getGlobalShortcutRegistry,
-} from '../../hooks/useKeyboardShortcuts';
 
 
 export function MainLayout() {
