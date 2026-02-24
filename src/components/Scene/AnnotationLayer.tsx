@@ -32,7 +32,7 @@ export function AnnotationLayer() {
 }
 
 function AnnotationRenderer({ annotation, isPreview = false }: { annotation: Annotation; isPreview?: boolean }) {
-  if (annotation.points.length < 2) return null;
+  if (annotation.type !== 'text' && annotation.points.length < 2) return null;
 
   switch (annotation.type) {
     case 'line':

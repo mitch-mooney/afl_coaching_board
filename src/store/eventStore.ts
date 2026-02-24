@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import {
   AnimationEvent,
+  AnimationPhase,
   PlayerPathConfig,
   createAnimationEvent,
   addPlayerPathToEvent,
@@ -24,6 +25,11 @@ interface EventState {
   globalTime: number;
   /** Whether event mode is enabled (vs. normal path preview mode) */
   isEventMode: boolean;
+  /**
+   * Index of the phase we just auto-paused at (-1 = not at a phase break).
+   * Drives the "Continue →" banner in EventTimeline.
+   */
+  pausedAtPhaseIndex: number;
 
   // Event CRUD Actions
   /** Create a new animation event */
@@ -63,6 +69,16 @@ interface EventState {
     updates: Partial<Omit<PlayerPathConfig, 'playerId'>>
   ) => void;
 
+  // Phase Management
+  /** Set the paused-at-phase index (-1 = not at a phase break) */
+  setPausedAtPhaseIndex: (index: number) => void;
+  /** Add a phase to an event */
+  addPhase: (eventId: string, phase: AnimationPhase) => void;
+  /** Remove a phase from an event */
+  removePhase: (eventId: string, phaseId: string) => void;
+  /** Update a phase within an event */
+  updatePhase: (eventId: string, phaseId: string, updates: Partial<Omit<AnimationPhase, 'id'>>) => void;
+
   // Playback Time Control
   /** Set the global playback time in milliseconds */
   setGlobalTime: (time: number) => void;
@@ -95,6 +111,7 @@ export const useEventStore = create<EventState>((set, get) => ({
   activeEventId: null,
   globalTime: DEFAULT_GLOBAL_TIME,
   isEventMode: false,
+  pausedAtPhaseIndex: -1,
 
   // Event CRUD Actions
   createEvent: (name, playerPaths = [], duration = EVENT_DEFAULTS.duration, description) => {
@@ -158,6 +175,7 @@ export const useEventStore = create<EventState>((set, get) => ({
       activeEventId: null,
       globalTime: DEFAULT_GLOBAL_TIME,
       isEventMode: false,
+      pausedAtPhaseIndex: -1,
     });
   },
 
@@ -182,6 +200,46 @@ export const useEventStore = create<EventState>((set, get) => ({
     set((state) => ({
       events: state.events.map((event) =>
         event.id === eventId ? updatePlayerPathInEvent(event, playerId, updates) : event
+      ),
+    }));
+  },
+
+  // Phase Management
+  setPausedAtPhaseIndex: (index) => {
+    set({ pausedAtPhaseIndex: index });
+  },
+
+  addPhase: (eventId, phase) => {
+    set((state) => ({
+      events: state.events.map((event) =>
+        event.id === eventId
+          ? { ...event, phases: [...(event.phases ?? []), phase] }
+          : event
+      ),
+    }));
+  },
+
+  removePhase: (eventId, phaseId) => {
+    set((state) => ({
+      events: state.events.map((event) =>
+        event.id === eventId
+          ? { ...event, phases: (event.phases ?? []).filter((p) => p.id !== phaseId) }
+          : event
+      ),
+    }));
+  },
+
+  updatePhase: (eventId, phaseId, updates) => {
+    set((state) => ({
+      events: state.events.map((event) =>
+        event.id === eventId
+          ? {
+              ...event,
+              phases: (event.phases ?? []).map((p) =>
+                p.id === phaseId ? { ...p, ...updates } : p
+              ),
+            }
+          : event
       ),
     }));
   },
@@ -237,6 +295,7 @@ export const useEventStore = create<EventState>((set, get) => ({
       activeEventId: null,
       globalTime: DEFAULT_GLOBAL_TIME,
       isEventMode: false,
+      pausedAtPhaseIndex: -1,
     });
   },
 }));

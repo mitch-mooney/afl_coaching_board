@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAnnotationStore, AnnotationType } from '../../store/annotationStore';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -30,14 +30,46 @@ export function AnnotationToolbar() {
     selectedTool,
     selectedColor,
     thickness,
+    pendingTextPoint,
     setSelectedTool,
     setSelectedColor,
     setThickness,
     clearAnnotations,
+    addAnnotation,
+    setPendingTextPoint,
   } = useAnnotationStore();
 
   // Responsive breakpoint detection
   const { isMobile } = useResponsive();
+
+  // Text input dialog state
+  const [textInput, setTextInput] = useState('');
+  const textInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus the input when the text dialog appears
+  useEffect(() => {
+    if (pendingTextPoint) {
+      setTextInput('');
+      setTimeout(() => textInputRef.current?.focus(), 50);
+    }
+  }, [pendingTextPoint]);
+
+  const submitTextAnnotation = () => {
+    if (!pendingTextPoint || !textInput.trim()) return;
+    addAnnotation({
+      type: 'text',
+      points: [pendingTextPoint],
+      color: selectedColor,
+      text: textInput.trim(),
+    });
+    setPendingTextPoint(null);
+    setTextInput('');
+  };
+
+  const cancelTextAnnotation = () => {
+    setPendingTextPoint(null);
+    setTextInput('');
+  };
 
   // Mobile: track if options panel is expanded
   const [isOptionsExpanded, setIsOptionsExpanded] = useState(false);
@@ -253,12 +285,66 @@ export function AnnotationToolbar() {
               <div className="hidden sm:block mt-2 text-xs text-gray-500">
                 {selectedTool === 'measure'
                   ? 'Click and drag to measure distance in metres'
+                  : selectedTool === 'text'
+                  ? 'Click on the field to place text'
                   : 'Click and drag on the field to draw'}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      {/* Text input dialog — appears after clicking on field with text tool */}
+      <AnimatePresence>
+        {pendingTextPoint && (
+          <motion.div
+            className="border-t border-gray-200 px-3 pb-3 pt-2"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            <p className="text-xs text-gray-500 mb-1.5">Enter annotation text:</p>
+            <div className="flex gap-2">
+              <input
+                ref={textInputRef}
+                type="text"
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') submitTextAnnotation();
+                  if (e.key === 'Escape') cancelTextAnnotation();
+                }}
+                placeholder="Type here…"
+                className="
+                  flex-1 px-2 py-1.5 text-sm rounded border border-gray-300
+                  focus:outline-none focus:ring-2 focus:ring-blue-400
+                "
+              />
+              <button
+                onClick={submitTextAnnotation}
+                disabled={!textInput.trim()}
+                className="
+                  px-3 py-1.5 bg-blue-500 text-white text-sm rounded
+                  hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed
+                  transition-colors touch-manipulation
+                "
+              >
+                Add
+              </button>
+              <button
+                onClick={cancelTextAnnotation}
+                className="
+                  px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded
+                  hover:bg-gray-300 transition-colors touch-manipulation
+                "
+              >
+                ✕
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

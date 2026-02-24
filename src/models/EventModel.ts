@@ -4,6 +4,35 @@
  */
 
 /**
+ * A named phase within an animation event.
+ * When playback reaches startTime, it pauses so the coach can explain the next phase.
+ * Phase 1 always starts at t=0 and plays immediately (no pause at startTime=0).
+ */
+export interface AnimationPhase {
+  id: string;
+  name: string;
+  description?: string;
+  /** The boundary in ms where animation pauses BEFORE playing this phase */
+  startTime: number;
+}
+
+/**
+ * Create an animation phase
+ */
+export function createAnimationPhase(
+  name: string,
+  startTime: number,
+  description?: string
+): AnimationPhase {
+  return {
+    id: `phase-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name,
+    startTime,
+    description,
+  };
+}
+
+/**
  * Configuration for a single player's path within an animation event
  */
 export interface PlayerPathConfig {
@@ -22,6 +51,8 @@ export interface AnimationEvent {
   description?: string;
   duration: number; // Total event duration in milliseconds (e.g., 30000 for 30s)
   playerPaths: PlayerPathConfig[];
+  /** Named phases for pause-and-coach workflow. Empty array = no phases (plays straight through). */
+  phases: AnimationPhase[];
   createdAt: number; // Timestamp when event was created
 }
 
@@ -62,6 +93,7 @@ export function createAnimationEvent(
     description,
     duration,
     playerPaths,
+    phases: [],
     createdAt: Date.now(),
   };
 }

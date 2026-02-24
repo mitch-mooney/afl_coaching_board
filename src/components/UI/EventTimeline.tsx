@@ -33,6 +33,7 @@ export function EventTimeline() {
   const speed = useAnimationStore((state) => state.speed);
   const loop = useAnimationStore((state) => state.loop);
   const togglePlayback = useAnimationStore((state) => state.togglePlayback);
+  const play = useAnimationStore((state) => state.play);
   const stop = useAnimationStore((state) => state.stop);
   const setSpeed = useAnimationStore((state) => state.setSpeed);
   const toggleLoop = useAnimationStore((state) => state.toggleLoop);
@@ -42,6 +43,8 @@ export function EventTimeline() {
   const activeEventId = useEventStore((state) => state.activeEventId);
   const getActiveEvent = useEventStore((state) => state.getActiveEvent);
   const setGlobalTime = useEventStore((state) => state.setGlobalTime);
+  const pausedAtPhaseIndex = useEventStore((state) => state.pausedAtPhaseIndex);
+  const setPausedAtPhaseIndex = useEventStore((state) => state.setPausedAtPhaseIndex);
 
   // Get active event
   const activeEvent = getActiveEvent();
@@ -156,6 +159,32 @@ export function EventTimeline() {
     setGlobalTime(newTime);
   }, [globalTime, duration, setGlobalTime]);
 
+  // Phase helpers
+  const sortedPhases = [...(activeEvent?.phases ?? [])].sort(
+    (a, b) => a.startTime - b.startTime
+  );
+
+  // Determine which phase we're currently in (for the badge)
+  const currentPhaseNumber = (() => {
+    if (!activeEvent || sortedPhases.length === 0) return null;
+    let phase = 1;
+    for (let i = sortedPhases.length - 1; i >= 0; i--) {
+      if (globalTime >= sortedPhases[i].startTime) {
+        phase = i + 1;
+        break;
+      }
+    }
+    return phase;
+  })();
+
+  /**
+   * Continue past a phase break
+   */
+  const handleContinue = useCallback(() => {
+    setPausedAtPhaseIndex(-1);
+    play();
+  }, [setPausedAtPhaseIndex, play]);
+
   // Don't render if no active event
   if (!activeEventId || !activeEvent) {
     return null;
@@ -178,12 +207,19 @@ export function EventTimeline() {
           flex items-center justify-between
           ${isMobile ? 'mb-2' : 'mb-3'}
         `}>
-          <h3 className={`
-            font-semibold text-gray-700 truncate
-            ${isMobile ? 'text-xs max-w-[45%]' : 'text-sm max-w-xs'}
-          `}>
-            {activeEvent.name}
-          </h3>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <h3 className={`
+              font-semibold text-gray-700 truncate
+              ${isMobile ? 'text-xs max-w-[45%]' : 'text-sm max-w-xs'}
+            `}>
+              {activeEvent.name}
+            </h3>
+            {sortedPhases.length > 1 && currentPhaseNumber !== null && (
+              <span className="flex-shrink-0 px-1.5 py-0.5 bg-yellow-100 text-yellow-800 text-[10px] font-semibold rounded-full whitespace-nowrap">
+                Phase {currentPhaseNumber} / {sortedPhases.length}
+              </span>
+            )}
+          </div>
           <span className={`
             text-gray-500
             ${isMobile ? 'text-[10px]' : 'text-xs'}
@@ -191,6 +227,29 @@ export function EventTimeline() {
             {isMobile ? formatEventTime(duration) : `Duration: ${formatEventTime(duration)}`}
           </span>
         </div>
+
+        {/* Phase-break banner */}
+        {pausedAtPhaseIndex >= 0 && sortedPhases[pausedAtPhaseIndex] && (
+          <div className="mb-2 px-3 py-2 bg-yellow-50 border border-yellow-300 rounded-lg flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-xs font-semibold text-yellow-800 flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-yellow-500 inline-block flex-shrink-0" />
+                <span className="truncate">{sortedPhases[pausedAtPhaseIndex].name}</span>
+              </div>
+              {sortedPhases[pausedAtPhaseIndex].description && (
+                <div className="text-xs text-yellow-700 mt-0.5 truncate">
+                  {sortedPhases[pausedAtPhaseIndex].description}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleContinue}
+              className="px-3 py-1.5 bg-green-500 text-white text-xs font-semibold rounded hover:bg-green-600 transition whitespace-nowrap touch-manipulation min-h-[36px] flex-shrink-0"
+            >
+              Continue →
+            </button>
+          </div>
+        )}
 
         {/* Timeline Scrubber */}
         <div
@@ -239,6 +298,23 @@ export function EventTimeline() {
               ))}
             </div>
           )}
+
+          {/* Phase boundary markers */}
+          {sortedPhases
+            .filter((p) => p.startTime > 0)
+            .map((phase) => (
+              <div
+                key={phase.id}
+                className="absolute top-0 bottom-0 w-px bg-yellow-400 pointer-events-none"
+                style={{ left: `${(phase.startTime / duration) * 100}%` }}
+              >
+                {!isMobile && (
+                  <span className="absolute -top-5 left-1 text-[9px] text-yellow-600 whitespace-nowrap font-medium leading-none">
+                    {phase.name}
+                  </span>
+                )}
+              </div>
+            ))}
         </div>
 
         {/* Controls Row - responsive layout */}

@@ -171,6 +171,37 @@ export function useAnimationPlayback(): UseAnimationPlaybackReturn {
       // Calculate new global time based on speed
       const newGlobalTime = currentGlobalTime + deltaTime * speedRef.current;
 
+      // Check for phase boundary crossings
+      const sortedPhases = (activeEvent.phases ?? [])
+        .filter((p) => p.startTime > 0)
+        .sort((a, b) => a.startTime - b.startTime);
+
+      const crossedPhase = sortedPhases.find(
+        (p) => p.startTime > currentGlobalTime && p.startTime <= newGlobalTime
+      );
+
+      if (crossedPhase) {
+        // Find the index within the full sorted phases array (including startTime=0)
+        const allSorted = [...(activeEvent.phases ?? [])].sort(
+          (a, b) => a.startTime - b.startTime
+        );
+        const crossedIndex = allSorted.findIndex((p) => p.id === crossedPhase.id);
+
+        useEventStore.getState().setGlobalTime(crossedPhase.startTime);
+        globalTimeRef.current = crossedPhase.startTime;
+        useEventStore.getState().setPausedAtPhaseIndex(crossedIndex);
+
+        const updates = calculatePlayerPositions(crossedPhase.startTime);
+        if (updates.length > 0) {
+          usePlayerStore.getState().updateMultiplePlayers(updates);
+        }
+
+        useAnimationStore.getState().pause();
+        animationFrameIdRef.current = null;
+        lastTimestampRef.current = null;
+        return;
+      }
+
       // Check if we've reached the end of the event
       if (newGlobalTime >= activeEvent.duration) {
         if (loopRef.current) {
@@ -252,6 +283,8 @@ export function useAnimationPlayback(): UseAnimationPlaybackReturn {
   // Start/stop animation based on isPlaying and isEventMode state
   useEffect(() => {
     if (isPlaying && isEventMode) {
+      // Clear any phase-break banner when playback resumes
+      useEventStore.getState().setPausedAtPhaseIndex(-1);
       startAnimation();
     } else {
       stopAnimation();

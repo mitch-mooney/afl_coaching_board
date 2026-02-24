@@ -7,7 +7,7 @@ import { snapToField } from '../utils/fieldGeometry';
 
 export function useAnnotationInteraction() {
   const { camera, raycaster, gl } = useThree();
-  const { selectedTool, selectedColor, thickness, addAnnotation, setLivePreview } = useAnnotationStore();
+  const { selectedTool, selectedColor, thickness, addAnnotation, setLivePreview, setPendingTextPoint } = useAnnotationStore();
   const setPenDrawing = useUIStore((state) => state.setPenDrawing);
   const isDrawingRef = useRef(false);
   const startPointRef = useRef<Vector3 | null>(null);
@@ -40,8 +40,15 @@ export function useAnnotationInteraction() {
       );
       
       if (intersection) {
-        const [x, z] = snapToField(intersection.x, intersection.z);
-        const point = [x, 0, z];
+        const [sx, sz] = snapToField(intersection.x, intersection.z);
+
+        // Text tool: just set the placement point; no drag needed
+        if (selectedTool === 'text') {
+          setPendingTextPoint([sx, 0, sz]);
+          return;
+        }
+
+        const point = [sx, 0, sz];
         startPointRef.current = intersection.clone();
         currentPointsRef.current = [point];
         isDrawingRef.current = true;
@@ -114,7 +121,7 @@ export function useAnnotationInteraction() {
       gl.domElement.removeEventListener('pointerup', handlePointerUp);
       gl.domElement.removeEventListener('pointercancel', handlePointerCancel);
     };
-  }, [selectedTool, selectedColor, thickness, camera, raycaster, gl, addAnnotation, setLivePreview, setPenDrawing]);
+  }, [selectedTool, selectedColor, thickness, camera, raycaster, gl, addAnnotation, setLivePreview, setPenDrawing, setPendingTextPoint]);
   
   return null;
 }

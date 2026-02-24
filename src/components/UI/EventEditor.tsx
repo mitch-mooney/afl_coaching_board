@@ -2,7 +2,12 @@ import { useState, useCallback, useMemo } from 'react';
 import { useEventStore, formatEventTime } from '../../store/eventStore';
 import { usePathStore } from '../../store/pathStore';
 import { usePlayerStore } from '../../store/playerStore';
-import { createPlayerPathConfig, EVENT_DEFAULTS } from '../../models/EventModel';
+import {
+  createPlayerPathConfig,
+  createAnimationPhase,
+  AnimationPhase,
+  EVENT_DEFAULTS,
+} from '../../models/EventModel';
 
 interface EventEditorProps {
   /** Callback when editor is closed */
@@ -43,6 +48,11 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
   );
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Local phase state (phases 2+ only; phase 1 at t=0 is implicit)
+  const [phases, setPhases] = useState<AnimationPhase[]>(() =>
+    (existingEvent?.phases ?? []).filter((p) => p.startTime > 0)
+  );
 
   // Local state for path offsets (used when creating or before saving)
   // Maps playerId to startTimeOffset in milliseconds
@@ -94,6 +104,34 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
   }, []);
 
   /**
+   * Add a new phase
+   */
+  const handleAddPhase = useCallback(() => {
+    const midpoint = Math.max(1, Math.round(durationSeconds / 2));
+    const newPhase = createAnimationPhase(`Phase ${phases.length + 2}`, midpoint * 1000);
+    setPhases((prev) => [...prev, newPhase]);
+  }, [durationSeconds, phases.length]);
+
+  /**
+   * Remove a phase
+   */
+  const handleRemovePhase = useCallback((phaseId: string) => {
+    setPhases((prev) => prev.filter((p) => p.id !== phaseId));
+  }, []);
+
+  /**
+   * Update a phase field
+   */
+  const handleUpdatePhase = useCallback(
+    (phaseId: string, updates: Partial<Omit<AnimationPhase, 'id'>>) => {
+      setPhases((prev) =>
+        prev.map((p) => (p.id === phaseId ? { ...p, ...updates } : p))
+      );
+    },
+    []
+  );
+
+  /**
    * Capture all current paths from pathStore into the event
    */
   const handleCapturePaths = useCallback(() => {
@@ -141,12 +179,25 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
 
     const durationMs = durationSeconds * 1000;
 
+    // Build full phases array: implicit phase 1 at t=0 plus user-defined phases
+    const phase1 = createAnimationPhase('Phase 1', 0);
+    // Preserve existing phase 1 id if editing
+    const existingPhase1 = existingEvent?.phases?.find((p) => p.startTime === 0);
+    const fullPhases: AnimationPhase[] = [
+      existingPhase1 ?? phase1,
+      ...phases.map((p) => ({
+        ...p,
+        startTime: Math.max(1, Math.min(durationMs - 1, p.startTime)),
+      })),
+    ];
+
     if (editEventId && existingEvent) {
       // Update existing event
       updateEvent(editEventId, {
         name: eventName.trim(),
         description: description.trim() || undefined,
         duration: durationMs,
+        phases: fullPhases,
       });
 
       // Update player paths
@@ -195,6 +246,11 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
         description.trim() || undefined
       );
 
+      // Apply phases to new event after creation
+      if (fullPhases.length > 1) {
+        updateEvent(newEvent.id, { phases: fullPhases });
+      }
+
       // Set as active event
       setActiveEvent(newEvent.id);
     }
@@ -208,6 +264,7 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
     existingEvent,
     pathOffsets,
     playerPaths,
+    phases,
     createEvent,
     updateEvent,
     addPlayerPath,
@@ -304,6 +361,88 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
             <span className="text-sm text-gray-500">
               ({formatEventTime(durationSeconds * 1000)})
             </span>
+          </div>
+        </div>
+
+        {/* Phases Section */}
+        <div className="border-t pt-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">Phases</span>
+            <button
+              type="button"
+              onClick={handleAddPhase}
+              className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 hover:bg-yellow-200 rounded transition"
+            >
+              + Add Phase
+            </button>
+          </div>
+
+          <div className="space-y-1.5">
+            {/* Implicit Phase 1 — always shown, non-editable */}
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-50 rounded border border-gray-200">
+              <span className="w-2 h-2 rounded-full bg-yellow-400 flex-shrink-0" />
+              <span className="text-xs font-medium text-gray-700 flex-1">Phase 1</span>
+              <span className="text-xs text-gray-400">t = 0s</span>
+            </div>
+
+            {/* User-defined phases */}
+            {phases.map((phase, i) => (
+              <div key={phase.id} className="border border-yellow-200 rounded p-2 bg-yellow-50">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-yellow-500 flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={phase.name}
+                    onChange={(e) => handleUpdatePhase(phase.id, { name: e.target.value })}
+                    placeholder={`Phase ${i + 2} name`}
+                    className="flex-1 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-yellow-400 focus:border-yellow-400 min-w-0"
+                  />
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <input
+                      type="number"
+                      min={1}
+                      max={durationSeconds - 1}
+                      step={1}
+                      value={Math.round(phase.startTime / 1000)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if (!isNaN(val)) {
+                          handleUpdatePhase(phase.id, { startTime: val * 1000 });
+                        }
+                      }}
+                      className="w-14 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-yellow-400 focus:border-yellow-400 text-center"
+                    />
+                    <span className="text-xs text-gray-500">s</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePhase(phase.id)}
+                    className="p-1 text-red-400 hover:text-red-600 transition flex-shrink-0"
+                    aria-label={`Remove ${phase.name}`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                {/* Optional description */}
+                <input
+                  type="text"
+                  value={phase.description ?? ''}
+                  onChange={(e) =>
+                    handleUpdatePhase(phase.id, { description: e.target.value || undefined })
+                  }
+                  placeholder="Description (optional)"
+                  className="mt-1.5 w-full px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-yellow-400 focus:border-yellow-400 bg-white"
+                />
+              </div>
+            ))}
+
+            {phases.length === 0 && (
+              <p className="text-xs text-gray-400 italic">
+                No phases — animation plays straight through. Add a phase to enable pause-and-coach.
+              </p>
+            )}
           </div>
         </div>
 
