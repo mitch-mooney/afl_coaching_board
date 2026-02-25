@@ -6,6 +6,8 @@ import { useBallStore } from '../../store/ballStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useAnimationStore } from '../../store/animationStore';
 import { usePathStore } from '../../store/pathStore';
+import { useEventStore } from '../../store/eventStore';
+import { useUIStore } from '../../store/uiStore';
 import { useHistoryStore } from '../../store/historyStore';
 import { snapToField } from '../../utils/fieldGeometry';
 import { getPositionAtProgressWithEasing, easeInOut } from '../../utils/pathAnimation';
@@ -136,9 +138,6 @@ export function BallComponent({ ball }: BallProps) {
     selectBall(true);
   };
 
-  // Get existing path for the ball
-  const existingBallPath = getPathByEntity(ball.id, 'ball');
-
   // Helper to create path from recorded movement points
   const createPathFromMovement = useCallback(() => {
     // Add final position if different from last recorded
@@ -236,9 +235,18 @@ export function BallComponent({ ball }: BallProps) {
     lastRecordedPos.current = startPos;
     dragStartTime.current = Date.now();
 
-    // Remove any existing path for the ball to start fresh
-    if (existingBallPath) {
-      removePath(existingBallPath.id);
+    // Remove existing paths for the ball to start fresh, but protect:
+    // 1. Paths referenced by a saved event (Phase 1 ball arrow while recording Phase 2)
+    // 2. Paths captured in the open EventEditor but not yet saved to an event
+    const allBallPaths = usePathStore.getState().getPathsByEntity(ball.id);
+    for (const path of allBallPaths) {
+      const isUsedByEvent = useEventStore.getState().events.some(
+        (event) => event.playerPaths.some((pp) => pp.pathId === path.id)
+      );
+      const isCaptured = useUIStore.getState().capturedPathIds.has(path.id);
+      if (!isUsedByEvent && !isCaptured) {
+        removePath(path.id);
+      }
     }
   };
 

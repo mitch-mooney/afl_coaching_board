@@ -60,7 +60,7 @@ export function PlayerComponent({ player }: PlayerProps) {
   // Track rotation start state for right-click rotation
   const rotationStartRef = useRef<{ clientX: number; startRotation: number } | null>(null);
   const { selectedPlayerId, selectPlayer, updatePlayerPosition, updatePlayerRotation, showPlayerNames, showPositionNames, startEditingPlayerName, setDragging, setPlayerPosition, players } = usePlayerStore();
-  const { addPath, getPathByEntity, removePath } = usePathStore();
+  const { addPath, removePath } = usePathStore();
   const { pushSnapshot } = useHistoryStore();
   const isPlaying = useAnimationStore((state) => state.isPlaying);
   const isEventMode = useEventStore((state) => state.isEventMode);
@@ -69,9 +69,6 @@ export function PlayerComponent({ player }: PlayerProps) {
 
   // Check if dragging should be disabled (during event mode animation playback)
   const isDragDisabled = isEventMode && isPlaying;
-
-  // Get existing path for this player (if any)
-  const existingPath = getPathByEntity(player.id, 'player');
 
   // Memoize the formatted display name for performance with many players
   const displayName = useMemo(() => {
@@ -204,9 +201,18 @@ export function PlayerComponent({ player }: PlayerProps) {
     lastRecordedPos.current = startPos;
     dragStartTime.current = Date.now();
 
-    // Remove any existing path for this player to start fresh
-    if (existingPath) {
-      removePath(existingPath.id);
+    // Remove existing paths for this player to start fresh, but protect:
+    // 1. Paths referenced by a saved event (Phase 1 arrows while recording Phase 2)
+    // 2. Paths captured in the open EventEditor but not yet saved to an event
+    const allPlayerPaths = usePathStore.getState().getPathsByEntity(player.id);
+    for (const path of allPlayerPaths) {
+      const isUsedByEvent = useEventStore.getState().events.some(
+        (event) => event.playerPaths.some((pp) => pp.pathId === path.id)
+      );
+      const isCaptured = useUIStore.getState().capturedPathIds.has(path.id);
+      if (!isUsedByEvent && !isCaptured) {
+        removePath(path.id);
+      }
     }
   };
 

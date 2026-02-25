@@ -16,6 +16,11 @@ interface UIState {
   // Apple Pencil / pen drawing state
   isPenDrawing: boolean;
 
+  // Event editor panel state (shared so Timeline can open it for editing)
+  eventEditorOpen: boolean;
+  /** null = create new event; string = edit the event with this ID */
+  eventEditorEditId: string | null;
+
   // Menu actions
   toggleMenu: () => void;
   openMenu: () => void;
@@ -26,6 +31,16 @@ interface UIState {
 
   // Pen drawing actions
   setPenDrawing: (val: boolean) => void;
+
+  // Event editor actions
+  openEventEditor: (editId?: string) => void;
+  closeEventEditor: () => void;
+
+  // Captured path IDs (paths recorded in EventEditor but not yet saved)
+  // Used by Player.tsx to avoid deleting unsaved phase paths while editing
+  capturedPathIds: Set<string>;
+  addCapturedPathIds: (ids: string[]) => void;
+  clearCapturedPathIds: () => void;
 }
 
 /**
@@ -66,6 +81,9 @@ export const useUIStore = create<UIState>((set) => {
     isMobile: isMobileWidth(initialWidth),
     screenWidth: initialWidth,
     isPenDrawing: false,
+    eventEditorOpen: false,
+    eventEditorEditId: null,
+    capturedPathIds: new Set<string>(),
 
     // Menu actions
     toggleMenu: () => {
@@ -102,6 +120,25 @@ export const useUIStore = create<UIState>((set) => {
     // Pen drawing actions
     setPenDrawing: (val: boolean) => {
       set({ isPenDrawing: val });
+    },
+
+    // Event editor actions
+    openEventEditor: (editId?: string) => {
+      set({ eventEditorOpen: true, eventEditorEditId: editId ?? null });
+    },
+    closeEventEditor: () => {
+      set({ eventEditorOpen: false, eventEditorEditId: null });
+    },
+
+    addCapturedPathIds: (ids: string[]) => {
+      set((state) => {
+        const next = new Set(state.capturedPathIds);
+        ids.forEach((id) => next.add(id));
+        return { capturedPathIds: next };
+      });
+    },
+    clearCapturedPathIds: () => {
+      set({ capturedPathIds: new Set<string>() });
     },
   };
 });
