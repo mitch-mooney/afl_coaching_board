@@ -60,13 +60,14 @@ interface EventState {
   // Player Path Management within Events
   /** Add or update a player path in an event */
   addPlayerPath: (eventId: string, playerPath: PlayerPathConfig) => void;
-  /** Remove a player path from an event */
-  removePlayerPath: (eventId: string, playerId: string) => void;
-  /** Update a player path in an event */
+  /** Remove a player path from an event. When pathId is provided, removes only that specific entry. */
+  removePlayerPath: (eventId: string, playerId: string, pathId?: string) => void;
+  /** Update a player path in an event. When pathId is provided, targets only that specific entry. */
   updatePlayerPath: (
     eventId: string,
     playerId: string,
-    updates: Partial<Omit<PlayerPathConfig, 'playerId'>>
+    updates: Partial<Omit<PlayerPathConfig, 'playerId'>>,
+    pathId?: string
   ) => void;
 
   // Phase Management
@@ -188,18 +189,18 @@ export const useEventStore = create<EventState>((set, get) => ({
     }));
   },
 
-  removePlayerPath: (eventId, playerId) => {
+  removePlayerPath: (eventId, playerId, pathId) => {
     set((state) => ({
       events: state.events.map((event) =>
-        event.id === eventId ? removePlayerPathFromEvent(event, playerId) : event
+        event.id === eventId ? removePlayerPathFromEvent(event, playerId, pathId) : event
       ),
     }));
   },
 
-  updatePlayerPath: (eventId, playerId, updates) => {
+  updatePlayerPath: (eventId, playerId, updates, pathId) => {
     set((state) => ({
       events: state.events.map((event) =>
-        event.id === eventId ? updatePlayerPathInEvent(event, playerId, updates) : event
+        event.id === eventId ? updatePlayerPathInEvent(event, playerId, updates, pathId) : event
       ),
     }));
   },

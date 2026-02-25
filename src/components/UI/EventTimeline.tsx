@@ -5,6 +5,7 @@ import {
   AnimationSpeed,
 } from '../../store/animationStore';
 import { useEventStore, formatEventTime } from '../../store/eventStore';
+import { useUIStore } from '../../store/uiStore';
 import { useResponsive } from '../../hooks/useResponsive';
 
 /**
@@ -37,6 +38,9 @@ export function EventTimeline() {
   const stop = useAnimationStore((state) => state.stop);
   const setSpeed = useAnimationStore((state) => state.setSpeed);
   const toggleLoop = useAnimationStore((state) => state.toggleLoop);
+
+  // UI store
+  const openEventEditor = useUIStore((state) => state.openEventEditor);
 
   // Event store state
   const globalTime = useEventStore((state) => state.globalTime);
@@ -220,12 +224,25 @@ export function EventTimeline() {
               </span>
             )}
           </div>
-          <span className={`
-            text-gray-500
-            ${isMobile ? 'text-[10px]' : 'text-xs'}
-          `}>
-            {isMobile ? formatEventTime(duration) : `Duration: ${formatEventTime(duration)}`}
-          </span>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className={`
+              text-gray-500
+              ${isMobile ? 'text-[10px]' : 'text-xs'}
+            `}>
+              {isMobile ? formatEventTime(duration) : `Duration: ${formatEventTime(duration)}`}
+            </span>
+            <button
+              type="button"
+              onClick={() => activeEventId && openEventEditor(activeEventId)}
+              className="p-1 text-gray-400 hover:text-purple-600 transition touch-manipulation"
+              title="Edit event"
+              aria-label="Edit event"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Phase-break banner */}

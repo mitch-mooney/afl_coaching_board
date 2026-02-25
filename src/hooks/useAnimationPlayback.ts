@@ -3,7 +3,9 @@ import { useAnimationStore } from '../store/animationStore';
 import { useEventStore } from '../store/eventStore';
 import { usePlayerStore, PlayerUpdate } from '../store/playerStore';
 import { usePathStore } from '../store/pathStore';
+import { useBallStore } from '../store/ballStore';
 import { getPositionAtTime } from '../utils/pathAnimation';
+import { PlayerPathConfig } from '../models/EventModel';
 
 /**
  * useAnimationPlayback - Hook for managing event-based animation playback
@@ -68,8 +70,10 @@ export function useAnimationPlayback(): UseAnimationPlaybackReturn {
   }, [isEventMode]);
 
   /**
-   * Calculate positions for all players based on current global time
-   * Uses direct store access to avoid stale closures
+   * Calculate positions for all players (and ball) based on current global time.
+   * For players with multiple phase paths, selects the path whose startTimeOffset
+   * is the highest value <= currentGlobalTime (the "most recently started" phase).
+   * Uses direct store access to avoid stale closures.
    */
   const calculatePlayerPositions = useCallback(
     (currentGlobalTime: number): PlayerUpdate[] => {
@@ -77,9 +81,31 @@ export function useAnimationPlayback(): UseAnimationPlaybackReturn {
       if (!activeEvent) return [];
 
       const { getPath } = usePathStore.getState();
-      const updates: PlayerUpdate[] = [];
 
+      // Build active path map: for each entity (player or ball), pick the correct
+      // phase path based on currentGlobalTime.
+      // - Prefer the path with the highest startTimeOffset that has already started (<=current).
+      // - If no path has started yet, fall back to the earliest one (show its first keyframe).
+      const activePathMap = new Map<string, PlayerPathConfig>();
       for (const pathConfig of activeEvent.playerPaths) {
+        const existing = activePathMap.get(pathConfig.playerId);
+        if (pathConfig.startTimeOffset <= currentGlobalTime) {
+          // This phase has started — keep it if it's the most recent one
+          if (!existing || pathConfig.startTimeOffset > existing.startTimeOffset) {
+            activePathMap.set(pathConfig.playerId, pathConfig);
+          }
+        } else {
+          // This phase hasn't started yet — only use as fallback if no other path selected
+          if (!existing) {
+            activePathMap.set(pathConfig.playerId, pathConfig);
+          }
+        }
+      }
+
+      const playerUpdates: PlayerUpdate[] = [];
+      let ballUpdate: [number, number, number] | null = null;
+
+      for (const pathConfig of activePathMap.values()) {
         const path = getPath(pathConfig.pathId);
         if (!path) continue;
 
@@ -111,13 +137,23 @@ export function useAnimationPlayback(): UseAnimationPlaybackReturn {
           position = getPositionAtTime(path, localTimeSeconds);
         }
 
-        updates.push({
-          playerId: pathConfig.playerId,
-          position,
-        });
+        if (path.entityType === 'ball') {
+          // Route ball updates directly to ballStore
+          ballUpdate = position;
+        } else {
+          playerUpdates.push({
+            playerId: pathConfig.playerId,
+            position,
+          });
+        }
       }
 
-      return updates;
+      // Apply ball position update if we computed one
+      if (ballUpdate) {
+        useBallStore.getState().updateBallPosition(ballUpdate);
+      }
+
+      return playerUpdates;
     },
     []
   );
@@ -297,12 +333,15 @@ export function useAnimationPlayback(): UseAnimationPlaybackReturn {
   }, [isPlaying, isEventMode, startAnimation, stopAnimation]);
 
   // When global time changes externally (e.g., scrubbing), update player positions
-  // Only do this when not playing to avoid interfering with animation loop
+  // Only do this when not playing to avoid interfering with animation loop.
+  // isEventMode intentionally excluded from deps — don't snap players to t=0
+  // when an event is first activated (players stay at current board positions).
   useEffect(() => {
-    if (!isPlaying && isEventMode) {
+    if (!isPlaying && isEventModeRef.current) {
       updatePositionsForCurrentTime();
     }
-  }, [globalTime, isPlaying, isEventMode, updatePositionsForCurrentTime]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalTime, isPlaying, updatePositionsForCurrentTime]);
 
   return {
     isAnimating: isPlaying && isEventMode,

@@ -59,6 +59,10 @@ export function Toolbar({ canvas }: ToolbarProps) {
   // UI store state for responsive menu
   const isMenuOpen = useUIStore((state) => state.isMenuOpen);
   const toggleMenu = useUIStore((state) => state.toggleMenu);
+  const eventEditorOpen = useUIStore((state) => state.eventEditorOpen);
+  const eventEditorEditId = useUIStore((state) => state.eventEditorEditId);
+  const openEventEditor = useUIStore((state) => state.openEventEditor);
+  const closeEventEditor = useUIStore((state) => state.closeEventEditor);
 
   const authUser = useAuthStore((state) => state.user);
   const authIsConfigured = useAuthStore((state) => state.isConfigured);
@@ -74,7 +78,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const [pendingNames, setPendingNames] = useState<string[]>([]);
   const [, setEditingName] = useState('');
   const [showVideoUploader, setShowVideoUploader] = useState(false);
-  const [showEventEditor, setShowEventEditor] = useState(false);
+  // Event editor is managed via uiStore (shared with EventTimeline)
   const [showPOVSelector, setShowPOVSelector] = useState(false);
   const [showTeamSelector, setShowTeamSelector] = useState(false);
   const [showMatchSetup, setShowMatchSetup] = useState(false);
@@ -389,7 +393,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
 
     // Events section
     const eventItems = [
-      createMenuItem('create-event', 'Create Event', () => setShowEventEditor(true), { variant: 'purple', description: 'Create a scripted event sequence with timed animations' }),
+      createMenuItem('create-event', 'Create Event', () => openEventEditor(), { variant: 'purple', description: 'Create a scripted event sequence with timed animations' }),
     ];
     if (activeEvent) {
       eventItems.push(
@@ -712,18 +716,13 @@ export function Toolbar({ canvas }: ToolbarProps) {
         </div>
       )}
 
-      {/* Event Editor Modal */}
-      {showEventEditor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowEventEditor(false)}
+      {/* Event Editor – floating panel (no backdrop so the board stays interactive) */}
+      {eventEditorOpen && (
+        <div className="fixed top-4 right-4 z-40 max-h-[calc(100vh-2rem)] overflow-y-auto">
+          <EventEditor
+            onClose={closeEventEditor}
+            editEventId={eventEditorEditId}
           />
-          {/* Modal content */}
-          <div className="relative z-10">
-            <EventEditor onClose={() => setShowEventEditor(false)} />
-          </div>
         </div>
       )}
 

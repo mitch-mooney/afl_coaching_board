@@ -99,19 +99,23 @@ export function createAnimationEvent(
 }
 
 /**
- * Add a player path configuration to an event
+ * Add a player path configuration to an event.
+ * Deduplicates by (playerId, startTimeOffset) so the same player can have
+ * one path per phase (different startTimeOffset = different phase).
  */
 export function addPlayerPathToEvent(
   event: AnimationEvent,
   playerPath: PlayerPathConfig
 ): AnimationEvent {
-  // Check if player already has a path in this event
+  // Dedup key is (playerId, startTimeOffset) — same player at the same phase offset replaces
   const existingIndex = event.playerPaths.findIndex(
-    (pp) => pp.playerId === playerPath.playerId
+    (pp) =>
+      pp.playerId === playerPath.playerId &&
+      pp.startTimeOffset === playerPath.startTimeOffset
   );
 
   if (existingIndex >= 0) {
-    // Replace existing path config for this player
+    // Replace existing path config for this player at this phase offset
     const newPlayerPaths = [...event.playerPaths];
     newPlayerPaths[existingIndex] = playerPath;
     return {
@@ -127,31 +131,46 @@ export function addPlayerPathToEvent(
 }
 
 /**
- * Remove a player path configuration from an event by player ID
+ * Remove a player path configuration from an event.
+ * If pathId is provided, removes only that specific path entry.
+ * Otherwise removes all paths for the given player.
  */
 export function removePlayerPathFromEvent(
   event: AnimationEvent,
-  playerId: string
+  playerId: string,
+  pathId?: string
 ): AnimationEvent {
   return {
     ...event,
-    playerPaths: event.playerPaths.filter((pp) => pp.playerId !== playerId),
+    playerPaths: pathId
+      ? event.playerPaths.filter(
+          (pp) => !(pp.playerId === playerId && pp.pathId === pathId)
+        )
+      : event.playerPaths.filter((pp) => pp.playerId !== playerId),
   };
 }
 
 /**
- * Update a player path configuration in an event
+ * Update a player path configuration in an event.
+ * If pathId is provided, updates only that specific path entry.
+ * Otherwise updates all paths for the given player.
  */
 export function updatePlayerPathInEvent(
   event: AnimationEvent,
   playerId: string,
-  updates: Partial<Omit<PlayerPathConfig, 'playerId'>>
+  updates: Partial<Omit<PlayerPathConfig, 'playerId'>>,
+  pathId?: string
 ): AnimationEvent {
   return {
     ...event,
-    playerPaths: event.playerPaths.map((pp) =>
-      pp.playerId === playerId ? { ...pp, ...updates } : pp
-    ),
+    playerPaths: event.playerPaths.map((pp) => {
+      if (pathId) {
+        return pp.playerId === playerId && pp.pathId === pathId
+          ? { ...pp, ...updates }
+          : pp;
+      }
+      return pp.playerId === playerId ? { ...pp, ...updates } : pp;
+    }),
   };
 }
 
