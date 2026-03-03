@@ -53,6 +53,12 @@ export function BallComponent({ ball }: BallProps) {
   const { getPathByEntity, addPath, removePath } = usePathStore();
   const { pushSnapshot } = useHistoryStore();
   const { camera, raycaster, gl } = useThree();
+  const isEventMode = useEventStore((state) => state.isEventMode);
+  const getActiveEvent = useEventStore((state) => state.getActiveEvent);
+  
+  // Check if there's a ball path from the active event
+  const activeEvent = getActiveEvent();
+  const ballPathFromEvent = activeEvent?.ballPaths && activeEvent.ballPaths.length > 0;
 
   // Calculate ring sizes based on ball size
   const ringSize = useMemo(() => ({
@@ -68,70 +74,83 @@ export function BallComponent({ ball }: BallProps) {
   // Get the ball's movement path (if any)
   const ballPath = getPathByEntity(ball.id, 'ball');
 
-  useFrame((state, delta) => {
-    // Priority 1: Follow assigned player (overrides path animation)
-    if (assignedPlayer && !isDragging) {
-      // Position ball at player's position with slight Y offset to appear "held"
-      if (groupRef.current) {
+   useFrame((state, delta) => {
+     // In event playback mode, ball positions are driven by useAnimationPlayback hook
+     // via useBallStore. Only handle position updates in these cases:
+     
+     // Priority 1: Follow assigned player (overrides path animation)
+     if (assignedPlayer && !isDragging) {
+       // Position ball at player's position with slight Y offset to appear "held"
+       if (groupRef.current) {
+         groupRef.current.position.set(
+           assignedPlayer.position[0],
+           assignedPlayer.position[1] + AFL_BALL.length + 0.5, // Position above player
+           assignedPlayer.position[2]
+         );
+       }
+     }
+     // Priority 2: Handle manual playback scrubbing (not event mode) - update ball position along path
+     else if (isPlaying && !ballPathFromEvent && ballPath && !isDragging) {
+       // Advance animation progress
+       const pathDuration = ballPath.duration;
+       const progressIncrement = (delta * speed) / pathDuration;
+       const newProgress = Math.min(1, progress + progressIncrement);
+       setProgress(newProgress);
+
+       // Get interpolated position from path at current progress
+       const animatedPosition = getPositionAtProgressWithEasing(ballPath, progress, easeInOut);
+
+       // Update group position directly for smooth 60fps rendering
+       if (groupRef.current) {
+         groupRef.current.position.set(
+           animatedPosition[0],
+           animatedPosition[1],
+           animatedPosition[2]
+         );
+       }
+     }
+     // Priority 3: When ball is in-flight during event playback, sync to ball store position
+     else if (isEventMode && !isDragging && groupRef.current) {
+        // Ball position is managed by useAnimationPlayback via useBallStore
+        // Update local position to match store position
         groupRef.current.position.set(
-          assignedPlayer.position[0],
-          assignedPlayer.position[1] + AFL_BALL.length + 0.5, // Position above player
-          assignedPlayer.position[2]
+          ball.position[0],
+          ball.position[1],
+          ball.position[2]
         );
       }
-    }
-    // Priority 2: Handle animation playback - update ball position along path
-    else if (isPlaying && ballPath && !isDragging) {
-      // Advance animation progress
-      const pathDuration = ballPath.duration;
-      const progressIncrement = (delta * speed) / pathDuration;
-      const newProgress = Math.min(1, progress + progressIncrement);
-      setProgress(newProgress);
 
-      // Get interpolated position from path at current progress
-      const animatedPosition = getPositionAtProgressWithEasing(ballPath, progress, easeInOut);
+     // Handle dragging with global pointer events
+     if (isDragging) {
+       raycaster.setFromCamera(state.pointer, camera);
+       const planeNormal = new Vector3(0, 1, 0);
+       const planePoint = new Vector3(0, 0, 0);
+       const intersection = raycaster.ray.intersectPlane(
+         new Plane(planeNormal, -planeNormal.dot(planePoint)),
+         new Vector3()
+       );
 
-      // Update group position directly for smooth 60fps rendering
-      if (groupRef.current) {
-        groupRef.current.position.set(
-          animatedPosition[0],
-          animatedPosition[1],
-          animatedPosition[2]
-        );
-      }
-    }
+       if (intersection) {
+         const [x, z] = snapToField(intersection.x, intersection.z);
+         const newPos: [number, number, number] = [x, AFL_BALL.length, z];
+         updateBallPosition(newPos);
 
-    // Handle dragging with global pointer events
-    if (isDragging) {
-      raycaster.setFromCamera(state.pointer, camera);
-      const planeNormal = new Vector3(0, 1, 0);
-      const planePoint = new Vector3(0, 0, 0);
-      const intersection = raycaster.ray.intersectPlane(
-        new Plane(planeNormal, -planeNormal.dot(planePoint)),
-        new Vector3()
-      );
+         // Record movement point if moved far enough from last recorded position
+         if (lastRecordedPos.current) {
+           const lastPos = lastRecordedPos.current;
+           const distance = Math.sqrt(
+             Math.pow(newPos[0] - lastPos[0], 2) +
+             Math.pow(newPos[2] - lastPos[2], 2)
+           );
 
-      if (intersection) {
-        const [x, z] = snapToField(intersection.x, intersection.z);
-        const newPos: [number, number, number] = [x, AFL_BALL.length, z];
-        updateBallPosition(newPos);
-
-        // Record movement point if moved far enough from last recorded position
-        if (lastRecordedPos.current) {
-          const lastPos = lastRecordedPos.current;
-          const distance = Math.sqrt(
-            Math.pow(newPos[0] - lastPos[0], 2) +
-            Math.pow(newPos[2] - lastPos[2], 2)
-          );
-
-          if (distance >= MIN_PATH_POINT_DISTANCE) {
-            movementPoints.current.push(newPos);
-            lastRecordedPos.current = newPos;
-          }
-        }
-      }
-    }
-  });
+           if (distance >= MIN_PATH_POINT_DISTANCE) {
+             movementPoints.current.push(newPos);
+             lastRecordedPos.current = newPos;
+           }
+         }
+       }
+     }
+   });
 
   const handleClick = (e: any) => {
     e.stopPropagation();

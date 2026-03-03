@@ -8,6 +8,8 @@ import {
   createAnimationPhase,
   AnimationPhase,
   EVENT_DEFAULTS,
+  BallPathConfig,
+  KickType,
 } from '../../models/EventModel';
 
 interface EventEditorProps {
@@ -30,6 +32,8 @@ interface CapturedEntry {
   /** Human-readable phase label, e.g. "Phase 1" */
   phaseLabel: string;
   entityType: 'player' | 'ball';
+  /** Kick type for ball trajectories (only used when entityType === 'ball') */
+  kickType?: KickType;
 }
 
 /**
@@ -46,12 +50,16 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
   const createEvent = useEventStore((state) => state.createEvent);
   const updateEvent = useEventStore((state) => state.updateEvent);
   const addPlayerPath = useEventStore((state) => state.addPlayerPath);
-  const removePlayerPath = useEventStore((state) => state.removePlayerPath);
+  const addBallPath = useEventStore((state) => state.addBallPath);
   const getEvent = useEventStore((state) => state.getEvent);
   const setActiveEvent = useEventStore((state) => state.setActiveEvent);
+  const removePlayerPath = useEventStore((state) => state.removePlayerPath);
   const paths = usePathStore((state) => state.paths);
   const getPath = usePathStore((state) => state.getPath);
   const players = usePlayerStore((state) => state.players);
+
+  // Ball trajectory configuration
+  const [ballKickType, setBallKickType] = useState<KickType>('standard');
 
   // Get existing event if editing
   const existingEvent = editEventId ? getEvent(editEventId) : undefined;
@@ -175,13 +183,17 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
 
         const newEntries: CapturedEntry[] = allPaths
           .filter((path) => !alreadyCapturedPathIds.has(path.id))
-          .map((path) => ({
+          .map((path) => {
+          const isBallPath = path.entityType === 'ball';
+          return {
             playerId: path.entityId,
             pathId: path.id,
             startTimeOffset: phaseStartTimeMs,
             phaseLabel,
             entityType: path.entityType,
-          }));
+            kickType: isBallPath ? ballKickType : undefined,
+          };
+        });
 
         if (newEntries.length === 0) return prev; // nothing new to add
 
@@ -292,9 +304,24 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
         const pathExists = getPath(entry.pathId);
         return pathExists !== undefined;
       })
+      .filter((entry) => entry.entityType !== 'ball')
       .map((entry) =>
         createPlayerPathConfig(entry.playerId, entry.pathId, entry.startTimeOffset)
       );
+
+    // Build BallPathConfig[] from ball entries
+    const ballPathConfigs = capturedEntries
+      .filter((entry) => entry.entityType === 'ball' && entry.kickType)
+      .filter((entry) => {
+        const pathExists = getPath(entry.pathId);
+        return pathExists !== undefined;
+      })
+      .map((entry) => ({
+        pathId: entry.pathId,
+        startTimeOffset: entry.startTimeOffset,
+        kickType: entry.kickType!,
+        entityId: 'ball',
+      } as BallPathConfig));
 
     if (editEventId && existingEvent) {
       // Update existing event metadata
@@ -312,6 +339,16 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
       playerPathConfigs.forEach((config) => {
         addPlayerPath(editEventId, config);
       });
+      
+      // Replace all ball paths: remove existing first, then add new ones
+      if (existingEvent.ballPaths) {
+        // Clear all ball paths first (no direct API to remove by start time)
+        const updatedEvent = { ...existingEvent, ballPaths: [] };
+        updateEvent(editEventId, updatedEvent);
+      }
+      ballPathConfigs.forEach((config) => {
+        addBallPath(editEventId, config);
+      });
     } else {
       // Create new event
       const newEvent = createEvent(
@@ -325,6 +362,11 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
       if (fullPhases.length > 1) {
         updateEvent(newEvent.id, { phases: fullPhases });
       }
+      
+      // Add ball paths
+      ballPathConfigs.forEach((config) => {
+        addBallPath(newEvent.id, config);
+      });
 
       // Set as active event
       setActiveEvent(newEvent.id);
@@ -465,9 +507,30 @@ export function EventEditor({ onClose, editEventId = null }: EventEditorProps) {
           </div>
         </div>
 
-        {/* Phase-Aware Path Capture Section */}
-        <div className="border-t pt-4">
-          <div className="flex items-center justify-between mb-2">
+           {/* Phase-Aware Path Capture Section */}
+          <div className="border-t pt-4">
+            {/* Ball Kick Type Selector */}
+            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+              <label className="block text-xs font-medium text-yellow-900 mb-2">
+                Ball Movement Kick Type
+              </label>
+              <select
+                value={ballKickType}
+                onChange={(e) => setBallKickType(e.target.value as KickType)}
+                className="w-full px-3 py-1.5 text-xs border rounded focus:ring-1 focus:ring-yellow-400 focus:border-yellow-400"
+              >
+                <option value="standard">Standard Kick</option>
+                <option value="high">High Ball</option>
+                <option value="low">Low Ball</option>
+                <option value="checkside">Checkside</option>
+                <option value="handball">Handball</option>
+              </select>
+              <p className="mt-1 text-xs text-yellow-700">
+                Select kick type for ball paths captured in this phase
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium">Phases & Paths</span>
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-500">

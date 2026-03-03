@@ -10,6 +10,15 @@ export interface PlayerUpdate {
   rotation?: number;
 }
 
+/**
+ * Track movement state for player leg animations
+ */
+export interface PlayerMoveState {
+  isMoving: boolean;
+  speed: number;
+  lastMoveTime: number;
+}
+
 interface PlayerState {
   players: Player[];
   selectedPlayerId: string | null;
@@ -22,6 +31,8 @@ interface PlayerState {
   showPositionNames: boolean;
   team1PresetId: string | null;
   team2PresetId: string | null;
+  /** Track movement state for leg animations */
+  playerMoveState: Map<string, PlayerMoveState>;
 
   // Actions
   initializePlayers: () => void;
@@ -46,6 +57,8 @@ interface PlayerState {
   setTeamPreset: (teamId: 'team1' | 'team2', presetId: string | null) => void;
   /** Auto-assign positions from jersey numbers. Only fills in players with no existing positionName. */
   autoAssignPositions: (teamId?: 'team1' | 'team2') => void;
+  /** Get movement state for a player */
+  getPlayerMoveState: (playerId: string) => PlayerMoveState | undefined;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -58,6 +71,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   showPositionNames: false,
   team1PresetId: null,
   team2PresetId: null,
+  playerMoveState: new Map<string, PlayerMoveState>(),
 
   initializePlayers: () => {
     const team1Players = createTeamPlayers('team1', DEFAULT_TEAM_COLORS.team1);
@@ -157,11 +171,47 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
   
   updatePlayerPosition: (playerId, position) => {
-    set((state) => ({
-      players: state.players.map((player) =>
+    set((state) => {
+      const prevState = state.players.find((p) => p.id === playerId);
+      const now = Date.now();
+      
+      // Calculate movement speed (simple Euclidean distance)
+      let moveState: PlayerMoveState | undefined;
+      if (prevState) {
+        const dx = position[0] - prevState.position[0];
+        const dy = position[1] - prevState.position[1];
+        const dz = position[2] - prevState.position[2];
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        
+        if (distance > 0.01) {
+          moveState = {
+            isMoving: true,
+            speed: distance,
+            lastMoveTime: now,
+          };
+        } else {
+          moveState = {
+            isMoving: false,
+            speed: 0,
+            lastMoveTime: now,
+          };
+        }
+      }
+      
+      const newPlayers = state.players.map((player) =>
         player.id === playerId ? { ...player, position } : player
-      ),
-    }));
+      );
+      
+      const newMoveState = new Map(state.playerMoveState);
+      if (moveState) {
+        newMoveState.set(playerId, moveState);
+      }
+      
+      return {
+        players: newPlayers,
+        playerMoveState: newMoveState,
+      };
+    });
   },
   
   updatePlayerRotation: (playerId, rotation) => {
@@ -350,5 +400,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         };
       }),
     }));
+  },
+
+  getPlayerMoveState: (playerId) => {
+    return get().playerMoveState.get(playerId);
   },
 }));

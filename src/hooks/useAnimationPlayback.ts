@@ -5,7 +5,7 @@ import { usePlayerStore, PlayerUpdate } from '../store/playerStore';
 import { usePathStore } from '../store/pathStore';
 import { useBallStore } from '../store/ballStore';
 import { getPositionAtTime } from '../utils/pathAnimation';
-import { PlayerPathConfig } from '../models/EventModel';
+import { PlayerPathConfig, BallPathConfig } from '../models/EventModel';
 
 /**
  * useAnimationPlayback - Hook for managing event-based animation playback
@@ -14,7 +14,8 @@ import { PlayerPathConfig } from '../models/EventModel';
  * 1. requestAnimationFrame loop for smooth 60fps animation
  * 2. Global time progression based on playback speed
  * 3. Calculating player positions from paths at the current time
- * 4. Batch updating player positions for performance
+ * 4. Calculating ball positions from ballPaths during event playback
+ * 5. Batch updating player and ball positions for performance
  *
  * Usage:
  * Call this hook in a component that should drive the animation loop.
@@ -82,75 +83,99 @@ export function useAnimationPlayback(): UseAnimationPlaybackReturn {
 
       const { getPath } = usePathStore.getState();
 
-      // Build active path map: for each entity (player or ball), pick the correct
-      // phase path based on currentGlobalTime.
-      // - Prefer the path with the highest startTimeOffset that has already started (<=current).
-      // - If no path has started yet, fall back to the earliest one (show its first keyframe).
-      const activePathMap = new Map<string, PlayerPathConfig>();
+      // Build active path map for players
+      const activePlayerPathMap = new Map<string, PlayerPathConfig>();
       for (const pathConfig of activeEvent.playerPaths) {
-        const existing = activePathMap.get(pathConfig.playerId);
+        const existing = activePlayerPathMap.get(pathConfig.playerId);
         if (pathConfig.startTimeOffset <= currentGlobalTime) {
-          // This phase has started — keep it if it's the most recent one
           if (!existing || pathConfig.startTimeOffset > existing.startTimeOffset) {
-            activePathMap.set(pathConfig.playerId, pathConfig);
+            activePlayerPathMap.set(pathConfig.playerId, pathConfig);
           }
         } else {
-          // This phase hasn't started yet — only use as fallback if no other path selected
           if (!existing) {
-            activePathMap.set(pathConfig.playerId, pathConfig);
+            activePlayerPathMap.set(pathConfig.playerId, pathConfig);
+          }
+        }
+      }
+
+      // Build active path map for ball
+      const activeBallPathMap = new Map<string, BallPathConfig>();
+      for (const pathConfig of activeEvent.ballPaths) {
+        const existing = activeBallPathMap.get(pathConfig.entityId);
+        if (pathConfig.startTimeOffset <= currentGlobalTime) {
+          if (!existing || pathConfig.startTimeOffset > existing.startTimeOffset) {
+            activeBallPathMap.set(pathConfig.entityId, pathConfig);
+          }
+        } else {
+          if (!existing) {
+            activeBallPathMap.set(pathConfig.entityId, pathConfig);
           }
         }
       }
 
       const playerUpdates: PlayerUpdate[] = [];
-      let ballUpdate: [number, number, number] | null = null;
 
-      for (const pathConfig of activePathMap.values()) {
+      // Process player paths
+      for (const pathConfig of activePlayerPathMap.values()) {
         const path = getPath(pathConfig.pathId);
         if (!path) continue;
 
-        // Calculate local time for this path (accounting for start offset)
-        // globalTime and pathConfig.startTimeOffset are in milliseconds
-        // path.duration and keyframe timestamps are in seconds
         const localTimeMs = currentGlobalTime - pathConfig.startTimeOffset;
         const localTimeSeconds = localTimeMs / 1000;
 
         let position: [number, number, number];
 
         if (localTimeMs < 0) {
-          // Animation hasn't started yet - use start position
           if (path.keyframes.length > 0) {
             position = [...path.keyframes[0].position] as [number, number, number];
           } else {
-            continue; // Skip paths with no keyframes
+            continue;
           }
         } else if (localTimeSeconds > path.duration) {
-          // Animation has finished - use end position
           if (path.keyframes.length > 0) {
             const lastKeyframe = path.keyframes[path.keyframes.length - 1];
             position = [...lastKeyframe.position] as [number, number, number];
           } else {
-            continue; // Skip paths with no keyframes
+            continue;
           }
         } else {
-          // Animation in progress - interpolate
           position = getPositionAtTime(path, localTimeSeconds);
         }
 
-        if (path.entityType === 'ball') {
-          // Route ball updates directly to ballStore
-          ballUpdate = position;
-        } else {
-          playerUpdates.push({
-            playerId: pathConfig.playerId,
-            position,
-          });
-        }
+        playerUpdates.push({
+          playerId: pathConfig.playerId,
+          position,
+        });
       }
 
-      // Apply ball position update if we computed one
-      if (ballUpdate) {
-        useBallStore.getState().updateBallPosition(ballUpdate);
+      // Process ball paths
+      for (const pathConfig of activeBallPathMap.values()) {
+        const path = getPath(pathConfig.pathId);
+        if (!path) continue;
+
+        const localTimeMs = currentGlobalTime - pathConfig.startTimeOffset;
+        const localTimeSeconds = localTimeMs / 1000;
+
+        let position: [number, number, number];
+
+        if (localTimeMs < 0) {
+          if (path.keyframes.length > 0) {
+            position = [...path.keyframes[0].position] as [number, number, number];
+          } else {
+            continue;
+          }
+        } else if (localTimeSeconds > path.duration) {
+          if (path.keyframes.length > 0) {
+            const lastKeyframe = path.keyframes[path.keyframes.length - 1];
+            position = [...lastKeyframe.position] as [number, number, number];
+          } else {
+            continue;
+          }
+        } else {
+          position = getPositionAtTime(path, localTimeSeconds);
+        }
+
+        useBallStore.getState().updateBallPosition(position);
       }
 
       return playerUpdates;
@@ -261,6 +286,23 @@ export function useAnimationPlayback(): UseAnimationPlaybackReturn {
             usePlayerStore.getState().updateMultiplePlayers(playerUpdates);
           }
 
+          // Reset ball mode to idle when animation completes
+          const activeEventState = useEventStore.getState().getActiveEvent();
+          if (activeEventState && activeEventState.ballPaths && activeEventState.ballPaths.length > 0) {
+            // Find the final ball path that was active at the end
+            const finalPath = activeEventState.ballPaths
+              .filter((bp) => bp.startTimeOffset <= activeEvent.duration)
+              .sort((a, b) => b.startTimeOffset - a.startTimeOffset)[0];
+            
+            if (finalPath) {
+              const path = usePathStore.getState().getPath(finalPath.pathId);
+              if (path && activeEvent.duration >= path.duration * 1000 + finalPath.startTimeOffset) {
+                // Animation path has completed - set ball to idle
+                useBallStore.getState().setBallIdle();
+              }
+            }
+          }
+
           // Stop animation (progress setter in animationStore will handle pause)
           animationFrameIdRef.current = null;
           lastTimestampRef.current = null;
@@ -321,8 +363,38 @@ export function useAnimationPlayback(): UseAnimationPlaybackReturn {
     if (isPlaying && isEventMode) {
       // Clear any phase-break banner when playback resumes
       useEventStore.getState().setPausedAtPhaseIndex(-1);
+      
+      // Transition ball to in-flight mode if event has ball paths
+      const activeEvent = useEventStore.getState().getActiveEvent();
+      if (activeEvent && activeEvent.ballPaths && activeEvent.ballPaths.length > 0) {
+        const ballPathConfig = activeEvent.ballPaths.find(
+          (bp) => bp.startTimeOffset <= useEventStore.getState().globalTime
+        );
+        if (ballPathConfig) {
+          useBallStore.getState().setBallInFlight(ballPathConfig.pathId, ballPathConfig.kickType);
+        }
+      }
+      
       startAnimation();
     } else {
+      // Transition ball to idle mode when animation stops
+      const activeEvent = useEventStore.getState().getActiveEvent();
+      if (activeEvent && activeEvent.ballPaths && activeEvent.ballPaths.length > 0) {
+        const globalTime = useEventStore.getState().globalTime;
+        const finalPath = activeEvent.ballPaths
+          .filter((bp) => bp.startTimeOffset <= globalTime)
+          .sort((a, b) => b.startTimeOffset - a.startTimeOffset)[0];
+        
+        if (finalPath) {
+          const path = usePathStore.getState().getPath(finalPath.pathId);
+          if (path && globalTime >= path.duration * 1000 + finalPath.startTimeOffset) {
+            // Animation has finished - check if ball should return to assigned or idle
+            useBallStore.getState().setBallIdle();
+          }
+        } else {
+          useBallStore.getState().setBallIdle();
+        }
+      }
       stopAnimation();
     }
 

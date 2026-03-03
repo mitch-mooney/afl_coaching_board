@@ -20,6 +20,12 @@ const MIN_PATH_POINT_DISTANCE = 1.5;
 // Maximum character length for player name labels before truncation
 const MAX_NAME_LENGTH = 12;
 
+// Leg animation constants (8-bit style)
+const LEG_AMPITUDE = 0.4;        // Radians (~23°) leg swing amplitude
+const SPEED_THRESHOLD = 0.2;      // Minimum speed to trigger animation
+const DECAY_TIME = 300;           // ms to fade to static after stopping
+const BASE_FREQUENCY = 8;         // Radians per second base frequency
+
 /**
  * Formats a player name for display:
  * - Trims whitespace
@@ -42,6 +48,8 @@ interface PlayerProps {
 
 export function PlayerComponent({ player }: PlayerProps) {
   const groupRef = useRef<any>(null);
+  const leftThighRef = useRef<any>(null);
+  const rightThighRef = useRef<any>(null);
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
@@ -59,7 +67,9 @@ export function PlayerComponent({ player }: PlayerProps) {
   const prevDragPos = useRef<[number, number, number] | null>(null);
   // Track rotation start state for right-click rotation
   const rotationStartRef = useRef<{ clientX: number; startRotation: number } | null>(null);
-  const { selectedPlayerId, selectPlayer, updatePlayerPosition, updatePlayerRotation, showPlayerNames, showPositionNames, startEditingPlayerName, setDragging, setPlayerPosition, players } = usePlayerStore();
+  // Animation time for leg cycle
+  const animTimeRef = useRef<number>(0);
+  const { selectedPlayerId, selectPlayer, updatePlayerPosition, updatePlayerRotation, showPlayerNames, showPositionNames, startEditingPlayerName, setDragging, setPlayerPosition, players, getPlayerMoveState } = usePlayerStore();
   const { addPath, removePath } = usePathStore();
   const { pushSnapshot } = useHistoryStore();
   const isPlaying = useAnimationStore((state) => state.isPlaying);
@@ -79,10 +89,54 @@ export function PlayerComponent({ player }: PlayerProps) {
     return name;
   }, [player.playerName, player.positionName]);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     // Apply rotation to the entire group so all body parts rotate together
     if (groupRef.current) {
       groupRef.current.rotation.y = player.rotation;
+    }
+
+    // Handle leg animations
+    const moveState = getPlayerMoveState(player.id);
+    const speed = moveState?.speed ?? 0;
+    const now = Date.now();
+    const isMoving = speed > SPEED_THRESHOLD;
+
+    if (isMoving) {
+      // Update animation time based on speed
+      const timeMultiplier = 1 + (speed * 0.5);
+      animTimeRef.current += delta * BASE_FREQUENCY * timeMultiplier;
+
+      // Calculate leg angles
+      const leftThighAngle = Math.sin(animTimeRef.current) * LEG_AMPITUDE;
+      const rightThighAngle = Math.sin(animTimeRef.current + Math.PI) * LEG_AMPITUDE;
+
+      // Apply rotations to leg pivots
+      if (leftThighRef.current) {
+        leftThighRef.current.rotation.y = leftThighAngle;
+      }
+      if (rightThighRef.current) {
+        rightThighRef.current.rotation.y = rightThighAngle;
+      }
+    } else {
+      // Decay: reset legs to static position
+      const timeSinceLastMove = now - (moveState?.lastMoveTime ?? now);
+      if (timeSinceLastMove < DECAY_TIME) {
+        const decayFactor = 1 - (timeSinceLastMove / DECAY_TIME);
+        if (leftThighRef.current) {
+          leftThighRef.current.rotation.y = leftThighRef.current.rotation.y * decayFactor;
+        }
+        if (rightThighRef.current) {
+          rightThighRef.current.rotation.y = rightThighRef.current.rotation.y * decayFactor;
+        }
+      } else {
+        // Fully reset to static
+        if (leftThighRef.current) {
+          leftThighRef.current.rotation.y = 0;
+        }
+        if (rightThighRef.current) {
+          rightThighRef.current.rotation.y = 0;
+        }
+      }
     }
 
     // Handle rotation (right-click drag)
@@ -490,29 +544,31 @@ export function PlayerComponent({ player }: PlayerProps) {
         />
       </mesh>
 
-      {/* Left leg */}
-      <mesh castShadow position={[-0.11, 0.41, 0]}>
-        <boxGeometry args={[0.22, 0.65, 0.22]} />
-        <meshStandardMaterial color={shortsColor} roughness={0.7} />
-      </mesh>
+      {/* Left leg - with pivot for animation */}
+      <group ref={leftThighRef} position={[-0.11, 0.41, 0]}>
+        <mesh castShadow>
+          <boxGeometry args={[0.22, 0.65, 0.22]} />
+          <meshStandardMaterial color={shortsColor} roughness={0.7} />
+        </mesh>
+        {/* Left shoe */}
+        <mesh position={[0, -0.65, 0.05]}>
+          <boxGeometry args={[0.24, 0.08, 0.28]} />
+          <meshStandardMaterial color="#333333" roughness={0.8} />
+        </mesh>
+      </group>
 
-      {/* Right leg */}
-      <mesh castShadow position={[0.11, 0.41, 0]}>
-        <boxGeometry args={[0.22, 0.65, 0.22]} />
-        <meshStandardMaterial color={shortsColor} roughness={0.7} />
-      </mesh>
-
-      {/* Left shoe */}
-      <mesh position={[-0.11, 0.04, 0.05]}>
-        <boxGeometry args={[0.24, 0.08, 0.28]} />
-        <meshStandardMaterial color="#333333" roughness={0.8} />
-      </mesh>
-
-      {/* Right shoe */}
-      <mesh position={[0.11, 0.04, 0.05]}>
-        <boxGeometry args={[0.24, 0.08, 0.28]} />
-        <meshStandardMaterial color="#333333" roughness={0.8} />
-      </mesh>
+      {/* Right leg - with pivot for animation */}
+      <group ref={rightThighRef} position={[0.11, 0.41, 0]}>
+        <mesh castShadow>
+          <boxGeometry args={[0.22, 0.65, 0.22]} />
+          <meshStandardMaterial color={shortsColor} roughness={0.7} />
+        </mesh>
+        {/* Right shoe */}
+        <mesh position={[0, -0.65, 0.05]}>
+          <boxGeometry args={[0.24, 0.08, 0.28]} />
+          <meshStandardMaterial color="#333333" roughness={0.8} />
+        </mesh>
+      </group>
 
       {/* Left eye */}
       <mesh position={[-0.09, 1.65, 0.19]}>

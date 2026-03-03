@@ -33,12 +33,57 @@ export function createAnimationPhase(
 }
 
 /**
+ * Kick types for ball trajectory animations
+ */
+export type KickType = 'standard' | 'high' | 'low' | 'checkside' | 'handball';
+
+/**
+ * Presets for different kick types (visual parameters)
+ */
+export const KICK_PRESETS: Record<KickType, {
+  apexHeight: number;         // Y peak (meters)
+  curveDeviation: number;     // Lateral curve (meters)
+  durationMultiplier: number; // Speed scaling
+}> = {
+  standard:    { apexHeight: 3,   curveDeviation: 0, durationMultiplier: 1.0 },
+  high:        { apexHeight: 5,   curveDeviation: 0, durationMultiplier: 1.2 },
+  low:         { apexHeight: 1,   curveDeviation: 0, durationMultiplier: 0.8 },
+  checkside:   { apexHeight: 2.5, curveDeviation: 2, durationMultiplier: 1.1 },
+  handball:    { apexHeight: 1.5, curveDeviation: 0, durationMultiplier: 0.6 }
+};
+
+/**
+ * Configuration for a ball movement path within an animation event
+ */
+export interface BallPathConfig {
+  pathId: string; // Reference to MovementPath
+  startTimeOffset: number; // When to start this path (ms) relative to event start
+  kickType: KickType;
+  entityId: string; // Player ID or 'ball' for ball paths
+}
+
+/**
  * Configuration for a single player's path within an animation event
  */
 export interface PlayerPathConfig {
-  playerId: string;
   pathId: string; // Reference to MovementPath
+  playerId: string;
   startTimeOffset: number; // When to start this path (ms) relative to event start
+}
+
+/**
+ * Create a player path configuration for an animation event
+ */
+export function createPlayerPathConfig(
+  playerId: string,
+  pathId: string,
+  startTimeOffset: number = EVENT_DEFAULTS.startTimeOffset
+): PlayerPathConfig {
+  return {
+    pathId,
+    playerId,
+    startTimeOffset,
+  };
 }
 
 /**
@@ -51,30 +96,10 @@ export interface AnimationEvent {
   description?: string;
   duration: number; // Total event duration in milliseconds (e.g., 30000 for 30s)
   playerPaths: PlayerPathConfig[];
+  ballPaths: BallPathConfig[];
   /** Named phases for pause-and-coach workflow. Empty array = no phases (plays straight through). */
   phases: AnimationPhase[];
   createdAt: number; // Timestamp when event was created
-}
-
-// Event system defaults
-export const EVENT_DEFAULTS = {
-  duration: 30000, // Default 30 second event duration (in ms)
-  startTimeOffset: 0, // Default start time offset for paths (in ms)
-} as const;
-
-/**
- * Create a player path configuration for an animation event
- */
-export function createPlayerPathConfig(
-  playerId: string,
-  pathId: string,
-  startTimeOffset: number = EVENT_DEFAULTS.startTimeOffset
-): PlayerPathConfig {
-  return {
-    playerId,
-    pathId,
-    startTimeOffset,
-  };
 }
 
 /**
@@ -83,6 +108,7 @@ export function createPlayerPathConfig(
 export function createAnimationEvent(
   name: string,
   playerPaths: PlayerPathConfig[] = [],
+  ballPaths: BallPathConfig[] = [],
   duration: number = EVENT_DEFAULTS.duration,
   description?: string,
   id?: string
@@ -93,10 +119,17 @@ export function createAnimationEvent(
     description,
     duration,
     playerPaths,
+    ballPaths,
     phases: [],
     createdAt: Date.now(),
   };
 }
+
+// Event system defaults
+export const EVENT_DEFAULTS = {
+  duration: 30000, // Default 30 second event duration (in ms)
+  startTimeOffset: 0, // Default start time offset for paths (in ms)
+} as const;
 
 /**
  * Add a player path configuration to an event.
@@ -144,7 +177,7 @@ export function removePlayerPathFromEvent(
     ...event,
     playerPaths: pathId
       ? event.playerPaths.filter(
-          (pp) => !(pp.playerId === playerId && pp.pathId === pathId)
+          (pp) => !(pp.playerId === playerId)
         )
       : event.playerPaths.filter((pp) => pp.playerId !== playerId),
   };
@@ -152,23 +185,16 @@ export function removePlayerPathFromEvent(
 
 /**
  * Update a player path configuration in an event.
- * If pathId is provided, updates only that specific path entry.
- * Otherwise updates all paths for the given player.
+ * Updates all paths for the given player.
  */
 export function updatePlayerPathInEvent(
   event: AnimationEvent,
   playerId: string,
-  updates: Partial<Omit<PlayerPathConfig, 'playerId'>>,
-  pathId?: string
+  updates: Partial<Omit<PlayerPathConfig, 'playerId'>>
 ): AnimationEvent {
   return {
     ...event,
     playerPaths: event.playerPaths.map((pp) => {
-      if (pathId) {
-        return pp.playerId === playerId && pp.pathId === pathId
-          ? { ...pp, ...updates }
-          : pp;
-      }
       return pp.playerId === playerId ? { ...pp, ...updates } : pp;
     }),
   };
@@ -216,23 +242,28 @@ export function isValidEvent(event: AnimationEvent): boolean {
 }
 
 /**
- * Calculate the actual duration based on player paths
+ * Calculate the actual duration based on player paths and ball paths
  * Returns the maximum end time across all paths
  */
 export function calculateEventEndTime(
   event: AnimationEvent,
   pathDurations: Map<string, number>
 ): number {
-  if (event.playerPaths.length === 0) {
-    return event.duration;
-  }
+  let maxEndTime = event.duration;
 
-  let maxEndTime = 0;
+  // Calculate from player paths
   for (const pathConfig of event.playerPaths) {
     const pathDuration = pathDurations.get(pathConfig.pathId) ?? 0;
-    const endTime = pathConfig.startTimeOffset + pathDuration * 1000; // Convert path duration (seconds) to ms
+    const endTime = pathConfig.startTimeOffset + pathDuration * 1000;
     maxEndTime = Math.max(maxEndTime, endTime);
   }
 
-  return Math.max(maxEndTime, event.duration);
+  // Calculate from ball paths
+  for (const pathConfig of event.ballPaths) {
+    const pathDuration = pathDurations.get(pathConfig.pathId) ?? 0;
+    const endTime = pathConfig.startTimeOffset + pathDuration * 1000;
+    maxEndTime = Math.max(maxEndTime, endTime);
+  }
+
+  return maxEndTime;
 }

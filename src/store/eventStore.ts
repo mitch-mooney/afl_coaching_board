@@ -3,6 +3,7 @@ import {
   AnimationEvent,
   AnimationPhase,
   PlayerPathConfig,
+  BallPathConfig,
   createAnimationEvent,
   addPlayerPathToEvent,
   removePlayerPathFromEvent,
@@ -62,13 +63,18 @@ interface EventState {
   addPlayerPath: (eventId: string, playerPath: PlayerPathConfig) => void;
   /** Remove a player path from an event. When pathId is provided, removes only that specific entry. */
   removePlayerPath: (eventId: string, playerId: string, pathId?: string) => void;
-  /** Update a player path in an event. When pathId is provided, targets only that specific entry. */
+  /** Update a player path in an event. */
   updatePlayerPath: (
     eventId: string,
     playerId: string,
-    updates: Partial<Omit<PlayerPathConfig, 'playerId'>>,
-    pathId?: string
+    updates: Partial<Omit<PlayerPathConfig, 'playerId'>>
   ) => void;
+
+  // Ball Path Management within Events
+  /** Add or update a ball path in an event */
+  addBallPath: (eventId: string, ballPath: BallPathConfig) => void;
+  /** Remove all ball paths from an event */
+  removeBallPaths: (eventId: string) => void;
 
   // Phase Management
   /** Set the paused-at-phase index (-1 = not at a phase break) */
@@ -116,7 +122,7 @@ export const useEventStore = create<EventState>((set, get) => ({
 
   // Event CRUD Actions
   createEvent: (name, playerPaths = [], duration = EVENT_DEFAULTS.duration, description) => {
-    const newEvent = createAnimationEvent(name, playerPaths, duration, description);
+    const newEvent = createAnimationEvent(name, playerPaths, [], duration, description);
     set((state) => ({
       events: [...state.events, newEvent],
     }));
@@ -197,10 +203,35 @@ export const useEventStore = create<EventState>((set, get) => ({
     }));
   },
 
-  updatePlayerPath: (eventId, playerId, updates, pathId) => {
+  updatePlayerPath: (eventId, playerId, updates) => {
     set((state) => ({
       events: state.events.map((event) =>
-        event.id === eventId ? updatePlayerPathInEvent(event, playerId, updates, pathId) : event
+        event.id === eventId ? updatePlayerPathInEvent(event, playerId, updates) : event
+      ),
+    }));
+  },
+
+  // Ball Path Management
+  addBallPath: (eventId, ballPath) => {
+    set((state) => ({
+      events: state.events.map((event) => {
+        if (event.id !== eventId) return event;
+        
+        // Remove existing ball path for same start time (if any)
+        const existingBallPaths = event.ballPaths ? event.ballPaths.filter(bp => bp.startTimeOffset !== ballPath.startTimeOffset) : [];
+        
+        return {
+          ...event,
+          ballPaths: [...existingBallPaths, ballPath],
+        };
+      }),
+    }));
+  },
+
+  removeBallPaths: (eventId) => {
+    set((state) => ({
+      events: state.events.map((event) =>
+        event.id === eventId ? { ...event, ballPaths: [] } : event
       ),
     }));
   },

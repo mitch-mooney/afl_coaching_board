@@ -1,9 +1,14 @@
 import { create } from 'zustand';
 import { Ball, createBall } from '../models/BallModel';
+import { KickType } from '../models/EventModel';
 
 interface BallState {
   ball: Ball | null;
   isBallSelected: boolean;
+  // Ball mode tracking for trajectory animations
+  mode: 'assigned' | 'in-flight' | 'idle';
+  currentPathId: string | null;
+  currentKickType: KickType | null;
 
   // Actions
   initializeBall: (position?: [number, number, number]) => void;
@@ -14,15 +19,21 @@ interface BallState {
   resetBall: () => void;
   getBall: () => Ball | null;
   hasBall: () => boolean;
+  // Ball trajectory actions
+  setBallInFlight: (pathId: string, kickType: KickType) => void;
+  setBallIdle: () => void;
 }
 
 export const useBallStore = create<BallState>((set, get) => ({
   ball: null,
   isBallSelected: false,
+  mode: 'assigned',
+  currentPathId: null,
+  currentKickType: null,
 
   initializeBall: (position = [0, 0.5, 0]) => {
     const ball = createBall(position);
-    set({ ball });
+    set({ ball, mode: 'assigned', currentPathId: null, currentKickType: null });
   },
 
   updateBallPosition: (position) => {
@@ -39,6 +50,7 @@ export const useBallStore = create<BallState>((set, get) => ({
       if (!state.ball) return state;
       return {
         ball: { ...state.ball, assignedPlayerId: playerId ?? undefined },
+        mode: playerId ? 'assigned' : 'idle',
       };
     });
   },
@@ -53,7 +65,7 @@ export const useBallStore = create<BallState>((set, get) => ({
 
   resetBall: () => {
     const ball = createBall([0, 0.5, 0]);
-    set({ ball, isBallSelected: false });
+    set({ ball, isBallSelected: false, mode: 'assigned', currentPathId: null, currentKickType: null });
   },
 
   getBall: () => {
@@ -62,5 +74,13 @@ export const useBallStore = create<BallState>((set, get) => ({
 
   hasBall: () => {
     return get().ball !== null;
+  },
+
+  setBallInFlight: (pathId, kickType) => {
+    set({ mode: 'in-flight', currentPathId: pathId, currentKickType: kickType });
+  },
+
+  setBallIdle: () => {
+    set({ mode: 'idle', currentPathId: null, currentKickType: null });
   },
 }));
