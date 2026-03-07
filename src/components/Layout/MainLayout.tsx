@@ -15,10 +15,11 @@ import { HelpOverlay } from '../UI/HelpOverlay';
 import { EventTimeline } from '../UI/EventTimeline';
 import { VideoWorkspace } from '../VideoImport/VideoWorkspace';
 import { VideoPiP } from '../VideoImport/VideoPiP';
+import { VideoFeedbackFullscreen } from '../VideoImport/VideoFeedbackFullscreen';
+import { useVideoStore } from '../../store/videoStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useBallStore } from '../../store/ballStore';
 import { usePathStore } from '../../store/pathStore';
-import { useVideoStore } from '../../store/videoStore';
 import { useCameraStore } from '../../store/cameraStore';
 import { useAnnotationStore } from '../../store/annotationStore';
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -82,11 +83,14 @@ export function MainLayout() {
   const isVideoMode = useVideoStore((state) => state.isVideoMode);
   const isLoaded = useVideoStore((state) => state.isLoaded);
   const displayMode = useVideoStore((state) => state.displayMode);
+  const fullscreen = useVideoStore((state) => state.fullscreen);
 
   // Determine if we should show video workspace (full calibration mode)
-  const showVideoWorkspace = isVideoMode && isLoaded && displayMode === 'calibration';
+  const showVideoWorkspace = isVideoMode && isLoaded && displayMode === 'calibration' && !fullscreen;
   // Determine if we should show PiP (picture-in-picture mode)
   const showVideoPiP = isVideoMode && isLoaded && displayMode === 'pip';
+  // Determine if we should show fullscreen video feedback
+  const showVideoFeedbackFullscreen = isVideoMode && isLoaded && fullscreen;
 
   // Initialize keyboard shortcuts
   const registry = getGlobalShortcutRegistry();
@@ -224,6 +228,9 @@ export function MainLayout() {
 
       {/* Video PiP overlay when in pip mode */}
       {showVideoPiP && <VideoPiP />}
+      
+      {/* Fullscreen video feedback with telestrations */}
+      {showVideoFeedbackFullscreen && <VideoFeedbackFullscreen />}
     </div>
   );
 }

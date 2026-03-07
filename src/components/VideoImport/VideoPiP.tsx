@@ -41,6 +41,7 @@ export function VideoPiP() {
 
   // Playback controls
   const { togglePlayPause, seekTo } = useVideoPlayback();
+  const setFullscreen = useVideoStore((state) => state.setFullscreen);
 
   // Sync video playback state
   useEffect(() => {
@@ -527,27 +528,50 @@ export function VideoPiP() {
             </span>
           </div>
 
-          {/* Calibrate button */}
-          <button
-            onClick={handleEnterCalibration}
-            className="flex items-center gap-1 px-2 py-1 bg-teal-600 hover:bg-teal-700 text-white text-xs rounded transition flex-shrink-0"
-            title="Enter calibration mode to overlay video on field"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {/* Calibrate button */}
+            <button
+              onClick={handleEnterCalibration}
+              className="flex items-center gap-1 px-2 py-1 bg-teal-600 hover:bg-teal-700 text-white text-xs rounded transition"
+              title="Enter calibration mode to overlay video on field"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-              />
-            </svg>
-            Calibrate
-          </button>
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                />
+              </svg>
+              Calibrate
+            </button>
+            
+            {/* Fullscreen button */}
+            <button
+              onClick={() => setFullscreen(true)}
+              className="flex items-center gap-1 px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded transition"
+              title="Enter fullscreen telestration mode"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 

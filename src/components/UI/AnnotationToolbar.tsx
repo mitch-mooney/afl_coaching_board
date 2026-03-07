@@ -12,20 +12,30 @@ const COLORS = [
   '#000000', // Black
 ];
 
+interface AnnotationToolbarProps {
+  fullscreen?: boolean;
+}
+
 /**
  * AnnotationToolbar - Responsive toolbar for drawing annotations on the field.
  *
  * Responsive behavior:
  * - Mobile (<768px): Compact collapsed mode with expandable options
  * - Desktop (>=768px): Full horizontal layout with all tools visible
+ * - Fullscreen mode: Always visible at top, no collapsing
  *
  * Features:
- * - Tool selection (line, arrow, circle, rectangle, text)
+ * - Tool selection (line, arrow, circle, rectangle, text, measure)
  * - Color picker with 6 preset colors
  * - Thickness slider (for non-text tools)
  * - Clear all annotations button
+ *
+ * @example
+ * ```tsx
+ * <AnnotationToolbar fullscreen={true} />
+ * ```
  */
-export function AnnotationToolbar() {
+export function AnnotationToolbar({ fullscreen = false }: AnnotationToolbarProps) {
   const {
     selectedTool,
     selectedColor,
@@ -115,14 +125,17 @@ export function AnnotationToolbar() {
 
   return (
     <div
-      className="
-        absolute left-2 right-2 z-10
-        sm:left-4 sm:right-auto
+      className={`
         bg-white/95 backdrop-blur-sm rounded-lg shadow-lg
         max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl
         overflow-hidden
-      "
-      style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+        ${fullscreen ? 'fixed top-0 left-1/2 -translate-x-1/2 z-50' : 'absolute left-2 right-2 z-10 sm:left-4 sm:right-auto'}
+      `}
+      style={{
+        ...(fullscreen 
+          ? { marginTop: '16px' }
+          : { bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' })
+      }}
     >
       {/* Main toolbar content */}
       <div className="p-2 sm:p-3">
