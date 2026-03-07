@@ -12,6 +12,7 @@ import { Toolbar } from '../UI/Toolbar';
 import { PlaybookPanel } from '../UI/PlaybookPanel';
 import { AnnotationToolbar } from '../UI/AnnotationToolbar';
 import { HelpOverlay } from '../UI/HelpOverlay';
+import { FeatureNotification } from '../UI/FeatureNotification';
 import { EventTimeline } from '../UI/EventTimeline';
 import { VideoWorkspace } from '../VideoImport/VideoWorkspace';
 import { VideoPiP } from '../VideoImport/VideoPiP';
@@ -231,6 +232,9 @@ export function MainLayout() {
       
       {/* Fullscreen video feedback with telestrations */}
       {showVideoFeedbackFullscreen && <VideoFeedbackFullscreen />}
+      
+      {/* Feature notification popup */}
+      <FeatureNotification />
     </div>
   );
 }
