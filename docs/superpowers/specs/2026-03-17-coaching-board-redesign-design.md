@@ -79,9 +79,29 @@ All players face the centre of the field on load. Positions by zone for **Centre
 | Half forward | CHF, HFFL, HFFR | On or just inside the 50m arc line (forward end) |
 | Full forward | FF, FPL, FPR | Deep inside the forward 50m arc |
 
+**Centre circle clock-face positioning (midfielders & ruck):**
+
+Using the centre circle as a clock face where **12 o'clock = top of circle, pointing toward your own goal**:
+
+| Player | Clock position | Notes |
+|--------|---------------|-------|
+| Ruck | Centre (ball spot) | Standing at the exact centre for the bounce |
+| Midfielder (C) | 6 o'clock | Bottom of circle, facing opponent's goal direction |
+| Midfielder (RR) | 3 o'clock | Right side of circle |
+| Midfielder (R) | 9 o'clock | Left side of circle |
+
+The three non-ruck midfielders occupy the **attacking half of the circle** (3–6–9 arc). 12 o'clock is intentionally left clear — that is the defensive/own-goal side. In coordinate terms, if the centre circle has radius `r` and the field runs along the Z axis with the attacking goal at +Z:
+
+- 6 o'clock → `(0, 0, +r)` — toward attacking goal
+- 3 o'clock → `(+r, 0, 0)` — right flank
+- 9 o'clock → `(-r, 0, 0)` — left flank
+- Ruck → `(0, 0, 0)` — ball spot
+
+The opposing team's midfielders mirror these positions (rotated 180°), also forming a 3–6–9 arc on their own attacking half of the circle. Both teams' players alternate around the arc rather than stacking — exact alternation order to be confirmed against AFL rules during implementation.
+
 All player rotation vectors point toward the field centre `(0, 0)`.
 
-These coordinates **must be verified** against the existing field geometry in `fieldGeometry.ts` and `aflPositions.ts` during implementation and corrected to match true field scale.
+The value of `r` (centre circle radius in world units) **must be read from `fieldGeometry.ts`** during implementation — do not hard-code.
 
 **Kick-in presets:** Defensive kick-in places the kicking team's FB near goal with the rest of the team spread in attacking half; the opposing team clusters in defensive half. Attacking kick-in is the mirror. Exact coordinates to be defined during implementation based on field geometry.
 
