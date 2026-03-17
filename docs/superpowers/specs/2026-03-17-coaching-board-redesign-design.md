@@ -103,7 +103,27 @@ All player rotation vectors point toward the field centre `(0, 0)`.
 
 The value of `r` (centre circle radius in world units) **must be read from `fieldGeometry.ts`** during implementation — do not hard-code.
 
-**Kick-in presets:** Defensive kick-in places the kicking team's FB near goal with the rest of the team spread in attacking half; the opposing team clusters in defensive half. Attacking kick-in is the mirror. Exact coordinates to be defined during implementation based on field geometry.
+**Kick-in preset — player positioning:**
+
+The pressing team (the team that scored, attacking the kick-in) forms three lines measured from the kicking team's goal, plus a back-6 holding near the centre square. All distances are from the kicking end goal line.
+
+| Line | Distance from goal | Players (L → R across field width) | Count |
+|------|--------------------|--------------------------------------|-------|
+| Line 1 | 20m | FPL · FF · FPR | 3 |
+| Line 2 | 35m | HFFL · CHF · HFFR · Rk | 4 |
+| Line 3 | 52m | WL · RR · C · Ro · WR | 5 |
+| Back row A | Centre square (near boundary) | HBFL · CHB · HBFR | 3 |
+| Back row B | Centre square (behind row A) | BPL · FB · BPR | 3 |
+
+**Notes:**
+- Line 1 and 2 players are spread evenly across the field width at their respective distances
+- Line 3 wings (WL, WR) sit at the widest points (near the boundary), midfielders cluster toward centre
+- The Ruck (Rk) drops into Line 2 beside the half-forward line rather than sitting in the centre circle
+- The back 3+3 rows are positioned horizontally across the width of the centre square, providing defensive coverage and a reset option for the kick-in receiver
+- The kicker themselves stands in the goal square (one of the FB or CHB who has run back); they are the 18th player not listed above
+- The kicking team's defensive kick-in preset is the **mirror image** (same formation geometry, flipped end-for-end)
+
+In-code, distances from goal translate to Z-axis offsets from the kicking goal line. All values **must be read from `fieldGeometry.ts`** (field length, goal position, centre square boundaries) — do not hard-code metres directly.
 
 ### 2.4 Player Label Toggle
 
