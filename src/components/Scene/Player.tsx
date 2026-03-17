@@ -255,17 +255,20 @@ export function PlayerComponent({ player }: PlayerProps) {
     lastRecordedPos.current = startPos;
     dragStartTime.current = Date.now();
 
-    // Remove existing paths for this player to start fresh, but protect:
+    // In Draw mode: remove existing paths for this player to start fresh, but protect:
     // 1. Paths referenced by a saved event (Phase 1 arrows while recording Phase 2)
     // 2. Paths captured in the open EventEditor but not yet saved to an event
-    const allPlayerPaths = usePathStore.getState().getPathsByEntity(player.id);
-    for (const path of allPlayerPaths) {
-      const isUsedByEvent = useEventStore.getState().events.some(
-        (event) => event.playerPaths.some((pp) => pp.pathId === path.id)
-      );
-      const isCaptured = useUIStore.getState().capturedPathIds.has(path.id);
-      if (!isUsedByEvent && !isCaptured) {
-        removePath(path.id);
+    // In Setup mode: preserve all paths since we are only repositioning players
+    if (useUIStore.getState().boardSubMode === 'draw') {
+      const allPlayerPaths = usePathStore.getState().getPathsByEntity(player.id);
+      for (const path of allPlayerPaths) {
+        const isUsedByEvent = useEventStore.getState().events.some(
+          (event) => event.playerPaths.some((pp) => pp.pathId === path.id)
+        );
+        const isCaptured = useUIStore.getState().capturedPathIds.has(path.id);
+        if (!isUsedByEvent && !isCaptured) {
+          removePath(path.id);
+        }
       }
     }
   };
@@ -294,9 +297,29 @@ export function PlayerComponent({ player }: PlayerProps) {
 
   // Helper to create path from recorded movement points
   const createPathFromMovement = useCallback(() => {
+    // Setup mode: update position only, skip path creation
+    const boardSubMode = useUIStore.getState().boardSubMode;
+
     // Add final position if different from last recorded
     const finalPos = [...player.position] as [number, number, number];
     const points = [...movementPoints.current];
+
+    if (boardSubMode !== 'draw') {
+      // F6: Auto-suggest position from drop zone if player has none (still applies in setup mode)
+      if (!player.positionName) {
+        const [fx, fz] = [player.position[0], player.position[2]];
+        const suggested = positionToZone(fx, fz);
+        if (suggested) {
+          setPlayerPosition(player.id, suggested);
+        }
+      }
+      // Reset tracking without creating path
+      movementPoints.current = [];
+      lastRecordedPos.current = null;
+      preDragSnapshot.current = null;
+      prevDragPos.current = null;
+      return;
+    }
 
     if (points.length > 0) {
       const lastPoint = points[points.length - 1];

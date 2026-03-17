@@ -41,6 +41,15 @@ interface UIState {
   capturedPathIds: Set<string>;
   addCapturedPathIds: (ids: string[]) => void;
   clearCapturedPathIds: () => void;
+
+  // Board sub-mode: setup (move players only) vs draw (record paths)
+  boardSubMode: 'setup' | 'draw';
+  setBoardSubMode: (mode: 'setup' | 'draw') => void;
+  toggleBoardSubMode: () => void;
+
+  // Editor tab: board view vs video view
+  editorTab: 'board' | 'video';
+  setEditorTab: (tab: 'board' | 'video') => void;
 }
 
 /**
@@ -140,6 +149,16 @@ export const useUIStore = create<UIState>((set) => {
     clearCapturedPathIds: () => {
       set({ capturedPathIds: new Set<string>() });
     },
+
+    // Board sub-mode
+    boardSubMode: 'setup',
+    setBoardSubMode: (mode) => set({ boardSubMode: mode }),
+    toggleBoardSubMode: () =>
+      set((s) => ({ boardSubMode: s.boardSubMode === 'setup' ? 'draw' : 'setup' })),
+
+    // Editor tab
+    editorTab: 'board',
+    setEditorTab: (tab) => set({ editorTab: tab }),
   };
 });
 
