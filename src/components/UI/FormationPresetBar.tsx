@@ -38,7 +38,7 @@ export function FormationPresetBar() {
           className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-900/60
                      text-amber-300 hover:bg-amber-900/80 transition-colors"
         >
-          Reset ↺
+          Re-apply ↺
         </button>
       )}
     </div>
