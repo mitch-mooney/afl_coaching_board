@@ -11,7 +11,7 @@ export function parsePlayHQText(raw: string): RosterPlayer[] {
   const players: RosterPlayer[] = [];
   for (const line of lines) {
     const cols = line.split('\t');
-    if (cols.length < 2) continue;
+    if (cols.length < 2 || !cols[1]?.trim()) continue;
     const num = parseInt(cols[0].trim(), 10);
     if (isNaN(num)) continue; // skip header
     let name = cols[1].trim();
@@ -59,23 +59,41 @@ export const useRosterStore = create<RosterState>((set, get) => ({
   rosters: [],
 
   loadRosters: async () => {
-    const rosters = await rosterTable.orderBy('createdAt').reverse().toArray();
-    set({ rosters });
+    try {
+      const rosters = await rosterTable.orderBy('createdAt').reverse().toArray();
+      set({ rosters });
+    } catch (err) {
+      console.error('[rosterStore] loadRosters failed', err);
+    }
   },
 
   createRoster: async (teamName, players) => {
-    const id = await rosterTable.add({ teamName, createdAt: new Date().toISOString(), players });
-    await get().loadRosters();
-    return id as number;
+    try {
+      const id = await rosterTable.add({ teamName, createdAt: new Date().toISOString(), players });
+      await get().loadRosters();
+      return id as number;
+    } catch (err) {
+      console.error('[rosterStore] createRoster failed', err);
+      throw err;
+    }
   },
 
   updateRoster: async (id, patch) => {
-    await rosterTable.update(id, patch);
-    await get().loadRosters();
+    try {
+      await rosterTable.update(id, patch);
+      await get().loadRosters();
+    } catch (err) {
+      console.error('[rosterStore] updateRoster failed', err);
+      throw err;
+    }
   },
 
   deleteRoster: async (id) => {
-    await rosterTable.delete(id);
-    await get().loadRosters();
+    try {
+      await rosterTable.delete(id);
+      await get().loadRosters();
+    } catch (err) {
+      console.error('[rosterStore] deleteRoster failed', err);
+    }
   },
 }));

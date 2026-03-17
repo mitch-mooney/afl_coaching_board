@@ -20,33 +20,51 @@ export const useScenarioStore = create<ScenarioState>((set, get) => ({
   activeScenarioId: null,
 
   loadScenarios: async () => {
-    const scenarios = await scenarioTable.orderBy('createdAt').reverse().toArray();
-    set({ scenarios });
+    try {
+      const scenarios = await scenarioTable.orderBy('createdAt').reverse().toArray();
+      set({ scenarios });
+    } catch (err) {
+      console.error('[scenarioStore] loadScenarios failed', err);
+    }
   },
 
   createScenario: async (name) => {
-    const now = new Date().toISOString();
-    const id = await scenarioTable.add({
-      name,
-      createdAt: now,
-      updatedAt: now,
-      team1RosterId: null,
-      team2RosterId: null,
-      phases: [],
-    });
-    await get().loadScenarios();
-    return id as number;
+    try {
+      const now = new Date().toISOString();
+      const id = await scenarioTable.add({
+        name,
+        createdAt: now,
+        updatedAt: now,
+        team1RosterId: null,
+        team2RosterId: null,
+        phases: [],
+      });
+      await get().loadScenarios();
+      return id as number;
+    } catch (err) {
+      console.error('[scenarioStore] createScenario failed', err);
+      throw err;
+    }
   },
 
   updateScenario: async (id, patch) => {
-    await scenarioTable.update(id, { ...patch, updatedAt: new Date().toISOString() });
-    await get().loadScenarios();
+    try {
+      await scenarioTable.update(id, { ...patch, updatedAt: new Date().toISOString() });
+      await get().loadScenarios();
+    } catch (err) {
+      console.error('[scenarioStore] updateScenario failed', err);
+      throw err;
+    }
   },
 
   deleteScenario: async (id) => {
-    await scenarioTable.delete(id);
-    await get().loadScenarios();
-    if (get().activeScenarioId === id) set({ activeScenarioId: null });
+    try {
+      await scenarioTable.delete(id);
+      if (get().activeScenarioId === id) set({ activeScenarioId: null });
+      await get().loadScenarios();
+    } catch (err) {
+      console.error('[scenarioStore] deleteScenario failed', err);
+    }
   },
 
   setActiveScenario: (id) => set({ activeScenarioId: id }),

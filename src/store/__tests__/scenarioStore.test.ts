@@ -19,8 +19,11 @@ describe('scenarioStore', () => {
   it('updates a scenario', async () => {
     const { createScenario, updateScenario } = useScenarioStore.getState();
     const id = await createScenario('Original');
+    const originalUpdatedAt = useScenarioStore.getState().scenarios[0].updatedAt;
     await updateScenario(id, { name: 'Updated' });
-    expect(useScenarioStore.getState().scenarios[0].name).toBe('Updated');
+    const updated = useScenarioStore.getState().scenarios[0];
+    expect(updated.name).toBe('Updated');
+    expect(updated.updatedAt).not.toBe(originalUpdatedAt);
   });
 
   it('deletes a scenario', async () => {
@@ -28,6 +31,15 @@ describe('scenarioStore', () => {
     const id = await createScenario('To Delete');
     await deleteScenario(id);
     expect(useScenarioStore.getState().scenarios).toHaveLength(0);
+  });
+
+  it('clears activeScenarioId when deleting the active scenario', async () => {
+    const { createScenario, deleteScenario, setActiveScenario } = useScenarioStore.getState();
+    const id = await createScenario('Active');
+    setActiveScenario(id);
+    expect(useScenarioStore.getState().activeScenarioId).toBe(id);
+    await deleteScenario(id);
+    expect(useScenarioStore.getState().activeScenarioId).toBeNull();
   });
 
   it('loads scenarios from DB', async () => {

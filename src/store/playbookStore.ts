@@ -56,8 +56,8 @@ class PlaybookDatabase extends Dexie {
               playerPositions: p.playerPositions ?? [],
               paths: [],
               annotations: p.annotations ?? [],
-              cameraState: p.cameraPosition
-                ? { position: p.cameraPosition, target: p.cameraTarget, zoom: p.cameraZoom }
+              cameraState: p.cameraPosition && p.cameraTarget
+                ? { position: p.cameraPosition, target: p.cameraTarget, zoom: p.cameraZoom ?? 1 }
                 : null,
             },
           ],

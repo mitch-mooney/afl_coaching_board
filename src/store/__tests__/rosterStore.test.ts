@@ -27,6 +27,7 @@ describe('parsePlayHQText', () => {
     const players = parsePlayHQText(SAMPLE);
     expect(players[0].isCaptain).toBe(true);
     expect(players[1].isViceCaptain).toBe(true);
+    expect(players[1].name).toBe('Jones M');
     expect(players[2].isCaptain).toBeFalsy();
   });
 
@@ -52,10 +53,9 @@ describe('rosterStore CRUD', () => {
   });
 
   it('deletes a roster', async () => {
-    const { createRoster, deleteRoster, loadRosters } = useRosterStore.getState();
+    const { createRoster, deleteRoster } = useRosterStore.getState();
     const id = await createRoster('Swans', []);
     await deleteRoster(id);
-    await loadRosters();
     expect(useRosterStore.getState().rosters).toHaveLength(0);
   });
 });
