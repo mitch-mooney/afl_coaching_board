@@ -600,7 +600,7 @@ export function PlayerComponent({ player }: PlayerProps) {
       )}
 
       {/* Player name label - uses Billboard to always face camera */}
-      {labelMode === 'name' && displayName && (
+      {labelMode === 'name' && formatDisplayName(player.playerName) && (
         <Billboard position={[0, 2.1, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
           <Text
             font="/fonts/Inter-Bold.woff"
@@ -612,7 +612,7 @@ export function PlayerComponent({ player }: PlayerProps) {
             outlineColor="#000000"
             maxWidth={3}
           >
-            {displayName}
+            {formatDisplayName(player.playerName)}
           </Text>
         </Billboard>
       )}

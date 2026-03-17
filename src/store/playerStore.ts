@@ -60,6 +60,8 @@ interface PlayerState {
   getPlayerMoveState: (playerId: string) => PlayerMoveState | undefined;
 }
 
+const LABEL_MODE_ORDER: Array<'number' | 'name' | 'position'> = ['number', 'name', 'position'];
+
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   players: [],
   selectedPlayerId: null,
@@ -297,9 +299,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setLabelMode: (mode) => set({ labelMode: mode }),
 
   cycleLabelMode: () => {
-    const order: Array<'number' | 'name' | 'position'> = ['number', 'name', 'position'];
     const cur = get().labelMode;
-    set({ labelMode: order[(order.indexOf(cur) + 1) % order.length] });
+    set({ labelMode: LABEL_MODE_ORDER[(LABEL_MODE_ORDER.indexOf(cur) + 1) % LABEL_MODE_ORDER.length] });
   },
 
   importRoster: (names, teamId) => {
