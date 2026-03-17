@@ -142,23 +142,28 @@ export function MainLayout() {
   useHelpOverlayShortcuts(helpOpen, setHelpOpen, registry);
   useEditOperationShortcuts({}, registry);
 
-  const savePhase = useCallback(async () => {
-    if (!activeScenarioId) return;
-    await updateScenario(activeScenarioId, {
-      phases: [{
-        id: 'phase-1',
-        label: 'Phase 1',
-        playerPositions: players,
-        paths,
-        annotations: annotations as unknown[],
-        cameraState: camera,
-      }],
-    });
-  }, [activeScenarioId, players, paths, annotations, camera, updateScenario]);
+  const savePayloadRef = useRef({ activeScenarioId, players, paths, annotations, camera, updateScenario });
 
   useEffect(() => {
-    return () => { savePhase(); };
-  }, [savePhase]);
+    savePayloadRef.current = { activeScenarioId, players, paths, annotations, camera, updateScenario };
+  });
+
+  useEffect(() => {
+    return () => {
+      const { activeScenarioId, players, paths, annotations, camera, updateScenario } = savePayloadRef.current;
+      if (!activeScenarioId) return;
+      updateScenario(activeScenarioId, {
+        phases: [{
+          id: 'phase-1',
+          label: 'Phase 1',
+          playerPositions: players,
+          paths,
+          annotations: annotations as unknown[],
+          cameraState: camera,
+        }],
+      });
+    };
+  }, []); // empty array = runs cleanup on unmount only
 
   useEffect(() => {
     if (!id) return;
