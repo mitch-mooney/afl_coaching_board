@@ -27,8 +27,7 @@ interface PlayerState {
   /** Flag to track if any player is currently being dragged */
   isDragging: boolean;
   editingPlayerId: string | null;
-  showPlayerNames: boolean;
-  showPositionNames: boolean;
+  labelMode: 'number' | 'name' | 'position';
   team1PresetId: string | null;
   team2PresetId: string | null;
   /** Track movement state for leg animations */
@@ -49,8 +48,8 @@ interface PlayerState {
   canApplyFormation: () => boolean;
   setPlayerName: (playerId: string, name: string) => void;
   setPlayerPosition: (playerId: string, positionName: string | undefined) => void;
-  togglePlayerNames: () => void;
-  togglePositionNames: () => void;
+  setLabelMode: (mode: 'number' | 'name' | 'position') => void;
+  cycleLabelMode: () => void;
   importRoster: (names: string[], teamId?: 'team1' | 'team2') => void;
   startEditingPlayerName: (playerId: string) => void;
   stopEditingPlayerName: () => void;
@@ -67,8 +66,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isUpdating: false,
   isDragging: false,
   editingPlayerId: null,
-  showPlayerNames: false,
-  showPositionNames: false,
+  labelMode: 'number',
   team1PresetId: null,
   team2PresetId: null,
   playerMoveState: new Map<string, PlayerMoveState>(),
@@ -296,12 +294,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }));
   },
 
-  togglePlayerNames: () => {
-    set((state) => ({ showPlayerNames: !state.showPlayerNames }));
-  },
+  setLabelMode: (mode) => set({ labelMode: mode }),
 
-  togglePositionNames: () => {
-    set((state) => ({ showPositionNames: !state.showPositionNames }));
+  cycleLabelMode: () => {
+    const order: Array<'number' | 'name' | 'position'> = ['number', 'name', 'position'];
+    const cur = get().labelMode;
+    set({ labelMode: order[(order.indexOf(cur) + 1) % order.length] });
   },
 
   importRoster: (names, teamId) => {

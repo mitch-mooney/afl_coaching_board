@@ -69,7 +69,7 @@ export function PlayerComponent({ player }: PlayerProps) {
   const rotationStartRef = useRef<{ clientX: number; startRotation: number } | null>(null);
   // Animation time for leg cycle
   const animTimeRef = useRef<number>(0);
-  const { selectedPlayerId, selectPlayer, updatePlayerPosition, updatePlayerRotation, showPlayerNames, showPositionNames, startEditingPlayerName, setDragging, setPlayerPosition, players, getPlayerMoveState } = usePlayerStore();
+  const { selectedPlayerId, selectPlayer, updatePlayerPosition, updatePlayerRotation, labelMode, startEditingPlayerName, setDragging, setPlayerPosition, players, getPlayerMoveState } = usePlayerStore();
   const { addPath, removePath } = usePathStore();
   const { pushSnapshot } = useHistoryStore();
   const isPlaying = useAnimationStore((state) => state.isPlaying);
@@ -600,7 +600,7 @@ export function PlayerComponent({ player }: PlayerProps) {
       )}
 
       {/* Player name label - uses Billboard to always face camera */}
-      {showPlayerNames && displayName && (
+      {labelMode === 'name' && displayName && (
         <Billboard position={[0, 2.1, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
           <Text
             font="/fonts/Inter-Bold.woff"
@@ -618,8 +618,8 @@ export function PlayerComponent({ player }: PlayerProps) {
       )}
 
       {/* Position code label - shown independently of name label */}
-      {showPositionNames && player.positionName && (
-        <Billboard position={[0, showPlayerNames && displayName ? 2.65 : 2.1, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
+      {labelMode === 'position' && player.positionName && (
+        <Billboard position={[0, 2.1, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
           <Text
             font="/fonts/Inter-Bold.woff"
             fontSize={0.38}

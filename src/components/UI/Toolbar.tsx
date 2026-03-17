@@ -26,10 +26,8 @@ interface ToolbarProps {
 
 export function Toolbar({ canvas }: ToolbarProps) {
   const resetPlayers = usePlayerStore((state) => state.resetPlayers);
-  const showPlayerNames = usePlayerStore((state) => state.showPlayerNames);
-  const togglePlayerNames = usePlayerStore((state) => state.togglePlayerNames);
-  const showPositionNames = usePlayerStore((state) => state.showPositionNames);
-  const togglePositionNames = usePlayerStore((state) => state.togglePositionNames);
+  const labelMode = usePlayerStore((state) => state.labelMode);
+  const cycleLabelMode = usePlayerStore((state) => state.cycleLabelMode);
   const importRoster = usePlayerStore((state) => state.importRoster);
   const editingPlayerId = usePlayerStore((state) => state.editingPlayerId);
   const getPlayer = usePlayerStore((state) => state.getPlayer);
@@ -288,15 +286,10 @@ export function Toolbar({ canvas }: ToolbarProps) {
         description: 'Remove all movement trails from the field',
       }),
       createMenuItem('reset-players', 'Reset Players', resetPlayers, { variant: 'success', description: 'Reset all players to their starting positions' }),
-      createMenuItem('toggle-names', showPlayerNames ? 'Hide Names' : 'Show Names', togglePlayerNames, {
+      createMenuItem('cycle-labels', `Labels: ${labelMode.charAt(0).toUpperCase() + labelMode.slice(1)}`, cycleLabelMode, {
         variant: 'teal',
-        active: showPlayerNames,
-        description: 'Toggle player name labels above each player',
-      }),
-      createMenuItem('toggle-positions', showPositionNames ? 'Hide Positions' : 'Show Positions', togglePositionNames, {
-        variant: 'teal',
-        active: showPositionNames,
-        description: 'Toggle AFL position code labels (FB, CHF, etc.) above each player',
+        active: labelMode !== 'number',
+        description: 'Cycle label mode: number → name → position → number',
       }),
       createMenuItem('import-roster', 'Import Roster', () => setShowImportDialog(true), { variant: 'primary', description: 'Load player names and numbers from a text list' }),
       createMenuItem('auto-assign', 'Auto-Assign Positions', () => autoAssignPositions(), { variant: 'teal', description: 'Automatically assign positions based on field location' }),
@@ -444,7 +437,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
     return sections;
   }, [
     setPresetView, resetCamera, handleUndo, canUndo, clearPaths, paths.length,
-    resetPlayers, showPlayerNames, togglePlayerNames, showPositionNames, togglePositionNames, autoAssignPositions, ball, selectedPlayer,
+    resetPlayers, labelMode, cycleLabelMode, autoAssignPositions, ball, selectedPlayer,
     selectedPlayerId, handleAssignBall, assignedPlayer, handleUnassignBall,
     isBallSelected, ballPath, handleCreateBallPath, handleRemoveBallPath,
     isPlaying, togglePlayback, handleStopAnimation, isRecording, handleRecordingToggle,
