@@ -36,7 +36,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const updateMultiplePlayers = usePlayerStore((state) => state.updateMultiplePlayers);
   const setPlayerPosition = usePlayerStore((state) => state.setPlayerPosition);
   const autoAssignPositions = usePlayerStore((state) => state.autoAssignPositions);
-  const { setPresetView, resetCamera, povMode, povPlayerId, enablePOV, disablePOV } = useCameraStore();
+  const { setPresetView, resetCamera, activePovSlot, povPlayer1Id, setPovPlayer, switchToBroadcast } = useCameraStore();
   const ball = useBallStore((state) => state.ball);
   const isBallSelected = useBallStore((state) => state.isBallSelected);
   const assignBallToPlayer = useBallStore((state) => state.assignBallToPlayer);
@@ -126,9 +126,11 @@ export function Toolbar({ canvas }: ToolbarProps) {
   // Get active event info
   const activeEvent = getActiveEvent();
 
-  // Get the POV target player for display
-  const povPlayer = povPlayerId
-    ? players.find(p => p.id === povPlayerId)
+  // Derive active POV state for display
+  const isPovActive = activePovSlot !== null;
+  const activePovPlayerId = activePovSlot === 1 ? povPlayer1Id : null;
+  const povPlayer = activePovPlayerId
+    ? players.find(p => p.id === activePovPlayerId)
     : null;
 
   const handleAssignBall = () => {
@@ -249,9 +251,9 @@ export function Toolbar({ canvas }: ToolbarProps) {
 
   // Handle POV player selection
   const handleSelectPOVPlayer = useCallback((playerId: string) => {
-    enablePOV(playerId);
+    setPovPlayer(1, playerId);
     setShowPOVSelector(false);
-  }, [enablePOV]);
+  }, [setPovPlayer]);
 
   // Handle clearing active event
   const handleClearEvent = useCallback(() => {
@@ -397,9 +399,9 @@ export function Toolbar({ canvas }: ToolbarProps) {
 
     // POV section
     const povItems = [];
-    if (povMode) {
+    if (isPovActive) {
       povItems.push(
-        createMenuItem('exit-pov', `Exit POV (#${povPlayer?.number ?? '?'})`, disablePOV, { variant: 'danger', description: 'Exit first-person player view' })
+        createMenuItem('exit-pov', `Exit POV (#${povPlayer?.number ?? '?'})`, switchToBroadcast, { variant: 'danger', description: 'Exit first-person player view' })
       );
     } else {
       povItems.push(
@@ -442,7 +444,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
     isBallSelected, ballPath, handleCreateBallPath, handleRemoveBallPath,
     isPlaying, togglePlayback, handleStopAnimation, isRecording, handleRecordingToggle,
     isConverting, conversionProgress, exportFormat, setExportFormat,
-    activeEvent, handleClearEvent, povMode, povPlayer, disablePOV,
+    activeEvent, handleClearEvent, isPovActive, povPlayer, switchToBroadcast,
     isVideoMode, isLoaded, isLoading, clearVideo,
     authUser, authIsConfigured, authSignOut,
     team1PresetId, team2PresetId, matchShowScoreboard, toggleScoreboard,

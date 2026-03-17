@@ -10,12 +10,17 @@ import { useGestures } from '../../hooks/useGestures';
 export function CameraController() {
   const { camera, gl } = useThree();
   const controlsRef = useRef<any>(null);
-  const { position, target, zoom, povMode, povPlayerId, povHeight, povDistance, applyPinchZoom, applyTwoFingerPan, setPOVDistance } = useCameraStore();
+  const { position, target, zoom, povPlayer1Id, povPlayer2Id, activePovSlot, povHeight, povDistance, applyPinchZoom, applyTwoFingerPan, setPOVDistance } = useCameraStore();
   const selectedTool = useAnnotationStore((state) => state.selectedTool);
   const isDraggingPlayer = usePlayerStore((state) => state.isDragging);
   const getPlayer = usePlayerStore((state) => state.getPlayer);
   // Gesture detection for pinch-to-zoom
   const { handlers: gestureHandlers, getGestureState } = useGestures();
+
+  // Derive active POV player id from slot state
+  const activePovPlayerId =
+    activePovSlot === 1 ? povPlayer1Id :
+    activePovSlot === 2 ? povPlayer2Id : null;
 
   // Ref to track the initial zoom when a pinch gesture starts
   const initialZoomRef = useRef<number | null>(null);
@@ -27,14 +32,16 @@ export function CameraController() {
   const [isPinching, setIsPinching] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
 
+  const isPovActive = activePovSlot !== null;
+
   // Disable orbit controls when annotation tool is active, player is being dragged, POV mode is active, or gesturing
   const isAnnotating = selectedTool !== null;
-  const shouldDisableControls = isAnnotating || isDraggingPlayer || povMode || isPinching || isPanning;
+  const shouldDisableControls = isAnnotating || isDraggingPlayer || isPovActive || isPinching || isPanning;
 
   // Update camera position when store changes (non-POV mode)
   useEffect(() => {
     // Skip camera store updates when in POV mode - useFrame handles it
-    if (povMode) return;
+    if (isPovActive) return;
 
     camera.position.set(...position);
     camera.lookAt(...target);
@@ -45,7 +52,7 @@ export function CameraController() {
       controlsRef.current.target.set(...target);
       controlsRef.current.update();
     }
-  }, [camera, position, target, zoom, povMode]);
+  }, [camera, position, target, zoom, isPovActive]);
 
   // Handle touch start - capture initial state for two-finger gestures
   const handleTouchStart = useCallback((event: TouchEvent) => {
@@ -79,7 +86,7 @@ export function CameraController() {
       setIsPinching((prev) => prev || true);
       setIsPanning(false);
 
-      if (povMode) {
+      if (isPovActive) {
         // In POV mode, route pinch to POV distance (inverse: pinch out = closer)
         if (initialZoomRef.current !== null) {
           const newDistance = povDistance / gestureState.zoomFactor;
@@ -137,11 +144,11 @@ export function CameraController() {
 
   // Handle wheel event for POV zoom
   const handleWheel = useCallback((event: WheelEvent) => {
-    if (!povMode) return;
+    if (!isPovActive) return;
     event.preventDefault();
     const delta = event.deltaY * 0.05;
     setPOVDistance(povDistance + delta);
-  }, [povMode, povDistance, setPOVDistance]);
+  }, [isPovActive, povDistance, setPOVDistance]);
 
   // Set up touch and wheel event listeners on the canvas
   useEffect(() => {
@@ -166,10 +173,10 @@ export function CameraController() {
 
   // POV camera update - runs every frame when POV mode is active
   useFrame(() => {
-    if (!povMode || !povPlayerId) return;
+    if (!isPovActive || !activePovPlayerId) return;
 
     // Get the player we're following
-    const player = getPlayer(povPlayerId);
+    const player = getPlayer(activePovPlayerId);
     if (!player) return;
 
     const [px, py, pz] = player.position;
