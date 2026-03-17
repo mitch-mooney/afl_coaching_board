@@ -50,6 +50,10 @@ interface UIState {
   // Editor tab: board view vs video view
   editorTab: 'board' | 'video';
   setEditorTab: (tab: 'board' | 'video') => void;
+
+  // Active formation preset (last applied formation ID)
+  activeFormationId: string | null;
+  setActiveFormationId: (id: string | null) => void;
 }
 
 /**
@@ -159,6 +163,10 @@ export const useUIStore = create<UIState>((set) => {
     // Editor tab
     editorTab: 'board',
     setEditorTab: (tab) => set({ editorTab: tab }),
+
+    // Active formation preset
+    activeFormationId: null,
+    setActiveFormationId: (id) => set({ activeFormationId: id }),
   };
 });
 

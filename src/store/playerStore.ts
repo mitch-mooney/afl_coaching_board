@@ -3,6 +3,7 @@ import { Player, createTeamPlayers, DEFAULT_TEAM_COLORS } from '../models/Player
 import { getFormationById } from '../data/formations';
 import { getPositionByCode, NUMBER_TO_POSITION } from '../data/aflPositions';
 import { getTeamById } from '../data/aflTeams';
+import type { Formation } from '../types/Formation';
 
 export interface PlayerUpdate {
   playerId: string;
@@ -58,6 +59,8 @@ interface PlayerState {
   autoAssignPositions: (teamId?: 'team1' | 'team2') => void;
   /** Get movement state for a player */
   getPlayerMoveState: (playerId: string) => PlayerMoveState | undefined;
+  /** Apply a formation template, repositioning all matched players */
+  applyFormation: (formation: Formation) => void;
 }
 
 const LABEL_MODE_ORDER: Array<'number' | 'name' | 'position'> = ['number', 'name', 'position'];
@@ -403,5 +406,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   getPlayerMoveState: (playerId) => {
     return get().playerMoveState.get(playerId);
+  },
+
+  applyFormation: (formation) => {
+    const { players } = get();
+    const updatedPlayers = players.map((player) => {
+      const match = formation.positions.find(
+        (pos) => pos.teamId === player.teamId && pos.playerNumber === player.number
+      );
+      if (!match) return player;
+      return { ...player, position: match.position, rotation: match.rotation ?? player.rotation };
+    });
+    set({ players: updatedPlayers });
   },
 }));
