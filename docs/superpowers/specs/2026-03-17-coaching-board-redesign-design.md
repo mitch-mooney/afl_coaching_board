@@ -115,15 +115,45 @@ The pressing team (the team that scored, attacking the kick-in) forms three line
 | Back row A | Centre square (near boundary) | HBFL · CHB · HBFR | 3 |
 | Back row B | Centre square (behind row A) | BPL · FB · BPR | 3 |
 
-**Notes:**
-- Line 1 and 2 players are spread evenly across the field width at their respective distances
-- Line 3 wings (WL, WR) sit at the widest points (near the boundary), midfielders cluster toward centre
-- The Ruck (Rk) drops into Line 2 beside the half-forward line rather than sitting in the centre circle
-- The back 3+3 rows are positioned horizontally across the width of the centre square, providing defensive coverage and a reset option for the kick-in receiver
-- The kicker themselves stands in the goal square (one of the FB or CHB who has run back); they are the 18th player not listed above
-- The kicking team's defensive kick-in preset is the **mirror image** (same formation geometry, flipped end-for-end)
+**Notes on pressing team formation:**
+- Line 1 and 2 players spread evenly across the field width at their respective distances
+- Line 3 wings (WL, WR) sit at the widest points near the boundary; midfielders cluster toward centre
+- Ruck (Rk) drops to Line 2 beside the half-forward line
+- The back 3+3 rows hold horizontally across the centre square width, providing defensive cover
+- The kicker stands in the goal square — they are the 18th player not shown in the formation above
 
-In-code, distances from goal translate to Z-axis offsets from the kicking goal line. All values **must be read from `fieldGeometry.ts`** (field length, goal position, centre square boundaries) — do not hard-code metres directly.
+---
+
+**Kicking team (defensive kick-in) — positioning of all 18 players:**
+
+The team kicking in spreads to receive with the following structure (all distances from their own goal line):
+
+| Group | Distance from own goal | Players | Layout |
+|-------|----------------------|---------|--------|
+| Kicker | In goal square | FB | Takes the kick |
+| Short options | 20m, ±45° diagonal | BPL (left) · BPR (right) | One each side at 45° off centre |
+| Centre cluster | 40m | WL · RR · C · Ro · WR | 5 spread across field width |
+| Mid cluster | 55m | HBFL · CHB · Rk · HBFR | 4 spread across field width |
+| Forward cluster | Deep attacking half | 2-1-2-1 diamond (see below) | Clustered toward centre |
+
+**Forward cluster — 2-1-2-1 diamond (deepest to shallowest toward opponent's goal):**
+
+```
+    [ HFFL ]   [ HFFR ]        ← 2  (deepest of the group)
+         [ CHF ]               ← 1
+    [ FPL ]    [ FPR ]         ← 2
+         [ FF ]                ← 1  (shallowest, closest to opponent's goal)
+```
+
+All four layers are clustered toward the middle of the field (not spread to the boundary wings). The exact depth of the forward cluster depends on field state but they sit in the attacking half between the 50m arc and the opposition's goal square.
+
+**Kicking team notes:**
+- BPL and BPR at ±45° from the goal provide the short and safe target for the kicker
+- The 5-player centre cluster (40m) is the primary medium-range target
+- The 4-player mid cluster (55m) provides a long-range option and the Ruck contests if the ball is kicked long
+- The forward cluster presses against the opposition's backs, ready to receive or create a marking contest if the ball travels full field
+
+**Kicking team's defensive kick-in preset is the mirror image** (same geometry, flipped end-for-end). In both cases, distances translate to Z-axis offsets from the relevant goal line — **read all field measurements from `fieldGeometry.ts`**, do not hard-code metres.
 
 ### 2.4 Player Label Toggle
 
