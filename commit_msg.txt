@@ -1,0 +1,8 @@
+Fix missing committed files from phase animation system
+
+EventModel, eventStore, useAnimationPlayback, EventTimeline, and Toolbar
+were modified as part of the phased animation feature but not staged in
+the previous commit, causing the Vercel build to fail with a type error
+on removePlayerPath's optional pathId parameter.
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>

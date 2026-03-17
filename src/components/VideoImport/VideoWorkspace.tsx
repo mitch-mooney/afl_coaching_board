@@ -7,6 +7,7 @@ import { VideoExporter } from './VideoExporter';
 import { CalibrationGridControls, useCalibrationGrid } from './CalibrationGrid';
 import { useVideoStore } from '../../store/videoStore';
 import { useVideoPlayback } from '../../hooks/useVideoPlayback';
+import { useAnimationStore } from '../../store/animationStore';
 
 /**
  * Panel types for the right sidebar
@@ -63,6 +64,7 @@ export function VideoWorkspace({
   // Sidebar state
   const [activePanel, setActivePanel] = useState<SidebarPanel>('calibration');
   const [showSidebar, setShowSidebar] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const workspaceRef = useRef<HTMLDivElement>(null);
 
   // Canvas reference for export
@@ -78,9 +80,31 @@ export function VideoWorkspace({
   const setIsVideoMode = useVideoStore((state) => state.setIsVideoMode);
   const setDisplayMode = useVideoStore((state) => state.setDisplayMode);
   const playbackRate = useVideoStore((state) => state.playbackRate);
+  const isSyncedWithAnimation = useVideoStore((state) => state.isSyncedWithAnimation);
+  const toggleSyncWithAnimation = useVideoStore((state) => state.toggleSyncWithAnimation);
+
+  // Animation store (for concert mode indicator)
+  const animationIsPlaying = useAnimationStore((state) => state.isPlaying);
 
   // Playback controls from hook
   const { togglePlayPause, setRate } = useVideoPlayback();
+
+  // Fullscreen change listener
+  useEffect(() => {
+    const handleFSChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handleFSChange);
+    return () => document.removeEventListener('fullscreenchange', handleFSChange);
+  }, []);
+
+  const handleToggleFullscreen = useCallback(() => {
+    const el = workspaceRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, []);
 
   /**
    * Handle exit video mode (close video completely)
@@ -178,6 +202,10 @@ export function VideoWorkspace({
           event.preventDefault();
           toggleSidebar();
           break;
+        case 'KeyF':
+          event.preventDefault();
+          handleToggleFullscreen();
+          break;
       }
     };
 
@@ -185,7 +213,7 @@ export function VideoWorkspace({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isLoaded, handleSlowDown, handleSpeedUp, togglePlayPause, handleExitVideoMode, toggleSidebar]);
+  }, [isLoaded, handleSlowDown, handleSpeedUp, togglePlayPause, handleExitVideoMode, toggleSidebar, handleToggleFullscreen]);
 
   // Don't render if no video is loaded
   if (!isLoaded) {
@@ -209,48 +237,65 @@ export function VideoWorkspace({
         />
 
         {/* Top Bar with Video Info and Exit Button */}
-        <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between">
+        <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between gap-3">
           {/* Video Info */}
-          <div className="flex items-center gap-3 bg-black/50 backdrop-blur-sm rounded-lg px-4 py-2">
-            <svg
-              className="w-5 h-5 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-              />
+          <div className="flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-lg px-3 py-2 min-w-0">
+            <svg className="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
-            <span className="text-white text-sm font-medium truncate max-w-xs">
-              {videoFile?.name || 'Video'}
-            </span>
+            <span className="text-white text-sm font-medium truncate max-w-xs">{videoFile?.name || 'Video'}</span>
+            {isSyncedWithAnimation && (
+              <span className="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded px-1.5 py-0.5 flex-shrink-0">
+                {animationIsPlaying ? '● LIVE' : 'SYNC'}
+              </span>
+            )}
           </div>
 
-          {/* Exit Buttons */}
-          <div className="flex items-center gap-2">
+          {/* Controls */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Concert mode toggle */}
+            <button
+              onClick={toggleSyncWithAnimation}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition shadow-lg backdrop-blur-sm ${
+                isSyncedWithAnimation
+                  ? 'bg-emerald-600/90 hover:bg-emerald-700 text-white'
+                  : 'bg-black/50 hover:bg-black/70 text-gray-300 hover:text-white'
+              }`}
+              title={isSyncedWithAnimation ? 'Disable concert mode (video + animation sync)' : 'Enable concert mode — sync video with 3D animation'}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <span className="hidden md:inline">{isSyncedWithAnimation ? 'Synced' : 'Concert'}</span>
+            </button>
+
+            {/* Fullscreen toggle */}
+            <button
+              onClick={handleToggleFullscreen}
+              className="flex items-center gap-1.5 px-3 py-2 bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white rounded-lg transition shadow-lg"
+              title={isFullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)'}
+            >
+              {isFullscreen ? (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 15v4.5M9 15H4.5M15 9h4.5M15 9V4.5M15 15h4.5M15 15v4.5" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+              )}
+              <span className="hidden md:inline">{isFullscreen ? 'Exit FS' : 'Fullscreen'}</span>
+            </button>
+
             {/* Exit to PiP Button */}
             <button
               onClick={handleExitToPiP}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-500/80 hover:bg-blue-600 backdrop-blur-sm text-white rounded-lg transition shadow-lg"
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-500/80 hover:bg-blue-600 backdrop-blur-sm text-white rounded-lg transition shadow-lg"
               aria-label="Exit to picture-in-picture"
-              title="Exit to PiP view"
+              title="Float as PiP window"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"
-                />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
               </svg>
               <span className="hidden sm:inline">PiP</span>
             </button>
@@ -258,22 +303,12 @@ export function VideoWorkspace({
             {/* Close Video Button */}
             <button
               onClick={handleExitVideoMode}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500/80 hover:bg-red-600 backdrop-blur-sm text-white rounded-lg transition shadow-lg"
+              className="flex items-center gap-1.5 px-3 py-2 bg-red-500/80 hover:bg-red-600 backdrop-blur-sm text-white rounded-lg transition shadow-lg"
               aria-label="Close video"
               title="Close video (Esc)"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
               <span className="hidden sm:inline">Close</span>
             </button>
@@ -317,7 +352,7 @@ export function VideoWorkspace({
           {/* Keyboard Shortcuts Hint */}
           <div className="flex justify-center">
             <span className="text-xs text-white/60 bg-black/30 backdrop-blur-sm px-3 py-1 rounded">
-              J/K/L: Speed Control | Tab: Toggle Panel | Esc: Exit
+              Space: Play/Pause | J/K/L: Speed | F: Fullscreen | Tab: Panel | Esc: Exit
             </span>
           </div>
         </div>

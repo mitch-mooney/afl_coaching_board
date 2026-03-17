@@ -114,6 +114,9 @@ interface VideoState {
   // Display mode: 'pip' = picture-in-picture (top right), 'calibration' = full field overlay
   displayMode: 'pip' | 'calibration';
 
+  // Concert mode: when true, video play/pause is synced with 3D animation playback
+  isSyncedWithAnimation: boolean;
+
   // Perspective calibration
   perspectiveSettings: PerspectiveSettings;
 
@@ -156,6 +159,10 @@ interface VideoState {
   setIsVideoMode: (isVideoMode: boolean) => void;
   setDisplayMode: (mode: 'pip' | 'calibration') => void;
   toggleDisplayMode: () => void;
+
+  // Actions - Concert mode
+  setSyncedWithAnimation: (synced: boolean) => void;
+  toggleSyncWithAnimation: () => void;
 
   // Actions - Perspective settings
   setPerspectiveSettings: (settings: Partial<PerspectiveSettings>) => void;
@@ -233,6 +240,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   // Initial state - Video mode
   isVideoMode: false,
   displayMode: 'pip',
+  isSyncedWithAnimation: false,
 
   // Initial state - Settings
   perspectiveSettings: { ...DEFAULT_PERSPECTIVE_SETTINGS },
@@ -279,6 +287,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       error: null,
       isVideoMode: false,
       displayMode: 'pip',
+      isSyncedWithAnimation: false,
     });
   },
 
@@ -364,6 +373,14 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     set((state) => ({
       displayMode: state.displayMode === 'pip' ? 'calibration' : 'pip',
     }));
+  },
+
+  setSyncedWithAnimation: (synced) => {
+    set({ isSyncedWithAnimation: synced });
+  },
+
+  toggleSyncWithAnimation: () => {
+    set((state) => ({ isSyncedWithAnimation: !state.isSyncedWithAnimation }));
   },
 
   // Actions - Perspective settings
@@ -585,6 +602,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       error: null,
       isVideoMode: false,
       displayMode: 'pip',
+      isSyncedWithAnimation: false,
       perspectiveSettings: { ...DEFAULT_PERSPECTIVE_SETTINGS },
       exportSettings: { ...DEFAULT_EXPORT_SETTINGS },
       currentSavedVideoId: null,
