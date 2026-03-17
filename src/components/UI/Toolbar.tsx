@@ -36,7 +36,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const updateMultiplePlayers = usePlayerStore((state) => state.updateMultiplePlayers);
   const setPlayerPosition = usePlayerStore((state) => state.setPlayerPosition);
   const autoAssignPositions = usePlayerStore((state) => state.autoAssignPositions);
-  const { setPresetView, resetCamera, activePovSlot, povPlayer1Id, setPovPlayer, switchToBroadcast } = useCameraStore();
+  const { setPresetView, resetCamera, activePovSlot, povPlayer1Id, povPlayer2Id, setPovPlayer, switchToBroadcast } = useCameraStore();
   const ball = useBallStore((state) => state.ball);
   const isBallSelected = useBallStore((state) => state.isBallSelected);
   const assignBallToPlayer = useBallStore((state) => state.assignBallToPlayer);
@@ -128,7 +128,9 @@ export function Toolbar({ canvas }: ToolbarProps) {
 
   // Derive active POV state for display
   const isPovActive = activePovSlot !== null;
-  const activePovPlayerId = activePovSlot === 1 ? povPlayer1Id : null;
+  const activePovPlayerId =
+    activePovSlot === 1 ? povPlayer1Id :
+    activePovSlot === 2 ? povPlayer2Id : null;
   const povPlayer = activePovPlayerId
     ? players.find(p => p.id === activePovPlayerId)
     : null;
