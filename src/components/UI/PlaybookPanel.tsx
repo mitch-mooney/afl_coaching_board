@@ -1,10 +1,11 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePlaybookStore, type Playbook } from '../../store/playbookStore';
 import { usePlaybook } from '../../hooks/usePlaybook';
 import { useResponsive } from '../../hooks/useResponsive';
 import { SharePlaybookDialog } from './SharePlaybookDialog';
 import { useAuthStore } from '../../store/authStore';
+import { useUIStore } from '../../store/uiStore';
 
 /**
  * PlaybookPanel - Responsive panel for loading and managing saved playbooks.
@@ -23,7 +24,8 @@ import { useAuthStore } from '../../store/authStore';
 export function PlaybookPanel() {
   const { playbooks, isLoading, loadPlaybooks } = usePlaybookStore();
   const { loadScenario } = usePlaybook();
-  const [isOpen, setIsOpen] = useState(false);
+  const isOpen = useUIStore((s) => s.isPlaybookOpen);
+  const closePlaybook = useUIStore((s) => s.closePlaybook);
   const [sharingPlaybook, setSharingPlaybook] = useState<Playbook | null>(null);
   const { isMobile } = useResponsive();
   const authIsConfigured = useAuthStore((state) => state.isConfigured);
@@ -36,8 +38,8 @@ export function PlaybookPanel() {
 
   // Handle close
   const handleClose = useCallback(() => {
-    setIsOpen(false);
-  }, []);
+    closePlaybook();
+  }, [closePlaybook]);
 
   // Handle click outside to close (mobile)
   useEffect(() => {
@@ -83,7 +85,7 @@ export function PlaybookPanel() {
   const handleLoad = async (id: number) => {
     try {
       await loadScenario(id);
-      setIsOpen(false);
+      closePlaybook();
     } catch (error) {
       alert('Failed to load playbook. Please try again.');
     }
@@ -156,29 +158,6 @@ export function PlaybookPanel() {
 
   return (
     <>
-      {/* Toggle button - responsive positioning */}
-      <button
-        data-playbook-toggle
-        onClick={() => setIsOpen(!isOpen)}
-        className={`
-          absolute z-10
-          px-3 py-2 sm:px-4 sm:py-2
-          min-h-[44px]
-          bg-white/90 backdrop-blur-sm rounded-lg shadow-lg
-          hover:bg-white active:bg-gray-50
-          transition-colors touch-manipulation
-          font-medium text-sm sm:text-base
-          ${isMobile
-            ? 'top-2 right-2'
-            : 'top-4 right-4'
-          }
-        `}
-        aria-label={isOpen ? 'Close playbooks panel' : 'Open playbooks panel'}
-        aria-expanded={isOpen}
-      >
-        {isOpen ? '← Close' : '📚 Playbooks'}
-      </button>
-
       <AnimatePresence>
         {isOpen && (
           <>
@@ -203,7 +182,7 @@ export function PlaybookPanel() {
                 overflow-hidden
                 ${isMobile
                   ? 'fixed top-0 right-0 bottom-0 w-full max-w-sm rounded-l-xl border-l border-gray-200/50'
-                  : 'absolute top-16 right-4 w-80 rounded-lg border border-gray-200/50 max-h-[calc(100vh-120px)]'
+                  : 'absolute top-14 right-4 w-80 rounded-lg border border-gray-200/50 max-h-[calc(100vh-4rem)]'
                 }
               `}
               variants={isMobile ? panelVariants : desktopPanelVariants}

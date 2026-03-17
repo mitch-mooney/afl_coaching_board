@@ -22,22 +22,22 @@ export function CameraDock() {
       className="absolute left-1/2 -translate-x-1/2 flex gap-2 z-30"
       style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
     >
-      <button onClick={switchToBroadcast} className={btnClass(activePovSlot === null)}>
-        TV
+      <button onClick={switchToBroadcast} className={btnClass(activePovSlot === null)} title="Broadcast camera — full-field view">
+        Broadcast
       </button>
       <button
         onClick={() => setActivePovSlot(1)}
-        title={!povPlayer1Id ? 'Click a player to assign POV 1' : undefined}
+        title={povPlayer1Id ? `Follow player ${label(povPlayer1Id)} — assign via Camera menu` : 'No player assigned — use Camera › Assign Follow-Cam 1 in the menu'}
         className={btnClass(activePovSlot === 1)}
       >
-        POV1 {label(povPlayer1Id)}
+        Follow-Cam 1{povPlayer1Id ? `: ${label(povPlayer1Id)}` : ' (unset)'}
       </button>
       <button
         onClick={() => setActivePovSlot(2)}
-        title={!povPlayer2Id ? 'Click a player to assign POV 2' : undefined}
+        title={povPlayer2Id ? `Follow player ${label(povPlayer2Id)} — assign via Camera menu` : 'No player assigned — use Camera › Assign Follow-Cam 2 in the menu'}
         className={btnClass(activePovSlot === 2)}
       >
-        POV2 {label(povPlayer2Id)}
+        Follow-Cam 2{povPlayer2Id ? `: ${label(povPlayer2Id)}` : ' (unset)'}
       </button>
     </div>
   );

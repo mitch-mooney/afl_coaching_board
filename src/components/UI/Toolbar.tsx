@@ -78,6 +78,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const [showVideoUploader, setShowVideoUploader] = useState(false);
   // Event editor is managed via uiStore (shared with EventTimeline)
   const [showPOVSelector, setShowPOVSelector] = useState(false);
+  const [povSlotToAssign, setPovSlotToAssign] = useState<1 | 2>(1);
   const [showTeamSelector, setShowTeamSelector] = useState(false);
   const [showMatchSetup, setShowMatchSetup] = useState(false);
 
@@ -253,9 +254,9 @@ export function Toolbar({ canvas }: ToolbarProps) {
 
   // Handle POV player selection
   const handleSelectPOVPlayer = useCallback((playerId: string) => {
-    setPovPlayer(1, playerId);
+    setPovPlayer(povSlotToAssign, playerId);
     setShowPOVSelector(false);
-  }, [setPovPlayer]);
+  }, [setPovPlayer, povSlotToAssign]);
 
   // Handle clearing active event
   const handleClearEvent = useCallback(() => {
@@ -399,18 +400,27 @@ export function Toolbar({ canvas }: ToolbarProps) {
     }
     sections.push(createMenuSection('events', 'Events', eventItems));
 
-    // POV section
-    const povItems = [];
+    // POV section — always show both assign slots; show Exit when POV is active
+    const pov1Label = povPlayer1Id ? `#${players.find(p => p.id === povPlayer1Id)?.number ?? '?'}` : 'unset';
+    const pov2Label = povPlayer2Id ? `#${players.find(p => p.id === povPlayer2Id)?.number ?? '?'}` : 'unset';
+    const povItems = [
+      createMenuItem('pov-assign-1', `Assign Follow-Cam 1 (${pov1Label})`, () => { setPovSlotToAssign(1); setShowPOVSelector(true); }, {
+        variant: 'indigo',
+        active: activePovSlot === 1,
+        description: 'Pick which player camera slot 1 follows',
+      }),
+      createMenuItem('pov-assign-2', `Assign Follow-Cam 2 (${pov2Label})`, () => { setPovSlotToAssign(2); setShowPOVSelector(true); }, {
+        variant: 'indigo',
+        active: activePovSlot === 2,
+        description: 'Pick which player camera slot 2 follows',
+      }),
+    ];
     if (isPovActive) {
       povItems.push(
-        createMenuItem('exit-pov', `Exit POV (#${povPlayer?.number ?? '?'})`, switchToBroadcast, { variant: 'danger', description: 'Exit first-person player view' })
-      );
-    } else {
-      povItems.push(
-        createMenuItem('pov-mode', 'POV Mode', () => setShowPOVSelector(true), { variant: 'indigo', description: "Switch to first-person view from a player's perspective" })
+        createMenuItem('exit-pov', `Exit Follow-Cam (#${povPlayer?.number ?? '?'})`, switchToBroadcast, { variant: 'danger', description: 'Return to broadcast camera view' })
       );
     }
-    sections.push(createMenuSection('pov', 'POV Camera', povItems));
+    sections.push(createMenuSection('pov', 'Follow-Cam', povItems));
 
     // Video section
     const videoItems = [];
@@ -447,13 +457,14 @@ export function Toolbar({ canvas }: ToolbarProps) {
     isPlaying, togglePlayback, handleStopAnimation, isRecording, handleRecordingToggle,
     isConverting, conversionProgress, exportFormat, setExportFormat,
     activeEvent, handleClearEvent, isPovActive, povPlayer, switchToBroadcast,
+    povPlayer1Id, povPlayer2Id, activePovSlot, setPovSlotToAssign, players,
     isVideoMode, isLoaded, isLoading, clearVideo,
     authUser, authIsConfigured, authSignOut,
     team1PresetId, team2PresetId, matchShowScoreboard, toggleScoreboard,
   ]);
 
   return (
-    <div className="absolute top-4 left-4 right-4 z-10 flex gap-2 flex-wrap">
+    <div className="absolute top-14 left-4 right-4 z-10 flex gap-2 flex-wrap">
       {/* Hamburger menu - visible at all screen sizes */}
       <div>
         <HamburgerIcon isOpen={isMenuOpen} onClick={toggleMenu} />
@@ -462,9 +473,9 @@ export function Toolbar({ canvas }: ToolbarProps) {
       {/* Menu dropdown */}
       <MobileMenu sections={mobileMenuSections} />
 
-      {/* Selected player position selector */}
+      {/* Selected player position selector — second row, left-aligned below hamburger */}
       {selectedPlayer && !isMenuOpen && (
-        <div className="absolute top-4 right-36 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-2 flex items-center gap-2">
+        <div className="absolute top-12 left-0 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-2 flex items-center gap-2">
           <span className="text-sm font-medium text-gray-700">
             #{selectedPlayer.number}{selectedPlayer.playerName ? ` ${selectedPlayer.playerName}` : ''}
           </span>
@@ -649,7 +660,9 @@ export function Toolbar({ canvas }: ToolbarProps) {
           />
           <div className="relative z-10 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[250px] max-h-[400px] overflow-y-auto">
             <div className="p-3 border-b border-gray-100">
-              <span className="text-sm font-medium text-gray-700">Select Player for POV</span>
+              <span className="text-sm font-medium text-gray-700">
+                Assign Follow-Cam {povSlotToAssign} — select a player to follow
+              </span>
             </div>
             <div className="py-1">
               {selectedPlayer && (

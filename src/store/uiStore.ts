@@ -47,6 +47,12 @@ interface UIState {
   setBoardSubMode: (mode: 'setup' | 'draw') => void;
   toggleBoardSubMode: () => void;
 
+  // Playbook panel open state (lifted so top bar can own the toggle button)
+  isPlaybookOpen: boolean;
+  togglePlaybook: () => void;
+  openPlaybook: () => void;
+  closePlaybook: () => void;
+
   // Editor tab: board view vs video view
   editorTab: 'board' | 'video';
   setEditorTab: (tab: 'board' | 'video') => void;
@@ -159,6 +165,12 @@ export const useUIStore = create<UIState>((set) => {
     setBoardSubMode: (mode) => set({ boardSubMode: mode }),
     toggleBoardSubMode: () =>
       set((s) => ({ boardSubMode: s.boardSubMode === 'setup' ? 'draw' : 'setup' })),
+
+    // Playbook panel
+    isPlaybookOpen: false,
+    togglePlaybook: () => set((s) => ({ isPlaybookOpen: !s.isPlaybookOpen })),
+    openPlaybook: () => set({ isPlaybookOpen: true }),
+    closePlaybook: () => set({ isPlaybookOpen: false }),
 
     // Editor tab
     editorTab: 'board',

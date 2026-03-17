@@ -1,6 +1,5 @@
 import { Canvas } from '@react-three/fiber';
-import { GradientTexture } from '@react-three/drei';
-import { BackSide } from 'three';
+import { BackSide, CanvasTexture } from 'three';
 import { Field } from '../Scene/Field';
 import { PlayerManager } from '../Scene/PlayerManager';
 import { CameraController } from '../Scene/CameraController';
@@ -28,7 +27,7 @@ import { useCameraStore } from '../../store/cameraStore';
 import { useAnnotationStore } from '../../store/annotationStore';
 import { useUIStore } from '../../store/uiStore';
 import { useScenarioStore, scenarioTable } from '../../store/scenarioStore';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
 import { useCanvasResizeWithWindow } from '../../hooks/useCanvasResize';
@@ -44,21 +43,123 @@ import {
 } from '../../hooks/useKeyboardShortcuts';
 
 /**
- * Stadium sky dome — large inverted sphere with a twilight gradient.
- * Colours run horizon (UV.y=0) → zenith (UV.y=1): warm light horizon,
- * mid stadium blue, dark navy at the top.
+ * Generates a pixelated AFL stadium crowd texture onto a canvas.
+ * The texture wraps the interior of the sky-sphere: the equatorial band
+ * (UV v ≈ 0.35–0.65) becomes the crowd stands; above is a floodlit night sky.
+ */
+function generateCrowdTexture(): HTMLCanvasElement {
+  const W = 1024, H = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+
+  // ── Night sky (upper 40% of texture = v > 0.6 on the sphere) ──────────────
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.42);
+  skyGrad.addColorStop(0, '#04080f');
+  skyGrad.addColorStop(0.6, '#0d1b2e');
+  skyGrad.addColorStop(1, '#1a2e4a');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H * 0.42);
+
+  // Floodlight glow blobs (4 lights evenly spaced around the dome)
+  const lightPositions = [0.12, 0.38, 0.62, 0.88];
+  for (const lx of lightPositions) {
+    const x = lx * W, y = H * 0.06;
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, 90);
+    grad.addColorStop(0, 'rgba(255,248,220,0.95)');
+    grad.addColorStop(0.08, 'rgba(255,230,160,0.7)');
+    grad.addColorStop(0.35, 'rgba(200,180,100,0.25)');
+    grad.addColorStop(1, 'rgba(100,120,180,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 90, 120, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // ── Crowd stands band (canvas y 40%–68%) ───────────────────────────────────
+  const crowdTop = H * 0.38;
+  const crowdBot = H * 0.68;
+  const crowdH = crowdBot - crowdTop;
+
+  // Base stand gradient — darkens from top to bottom of the stands
+  const standGrad = ctx.createLinearGradient(0, crowdTop, 0, crowdBot);
+  standGrad.addColorStop(0, '#0b111e');
+  standGrad.addColorStop(0.4, '#111827');
+  standGrad.addColorStop(1, '#0d1e14');
+  ctx.fillStyle = standGrad;
+  ctx.fillRect(0, crowdTop, W, crowdH);
+
+  // Pixelated crowd — small colored rectangles with seeded pseudo-random
+  const PW = 4, PH = 5;
+  // AFL-representative crowd colours: home blue, away red/white + misc neutrals
+  const crowdPalette = [
+    '#003087', '#0055c8', '#1a4fa0',   // blues
+    '#c8001e', '#e8001e', '#9e0016',   // reds
+    '#f5f5f5', '#e0e0e0', '#cccccc',   // whites/greys
+    '#f5c518', '#e8b800', '#d4a500',   // yellows
+    '#00843d', '#006830',              // greens
+    '#ff6600', '#e55a00',              // orange
+    '#1a1a1a', '#111111',              // dark gaps/empty seats
+  ];
+
+  let seed = 0x9e3779b9;
+  const rng = () => {
+    seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5;
+    return ((seed >>> 0) / 0xffffffff);
+  };
+
+  for (let row = 0; row * PH < crowdH; row++) {
+    const y = crowdTop + row * PH;
+    const t = row / (crowdH / PH);            // 0 = top tier, 1 = pitch-side
+    const brightness = 0.25 + t * 0.55;       // brighter near the field
+    const isAisle = row % 10 === 0;           // horizontal aisle every 10 rows
+    if (isAisle) continue;
+
+    for (let col = 0; col < W; col += PW) {
+      if (rng() < 0.04) continue;            // occasional empty seat
+
+      const color = crowdPalette[Math.floor(rng() * crowdPalette.length)];
+      const r = parseInt(color.slice(1, 3), 16);
+      const g = parseInt(color.slice(3, 5), 16);
+      const b = parseInt(color.slice(5, 7), 16);
+      ctx.fillStyle = `rgb(${Math.round(r * brightness)},${Math.round(g * brightness)},${Math.round(b * brightness)})`;
+      ctx.fillRect(col, y, PW - 0.5, PH - 0.5);
+    }
+  }
+
+  // Subtle field-light spill at the bottom of the stands
+  const spill = ctx.createLinearGradient(0, crowdBot - 20, 0, crowdBot + 20);
+  spill.addColorStop(0, 'rgba(80,200,80,0)');
+  spill.addColorStop(0.5, 'rgba(60,160,60,0.12)');
+  spill.addColorStop(1, 'rgba(30,80,30,0)');
+  ctx.fillStyle = spill;
+  ctx.fillRect(0, crowdBot - 20, W, 40);
+
+  // ── Below the stands (mostly hidden by field geometry) ────────────────────
+  const belowGrad = ctx.createLinearGradient(0, crowdBot, 0, H);
+  belowGrad.addColorStop(0, '#0a1a0a');
+  belowGrad.addColorStop(1, '#060f06');
+  ctx.fillStyle = belowGrad;
+  ctx.fillRect(0, crowdBot, W, H - crowdBot);
+
+  return canvas;
+}
+
+/**
+ * Stadium sky dome — large inverted sphere with a pixelated crowd texture.
+ * Wraps a procedurally-generated canvas texture around the scene.
  */
 function SkyDome() {
+  const texture = useMemo(() => {
+    const canvas = generateCrowdTexture();
+    return new CanvasTexture(canvas);
+  }, []);
+
   return (
     <mesh renderOrder={-1}>
-      <sphereGeometry args={[800, 32, 16]} />
-      <meshBasicMaterial side={BackSide} depthWrite={false}>
-        <GradientTexture
-          stops={[0, 0.25, 0.55, 1]}
-          colors={['#6ba8cc', '#2f6da8', '#143d7a', '#0b1a30']}
-          size={512}
-        />
-      </meshBasicMaterial>
+      <sphereGeometry args={[800, 48, 24]} />
+      <meshBasicMaterial map={texture} side={BackSide} depthWrite={false} />
     </mesh>
   );
 }
@@ -79,6 +180,8 @@ export function MainLayout() {
   const setEditorTab = useUIStore((s) => s.setEditorTab);
   const boardSubMode = useUIStore((s) => s.boardSubMode);
   const toggleBoardSubMode = useUIStore((s) => s.toggleBoardSubMode);
+  const isPlaybookOpen = useUIStore((s) => s.isPlaybookOpen);
+  const togglePlaybook = useUIStore((s) => s.togglePlaybook);
   const { setActiveScenario, activeScenarioId, updateScenario } = useScenarioStore();
   const players = usePlayerStore((s) => s.players);
   const annotations = useAnnotationStore((s) => s.annotations);
@@ -302,6 +405,16 @@ export function MainLayout() {
               {boardSubMode === 'setup' ? 'Setup' : '● Draw'}
             </button>
             <LabelToggle />
+            <button
+              data-playbook-toggle
+              onClick={togglePlaybook}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors touch-manipulation
+                ${isPlaybookOpen
+                  ? 'bg-amber-500 text-black'
+                  : 'bg-black/60 text-white/70 hover:bg-black/80'}`}
+            >
+              {isPlaybookOpen ? '✕ Playbooks' : '📚 Playbooks'}
+            </button>
           </div>
         )}
       </div>

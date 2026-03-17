@@ -17,13 +17,23 @@ export function parsePlayHQText(raw: string): RosterPlayer[] {
     let name = cols[1].trim();
     let isCaptain = false;
     let isViceCaptain = false;
-    if (name.endsWith('(c)')) {
+    // Handle PlayHQ parenthesised markers: "(c)" / "(vc)"
+    if (/\(c\)\s*$/i.test(name)) {
       isCaptain = true;
-      name = name.replace(/\s*\(c\)\s*$/, '');
+      name = name.replace(/\s*\(c\)\s*$/i, '').trim();
     }
-    if (name.endsWith('(vc)')) {
+    if (/\(vc\)\s*$/i.test(name)) {
       isViceCaptain = true;
-      name = name.replace(/\s*\(vc\)\s*$/, '');
+      name = name.replace(/\s*\(vc\)\s*$/i, '').trim();
+    }
+    // Handle PlayHQ bare uppercase markers (no parens): "Smith J C" / "Smith J VC"
+    if (!isCaptain && /\s+C$/.test(name)) {
+      isCaptain = true;
+      name = name.replace(/\s+C$/, '').trim();
+    }
+    if (!isViceCaptain && /\s+VC$/.test(name)) {
+      isViceCaptain = true;
+      name = name.replace(/\s+VC$/, '').trim();
     }
     players.push({ id: crypto.randomUUID(), number: num, name, isCaptain, isViceCaptain });
   }
