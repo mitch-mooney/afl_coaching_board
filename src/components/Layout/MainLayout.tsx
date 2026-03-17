@@ -27,7 +27,7 @@ import { useAnimationStore } from '../../store/animationStore';
 import { useCameraStore } from '../../store/cameraStore';
 import { useAnnotationStore } from '../../store/annotationStore';
 import { useUIStore } from '../../store/uiStore';
-import { useScenarioStore } from '../../store/scenarioStore';
+import { useScenarioStore, scenarioTable } from '../../store/scenarioStore';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
@@ -79,7 +79,14 @@ export function MainLayout() {
   const setEditorTab = useUIStore((s) => s.setEditorTab);
   const boardSubMode = useUIStore((s) => s.boardSubMode);
   const toggleBoardSubMode = useUIStore((s) => s.toggleBoardSubMode);
-  const { setActiveScenario } = useScenarioStore();
+  const { setActiveScenario, activeScenarioId, updateScenario } = useScenarioStore();
+  const players = usePlayerStore((s) => s.players);
+  const annotations = useAnnotationStore((s) => s.annotations);
+  const camera = useCameraStore((s) => ({
+    position: s.position as [number, number, number],
+    target: s.target as [number, number, number],
+    zoom: s.zoom,
+  }));
 
   // Canvas resize handling with debounced ResizeObserver
   // React Three Fiber handles the actual resize through its built-in resize observer
@@ -135,8 +142,49 @@ export function MainLayout() {
   useHelpOverlayShortcuts(helpOpen, setHelpOpen, registry);
   useEditOperationShortcuts({}, registry);
 
+  const savePhase = useCallback(async () => {
+    if (!activeScenarioId) return;
+    await updateScenario(activeScenarioId, {
+      phases: [{
+        id: 'phase-1',
+        label: 'Phase 1',
+        playerPositions: players,
+        paths,
+        annotations: annotations as unknown[],
+        cameraState: camera,
+      }],
+    });
+  }, [activeScenarioId, players, paths, annotations, camera, updateScenario]);
+
   useEffect(() => {
-    if (id) setActiveScenario(Number(id));
+    return () => { savePhase(); };
+  }, [savePhase]);
+
+  useEffect(() => {
+    if (!id) return;
+    const numId = Number(id);
+    setActiveScenario(numId);
+    scenarioTable.get(numId).then((scenario) => {
+      if (!scenario) return;
+      const phase = scenario.phases[0];
+      if (!phase) return;
+      if (phase.playerPositions?.length) {
+        usePlayerStore.setState({ players: phase.playerPositions });
+      }
+      if (phase.paths?.length) {
+        usePathStore.setState({ paths: phase.paths });
+      }
+      if (phase.annotations?.length) {
+        useAnnotationStore.setState({ annotations: phase.annotations as any });
+      }
+      if (phase.cameraState) {
+        useCameraStore.setState({
+          position: phase.cameraState.position,
+          target: phase.cameraState.target,
+          zoom: phase.cameraState.zoom,
+        });
+      }
+    });
     return () => setActiveScenario(null);
   }, [id, setActiveScenario]);
 
