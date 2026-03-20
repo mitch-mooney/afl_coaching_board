@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import Dexie, { Table } from 'dexie';
+import { playbookDB } from './playbookStore';
+import type { Scenario } from '../models/ScenarioModel';
 
 /**
  * Perspective settings for matching 3D field to video camera angle
@@ -185,6 +187,7 @@ interface VideoState {
   saveVideoMetadata: () => Promise<number>;
   updateVideoMetadata: (id: number) => Promise<void>;
   deleteVideoMetadata: (id: number) => Promise<void>;
+  deleteVideoMetadataWithCascade: (id: number) => Promise<'deleted' | 'cancelled' | 'error'>;
   loadVideoSettings: (id: number) => Promise<void>;
 
   // Actions - Video blob storage
@@ -531,6 +534,54 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     } catch (error) {
       set({ isPersisting: false });
       throw error;
+    }
+  },
+
+  deleteVideoMetadataWithCascade: async (id) => {
+    try {
+      // Find all scenarios that reference this video
+      const allScenarios: Scenario[] = await playbookDB.scenarios.toArray();
+      const linked = allScenarios.filter(
+        (s) => s.linkedVideoMoment?.videoId === id
+      );
+
+      if (linked.length > 0) {
+        const names = linked.map((s) => `"${s.name}"`).join(', ');
+        const ok = window.confirm(
+          `This video is linked to ${linked.length} scenario${linked.length > 1 ? 's' : ''}: ${names}.\n\nDeleting it will remove the video link. Continue?`
+        );
+        if (!ok) return 'cancelled';
+      }
+
+      // Step 1: Unlink scenarios first (safe to do before delete)
+      try {
+        for (const s of linked) {
+          if (s.id == null) continue;
+          await playbookDB.scenarios.update(s.id, {
+            linkedVideoMoment: undefined,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+      } catch (err) {
+        console.error('[videoStore] cascade unlink failed — aborting delete', err);
+        return 'error';
+      }
+
+      // Step 2: Delete the video metadata record
+      await videoDb.videos.delete(id);
+
+      // Step 3: Clear current saved video if needed and refresh list
+      const { currentSavedVideoId } = get();
+      if (currentSavedVideoId === id) {
+        set({ currentSavedVideoId: null });
+      }
+      const vids = await videoDb.videos.orderBy('createdAt').reverse().toArray();
+      set({ savedVideos: vids });
+
+      return 'deleted';
+    } catch (err) {
+      console.error('[videoStore] deleteVideoMetadataWithCascade failed', err);
+      return 'error';
     }
   },
 
