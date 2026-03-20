@@ -1,21 +1,17 @@
 // src/components/UI/ScenarioLibrary.tsx
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Dexie from 'dexie';
 import { useScenarioStore } from '../../store/scenarioStore';
 import { useRosterStore } from '../../store/rosterStore';
+import { videoDb } from '../../store/videoStore';
 import type { Scenario } from '../../models/ScenarioModel';
 
 async function videoMetadataExists(videoId: number): Promise<boolean> {
-  const db = new Dexie('VideoImportDB');
-  db.version(2).stores({ videos: '++id, fileName, createdAt, updatedAt', videoBlobs: '++id, videoId' });
   try {
-    const record = await (db as any).videos.get(videoId);
+    const record = await videoDb.videos.get(videoId);
     return record != null;
   } catch {
     return false;
-  } finally {
-    db.close();
   }
 }
 
