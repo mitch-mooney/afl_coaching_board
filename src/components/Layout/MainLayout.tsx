@@ -42,6 +42,12 @@ import {
   getGlobalShortcutRegistry,
 } from '../../hooks/useKeyboardShortcuts';
 
+function formatVideoTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
 /**
  * Generates a pixelated AFL stadium crowd texture onto a canvas.
  * The texture wraps the interior of the sky-sphere: the equatorial band
@@ -210,6 +216,16 @@ export function MainLayout() {
   const displayMode = useVideoStore((state) => state.displayMode);
   const videoIsPlaying = useVideoStore((state) => state.isPlaying);
   const isSyncedWithAnimation = useVideoStore((state) => state.isSyncedWithAnimation);
+  const savedVideos = useVideoStore((s) => s.savedVideos);
+  const loadSavedVideos = useVideoStore((s) => s.loadSavedVideos);
+
+  // Scenario data for linked video moment
+  const scenarios = useScenarioStore((s) => s.scenarios);
+  const activeScenario = scenarios.find((s) => s.id === activeScenarioId) ?? null;
+  const linkedVideoMoment = activeScenario?.linkedVideoMoment;
+  const linkedVideoAvailable = linkedVideoMoment
+    ? savedVideos.some((v) => v.id === linkedVideoMoment.videoId)
+    : null;
 
   // Animation store for concert mode
   const animationPlay = useAnimationStore((state) => state.play);
@@ -299,6 +315,7 @@ export function MainLayout() {
   useEffect(() => {
     initializePlayers();
     initializeBall();
+    loadSavedVideos();
 
     // Check for ?loadShared=<token> query param from shared playbook links
     const params = new URLSearchParams(window.location.search);
@@ -324,7 +341,7 @@ export function MainLayout() {
         }
       });
     }
-  }, [initializePlayers, initializeBall]);
+  }, [initializePlayers, initializeBall, loadSavedVideos]);
 
   // Touch event prevention handler for canvas - prevents browser gestures like pinch-to-zoom
   const preventTouchDefault = useCallback((e: TouchEvent) => {
@@ -362,8 +379,8 @@ export function MainLayout() {
   return (
     <div className="w-full h-full min-h-screen max-w-full overflow-hidden relative">
       {/* Top bar */}
-      <div className="absolute top-0 left-0 right-0 z-30 flex items-center gap-2 px-4 pt-safe-top pt-3
-                      bg-gradient-to-b from-black/60 to-transparent pb-6 pointer-events-none">
+      <div className="absolute top-0 left-0 right-0 z-30 flex items-center gap-2 px-4 pt-safe-top pt-3 pb-6 pointer-events-none"
+           style={{ background: 'linear-gradient(180deg, rgba(13,13,26,0.85) 0%, transparent 100%)' }}>
         <div className="flex items-center gap-2 pointer-events-auto">
           <button onClick={() => navigate('/')} className="text-white/60 hover:text-white text-sm">
             ← Scenarios
@@ -372,19 +389,19 @@ export function MainLayout() {
           <div className="flex rounded-lg overflow-hidden border border-white/20 ml-2">
             <button
               onClick={() => setEditorTab('board')}
-              className={`px-4 py-1.5 text-sm font-medium transition-colors
-                ${editorTab === 'board'
-                  ? 'bg-amber-500 text-black'
-                  : 'bg-black/40 text-white/70 hover:bg-black/60'}`}
+              className="px-4 py-1.5 text-sm font-medium transition-colors"
+              style={editorTab === 'board'
+                ? { background: 'linear-gradient(135deg, #00d4aa, #0099ff)', color: '#000' }
+                : { background: 'rgba(0,0,0,0.4)', color: 'rgba(255,255,255,0.7)' }}
             >
               Board
             </button>
             <button
               onClick={() => setEditorTab('video')}
-              className={`px-4 py-1.5 text-sm font-medium transition-colors
-                ${editorTab === 'video'
-                  ? 'bg-amber-500 text-black'
-                  : 'bg-black/40 text-white/70 hover:bg-black/60'}`}
+              className="px-4 py-1.5 text-sm font-medium transition-colors"
+              style={editorTab === 'video'
+                ? { background: 'linear-gradient(135deg, #00d4aa, #0099ff)', color: '#000' }
+                : { background: 'rgba(0,0,0,0.4)', color: 'rgba(255,255,255,0.7)' }}
             >
               Video
             </button>
@@ -418,6 +435,121 @@ export function MainLayout() {
           </div>
         )}
       </div>
+
+      {/* Linked video chip bar — shown on Board tab when a video moment is linked */}
+      {editorTab === 'board' && linkedVideoMoment && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 56,
+            left: 0,
+            right: 0,
+            zIndex: 25,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '6px 16px',
+            background: 'rgba(13,13,26,0.88)',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          {linkedVideoAvailable ? (
+            <>
+              <span style={{ color: '#00d4aa', fontSize: 10, marginRight: 2 }}>●</span>
+              <span style={{ color: '#00d4aa', fontSize: 12, fontWeight: 600, letterSpacing: '0.05em' }}>
+                VIDEO LINKED
+              </span>
+              {linkedVideoMoment.quarter && (
+                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginLeft: 4 }}>
+                  {linkedVideoMoment.quarter} · {formatVideoTime(linkedVideoMoment.startTime)} — {formatVideoTime(linkedVideoMoment.endTime)}
+                </span>
+              )}
+              {!linkedVideoMoment.quarter && (
+                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginLeft: 4 }}>
+                  {formatVideoTime(linkedVideoMoment.startTime)} — {formatVideoTime(linkedVideoMoment.endTime)}
+                </span>
+              )}
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => setEditorTab('video')}
+                  style={{
+                    padding: '2px 10px',
+                    borderRadius: 6,
+                    border: '1px solid rgba(0,212,170,0.5)',
+                    background: 'rgba(0,212,170,0.12)',
+                    color: '#00d4aa',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ▶ Preview
+                </button>
+                <button
+                  onClick={() => {
+                    if (activeScenarioId == null) return;
+                    if (window.confirm('Remove the video link from this scenario?')) {
+                      updateScenario(activeScenarioId, { linkedVideoMoment: undefined });
+                    }
+                  }}
+                  style={{
+                    padding: '2px 8px',
+                    borderRadius: 6,
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    background: 'rgba(255,255,255,0.06)',
+                    color: 'rgba(255,255,255,0.6)',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginRight: 2 }}>⚪</span>
+              <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 600, letterSpacing: '0.05em' }}>
+                VIDEO NOT LOADED
+              </span>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => setEditorTab('video')}
+                  style={{
+                    padding: '2px 10px',
+                    borderRadius: 6,
+                    border: '1px solid rgba(0,153,255,0.5)',
+                    background: 'rgba(0,153,255,0.12)',
+                    color: '#0099ff',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Load video →
+                </button>
+                <button
+                  onClick={() => {
+                    if (activeScenarioId == null) return;
+                    if (window.confirm('Remove the video link from this scenario?')) {
+                      updateScenario(activeScenarioId, { linkedVideoMoment: undefined });
+                    }
+                  }}
+                  style={{
+                    padding: '2px 8px',
+                    borderRadius: 6,
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    background: 'rgba(255,255,255,0.06)',
+                    color: 'rgba(255,255,255,0.6)',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Unlink
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Canvas container with resize observation */}
       {editorTab === 'board' && (
@@ -469,6 +601,32 @@ export function MainLayout() {
             {/* FIX: moved inside Canvas so R3F hooks work */}
             <AnnotationInteractionHandler />
           </Canvas>
+
+          {/* Link Video Moment button — visible when scenario is active and no video is linked */}
+          {activeScenarioId !== null && !linkedVideoMoment && (
+            <button
+              onClick={() => setEditorTab('video')}
+              style={{
+                position: 'absolute',
+                bottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 20,
+                padding: '8px 20px',
+                borderRadius: 10,
+                border: '1.5px dashed #00d4aa',
+                background: '#13132a',
+                color: '#00d4aa',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                letterSpacing: '0.03em',
+              }}
+            >
+              + Link Video Moment
+            </button>
+          )}
         </div>
       )}
 
