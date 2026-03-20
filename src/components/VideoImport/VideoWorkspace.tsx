@@ -8,6 +8,14 @@ import { CalibrationGridControls, useCalibrationGrid } from './CalibrationGrid';
 import { useVideoStore } from '../../store/videoStore';
 import { useVideoPlayback } from '../../hooks/useVideoPlayback';
 import { useAnimationStore } from '../../store/animationStore';
+import { useScenarioStore } from '../../store/scenarioStore';
+import { useUIStore } from '../../store/uiStore';
+
+function formatVideoTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
 
 /**
  * Panel types for the right sidebar
@@ -82,9 +90,23 @@ export function VideoWorkspace({
   const playbackRate = useVideoStore((state) => state.playbackRate);
   const isSyncedWithAnimation = useVideoStore((state) => state.isSyncedWithAnimation);
   const toggleSyncWithAnimation = useVideoStore((state) => state.toggleSyncWithAnimation);
+  const currentTime = useVideoStore((state) => state.currentTime);
 
   // Animation store (for concert mode indicator)
   const animationIsPlaying = useAnimationStore((state) => state.isPlaying);
+
+  // Scenario store
+  const activeScenarioId = useScenarioStore((state) => state.activeScenarioId);
+  const updateScenario = useScenarioStore((state) => state.updateScenario);
+
+  // UI store
+  const setEditorTab = useUIStore((state) => state.setEditorTab);
+
+  // Link to Scenario pending state
+  const [pendingStart, setPendingStart] = useState<number | null>(null);
+  const [pendingEnd, setPendingEnd] = useState<number | null>(null);
+  const [pendingQuarter, setPendingQuarter] = useState<'Q1' | 'Q2' | 'Q3' | 'Q4' | 'ET' | null>(null);
+  const [pendingLabel, setPendingLabel] = useState('');
 
   // Playback controls from hook
   const { togglePlayPause, setRate } = useVideoPlayback();
@@ -137,6 +159,35 @@ export function VideoWorkspace({
   const toggleSidebar = useCallback(() => {
     setShowSidebar((prev) => !prev);
   }, []);
+
+  /**
+   * Link the current pending start/end timestamps to the active scenario
+   */
+  const handleLinkToScenario = useCallback(async () => {
+    if (activeScenarioId == null || pendingStart == null || pendingEnd == null) return;
+    const start = Math.min(pendingStart, pendingEnd);
+    const end = Math.max(pendingStart, pendingEnd);
+    if (end - start < 1) return;
+
+    const videoId = useVideoStore.getState().currentSavedVideoId;
+    if (videoId == null) return;
+
+    await updateScenario(activeScenarioId, {
+      linkedVideoMoment: {
+        videoId,
+        startTime: start,
+        endTime: end,
+        quarter: pendingQuarter ?? undefined,
+        label: pendingLabel.trim().slice(0, 40) || undefined,
+      },
+    });
+
+    setPendingStart(null);
+    setPendingEnd(null);
+    setPendingQuarter(null);
+    setPendingLabel('');
+    setEditorTab('board');
+  }, [activeScenarioId, pendingStart, pendingEnd, pendingQuarter, pendingLabel, updateScenario, setEditorTab]);
 
   /**
    * Handle J key - slow down playback
@@ -345,6 +396,95 @@ export function VideoWorkspace({
           <div className="flex items-center justify-center gap-4">
             <PlaybackControls />
           </div>
+
+          {/* Link to Scenario action bar */}
+          {activeScenarioId != null && (
+            <div style={{
+              background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(0,212,170,0.2)', borderRadius: 8,
+              padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+              margin: '4px 0',
+            }}>
+              {/* Set Start */}
+              <button
+                onClick={() => setPendingStart(currentTime)}
+                style={{
+                  background: pendingStart != null ? 'rgba(0,212,170,0.2)' : 'rgba(255,255,255,0.1)',
+                  border: `1px solid ${pendingStart != null ? '#00d4aa' : 'rgba(255,255,255,0.2)'}`,
+                  borderRadius: 5, padding: '4px 10px',
+                  color: pendingStart != null ? '#00d4aa' : '#aaa',
+                  fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
+                }}
+              >
+                {pendingStart != null ? `Start: ${formatVideoTime(pendingStart)}` : '▶ Set Start'}
+              </button>
+
+              {/* Set End */}
+              <button
+                onClick={() => setPendingEnd(currentTime)}
+                style={{
+                  background: pendingEnd != null ? 'rgba(0,212,170,0.2)' : 'rgba(255,255,255,0.1)',
+                  border: `1px solid ${pendingEnd != null ? '#00d4aa' : 'rgba(255,255,255,0.2)'}`,
+                  borderRadius: 5, padding: '4px 10px',
+                  color: pendingEnd != null ? '#00d4aa' : '#aaa',
+                  fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
+                }}
+              >
+                {pendingEnd != null ? `End: ${formatVideoTime(pendingEnd)}` : '■ Set End'}
+              </button>
+
+              {/* Quarter picker */}
+              <div style={{ display: 'flex', gap: 3 }}>
+                {(['Q1', 'Q2', 'Q3', 'Q4', 'ET'] as const).map(q => (
+                  <button
+                    key={q}
+                    onClick={() => setPendingQuarter(prev => prev === q ? null : q)}
+                    style={{
+                      background: pendingQuarter === q ? 'rgba(0,153,255,0.25)' : 'rgba(255,255,255,0.08)',
+                      border: `1px solid ${pendingQuarter === q ? '#0099ff' : 'rgba(255,255,255,0.15)'}`,
+                      borderRadius: 4, padding: '3px 6px',
+                      color: pendingQuarter === q ? '#0099ff' : '#888',
+                      fontSize: 10, cursor: 'pointer',
+                    }}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+
+              {/* Label input */}
+              <input
+                value={pendingLabel}
+                onChange={e => setPendingLabel(e.target.value.slice(0, 40))}
+                placeholder="Event label…"
+                style={{
+                  background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: 5, padding: '4px 8px', color: '#ddd', fontSize: 11,
+                  outline: 'none', width: 120,
+                }}
+              />
+
+              {/* Confirm button */}
+              {(() => {
+                const ready = pendingStart != null && pendingEnd != null && Math.abs((pendingEnd ?? 0) - (pendingStart ?? 0)) >= 1;
+                return (
+                  <button
+                    onClick={handleLinkToScenario}
+                    disabled={!ready}
+                    style={{
+                      background: ready ? 'linear-gradient(135deg, #00d4aa, #0099ff)' : 'rgba(255,255,255,0.1)',
+                      border: 'none', borderRadius: 5, padding: '5px 12px',
+                      color: ready ? '#000' : '#555',
+                      fontSize: 11, fontWeight: 700, cursor: ready ? 'pointer' : 'default',
+                      whiteSpace: 'nowrap', opacity: ready ? 1 : 0.5,
+                    }}
+                  >
+                    🎬 Link to Scenario
+                  </button>
+                );
+              })()}
+            </div>
+          )}
 
           {/* Timeline */}
           <VideoTimeline />
