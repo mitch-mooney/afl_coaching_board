@@ -351,6 +351,12 @@ export function MainLayout() {
     }
   }, []);
 
+  // Handle unlinking video from scenario
+  const handleUnlink = useCallback(() => {
+    if (!window.confirm('Remove video link?')) return;
+    updateScenario(activeScenarioId!, { linkedVideoMoment: undefined });
+  }, [activeScenarioId, updateScenario]);
+
   // Setup and cleanup touch event listeners on canvas
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -441,7 +447,7 @@ export function MainLayout() {
         <div
           style={{
             position: 'absolute',
-            top: 56,
+            top: 'calc(env(safe-area-inset-top, 0px) + 56px)',
             left: 0,
             right: 0,
             zIndex: 25,
@@ -485,12 +491,7 @@ export function MainLayout() {
                   ▶ Preview
                 </button>
                 <button
-                  onClick={() => {
-                    if (activeScenarioId == null) return;
-                    if (window.confirm('Remove the video link from this scenario?')) {
-                      updateScenario(activeScenarioId, { linkedVideoMoment: undefined });
-                    }
-                  }}
+                  onClick={handleUnlink}
                   style={{
                     padding: '2px 8px',
                     borderRadius: 6,
@@ -527,12 +528,7 @@ export function MainLayout() {
                   Load video →
                 </button>
                 <button
-                  onClick={() => {
-                    if (activeScenarioId == null) return;
-                    if (window.confirm('Remove the video link from this scenario?')) {
-                      updateScenario(activeScenarioId, { linkedVideoMoment: undefined });
-                    }
-                  }}
+                  onClick={handleUnlink}
                   style={{
                     padding: '2px 8px',
                     borderRadius: 6,
