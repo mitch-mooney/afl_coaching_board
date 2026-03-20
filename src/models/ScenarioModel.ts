@@ -1,6 +1,14 @@
 import type { Player } from './PlayerModel';
 import type { MovementPath } from './PathModel';
 
+export interface LinkedVideoMoment {
+  videoId: number;          // ++id PK from VideoImportDB.videos
+  startTime: number;        // seconds from video start
+  endTime: number;          // seconds; always > startTime
+  quarter?: 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'ET';
+  label?: string;           // max 40 chars, optional event label
+}
+
 export interface ScenarioPhase {
   id: string;
   label: string;
@@ -25,4 +33,5 @@ export interface Scenario {
   phases: ScenarioPhase[];
   videoBlobId?: number;
   tags?: string[];
+  linkedVideoMoment?: LinkedVideoMoment;
 }

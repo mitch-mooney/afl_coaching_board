@@ -65,6 +65,12 @@ class PlaybookDatabase extends Dexie {
         });
       }
     });
+    // v4: add linkedVideoMoment support to scenarios (unindexed column — no schema string change needed)
+    this.version(4).stores({
+      playbooks: '++id, name, createdAt, videoBlobId',
+      scenarios: '++id, name, createdAt, updatedAt, team1RosterId, team2RosterId',
+      teamRosters: '++id, teamName, createdAt',
+    });
   }
 }
 
