@@ -538,6 +538,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   },
 
   deleteVideoMetadataWithCascade: async (id) => {
+    set({ isPersisting: true });
     try {
       // Find all scenarios that reference this video
       const allScenarios: Scenario[] = await playbookDB.scenarios.toArray();
@@ -550,7 +551,10 @@ export const useVideoStore = create<VideoState>((set, get) => ({
         const ok = window.confirm(
           `This video is linked to ${linked.length} scenario${linked.length > 1 ? 's' : ''}: ${names}.\n\nDeleting it will remove the video link. Continue?`
         );
-        if (!ok) return 'cancelled';
+        if (!ok) {
+          set({ isPersisting: false });
+          return 'cancelled';
+        }
       }
 
       // Step 1: Unlink scenarios first (safe to do before delete)
@@ -564,6 +568,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
         }
       } catch (err) {
         console.error('[videoStore] cascade unlink failed — aborting delete', err);
+        set({ isPersisting: false });
         return 'error';
       }
 
@@ -575,12 +580,13 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       if (currentSavedVideoId === id) {
         set({ currentSavedVideoId: null });
       }
-      const vids = await videoDb.videos.orderBy('createdAt').reverse().toArray();
-      set({ savedVideos: vids });
+      set({ isPersisting: false });
+      await useVideoStore.getState().loadSavedVideos();
 
       return 'deleted';
     } catch (err) {
       console.error('[videoStore] deleteVideoMetadataWithCascade failed', err);
+      set({ isPersisting: false });
       return 'error';
     }
   },
