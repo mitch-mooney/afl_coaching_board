@@ -34,6 +34,14 @@ export function SharedPlaybookViewer() {
   useEffect(() => {
     if (step !== 'board' || !data) return;
     const pd = data.playbook_data;
+
+    // Capture current state before overwriting
+    const prevPlayers = usePlayerStore.getState().players;
+    const prevPaths = usePathStore.getState().paths;
+    const prevCamPosition = useCameraStore.getState().position;
+    const prevCamTarget = useCameraStore.getState().target;
+    const prevCamZoom = useCameraStore.getState().zoom;
+
     if (pd.playerPositions) usePlayerStore.setState({ players: pd.playerPositions });
     if (pd.paths) usePathStore.setState({ paths: pd.paths });
     if (pd.cameraPosition) {
@@ -43,6 +51,16 @@ export function SharedPlaybookViewer() {
         zoom: pd.cameraZoom ?? 1,
       });
     }
+
+    return () => {
+      usePlayerStore.setState({ players: prevPlayers });
+      usePathStore.setState({ paths: prevPaths });
+      useCameraStore.setState({
+        position: prevCamPosition,
+        target: prevCamTarget,
+        zoom: prevCamZoom,
+      });
+    };
   }, [step, data]);
 
   const goToBoard = useCallback(() => {
@@ -52,6 +70,7 @@ export function SharedPlaybookViewer() {
   }, []);
 
   const handleVideoEnded = useCallback(() => {
+    if (countdownRef.current) clearTimeout(countdownRef.current);
     setCountdown(2);
     countdownRef.current = setTimeout(() => {
       setCountdown(1);
@@ -130,7 +149,11 @@ export function SharedPlaybookViewer() {
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)' }}>
                   <div style={{ textAlign: 'center', color: '#fff' }}>
                     <div style={{ fontSize: 14, marginBottom: 8 }}>Board diagram in {countdown}…</div>
-                    <button onClick={() => setCountdown(null)} style={{ background: 'none', border: '1px solid #ffffff44', borderRadius: 5, padding: '4px 12px', color: '#aaa', fontSize: 11, cursor: 'pointer' }}>
+                    <button onClick={() => {
+                      if (countdownRef.current) clearTimeout(countdownRef.current);
+                      countdownRef.current = null;
+                      setCountdown(null);
+                    }} style={{ background: 'none', border: '1px solid #ffffff44', borderRadius: 5, padding: '4px 12px', color: '#aaa', fontSize: 11, cursor: 'pointer' }}>
                       Stay on clip
                     </button>
                   </div>
