@@ -175,19 +175,31 @@ function ScenarioCard({
         <div style={{ position: 'relative', width: 80, height: 60, border: '1px solid #2a5a2a', borderRadius: 3 }} />
 
         {/* Video badge / link prompt */}
-        {lvm ? (
+        {lvm && videoAvailable === true ? (
           <div style={{
             position: 'absolute', top: 7, right: 7,
             background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-            border: `1px solid ${videoAvailable === false ? 'rgba(255,102,102,0.4)' : 'rgba(0,212,170,0.4)'}`, borderRadius: 5,
+            border: '1px solid rgba(0,212,170,0.4)', borderRadius: 5,
             padding: '3px 7px', display: 'flex', alignItems: 'center', gap: 4,
           }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: videoAvailable === false ? '#ff6666' : '#00d4aa' }} />
-            <span style={{ color: videoAvailable === false ? '#ff6666' : '#00d4aa', fontSize: 9, fontWeight: 600 }}>
-              {videoAvailable === false ? 'UNAVAILABLE' : 'VIDEO LINKED'}
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#00d4aa' }} />
+            <span style={{ color: '#00d4aa', fontSize: 9, fontWeight: 600 }}>
+              VIDEO LINKED
             </span>
           </div>
-        ) : (
+        ) : lvm && videoAvailable === false ? (
+          <div style={{
+            position: 'absolute', top: 7, right: 7,
+            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+            border: '1px solid rgba(255,102,102,0.4)', borderRadius: 5,
+            padding: '3px 7px', display: 'flex', alignItems: 'center', gap: 4,
+          }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ff6666' }} />
+            <span style={{ color: '#ff6666', fontSize: 9, fontWeight: 600 }}>
+              UNAVAILABLE
+            </span>
+          </div>
+        ) : lvm ? null : (
           <div style={{
             position: 'absolute', top: 7, right: 7,
             border: '1px dashed #2a2a4a', borderRadius: 5,
