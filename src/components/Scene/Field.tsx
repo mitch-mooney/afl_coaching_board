@@ -22,15 +22,19 @@ function FieldLine({ points, color = '#ffffff', linewidth = 1, position = [0, 0,
   return <primitive object={lineObject} position={position} />;
 }
 
-export function Field() {
+interface FieldProps {
+  darkMode?: boolean;
+}
+
+export function Field({ darkMode = false }: FieldProps) {
   const fieldRef = useRef<Mesh>(null);
- 
+
   return (
     <group>
       {/* Main field surface - oval shape */}
       <mesh ref={fieldRef} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[FIELD_CONFIG.length, FIELD_CONFIG.width, 32, 32]} />
-        <meshStandardMaterial color="#2d5016" /> {/* Green grass color */}
+        <meshStandardMaterial color={darkMode ? '#020a02' : '#2d5016'} /> {/* Green grass color */}
       </mesh>
      
       {/* Center square outline */}
