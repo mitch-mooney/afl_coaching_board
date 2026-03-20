@@ -108,6 +108,9 @@ export function VideoWorkspace({
   const [pendingQuarter, setPendingQuarter] = useState<'Q1' | 'Q2' | 'Q3' | 'Q4' | 'ET' | null>(null);
   const [pendingLabel, setPendingLabel] = useState('');
 
+  // Check if link to scenario button is ready
+  const linkReady = pendingStart != null && pendingEnd != null && Math.abs((pendingEnd ?? 0) - (pendingStart ?? 0)) >= 1;
+
   // Playback controls from hook
   const { togglePlayPause, setRate } = useVideoPlayback();
 
@@ -170,17 +173,25 @@ export function VideoWorkspace({
     if (end - start < 1) return;
 
     const videoId = useVideoStore.getState().currentSavedVideoId;
-    if (videoId == null) return;
+    if (videoId == null) {
+      alert('No video loaded. Import a video first.');
+      return;
+    }
 
-    await updateScenario(activeScenarioId, {
-      linkedVideoMoment: {
-        videoId,
-        startTime: start,
-        endTime: end,
-        quarter: pendingQuarter ?? undefined,
-        label: pendingLabel.trim().slice(0, 40) || undefined,
-      },
-    });
+    try {
+      await updateScenario(activeScenarioId, {
+        linkedVideoMoment: {
+          videoId,
+          startTime: start,
+          endTime: end,
+          quarter: pendingQuarter ?? undefined,
+          label: pendingLabel.trim().slice(0, 40) || undefined,
+        },
+      });
+    } catch (err) {
+      console.error('[VideoWorkspace] failed to link video moment', err);
+      return;
+    }
 
     setPendingStart(null);
     setPendingEnd(null);
@@ -457,6 +468,7 @@ export function VideoWorkspace({
                 value={pendingLabel}
                 onChange={e => setPendingLabel(e.target.value.slice(0, 40))}
                 placeholder="Event label…"
+                maxLength={40}
                 style={{
                   background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
                   borderRadius: 5, padding: '4px 8px', color: '#ddd', fontSize: 11,
@@ -465,24 +477,19 @@ export function VideoWorkspace({
               />
 
               {/* Confirm button */}
-              {(() => {
-                const ready = pendingStart != null && pendingEnd != null && Math.abs((pendingEnd ?? 0) - (pendingStart ?? 0)) >= 1;
-                return (
-                  <button
-                    onClick={handleLinkToScenario}
-                    disabled={!ready}
-                    style={{
-                      background: ready ? 'linear-gradient(135deg, #00d4aa, #0099ff)' : 'rgba(255,255,255,0.1)',
-                      border: 'none', borderRadius: 5, padding: '5px 12px',
-                      color: ready ? '#000' : '#555',
-                      fontSize: 11, fontWeight: 700, cursor: ready ? 'pointer' : 'default',
-                      whiteSpace: 'nowrap', opacity: ready ? 1 : 0.5,
-                    }}
-                  >
-                    🎬 Link to Scenario
-                  </button>
-                );
-              })()}
+              <button
+                onClick={handleLinkToScenario}
+                disabled={!linkReady}
+                style={{
+                  background: linkReady ? 'linear-gradient(135deg, #00d4aa, #0099ff)' : 'rgba(255,255,255,0.1)',
+                  border: 'none', borderRadius: 5, padding: '5px 12px',
+                  color: linkReady ? '#000' : '#555',
+                  fontSize: 11, fontWeight: 700, cursor: linkReady ? 'pointer' : 'default',
+                  whiteSpace: 'nowrap', opacity: linkReady ? 1 : 0.5,
+                }}
+              >
+                🎬 Link to Scenario
+              </button>
             </div>
           )}
 
