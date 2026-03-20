@@ -624,7 +624,7 @@ export function MainLayout() {
                 letterSpacing: '0.03em',
               }}
             >
-              + Link Video Moment
+              🎬 Link Video Moment
             </button>
           )}
         </div>
