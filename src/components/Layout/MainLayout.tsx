@@ -585,7 +585,7 @@ export function MainLayout() {
               setCanvasReady(true);
             }}
           >
-            <fog attach="fog" args={['#01020a', 250, 680]} />
+            <fog attach="fog" args={['#06090f', 350, 950]} />
             <SkyDome />
             <Field />
             <PlayerManager />
