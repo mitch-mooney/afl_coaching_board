@@ -268,15 +268,22 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const mobileMenuSections: MenuSection[] = useMemo(() => {
     const sections: MenuSection[] = [];
 
-    // Camera section
-    sections.push(
-      createMenuSection('camera', 'Camera', [
-        createMenuItem('top-view', 'Top View', () => setPresetView('top'), { variant: 'primary', description: "Bird's-eye view of the full field" }),
-        createMenuItem('sideline', 'Sideline', () => setPresetView('sideline'), { variant: 'primary', description: 'View from the sideline at ground level' }),
-        createMenuItem('end-to-end', 'End-to-End', () => setPresetView('end-to-end'), { variant: 'primary', description: 'View from behind the goals looking upfield' }),
-        createMenuItem('reset-camera', 'Reset Camera', resetCamera, { variant: 'purple', description: 'Return camera to default position' }),
-      ])
-    );
+    // Video section
+    const videoItems = [];
+    if (isVideoMode && isLoaded) {
+      videoItems.push(
+        createMenuItem('clear-video', 'Clear Video', clearVideo, { variant: 'danger', description: 'Remove the imported background video' })
+      );
+    } else {
+      videoItems.push(
+        createMenuItem('import-video', isLoading ? 'Loading...' : 'Import Video', () => setShowVideoUploader(true), {
+          variant: 'teal',
+          disabled: isLoading,
+          description: 'Import a video to overlay on the field',
+        })
+      );
+    }
+    sections.push(createMenuSection('video', 'Video', videoItems));
 
     // Player Controls section
     const playerItems = [
@@ -300,6 +307,27 @@ export function Toolbar({ canvas }: ToolbarProps) {
       createMenuItem('auto-assign', 'Auto-Assign Positions', () => autoAssignPositions(), { variant: 'teal', description: 'Automatically assign positions based on field location' }),
     ];
     sections.push(createMenuSection('players', 'Players', playerItems));
+
+    // Teams section
+    const team1Name = team1PresetId ? AFL_TEAMS.find(t => t.id === team1PresetId)?.abbreviation : null;
+    const team2Name = team2PresetId ? AFL_TEAMS.find(t => t.id === team2PresetId)?.abbreviation : null;
+    sections.push(
+      createMenuSection('teams', 'Teams', [
+        createMenuItem('team-select', `Jerseys${team1Name || team2Name ? ` (${team1Name ?? '?'} vs ${team2Name ?? '?'})` : ''}`, () => setShowTeamSelector(true), { variant: 'purple', description: 'Select AFL team jerseys for each side' }),
+      ])
+    );
+
+    // Match section
+    sections.push(
+      createMenuSection('match', 'Match', [
+        createMenuItem('match-setup', 'Match Setup', () => setShowMatchSetup(true), { variant: 'teal', description: 'Configure team names, scores and quarter' }),
+        createMenuItem('toggle-scoreboard', matchShowScoreboard ? 'Hide Scoreboard' : 'Show Scoreboard', toggleScoreboard, {
+          variant: 'primary',
+          active: matchShowScoreboard,
+          description: 'Show or hide the 3D scoreboard on the field',
+        }),
+      ])
+    );
 
     // Ball Controls section (if ball exists)
     if (ball) {
@@ -329,38 +357,16 @@ export function Toolbar({ canvas }: ToolbarProps) {
       sections.push(createMenuSection('ball', 'Ball', ballItems));
     }
 
-    // Teams section
-    const team1Name = team1PresetId ? AFL_TEAMS.find(t => t.id === team1PresetId)?.abbreviation : null;
-    const team2Name = team2PresetId ? AFL_TEAMS.find(t => t.id === team2PresetId)?.abbreviation : null;
-    sections.push(
-      createMenuSection('teams', 'Teams', [
-        createMenuItem('team-select', `Jerseys${team1Name || team2Name ? ` (${team1Name ?? '?'} vs ${team2Name ?? '?'})` : ''}`, () => setShowTeamSelector(true), { variant: 'purple', description: 'Select AFL team jerseys for each side' }),
-      ])
-    );
-
-    // Match section
-    sections.push(
-      createMenuSection('match', 'Match', [
-        createMenuItem('match-setup', 'Match Setup', () => setShowMatchSetup(true), { variant: 'teal', description: 'Configure team names, scores and quarter' }),
-        createMenuItem('toggle-scoreboard', matchShowScoreboard ? 'Hide Scoreboard' : 'Show Scoreboard', toggleScoreboard, {
-          variant: 'primary',
-          active: matchShowScoreboard,
-          description: 'Show or hide the 3D scoreboard on the field',
-        }),
-      ])
-    );
-
-    // Animation Playback section
-    sections.push(
-      createMenuSection('animation', 'Animation Playback', [
-        createMenuItem('play-pause', isPlaying ? 'Pause' : 'Play Animation', togglePlayback, {
-          variant: isPlaying ? 'warning' : 'success',
-          active: isPlaying,
-          description: 'Play or pause the movement animation',
-        }),
-        createMenuItem('stop', 'Stop & Reset', handleStopAnimation, { variant: 'default', description: 'Stop animation and reset to the start position' }),
-      ])
-    );
+    // Events section
+    const eventItems = [
+      createMenuItem('create-event', 'Create Event', () => openEventEditor(), { variant: 'purple', description: 'Create a scripted event sequence with timed animations' }),
+    ];
+    if (activeEvent) {
+      eventItems.push(
+        createMenuItem('clear-event', `Clear: ${activeEvent.name}`, handleClearEvent, { variant: 'danger', description: 'Remove the current active event sequence' })
+      );
+    }
+    sections.push(createMenuSection('events', 'Events', eventItems));
 
     // Video Recording section
     const recordingItems = [
@@ -389,17 +395,6 @@ export function Toolbar({ canvas }: ToolbarProps) {
     }
     sections.push(createMenuSection('recording', 'Video Recording', recordingItems));
 
-    // Events section
-    const eventItems = [
-      createMenuItem('create-event', 'Create Event', () => openEventEditor(), { variant: 'purple', description: 'Create a scripted event sequence with timed animations' }),
-    ];
-    if (activeEvent) {
-      eventItems.push(
-        createMenuItem('clear-event', `Clear: ${activeEvent.name}`, handleClearEvent, { variant: 'danger', description: 'Remove the current active event sequence' })
-      );
-    }
-    sections.push(createMenuSection('events', 'Events', eventItems));
-
     // POV section — always show both assign slots; show Exit when POV is active
     const pov1Label = povPlayer1Id ? `#${players.find(p => p.id === povPlayer1Id)?.number ?? '?'}` : 'unset';
     const pov2Label = povPlayer2Id ? `#${players.find(p => p.id === povPlayer2Id)?.number ?? '?'}` : 'unset';
@@ -422,22 +417,27 @@ export function Toolbar({ canvas }: ToolbarProps) {
     }
     sections.push(createMenuSection('pov', 'Follow-Cam', povItems));
 
-    // Video section
-    const videoItems = [];
-    if (isVideoMode && isLoaded) {
-      videoItems.push(
-        createMenuItem('clear-video', 'Clear Video', clearVideo, { variant: 'danger', description: 'Remove the imported background video' })
-      );
-    } else {
-      videoItems.push(
-        createMenuItem('import-video', isLoading ? 'Loading...' : 'Import Video', () => setShowVideoUploader(true), {
-          variant: 'teal',
-          disabled: isLoading,
-          description: 'Import a video to overlay on the field',
-        })
-      );
-    }
-    sections.push(createMenuSection('video', 'Video', videoItems));
+    // Animation Playback section
+    sections.push(
+      createMenuSection('animation', 'Animation Playback', [
+        createMenuItem('play-pause', isPlaying ? 'Pause' : 'Play Animation', togglePlayback, {
+          variant: isPlaying ? 'warning' : 'success',
+          active: isPlaying,
+          description: 'Play or pause the movement animation',
+        }),
+        createMenuItem('stop', 'Stop & Reset', handleStopAnimation, { variant: 'default', description: 'Stop animation and reset to the start position' }),
+      ])
+    );
+
+    // Camera section
+    sections.push(
+      createMenuSection('camera', 'Camera', [
+        createMenuItem('top-view', 'Top View', () => setPresetView('top'), { variant: 'primary', description: "Bird's-eye view of the full field" }),
+        createMenuItem('sideline', 'Sideline', () => setPresetView('sideline'), { variant: 'primary', description: 'View from the sideline at ground level' }),
+        createMenuItem('end-to-end', 'End-to-End', () => setPresetView('end-to-end'), { variant: 'primary', description: 'View from behind the goals looking upfield' }),
+        createMenuItem('reset-camera', 'Reset Camera', resetCamera, { variant: 'purple', description: 'Return camera to default position' }),
+      ])
+    );
 
     // User section (if authenticated)
     if (authIsConfigured && authUser) {
