@@ -83,71 +83,13 @@ function generateCrowdTexture(): HTMLCanvasElement {
     ctx.fill();
   }
 
-  // ── Crowd stands band (canvas y 40%–68%) ───────────────────────────────────
-  const crowdTop = H * 0.38;
-  const crowdBot = H * 0.68;
-  const crowdH = crowdBot - crowdTop;
-
-  // Base stand gradient — darkens from top to bottom of the stands
-  const standGrad = ctx.createLinearGradient(0, crowdTop, 0, crowdBot);
-  standGrad.addColorStop(0, '#06080f');
-  standGrad.addColorStop(0.4, '#080c14');
-  standGrad.addColorStop(1, '#060f08');
-  ctx.fillStyle = standGrad;
-  ctx.fillRect(0, crowdTop, W, crowdH);
-
-  // Pixelated crowd — small colored rectangles with seeded pseudo-random
-  const PW = 4, PH = 5;
-  // AFL-representative crowd colours: home blue, away red/white + misc neutrals
-  const crowdPalette = [
-    '#003087', '#0055c8', '#1a4fa0',   // blues
-    '#c8001e', '#e8001e', '#9e0016',   // reds
-    '#f5f5f5', '#e0e0e0', '#cccccc',   // whites/greys
-    '#f5c518', '#e8b800', '#d4a500',   // yellows
-    '#00843d', '#006830',              // greens
-    '#ff6600', '#e55a00',              // orange
-    '#1a1a1a', '#111111',              // dark gaps/empty seats
-  ];
-
-  let seed = 0x9e3779b9;
-  const rng = () => {
-    seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5;
-    return ((seed >>> 0) / 0xffffffff);
-  };
-
-  for (let row = 0; row * PH < crowdH; row++) {
-    const y = crowdTop + row * PH;
-    const t = row / (crowdH / PH);            // 0 = top tier, 1 = pitch-side
-    const brightness = 0.18 + t * 0.42;       // brighter near the field
-    const isAisle = row % 10 === 0;           // horizontal aisle every 10 rows
-    if (isAisle) continue;
-
-    for (let col = 0; col < W; col += PW) {
-      if (rng() < 0.04) continue;            // occasional empty seat
-
-      const color = crowdPalette[Math.floor(rng() * crowdPalette.length)];
-      const r = parseInt(color.slice(1, 3), 16);
-      const g = parseInt(color.slice(3, 5), 16);
-      const b = parseInt(color.slice(5, 7), 16);
-      ctx.fillStyle = `rgb(${Math.round(r * brightness)},${Math.round(g * brightness)},${Math.round(b * brightness)})`;
-      ctx.fillRect(col, y, PW - 0.5, PH - 0.5);
-    }
-  }
-
-  // Subtle field-light spill at the bottom of the stands
-  const spill = ctx.createLinearGradient(0, crowdBot - 20, 0, crowdBot + 20);
-  spill.addColorStop(0, 'rgba(40,160,60,0)');
-  spill.addColorStop(0.5, 'rgba(30,120,50,0.18)');
-  spill.addColorStop(1, 'rgba(15,60,25,0)');
-  ctx.fillStyle = spill;
-  ctx.fillRect(0, crowdBot - 20, W, 40);
-
-  // ── Below the stands (mostly hidden by field geometry) ────────────────────
-  const belowGrad = ctx.createLinearGradient(0, crowdBot, 0, H);
-  belowGrad.addColorStop(0, '#0a1a0a');
-  belowGrad.addColorStop(1, '#060f06');
-  ctx.fillStyle = belowGrad;
-  ctx.fillRect(0, crowdBot, W, H - crowdBot);
+  // ── Lower dome — smooth dark gradient (stadium stands are 3D geometry now) ──
+  const lowerGrad = ctx.createLinearGradient(0, H * 0.38, 0, H);
+  lowerGrad.addColorStop(0, '#080e1c');
+  lowerGrad.addColorStop(0.4, '#04060a');
+  lowerGrad.addColorStop(1, '#010204');
+  ctx.fillStyle = lowerGrad;
+  ctx.fillRect(0, H * 0.38, W, H * 0.62);
 
   return canvas;
 }

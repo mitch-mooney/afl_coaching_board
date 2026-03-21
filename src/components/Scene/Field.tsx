@@ -23,47 +23,54 @@ function FieldLine({ points, color = '#ffffff', linewidth = 1, position = [0, 0,
 }
 
 /**
- * Elliptical grandstand ring around the field boundary.
- * 7 stepped tiers using ShapeGeometry elliptical annuli — simulates MCG-style seating bowl.
+ * Elliptical grandstand bowl around the field boundary.
+ * Each tier has a wide bright-blue seat surface + a narrow dark riser divider,
+ * creating the alternating light/dark band pattern of real stadium seating.
  * Field boundary semi-axes: 82.5m (X) × 67.5m (Z).
  */
 function StadiumStands() {
-  const geometries = useMemo(() => {
-    const result: { geo: ShapeGeometry; y: number; colorR: number; colorG: number; colorB: number }[] = [];
+  const items = useMemo(() => {
+    const result: { geo: ShapeGeometry; y: number; dark: boolean; tier: number }[] = [];
 
-    // Narrow dark apron between white boundary line and first seating tier
+    // Dark apron between boundary line and first seating tier
     const apronShape = new Shape();
     apronShape.absellipse(0, 0, 91, 75, 0, Math.PI * 2, false, 0);
     const apronHole = new Path();
     apronHole.absellipse(0, 0, 84, 69, 0, Math.PI * 2, true, 0);
     apronShape.holes.push(apronHole);
-    result.push({ geo: new ShapeGeometry(apronShape, 64), y: 0.05, colorR: 18, colorG: 22, colorB: 14 });
+    result.push({ geo: new ShapeGeometry(apronShape, 64), y: 0.05, dark: true, tier: -1 });
 
-    // 7 seating tiers — each steps outward and upward
-    for (let i = 0; i < 7; i++) {
-      const innerA = 90 + i * 10;
-      const innerB = 74 + i * 8;
-      const outerA = innerA + 11;
-      const outerB = innerB + 9;
+    const TIERS = 8;
+    const SEAT_DEPTH = 9;   // radial depth of the blue seat surface (m)
+    const RISER_DEPTH = 2;  // radial depth of the dark riser/step between rows (m)
+    const STEP = SEAT_DEPTH + RISER_DEPTH; // total radial step per tier
 
-      const shape = new Shape();
-      shape.absellipse(0, 0, outerA, outerB, 0, Math.PI * 2, false, 0);
-      const hole = new Path();
-      hole.absellipse(0, 0, innerA, innerB, 0, Math.PI * 2, true, 0);
-      shape.holes.push(hole);
+    for (let i = 0; i < TIERS; i++) {
+      const tY = 0.3 + i * 3.6; // height rises per tier
+      const seatInnerA = 90 + i * STEP;
+      const seatInnerB = 74 + i * (STEP * 0.82);
+      const seatOuterA = seatInnerA + SEAT_DEPTH;
+      const seatOuterB = seatInnerB + SEAT_DEPTH * 0.82;
 
-      const geo = new ShapeGeometry(shape, 64);
-      const y = 0.5 + i * 3.8;
+      // Seat surface — bright MCG blue
+      const seatShape = new Shape();
+      seatShape.absellipse(0, 0, seatOuterA, seatOuterB, 0, Math.PI * 2, false, 0);
+      const seatHole = new Path();
+      seatHole.absellipse(0, 0, seatInnerA, seatInnerB, 0, Math.PI * 2, true, 0);
+      seatShape.holes.push(seatHole);
+      result.push({ geo: new ShapeGeometry(seatShape, 64), y: tY, dark: false, tier: i });
 
-      // MCG-style blue seating — slightly darker higher up
-      const brightness = 1 - i * 0.07;
-      result.push({
-        geo,
-        y,
-        colorR: Math.round(28 * brightness),
-        colorG: Math.round(88 * brightness),
-        colorB: Math.round(178 * brightness),
-      });
+      // Riser divider — dark shadow strip between rows
+      const riserInnerA = seatOuterA;
+      const riserInnerB = seatOuterB;
+      const riserOuterA = riserInnerA + RISER_DEPTH;
+      const riserOuterB = riserInnerB + RISER_DEPTH * 0.82;
+      const riserShape = new Shape();
+      riserShape.absellipse(0, 0, riserOuterA, riserOuterB, 0, Math.PI * 2, false, 0);
+      const riserHole = new Path();
+      riserHole.absellipse(0, 0, riserInnerA, riserInnerB, 0, Math.PI * 2, true, 0);
+      riserShape.holes.push(riserHole);
+      result.push({ geo: new ShapeGeometry(riserShape, 64), y: tY + 1.2, dark: true, tier: i });
     }
 
     return result;
@@ -71,11 +78,22 @@ function StadiumStands() {
 
   return (
     <group>
-      {geometries.map((item, i) => (
-        <mesh key={i} geometry={item.geo} rotation={[-Math.PI / 2, 0, 0]} position={[0, item.y, 0]}>
-          <meshStandardMaterial color={`rgb(${item.colorR},${item.colorG},${item.colorB})`} />
-        </mesh>
-      ))}
+      {items.map((item, i) => {
+        if (item.dark) {
+          return (
+            <mesh key={i} geometry={item.geo} rotation={[-Math.PI / 2, 0, 0]} position={[0, item.y, 0]}>
+              <meshStandardMaterial color="#08111e" />
+            </mesh>
+          );
+        }
+        // Seat colour — bright blue fading slightly on upper tiers
+        const b = 1 - item.tier * 0.06;
+        return (
+          <mesh key={i} geometry={item.geo} rotation={[-Math.PI / 2, 0, 0]} position={[0, item.y, 0]}>
+            <meshStandardMaterial color={`rgb(${Math.round(25*b)},${Math.round(92*b)},${Math.round(188*b)})`} />
+          </mesh>
+        );
+      })}
     </group>
   );
 }
