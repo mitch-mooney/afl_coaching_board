@@ -78,10 +78,10 @@ const STANDARD_TEAM1_POSITIONS = [
   { x: 25, z: 55, role: 'FP', rotation: Math.PI },     // Forward Pocket Right
 
   // Interchange (off the field - positioned on team bench area with offset for visibility)
-  { x: -60, z: -75, role: 'INT', rotation: 0 },        // Interchange 1
-  { x: -50, z: -75.25, role: 'INT', rotation: 0 },     // Interchange 2
-  { x: -40, z: -75.5, role: 'INT', rotation: 0 },      // Interchange 3
-  { x: -30, z: -75.75, role: 'INT', rotation: 0 },     // Interchange 4
+  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
+  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
+  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
+  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 /**
@@ -131,10 +131,10 @@ const ZONE_DEFENSE_TEAM1_POSITIONS = [
   { x: 20, z: 50, role: 'FP', rotation: Math.PI },
 
   // Interchange (off the field - positioned on team bench area with offset for visibility)
-  { x: -60, z: -75, role: 'INT', rotation: 0 },        // Interchange 1
-  { x: -50, z: -75.25, role: 'INT', rotation: 0 },     // Interchange 2
-  { x: -40, z: -75.5, role: 'INT', rotation: 0 },      // Interchange 3
-  { x: -30, z: -75.75, role: 'INT', rotation: 0 },     // Interchange 4
+  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
+  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
+  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
+  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 const ZONE_DEFENSE: Formation = {
@@ -179,10 +179,10 @@ const PRESS_TEAM1_POSITIONS = [
   { x: 18, z: 58, role: 'FP', rotation: Math.PI },
 
   // Interchange (off the field - positioned on team bench area with offset for visibility)
-  { x: -60, z: -75, role: 'INT', rotation: 0 },        // Interchange 1
-  { x: -50, z: -75.25, role: 'INT', rotation: 0 },     // Interchange 2
-  { x: -40, z: -75.5, role: 'INT', rotation: 0 },      // Interchange 3
-  { x: -30, z: -75.75, role: 'INT', rotation: 0 },     // Interchange 4
+  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
+  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
+  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
+  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 const PRESS: Formation = {
@@ -227,10 +227,10 @@ const SPREAD_TEAM1_POSITIONS = [
   { x: 35, z: 55, role: 'FP', rotation: Math.PI },
 
   // Interchange (off the field - positioned on team bench area with offset for visibility)
-  { x: -60, z: -75, role: 'INT', rotation: 0 },        // Interchange 1
-  { x: -50, z: -75.25, role: 'INT', rotation: 0 },     // Interchange 2
-  { x: -40, z: -75.5, role: 'INT', rotation: 0 },      // Interchange 3
-  { x: -30, z: -75.75, role: 'INT', rotation: 0 },     // Interchange 4
+  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
+  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
+  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
+  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 const SPREAD: Formation = {
@@ -275,10 +275,10 @@ const FLOOD_TEAM1_POSITIONS = [
   { x: 20, z: 40, role: 'FP', rotation: Math.PI },
 
   // Interchange (off the field - positioned on team bench area with offset for visibility)
-  { x: -60, z: -75, role: 'INT', rotation: 0 },        // Interchange 1
-  { x: -50, z: -75.25, role: 'INT', rotation: 0 },     // Interchange 2
-  { x: -40, z: -75.5, role: 'INT', rotation: 0 },      // Interchange 3
-  { x: -30, z: -75.75, role: 'INT', rotation: 0 },     // Interchange 4
+  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
+  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
+  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
+  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 const FLOOD: Formation = {
@@ -323,10 +323,10 @@ const MAN_ON_MAN_TEAM1_POSITIONS = [
   { x: 22, z: 50, role: 'FP', rotation: Math.PI },
 
   // Interchange (off the field - positioned on team bench area with offset for visibility)
-  { x: -60, z: -75, role: 'INT', rotation: 0 },        // Interchange 1
-  { x: -50, z: -75.25, role: 'INT', rotation: 0 },     // Interchange 2
-  { x: -40, z: -75.5, role: 'INT', rotation: 0 },      // Interchange 3
-  { x: -30, z: -75.75, role: 'INT', rotation: 0 },     // Interchange 4
+  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
+  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
+  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
+  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 const MAN_ON_MAN: Formation = {
@@ -371,10 +371,10 @@ const CENTRE_BOUNCE_TEAM1_POSITIONS = [
   { x: 25, z: 55, role: 'FP', rotation: Math.PI },
 
   // Interchange (off the field - positioned on team bench area with offset for visibility)
-  { x: -60, z: -75, role: 'INT', rotation: 0 },        // Interchange 1
-  { x: -50, z: -75.25, role: 'INT', rotation: 0 },     // Interchange 2
-  { x: -40, z: -75.5, role: 'INT', rotation: 0 },      // Interchange 3
-  { x: -30, z: -75.75, role: 'INT', rotation: 0 },     // Interchange 4
+  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
+  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
+  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
+  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 const CENTRE_BOUNCE: Formation = {
@@ -417,10 +417,10 @@ const KICK_IN_PRESSING_TEAM1_POSITIONS = [
   { x:   0, z:  22,   role: 'FB',  rotation: 0 },
   { x:  18, z:  20,   role: 'BP',  rotation: 0 },
   // Interchange
-  { x: -60, z: -75,    role: 'INT', rotation: 0 },
-  { x: -50, z: -75.25, role: 'INT', rotation: 0 },
-  { x: -40, z: -75.5,  role: 'INT', rotation: 0 },
-  { x: -30, z: -75.75, role: 'INT', rotation: 0 },
+  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
+  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
+  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
+  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 const KICK_IN_PRESSING: Formation = {
@@ -465,10 +465,10 @@ const KICK_IN_KICKING_TEAM1_POSITIONS = [
   // Rover near mid-field
   { x:   0, z: -15,    role: 'RO',  rotation: 0 },
   // Interchange
-  { x: -60, z: -75,    role: 'INT', rotation: 0 },
-  { x: -50, z: -75.25, role: 'INT', rotation: 0 },
-  { x: -40, z: -75.5,  role: 'INT', rotation: 0 },
-  { x: -30, z: -75.75, role: 'INT', rotation: 0 },
+  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
+  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
+  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
+  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 const KICK_IN_KICKING: Formation = {

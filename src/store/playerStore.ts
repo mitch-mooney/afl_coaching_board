@@ -112,11 +112,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         [-55, 0, 0],   // Full Forward
         [-50, 0, -25], // Forward Pocket Left
         [-50, 0, 25],  // Forward Pocket Right
-        // Interchange (4 players - off-field bench area)
-        [70, 0, -55],  // Int 1
-        [70, 0, -45],  // Int 2
-        [70, 0, -35],  // Int 3
-        [70, 0, -25],  // Int 4
+        // Interchange (4 players - centre sideline bench)
+        [25, 0, 73],  // Int 1 — team1: [-25,0,73]  team2: [25,0,73]
+        [18, 0, 73],  // Int 2
+        [12, 0, 73],  // Int 3
+        [ 6, 0, 73],  // Int 4
       ];
 
       const pos = positions[index] || [0, 0, index * 3];
