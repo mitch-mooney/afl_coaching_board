@@ -41,11 +41,12 @@ function StadiumStands() {
   const items = useMemo(() => {
     const result: { geo: ShapeGeometry; y: number; color: string }[] = [];
 
-    // Dark apron between boundary line and first seating tier
+    // Large dark floor covering everything outside the field boundary — eliminates green bleed
+    // Inner hole matches the playing field ellipse (82.5 × 67.5); outer covers well beyond the stands
     const apronShape = new Shape();
-    apronShape.absellipse(0, 0, 91, 75, 0, Math.PI * 2, false, 0);
+    apronShape.absellipse(0, 0, 350, 300, 0, Math.PI * 2, false, 0);
     const apronHole = new Path();
-    apronHole.absellipse(0, 0, 84, 69, 0, Math.PI * 2, true, 0);
+    apronHole.absellipse(0, 0, 82, 67, 0, Math.PI * 2, true, 0);
     apronShape.holes.push(apronHole);
     result.push({ geo: new ShapeGeometry(apronShape, 64), y: 0.05, color: '#08111e' });
 
