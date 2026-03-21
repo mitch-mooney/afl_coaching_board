@@ -62,9 +62,9 @@ function generateCrowdTexture(): HTMLCanvasElement {
 
   // ── Night sky (upper 40% of texture = v > 0.6 on the sphere) ──────────────
   const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.42);
-  skyGrad.addColorStop(0, '#04080f');
-  skyGrad.addColorStop(0.6, '#0d1b2e');
-  skyGrad.addColorStop(1, '#1a2e4a');
+  skyGrad.addColorStop(0, '#01020a');
+  skyGrad.addColorStop(0.6, '#04060f');
+  skyGrad.addColorStop(1, '#080e1c');
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, W, H * 0.42);
 
@@ -73,13 +73,13 @@ function generateCrowdTexture(): HTMLCanvasElement {
   for (const lx of lightPositions) {
     const x = lx * W, y = H * 0.06;
     const grad = ctx.createRadialGradient(x, y, 0, x, y, 90);
-    grad.addColorStop(0, 'rgba(255,248,220,0.95)');
-    grad.addColorStop(0.08, 'rgba(255,230,160,0.7)');
-    grad.addColorStop(0.35, 'rgba(200,180,100,0.25)');
-    grad.addColorStop(1, 'rgba(100,120,180,0)');
+    grad.addColorStop(0, 'rgba(255,252,240,1.0)');
+    grad.addColorStop(0.05, 'rgba(255,240,180,0.9)');
+    grad.addColorStop(0.2, 'rgba(200,170,80,0.3)');
+    grad.addColorStop(1, 'rgba(50,80,150,0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.ellipse(x, y, 90, 120, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y, 40, 55, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -90,9 +90,9 @@ function generateCrowdTexture(): HTMLCanvasElement {
 
   // Base stand gradient — darkens from top to bottom of the stands
   const standGrad = ctx.createLinearGradient(0, crowdTop, 0, crowdBot);
-  standGrad.addColorStop(0, '#0b111e');
-  standGrad.addColorStop(0.4, '#111827');
-  standGrad.addColorStop(1, '#0d1e14');
+  standGrad.addColorStop(0, '#06080f');
+  standGrad.addColorStop(0.4, '#080c14');
+  standGrad.addColorStop(1, '#060f08');
   ctx.fillStyle = standGrad;
   ctx.fillRect(0, crowdTop, W, crowdH);
 
@@ -118,7 +118,7 @@ function generateCrowdTexture(): HTMLCanvasElement {
   for (let row = 0; row * PH < crowdH; row++) {
     const y = crowdTop + row * PH;
     const t = row / (crowdH / PH);            // 0 = top tier, 1 = pitch-side
-    const brightness = 0.25 + t * 0.55;       // brighter near the field
+    const brightness = 0.18 + t * 0.42;       // brighter near the field
     const isAisle = row % 10 === 0;           // horizontal aisle every 10 rows
     if (isAisle) continue;
 
@@ -136,9 +136,9 @@ function generateCrowdTexture(): HTMLCanvasElement {
 
   // Subtle field-light spill at the bottom of the stands
   const spill = ctx.createLinearGradient(0, crowdBot - 20, 0, crowdBot + 20);
-  spill.addColorStop(0, 'rgba(80,200,80,0)');
-  spill.addColorStop(0.5, 'rgba(60,160,60,0.12)');
-  spill.addColorStop(1, 'rgba(30,80,30,0)');
+  spill.addColorStop(0, 'rgba(40,160,60,0)');
+  spill.addColorStop(0.5, 'rgba(30,120,50,0.18)');
+  spill.addColorStop(1, 'rgba(15,60,25,0)');
   ctx.fillStyle = spill;
   ctx.fillRect(0, crowdBot - 20, W, 40);
 
@@ -585,6 +585,7 @@ export function MainLayout() {
               setCanvasReady(true);
             }}
           >
+            <fog attach="fog" args={['#01020a', 250, 680]} />
             <SkyDome />
             <Field />
             <PlayerManager />

@@ -1,6 +1,6 @@
 // @ts-nocheck - Disable TypeScript checks for this file due to Three.js JSX primitive type issues
 import { useRef, useMemo } from 'react';
-import { Mesh, BufferGeometry, LineBasicMaterial, Float32BufferAttribute, Line as ThreeLine } from 'three';
+import { Mesh, BufferGeometry, LineBasicMaterial, Float32BufferAttribute, Line as ThreeLine, CanvasTexture, RepeatWrapping } from 'three';
 import { FIELD_CONFIG } from '../../models/FieldModel';
 
 // Helper component to avoid TypeScript JSX issues with lowercase 'line'
@@ -29,12 +29,34 @@ interface FieldProps {
 export function Field({ darkMode = false }: FieldProps) {
   const fieldRef = useRef<Mesh>(null);
 
+  const stripeTexture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 4;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d')!;
+    const stripeCount = 16;
+    const stripeH = canvas.height / stripeCount;
+    for (let i = 0; i < stripeCount; i++) {
+      ctx.fillStyle = i % 2 === 0 ? '#1a3a10' : '#1e4212';
+      ctx.fillRect(0, i * stripeH, canvas.width, stripeH);
+    }
+    const tex = new CanvasTexture(canvas);
+    tex.wrapS = RepeatWrapping;
+    tex.wrapT = RepeatWrapping;
+    tex.repeat.set(1, 1);
+    tex.needsUpdate = true;
+    return tex;
+  }, []);
+
   return (
     <group>
       {/* Main field surface - oval shape */}
       <mesh ref={fieldRef} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[FIELD_CONFIG.length, FIELD_CONFIG.width, 32, 32]} />
-        <meshStandardMaterial color={darkMode ? '#020a02' : '#2d5016'} /> {/* Green grass color */}
+        <meshStandardMaterial
+          map={darkMode ? undefined : stripeTexture}
+          color={darkMode ? '#020a02' : '#ffffff'}
+        /> {/* Green grass color */}
       </mesh>
      
       {/* Center square outline */}
@@ -67,9 +89,17 @@ export function Field({ darkMode = false }: FieldProps) {
       {/* Field markings - boundary lines */}
       <FieldBoundary />
      
-      {/* Lighting helper */}
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[50, 100, 50]} intensity={0.8} castShadow />
+      {/* Hemisphere light: blue-tinted sky above, dark green ground below */}
+      <hemisphereLight args={['#0a1828', '#0d1f08', 0.4]} />
+
+      {/* Main directional light — angled from above one end, casts goal post shadows */}
+      <directionalLight position={[80, 120, 60]} intensity={0.7} castShadow />
+
+      {/* Floodlight point lights — 4 corners of the stadium at height */}
+      <pointLight position={[-100, 130, -85]} intensity={3.5} color="#fffbf0" distance={400} decay={2} />
+      <pointLight position={[100, 130, -85]} intensity={3.5} color="#fffbf0" distance={400} decay={2} />
+      <pointLight position={[-100, 130, 85]} intensity={3.5} color="#fffbf0" distance={400} decay={2} />
+      <pointLight position={[100, 130, 85]} intensity={3.5} color="#fffbf0" distance={400} decay={2} />
     </group>
   );
 }
