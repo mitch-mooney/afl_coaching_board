@@ -5,7 +5,7 @@ interface VideoTrimmerProps {
   file: File;
   duration: number;
   onSkip: () => void;
-  onSave: (trimmedBlob: Blob) => void;
+  onSave: (trimmedBlob: Blob, trimDuration: number) => void;
 }
 
 function formatTime(seconds: number): string {
@@ -59,8 +59,8 @@ export function VideoTrimmer({ file, duration, onSkip, onSave }: VideoTrimmerPro
     setIsProcessing(true);
     setProgress({ phase: 'loading', progress: 0 });
     try {
-      const { blob } = await trimAndConvertVideo(file, trimStart, trimEnd, setProgress);
-      onSave(blob);
+      const { blob, duration: trimDuration } = await trimAndConvertVideo(file, trimStart, trimEnd, setProgress);
+      onSave(blob, trimDuration);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Trim failed. Please try again.');
       setIsProcessing(false);

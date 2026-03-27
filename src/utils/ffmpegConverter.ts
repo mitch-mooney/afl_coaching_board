@@ -3,6 +3,8 @@ import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 let ffmpeg: FFmpeg | null = null;
 let loaded = false;
+// Mutable ref so the single stable handler always forwards to the current caller's callback
+let currentProgressCallback: ((progress: ConversionProgress) => void) | undefined;
 
 export type ConversionProgress = {
   phase: 'loading' | 'converting' | 'done';
@@ -10,12 +12,16 @@ export type ConversionProgress = {
 };
 
 async function getFFmpeg(onProgress?: (progress: ConversionProgress) => void): Promise<FFmpeg> {
+  // Update current callback so the stable listener forwards to the right caller
+  currentProgressCallback = onProgress;
+
   if (ffmpeg && loaded) return ffmpeg;
 
   ffmpeg = new FFmpeg();
 
+  // Register one stable listener that always calls the current callback
   ffmpeg.on('progress', ({ progress }) => {
-    onProgress?.({ phase: 'converting', progress: Math.min(progress, 1) });
+    currentProgressCallback?.({ phase: 'converting', progress: Math.min(progress, 1) });
   });
 
   onProgress?.({ phase: 'loading', progress: 0 });

@@ -10,7 +10,6 @@ import { Scoreboard } from '../Scene/Scoreboard';
 import { Toolbar } from '../UI/Toolbar';
 import { PlaybookPanel } from '../UI/PlaybookPanel';
 import { AnnotationToolbar } from '../UI/AnnotationToolbar';
-import { HelpOverlay } from '../UI/HelpOverlay';
 import { FeatureNotification } from '../UI/FeatureNotification';
 import { CameraDock } from '../UI/CameraDock';
 import { LabelToggle } from '../UI/LabelToggle';

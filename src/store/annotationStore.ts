@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type AnnotationType = 'line' | 'arrow' | 'circle' | 'rectangle' | 'text' | 'measure';
+export type AnnotationType = 'line' | 'arrow' | 'circle' | 'rectangle' | 'text' | 'measure' | 'magnifying-glass';
 
 export interface Annotation {
   id: string;
@@ -9,6 +9,8 @@ export interface Annotation {
   color: string;
   thickness?: number;
   text?: string;
+  magnifySize?: number;
+  magnifyZoom?: number;
   createdAt: Date;
 }
 

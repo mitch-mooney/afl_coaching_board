@@ -59,7 +59,6 @@ export function VideoPiP() {
   const volume = useVideoStore((state) => state.volume);
   const isMuted = useVideoStore((state) => state.isMuted);
   const isSyncedWithAnimation = useVideoStore((state) => state.isSyncedWithAnimation);
-  const setDisplayMode = useVideoStore((state) => state.setDisplayMode);
   const clearVideo = useVideoStore((state) => state.clearVideo);
   const setVolume = useVideoStore((state) => state.setVolume);
   const toggleMute = useVideoStore((state) => state.toggleMute);
@@ -233,7 +232,6 @@ export function VideoPiP() {
     seekTo(percent * duration);
   };
 
-  const handleEnterCalibration = () => setDisplayMode('calibration');
 
   const handleSnapTo = (corner: SnapCorner) => {
     const pos = getSnapPosition(corner, size.width, actualHeight + 80);

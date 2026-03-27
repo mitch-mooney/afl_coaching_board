@@ -428,7 +428,22 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
 
   // Trim step: show VideoTrimmer after video is loaded
   if (importStep === 'trim' && readyFile) {
-    const handleTrimSave = async (blob: Blob) => {
+    const handleTrimSave = async (blob: Blob, trimDuration: number) => {
+      // Replace the current video element with one pointing to the trimmed blob
+      const blobUrl = URL.createObjectURL(blob);
+      const newElement = document.createElement('video');
+      newElement.preload = 'auto';
+      newElement.muted = true;
+      newElement.playsInline = true;
+      newElement.src = blobUrl;
+      await new Promise<void>((resolve) => {
+        newElement.addEventListener('canplay', () => resolve(), { once: true });
+        newElement.addEventListener('error', () => resolve(), { once: true });
+        newElement.load();
+      });
+      setVideoElement(newElement);
+      setDuration(trimDuration);
+
       try {
         const videoId = `${readyFile.name}-${Date.now()}`;
         const blobDbId = await saveVideoBlob(videoId, blob);
