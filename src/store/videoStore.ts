@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import Dexie, { Table } from 'dexie';
+import { playbookDB } from './playbookStore';
+import type { Scenario } from '../models/ScenarioModel';
 
 /**
  * Perspective settings for matching 3D field to video camera angle
@@ -117,6 +119,9 @@ interface VideoState {
   // Fullscreen mode for video feedback
   fullscreen: boolean;
 
+  // Concert mode: when true, video play/pause is synced with 3D animation playback
+  isSyncedWithAnimation: boolean;
+
   // Perspective calibration
   perspectiveSettings: PerspectiveSettings;
 
@@ -162,6 +167,10 @@ interface VideoState {
   setFullscreen: (fullscreen: boolean) => void;
   toggleFullscreen: () => void;
 
+  // Actions - Concert mode
+  setSyncedWithAnimation: (synced: boolean) => void;
+  toggleSyncWithAnimation: () => void;
+
   // Actions - Perspective settings
   setPerspectiveSettings: (settings: Partial<PerspectiveSettings>) => void;
   setCameraPosition: (position: [number, number, number]) => void;
@@ -183,6 +192,7 @@ interface VideoState {
   saveVideoMetadata: () => Promise<number>;
   updateVideoMetadata: (id: number) => Promise<void>;
   deleteVideoMetadata: (id: number) => Promise<void>;
+  deleteVideoMetadataWithCascade: (id: number) => Promise<'deleted' | 'cancelled' | 'error'>;
   loadVideoSettings: (id: number) => Promise<void>;
 
   // Actions - Video blob storage
@@ -239,6 +249,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   isVideoMode: false,
   displayMode: 'pip',
   fullscreen: false,
+  isSyncedWithAnimation: false,
 
   // Initial state - Settings
   perspectiveSettings: { ...DEFAULT_PERSPECTIVE_SETTINGS },
@@ -286,6 +297,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       isVideoMode: false,
       displayMode: 'pip',
       fullscreen: false,
+      isSyncedWithAnimation: false,
     });
   },
 
@@ -379,6 +391,14 @@ export const useVideoStore = create<VideoState>((set, get) => ({
 
   toggleFullscreen: () => {
     set((state) => ({ fullscreen: !state.fullscreen }));
+  },
+
+  setSyncedWithAnimation: (synced) => {
+    set({ isSyncedWithAnimation: synced });
+  },
+
+  toggleSyncWithAnimation: () => {
+    set((state) => ({ isSyncedWithAnimation: !state.isSyncedWithAnimation }));
   },
 
   // Actions - Perspective settings
@@ -532,6 +552,60 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     }
   },
 
+  deleteVideoMetadataWithCascade: async (id) => {
+    set({ isPersisting: true });
+    try {
+      // Find all scenarios that reference this video
+      const allScenarios: Scenario[] = await playbookDB.scenarios.toArray();
+      const linked = allScenarios.filter(
+        (s) => s.linkedVideoMoment?.videoId === id
+      );
+
+      if (linked.length > 0) {
+        const names = linked.map((s) => `"${s.name}"`).join(', ');
+        const ok = window.confirm(
+          `This video is linked to ${linked.length} scenario${linked.length > 1 ? 's' : ''}: ${names}.\n\nDeleting it will remove the video link. Continue?`
+        );
+        if (!ok) {
+          set({ isPersisting: false });
+          return 'cancelled';
+        }
+      }
+
+      // Step 1: Unlink scenarios first (safe to do before delete)
+      try {
+        for (const s of linked) {
+          if (s.id == null) continue;
+          await playbookDB.scenarios.update(s.id, {
+            linkedVideoMoment: undefined,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+      } catch (err) {
+        console.error('[videoStore] cascade unlink failed — aborting delete', err);
+        set({ isPersisting: false });
+        return 'error';
+      }
+
+      // Step 2: Delete the video metadata record
+      await videoDb.videos.delete(id);
+
+      // Step 3: Clear current saved video if needed and refresh list
+      const { currentSavedVideoId } = get();
+      if (currentSavedVideoId === id) {
+        set({ currentSavedVideoId: null });
+      }
+      set({ isPersisting: false });
+      await useVideoStore.getState().loadSavedVideos();
+
+      return 'deleted';
+    } catch (err) {
+      console.error('[videoStore] deleteVideoMetadataWithCascade failed', err);
+      set({ isPersisting: false });
+      return 'error';
+    }
+  },
+
   loadVideoSettings: async (id) => {
     set({ isPersisting: true });
     try {
@@ -601,6 +675,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       isVideoMode: false,
       displayMode: 'pip',
       fullscreen: false,
+      isSyncedWithAnimation: false,
       perspectiveSettings: { ...DEFAULT_PERSPECTIVE_SETTINGS },
       exportSettings: { ...DEFAULT_EXPORT_SETTINGS },
       currentSavedVideoId: null,

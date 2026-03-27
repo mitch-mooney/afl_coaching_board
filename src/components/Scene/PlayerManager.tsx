@@ -2,15 +2,21 @@ import { usePlayerStore } from '../../store/playerStore';
 import { useAnimationPlayback } from '../../hooks/useAnimationPlayback';
 import { PlayerComponent } from './Player';
 
-export function PlayerManager() {
-  const players = usePlayerStore((state) => state.players);
+interface PlayerManagerProps {
+  readOnly?: boolean;
+}
 
-  // Initialize animation playback hook - handles requestAnimationFrame loop,
-  // global time progression, player position calculations, and batch updates
+function AnimationDriver() {
   useAnimationPlayback();
+  return null;
+}
+
+export function PlayerManager({ readOnly = false }: PlayerManagerProps) {
+  const players = usePlayerStore((state) => state.players);
 
   return (
     <group>
+      {!readOnly && <AnimationDriver />}
       {players.map((player) => (
         <PlayerComponent key={player.id} player={player} />
       ))}

@@ -41,6 +41,25 @@ interface UIState {
   capturedPathIds: Set<string>;
   addCapturedPathIds: (ids: string[]) => void;
   clearCapturedPathIds: () => void;
+
+  // Board sub-mode: setup (move players only) vs draw (record paths)
+  boardSubMode: 'setup' | 'draw';
+  setBoardSubMode: (mode: 'setup' | 'draw') => void;
+  toggleBoardSubMode: () => void;
+
+  // Playbook panel open state (lifted so top bar can own the toggle button)
+  isPlaybookOpen: boolean;
+  togglePlaybook: () => void;
+  openPlaybook: () => void;
+  closePlaybook: () => void;
+
+  // Editor tab: board view vs video view
+  editorTab: 'board' | 'video';
+  setEditorTab: (tab: 'board' | 'video') => void;
+
+  // Active formation preset (last applied formation ID)
+  activeFormationId: string | null;
+  setActiveFormationId: (id: string | null) => void;
 }
 
 /**
@@ -140,6 +159,26 @@ export const useUIStore = create<UIState>((set) => {
     clearCapturedPathIds: () => {
       set({ capturedPathIds: new Set<string>() });
     },
+
+    // Board sub-mode
+    boardSubMode: 'setup',
+    setBoardSubMode: (mode) => set({ boardSubMode: mode }),
+    toggleBoardSubMode: () =>
+      set((s) => ({ boardSubMode: s.boardSubMode === 'setup' ? 'draw' : 'setup' })),
+
+    // Playbook panel
+    isPlaybookOpen: false,
+    togglePlaybook: () => set((s) => ({ isPlaybookOpen: !s.isPlaybookOpen })),
+    openPlaybook: () => set({ isPlaybookOpen: true }),
+    closePlaybook: () => set({ isPlaybookOpen: false }),
+
+    // Editor tab
+    editorTab: 'board',
+    setEditorTab: (tab) => set({ editorTab: tab }),
+
+    // Active formation preset
+    activeFormationId: null,
+    setActiveFormationId: (id) => set({ activeFormationId: id }),
   };
 });
 

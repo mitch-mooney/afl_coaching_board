@@ -26,10 +26,8 @@ interface ToolbarProps {
 
 export function Toolbar({ canvas }: ToolbarProps) {
   const resetPlayers = usePlayerStore((state) => state.resetPlayers);
-  const showPlayerNames = usePlayerStore((state) => state.showPlayerNames);
-  const togglePlayerNames = usePlayerStore((state) => state.togglePlayerNames);
-  const showPositionNames = usePlayerStore((state) => state.showPositionNames);
-  const togglePositionNames = usePlayerStore((state) => state.togglePositionNames);
+  const labelMode = usePlayerStore((state) => state.labelMode);
+  const cycleLabelMode = usePlayerStore((state) => state.cycleLabelMode);
   const importRoster = usePlayerStore((state) => state.importRoster);
   const editingPlayerId = usePlayerStore((state) => state.editingPlayerId);
   const getPlayer = usePlayerStore((state) => state.getPlayer);
@@ -38,7 +36,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const updateMultiplePlayers = usePlayerStore((state) => state.updateMultiplePlayers);
   const setPlayerPosition = usePlayerStore((state) => state.setPlayerPosition);
   const autoAssignPositions = usePlayerStore((state) => state.autoAssignPositions);
-  const { setPresetView, resetCamera, povMode, povPlayerId, enablePOV, disablePOV } = useCameraStore();
+  const { setPresetView, resetCamera, activePovSlot, povPlayer1Id, povPlayer2Id, setPovPlayer, switchToBroadcast } = useCameraStore();
   const ball = useBallStore((state) => state.ball);
   const isBallSelected = useBallStore((state) => state.isBallSelected);
   const assignBallToPlayer = useBallStore((state) => state.assignBallToPlayer);
@@ -80,6 +78,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const [showVideoUploader, setShowVideoUploader] = useState(false);
   // Event editor is managed via uiStore (shared with EventTimeline)
   const [showPOVSelector, setShowPOVSelector] = useState(false);
+  const [povSlotToAssign, setPovSlotToAssign] = useState<1 | 2>(1);
   const [showTeamSelector, setShowTeamSelector] = useState(false);
   const [showMatchSetup, setShowMatchSetup] = useState(false);
 
@@ -128,9 +127,13 @@ export function Toolbar({ canvas }: ToolbarProps) {
   // Get active event info
   const activeEvent = getActiveEvent();
 
-  // Get the POV target player for display
-  const povPlayer = povPlayerId
-    ? players.find(p => p.id === povPlayerId)
+  // Derive active POV state for display
+  const isPovActive = activePovSlot !== null;
+  const activePovPlayerId =
+    activePovSlot === 1 ? povPlayer1Id :
+    activePovSlot === 2 ? povPlayer2Id : null;
+  const povPlayer = activePovPlayerId
+    ? players.find(p => p.id === activePovPlayerId)
     : null;
 
   const handleAssignBall = () => {
@@ -251,9 +254,9 @@ export function Toolbar({ canvas }: ToolbarProps) {
 
   // Handle POV player selection
   const handleSelectPOVPlayer = useCallback((playerId: string) => {
-    enablePOV(playerId);
+    setPovPlayer(povSlotToAssign, playerId);
     setShowPOVSelector(false);
-  }, [enablePOV]);
+  }, [setPovPlayer, povSlotToAssign]);
 
   // Handle clearing active event
   const handleClearEvent = useCallback(() => {
@@ -265,15 +268,22 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const mobileMenuSections: MenuSection[] = useMemo(() => {
     const sections: MenuSection[] = [];
 
-    // Camera section
-    sections.push(
-      createMenuSection('camera', 'Camera', [
-        createMenuItem('top-view', 'Top View', () => setPresetView('top'), { variant: 'primary', description: "Bird's-eye view of the full field" }),
-        createMenuItem('sideline', 'Sideline', () => setPresetView('sideline'), { variant: 'primary', description: 'View from the sideline at ground level' }),
-        createMenuItem('end-to-end', 'End-to-End', () => setPresetView('end-to-end'), { variant: 'primary', description: 'View from behind the goals looking upfield' }),
-        createMenuItem('reset-camera', 'Reset Camera', resetCamera, { variant: 'purple', description: 'Return camera to default position' }),
-      ])
-    );
+    // Video section
+    const videoItems = [];
+    if (isVideoMode && isLoaded) {
+      videoItems.push(
+        createMenuItem('clear-video', 'Clear Video', clearVideo, { variant: 'danger', description: 'Remove the imported background video' })
+      );
+    } else {
+      videoItems.push(
+        createMenuItem('import-video', isLoading ? 'Loading...' : 'Import Video', () => setShowVideoUploader(true), {
+          variant: 'teal',
+          disabled: isLoading,
+          description: 'Import a video to overlay on the field',
+        })
+      );
+    }
+    sections.push(createMenuSection('video', 'Video', videoItems));
 
     // Player Controls section
     const playerItems = [
@@ -288,20 +298,36 @@ export function Toolbar({ canvas }: ToolbarProps) {
         description: 'Remove all movement trails from the field',
       }),
       createMenuItem('reset-players', 'Reset Players', resetPlayers, { variant: 'success', description: 'Reset all players to their starting positions' }),
-      createMenuItem('toggle-names', showPlayerNames ? 'Hide Names' : 'Show Names', togglePlayerNames, {
+      createMenuItem('cycle-labels', `Labels: ${labelMode.charAt(0).toUpperCase() + labelMode.slice(1)}`, cycleLabelMode, {
         variant: 'teal',
-        active: showPlayerNames,
-        description: 'Toggle player name labels above each player',
-      }),
-      createMenuItem('toggle-positions', showPositionNames ? 'Hide Positions' : 'Show Positions', togglePositionNames, {
-        variant: 'teal',
-        active: showPositionNames,
-        description: 'Toggle AFL position code labels (FB, CHF, etc.) above each player',
+        active: labelMode !== 'number',
+        description: 'Cycle label mode: number → name → position → number',
       }),
       createMenuItem('import-roster', 'Import Roster', () => setShowImportDialog(true), { variant: 'primary', description: 'Load player names and numbers from a text list' }),
       createMenuItem('auto-assign', 'Auto-Assign Positions', () => autoAssignPositions(), { variant: 'teal', description: 'Automatically assign positions based on field location' }),
     ];
     sections.push(createMenuSection('players', 'Players', playerItems));
+
+    // Teams section
+    const team1Name = team1PresetId ? AFL_TEAMS.find(t => t.id === team1PresetId)?.abbreviation : null;
+    const team2Name = team2PresetId ? AFL_TEAMS.find(t => t.id === team2PresetId)?.abbreviation : null;
+    sections.push(
+      createMenuSection('teams', 'Teams', [
+        createMenuItem('team-select', `Jerseys${team1Name || team2Name ? ` (${team1Name ?? '?'} vs ${team2Name ?? '?'})` : ''}`, () => setShowTeamSelector(true), { variant: 'purple', description: 'Select AFL team jerseys for each side' }),
+      ])
+    );
+
+    // Match section
+    sections.push(
+      createMenuSection('match', 'Match', [
+        createMenuItem('match-setup', 'Match Setup', () => setShowMatchSetup(true), { variant: 'teal', description: 'Configure team names, scores and quarter' }),
+        createMenuItem('toggle-scoreboard', matchShowScoreboard ? 'Hide Scoreboard' : 'Show Scoreboard', toggleScoreboard, {
+          variant: 'primary',
+          active: matchShowScoreboard,
+          description: 'Show or hide the 3D scoreboard on the field',
+        }),
+      ])
+    );
 
     // Ball Controls section (if ball exists)
     if (ball) {
@@ -331,38 +357,16 @@ export function Toolbar({ canvas }: ToolbarProps) {
       sections.push(createMenuSection('ball', 'Ball', ballItems));
     }
 
-    // Teams section
-    const team1Name = team1PresetId ? AFL_TEAMS.find(t => t.id === team1PresetId)?.abbreviation : null;
-    const team2Name = team2PresetId ? AFL_TEAMS.find(t => t.id === team2PresetId)?.abbreviation : null;
-    sections.push(
-      createMenuSection('teams', 'Teams', [
-        createMenuItem('team-select', `Jerseys${team1Name || team2Name ? ` (${team1Name ?? '?'} vs ${team2Name ?? '?'})` : ''}`, () => setShowTeamSelector(true), { variant: 'purple', description: 'Select AFL team jerseys for each side' }),
-      ])
-    );
-
-    // Match section
-    sections.push(
-      createMenuSection('match', 'Match', [
-        createMenuItem('match-setup', 'Match Setup', () => setShowMatchSetup(true), { variant: 'teal', description: 'Configure team names, scores and quarter' }),
-        createMenuItem('toggle-scoreboard', matchShowScoreboard ? 'Hide Scoreboard' : 'Show Scoreboard', toggleScoreboard, {
-          variant: 'primary',
-          active: matchShowScoreboard,
-          description: 'Show or hide the 3D scoreboard on the field',
-        }),
-      ])
-    );
-
-    // Animation Playback section
-    sections.push(
-      createMenuSection('animation', 'Animation Playback', [
-        createMenuItem('play-pause', isPlaying ? 'Pause' : 'Play Animation', togglePlayback, {
-          variant: isPlaying ? 'warning' : 'success',
-          active: isPlaying,
-          description: 'Play or pause the movement animation',
-        }),
-        createMenuItem('stop', 'Stop & Reset', handleStopAnimation, { variant: 'default', description: 'Stop animation and reset to the start position' }),
-      ])
-    );
+    // Events section
+    const eventItems = [
+      createMenuItem('create-event', 'Create Event', () => openEventEditor(), { variant: 'purple', description: 'Create a scripted event sequence with timed animations' }),
+    ];
+    if (activeEvent) {
+      eventItems.push(
+        createMenuItem('clear-event', `Clear: ${activeEvent.name}`, handleClearEvent, { variant: 'danger', description: 'Remove the current active event sequence' })
+      );
+    }
+    sections.push(createMenuSection('events', 'Events', eventItems));
 
     // Video Recording section
     const recordingItems = [
@@ -391,46 +395,49 @@ export function Toolbar({ canvas }: ToolbarProps) {
     }
     sections.push(createMenuSection('recording', 'Video Recording', recordingItems));
 
-    // Events section
-    const eventItems = [
-      createMenuItem('create-event', 'Create Event', () => openEventEditor(), { variant: 'purple', description: 'Create a scripted event sequence with timed animations' }),
+    // POV section — always show both assign slots; show Exit when POV is active
+    const pov1Label = povPlayer1Id ? `#${players.find(p => p.id === povPlayer1Id)?.number ?? '?'}` : 'unset';
+    const pov2Label = povPlayer2Id ? `#${players.find(p => p.id === povPlayer2Id)?.number ?? '?'}` : 'unset';
+    const povItems = [
+      createMenuItem('pov-assign-1', `Assign Follow-Cam 1 (${pov1Label})`, () => { setPovSlotToAssign(1); setShowPOVSelector(true); }, {
+        variant: 'indigo',
+        active: activePovSlot === 1,
+        description: 'Pick which player camera slot 1 follows',
+      }),
+      createMenuItem('pov-assign-2', `Assign Follow-Cam 2 (${pov2Label})`, () => { setPovSlotToAssign(2); setShowPOVSelector(true); }, {
+        variant: 'indigo',
+        active: activePovSlot === 2,
+        description: 'Pick which player camera slot 2 follows',
+      }),
     ];
-    if (activeEvent) {
-      eventItems.push(
-        createMenuItem('clear-event', `Clear: ${activeEvent.name}`, handleClearEvent, { variant: 'danger', description: 'Remove the current active event sequence' })
-      );
-    }
-    sections.push(createMenuSection('events', 'Events', eventItems));
-
-    // POV section
-    const povItems = [];
-    if (povMode) {
+    if (isPovActive) {
       povItems.push(
-        createMenuItem('exit-pov', `Exit POV (#${povPlayer?.number ?? '?'})`, disablePOV, { variant: 'danger', description: 'Exit first-person player view' })
-      );
-    } else {
-      povItems.push(
-        createMenuItem('pov-mode', 'POV Mode', () => setShowPOVSelector(true), { variant: 'indigo', description: "Switch to first-person view from a player's perspective" })
+        createMenuItem('exit-pov', `Exit Follow-Cam (#${povPlayer?.number ?? '?'})`, switchToBroadcast, { variant: 'danger', description: 'Return to broadcast camera view' })
       );
     }
-    sections.push(createMenuSection('pov', 'POV Camera', povItems));
+    sections.push(createMenuSection('pov', 'Follow-Cam', povItems));
 
-    // Video section
-    const videoItems = [];
-    if (isVideoMode && isLoaded) {
-      videoItems.push(
-        createMenuItem('clear-video', 'Clear Video', clearVideo, { variant: 'danger', description: 'Remove the imported background video' })
-      );
-    } else {
-      videoItems.push(
-        createMenuItem('import-video', isLoading ? 'Loading...' : 'Import Video', () => setShowVideoUploader(true), {
-          variant: 'teal',
-          disabled: isLoading,
-          description: 'Import a video to overlay on the field',
-        })
-      );
-    }
-    sections.push(createMenuSection('video', 'Video', videoItems));
+    // Animation Playback section
+    sections.push(
+      createMenuSection('animation', 'Animation Playback', [
+        createMenuItem('play-pause', isPlaying ? 'Pause' : 'Play Animation', togglePlayback, {
+          variant: isPlaying ? 'warning' : 'success',
+          active: isPlaying,
+          description: 'Play or pause the movement animation',
+        }),
+        createMenuItem('stop', 'Stop & Reset', handleStopAnimation, { variant: 'default', description: 'Stop animation and reset to the start position' }),
+      ])
+    );
+
+    // Camera section
+    sections.push(
+      createMenuSection('camera', 'Camera', [
+        createMenuItem('top-view', 'Top View', () => setPresetView('top'), { variant: 'primary', description: "Bird's-eye view of the full field" }),
+        createMenuItem('sideline', 'Sideline', () => setPresetView('sideline'), { variant: 'primary', description: 'View from the sideline at ground level' }),
+        createMenuItem('end-to-end', 'End-to-End', () => setPresetView('end-to-end'), { variant: 'primary', description: 'View from behind the goals looking upfield' }),
+        createMenuItem('reset-camera', 'Reset Camera', resetCamera, { variant: 'purple', description: 'Return camera to default position' }),
+      ])
+    );
 
     // User section (if authenticated)
     if (authIsConfigured && authUser) {
@@ -444,19 +451,20 @@ export function Toolbar({ canvas }: ToolbarProps) {
     return sections;
   }, [
     setPresetView, resetCamera, handleUndo, canUndo, clearPaths, paths.length,
-    resetPlayers, showPlayerNames, togglePlayerNames, showPositionNames, togglePositionNames, autoAssignPositions, ball, selectedPlayer,
+    resetPlayers, labelMode, cycleLabelMode, autoAssignPositions, ball, selectedPlayer,
     selectedPlayerId, handleAssignBall, assignedPlayer, handleUnassignBall,
     isBallSelected, ballPath, handleCreateBallPath, handleRemoveBallPath,
     isPlaying, togglePlayback, handleStopAnimation, isRecording, handleRecordingToggle,
     isConverting, conversionProgress, exportFormat, setExportFormat,
-    activeEvent, handleClearEvent, povMode, povPlayer, disablePOV,
+    activeEvent, handleClearEvent, isPovActive, povPlayer, switchToBroadcast,
+    povPlayer1Id, povPlayer2Id, activePovSlot, setPovSlotToAssign, players,
     isVideoMode, isLoaded, isLoading, clearVideo,
     authUser, authIsConfigured, authSignOut,
     team1PresetId, team2PresetId, matchShowScoreboard, toggleScoreboard,
   ]);
 
   return (
-    <div className="absolute top-4 left-4 right-4 z-10 flex gap-2 flex-wrap">
+    <div className="absolute top-14 left-4 right-4 z-10 flex gap-2 flex-wrap">
       {/* Hamburger menu - visible at all screen sizes */}
       <div>
         <HamburgerIcon isOpen={isMenuOpen} onClick={toggleMenu} />
@@ -465,9 +473,9 @@ export function Toolbar({ canvas }: ToolbarProps) {
       {/* Menu dropdown */}
       <MobileMenu sections={mobileMenuSections} />
 
-      {/* Selected player position selector */}
+      {/* Selected player position selector — second row, left-aligned below hamburger */}
       {selectedPlayer && !isMenuOpen && (
-        <div className="absolute top-4 right-36 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-2 flex items-center gap-2">
+        <div className="absolute top-12 left-0 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-2 flex items-center gap-2">
           <span className="text-sm font-medium text-gray-700">
             #{selectedPlayer.number}{selectedPlayer.playerName ? ` ${selectedPlayer.playerName}` : ''}
           </span>
@@ -652,7 +660,9 @@ export function Toolbar({ canvas }: ToolbarProps) {
           />
           <div className="relative z-10 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[250px] max-h-[400px] overflow-y-auto">
             <div className="p-3 border-b border-gray-100">
-              <span className="text-sm font-medium text-gray-700">Select Player for POV</span>
+              <span className="text-sm font-medium text-gray-700">
+                Assign Follow-Cam {povSlotToAssign} — select a player to follow
+              </span>
             </div>
             <div className="py-1">
               {selectedPlayer && (

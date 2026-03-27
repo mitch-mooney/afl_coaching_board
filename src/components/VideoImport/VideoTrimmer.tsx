@@ -193,14 +193,15 @@ export function VideoTrimmer({ file, duration, onSkip, onSave }: VideoTrimmerPro
         </button>
         <button
           onClick={onSkip}
-          disabled={isProcessing}
-          className="px-4 py-2 bg-gray-100 text-gray-700 rounded font-medium hover:bg-gray-200 transition disabled:opacity-50 text-sm"
+          className="px-4 py-2 bg-gray-100 text-gray-700 rounded font-medium hover:bg-gray-200 transition text-sm"
         >
-          Skip
+          {isProcessing ? 'Cancel' : 'Skip'}
         </button>
       </div>
       <p className="mt-2 text-xs text-gray-400 text-center">
-        "Skip" uses the full video without saving to playbook storage.
+        {isProcessing
+          ? 'First-time use downloads FFmpeg (~10 MB) — this may take a moment.'
+          : '"Skip" uses the full video without saving to playbook storage.'}
       </p>
     </div>
   );

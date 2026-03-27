@@ -3,6 +3,7 @@ import { Player, createTeamPlayers, DEFAULT_TEAM_COLORS } from '../models/Player
 import { getFormationById } from '../data/formations';
 import { getPositionByCode, NUMBER_TO_POSITION } from '../data/aflPositions';
 import { getTeamById } from '../data/aflTeams';
+import type { Formation } from '../types/Formation';
 
 export interface PlayerUpdate {
   playerId: string;
@@ -27,8 +28,7 @@ interface PlayerState {
   /** Flag to track if any player is currently being dragged */
   isDragging: boolean;
   editingPlayerId: string | null;
-  showPlayerNames: boolean;
-  showPositionNames: boolean;
+  labelMode: 'number' | 'name' | 'position';
   team1PresetId: string | null;
   team2PresetId: string | null;
   /** Track movement state for leg animations */
@@ -49,8 +49,8 @@ interface PlayerState {
   canApplyFormation: () => boolean;
   setPlayerName: (playerId: string, name: string) => void;
   setPlayerPosition: (playerId: string, positionName: string | undefined) => void;
-  togglePlayerNames: () => void;
-  togglePositionNames: () => void;
+  setLabelMode: (mode: 'number' | 'name' | 'position') => void;
+  cycleLabelMode: () => void;
   importRoster: (names: string[], teamId?: 'team1' | 'team2') => void;
   startEditingPlayerName: (playerId: string) => void;
   stopEditingPlayerName: () => void;
@@ -59,7 +59,11 @@ interface PlayerState {
   autoAssignPositions: (teamId?: 'team1' | 'team2') => void;
   /** Get movement state for a player */
   getPlayerMoveState: (playerId: string) => PlayerMoveState | undefined;
+  /** Apply a formation template, repositioning all matched players */
+  applyFormation: (formation: Formation) => void;
 }
+
+const LABEL_MODE_ORDER: Array<'number' | 'name' | 'position'> = ['number', 'name', 'position'];
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   players: [],
@@ -67,8 +71,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isUpdating: false,
   isDragging: false,
   editingPlayerId: null,
-  showPlayerNames: false,
-  showPositionNames: false,
+  labelMode: 'number',
   team1PresetId: null,
   team2PresetId: null,
   playerMoveState: new Map<string, PlayerMoveState>(),
@@ -109,11 +112,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         [-55, 0, 0],   // Full Forward
         [-50, 0, -25], // Forward Pocket Left
         [-50, 0, 25],  // Forward Pocket Right
-        // Interchange (4 players - off-field bench area)
-        [70, 0, -55],  // Int 1
-        [70, 0, -45],  // Int 2
-        [70, 0, -35],  // Int 3
-        [70, 0, -25],  // Int 4
+        // Interchange (4 players - centre sideline bench)
+        [25, 0, 73],  // Int 1 — team1: [-25,0,73]  team2: [25,0,73]
+        [18, 0, 73],  // Int 2
+        [12, 0, 73],  // Int 3
+        [ 6, 0, 73],  // Int 4
       ];
 
       const pos = positions[index] || [0, 0, index * 3];
@@ -296,12 +299,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }));
   },
 
-  togglePlayerNames: () => {
-    set((state) => ({ showPlayerNames: !state.showPlayerNames }));
-  },
+  setLabelMode: (mode) => set({ labelMode: mode }),
 
-  togglePositionNames: () => {
-    set((state) => ({ showPositionNames: !state.showPositionNames }));
+  cycleLabelMode: () => {
+    const cur = get().labelMode;
+    set({ labelMode: LABEL_MODE_ORDER[(LABEL_MODE_ORDER.indexOf(cur) + 1) % LABEL_MODE_ORDER.length] });
   },
 
   importRoster: (names, teamId) => {
@@ -404,5 +406,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   getPlayerMoveState: (playerId) => {
     return get().playerMoveState.get(playerId);
+  },
+
+  applyFormation: (formation) => {
+    const { players } = get();
+    const updatedPlayers = players.map((player) => {
+      const match = formation.positions.find(
+        (pos) => pos.teamId === player.teamId && pos.playerNumber === player.number
+      );
+      if (!match) return player;
+      return { ...player, position: match.position, rotation: match.rotation ?? player.rotation };
+    });
+    set({ players: updatedPlayers });
   },
 }));

@@ -1,6 +1,6 @@
 // @ts-nocheck - Disable TypeScript checks for this file due to Three.js JSX primitive type issues
 import { useRef, useMemo } from 'react';
-import { Mesh, BufferGeometry, LineBasicMaterial, Float32BufferAttribute, Line as ThreeLine } from 'three';
+import { Mesh, BufferGeometry, LineBasicMaterial, Float32BufferAttribute, Line as ThreeLine, CanvasTexture, RepeatWrapping, Shape, Path, ShapeGeometry } from 'three';
 import { FIELD_CONFIG } from '../../models/FieldModel';
 
 // Helper component to avoid TypeScript JSX issues with lowercase 'line'
@@ -22,15 +22,127 @@ function FieldLine({ points, color = '#ffffff', linewidth = 1, position = [0, 0,
   return <primitive object={lineObject} position={position} />;
 }
 
-export function Field() {
+/**
+ * Elliptical grandstand bowl around the field boundary.
+ * Each tier has a wide bright-blue seat surface + a narrow dark riser divider,
+ * creating the alternating light/dark band pattern of real stadium seating.
+ * Field boundary semi-axes: 82.5m (X) × 67.5m (Z).
+ */
+// Gradient colour stops for seat rows: inner (near riser shadow) → mid → outer (bright highlight)
+const SEAT_GRADIENT: [number, number, number][] = [
+  [12,  52, 128],  // darkest — in the shadow of the riser below
+  [20,  78, 168],  // mid-dark
+  [30,  98, 190],  // MCG blue
+  [55, 130, 215],  // lighter blue
+  [85, 165, 235],  // brightest — highlight at top of row
+];
+
+function StadiumStands() {
+  const items = useMemo(() => {
+    const result: { geo: ShapeGeometry; y: number; color: string }[] = [];
+
+    // Large dark floor covering everything outside the field boundary — eliminates green bleed
+    // Inner hole matches the playing field ellipse (82.5 × 67.5); outer covers well beyond the stands
+    const apronShape = new Shape();
+    apronShape.absellipse(0, 0, 350, 300, 0, Math.PI * 2, false, 0);
+    const apronHole = new Path();
+    apronHole.absellipse(0, 0, 82, 67, 0, Math.PI * 2, true, 0);
+    apronShape.holes.push(apronHole);
+    result.push({ geo: new ShapeGeometry(apronShape, 64), y: 0.05, color: '#08111e' });
+
+    const TIERS = 8;
+    const GRAD = SEAT_GRADIENT.length;
+    const SEAT_DEPTH = 9;
+    const RISER_DEPTH = 2;
+    const STEP = SEAT_DEPTH + RISER_DEPTH;
+    const stripDepthA = SEAT_DEPTH / GRAD;
+    const stripDepthB = (SEAT_DEPTH * 0.82) / GRAD;
+
+    for (let i = 0; i < TIERS; i++) {
+      const tY = 0.3 + i * 3.6;
+      const tierFade = 1 - i * 0.055; // upper tiers slightly dimmer
+      const seatBaseA = 90 + i * STEP;
+      const seatBaseB = 74 + i * (STEP * 0.82);
+
+      // Seat area: GRAD sub-rings, each a step in the colour gradient
+      for (let g = 0; g < GRAD; g++) {
+        const innerA = seatBaseA + g * stripDepthA;
+        const innerB = seatBaseB + g * stripDepthB;
+        const outerA = innerA + stripDepthA;
+        const outerB = innerB + stripDepthB;
+
+        const [r, gr, b] = SEAT_GRADIENT[g];
+        const color = `rgb(${Math.round(r * tierFade)},${Math.round(gr * tierFade)},${Math.round(b * tierFade)})`;
+
+        const shape = new Shape();
+        shape.absellipse(0, 0, outerA, outerB, 0, Math.PI * 2, false, 0);
+        const hole = new Path();
+        hole.absellipse(0, 0, innerA, innerB, 0, Math.PI * 2, true, 0);
+        shape.holes.push(hole);
+        // Slight height ramp so rows look angled when viewed from the side
+        result.push({ geo: new ShapeGeometry(shape, 64), y: tY + g * 0.18, color });
+      }
+
+      // Dark riser — thin strip between tiers
+      const riserInnerA = seatBaseA + SEAT_DEPTH;
+      const riserInnerB = seatBaseB + SEAT_DEPTH * 0.82;
+      const riserShape = new Shape();
+      riserShape.absellipse(0, 0, riserInnerA + RISER_DEPTH, riserInnerB + RISER_DEPTH * 0.82, 0, Math.PI * 2, false, 0);
+      const riserHole = new Path();
+      riserHole.absellipse(0, 0, riserInnerA, riserInnerB, 0, Math.PI * 2, true, 0);
+      riserShape.holes.push(riserHole);
+      result.push({ geo: new ShapeGeometry(riserShape, 64), y: tY + SEAT_DEPTH * 0.18 + 0.4, color: '#05090f' });
+    }
+
+    return result;
+  }, []);
+
+  return (
+    <group>
+      {items.map((item, i) => (
+        <mesh key={i} geometry={item.geo} rotation={[-Math.PI / 2, 0, 0]} position={[0, item.y, 0]}>
+          <meshStandardMaterial color={item.color} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+interface FieldProps {
+  darkMode?: boolean;
+}
+
+export function Field({ darkMode = false }: FieldProps) {
   const fieldRef = useRef<Mesh>(null);
- 
+
+  const stripeTexture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 4;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d')!;
+    const stripeCount = 16;
+    const stripeH = canvas.height / stripeCount;
+    for (let i = 0; i < stripeCount; i++) {
+      ctx.fillStyle = i % 2 === 0 ? '#3a7c18' : '#448c1e';
+      ctx.fillRect(0, i * stripeH, canvas.width, stripeH);
+    }
+    const tex = new CanvasTexture(canvas);
+    tex.wrapS = RepeatWrapping;
+    tex.wrapT = RepeatWrapping;
+    tex.repeat.set(1, 1);
+    tex.needsUpdate = true;
+    return tex;
+  }, []);
+
   return (
     <group>
       {/* Main field surface - oval shape */}
       <mesh ref={fieldRef} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[FIELD_CONFIG.length, FIELD_CONFIG.width, 32, 32]} />
-        <meshStandardMaterial color="#2d5016" /> {/* Green grass color */}
+        <meshStandardMaterial
+          map={darkMode ? undefined : stripeTexture}
+          color={darkMode ? '#020a02' : '#ffffff'}
+        /> {/* Green grass color */}
       </mesh>
      
       {/* Center square outline */}
@@ -62,10 +174,21 @@ export function Field() {
      
       {/* Field markings - boundary lines */}
       <FieldBoundary />
-     
-      {/* Lighting helper */}
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[50, 100, 50]} intensity={0.8} castShadow />
+
+      {/* Stadium seating bowl — not rendered in cinematic dark mode */}
+      {!darkMode && <StadiumStands />}
+
+      {/* Sky blue above, green below — strong ambient base */}
+      <hemisphereLight args={['#8ab4d8', '#2d6b14', 1.1]} />
+
+      {/* Main directional — soft shadows from goal posts */}
+      <directionalLight position={[80, 120, 60]} intensity={1.4} castShadow />
+
+      {/* 4 corner floodlights — bright stadium arc lights */}
+      <pointLight position={[-100, 130, -85]} intensity={7} color="#fff8e8" distance={450} decay={2} />
+      <pointLight position={[100, 130, -85]} intensity={7} color="#fff8e8" distance={450} decay={2} />
+      <pointLight position={[-100, 130, 85]} intensity={7} color="#fff8e8" distance={450} decay={2} />
+      <pointLight position={[100, 130, 85]} intensity={7} color="#fff8e8" distance={450} decay={2} />
     </group>
   );
 }

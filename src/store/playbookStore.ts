@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import Dexie, { Table, IndexableType } from 'dexie';
 import { Player } from '../models/PlayerModel';
+import type { Scenario } from '../models/ScenarioModel';
+import type { TeamRoster } from '../models/RosterModel';
 
 export interface Playbook {
   id?: number;
@@ -19,6 +21,8 @@ export interface Playbook {
 
 class PlaybookDatabase extends Dexie {
   playbooks!: Table<Playbook>;
+  scenarios!: Table<Scenario, number>;
+  teamRosters!: Table<TeamRoster, number>;
 
   constructor() {
     super('AFLPlaybookDB');
@@ -29,10 +33,49 @@ class PlaybookDatabase extends Dexie {
     this.version(2).stores({
       playbooks: '++id, name, createdAt, videoBlobId',
     });
+    // v3: add scenarios and teamRosters tables; migrate existing playbooks → scenarios
+    this.version(3).stores({
+      playbooks: '++id, name, createdAt, videoBlobId',
+      scenarios: '++id, name, createdAt, updatedAt, team1RosterId, team2RosterId',
+      teamRosters: '++id, teamName, createdAt',
+    }).upgrade(async (tx) => {
+      const playbooks = await tx.table('playbooks').toArray();
+      for (const p of playbooks) {
+        const createdAt =
+          p.createdAt instanceof Date ? p.createdAt.toISOString() : String(p.createdAt);
+        await tx.table('scenarios').add({
+          name: p.name,
+          createdAt,
+          updatedAt: new Date().toISOString(),
+          team1RosterId: null,
+          team2RosterId: null,
+          phases: [
+            {
+              id: 'phase-1',
+              label: 'Phase 1',
+              playerPositions: p.playerPositions ?? [],
+              paths: [],
+              annotations: p.annotations ?? [],
+              cameraState: p.cameraPosition && p.cameraTarget
+                ? { position: p.cameraPosition, target: p.cameraTarget, zoom: p.cameraZoom ?? 1 }
+                : null,
+            },
+          ],
+          videoBlobId: p.videoBlobId,
+        });
+      }
+    });
+    // v4: add linkedVideoMoment support to scenarios (unindexed column — no schema string change needed)
+    this.version(4).stores({
+      playbooks: '++id, name, createdAt, videoBlobId',
+      scenarios: '++id, name, createdAt, updatedAt, team1RosterId, team2RosterId',
+      teamRosters: '++id, teamName, createdAt',
+    });
   }
 }
 
 const db = new PlaybookDatabase();
+export { db as playbookDB };
 
 interface PlaybookState {
   playbooks: Playbook[];

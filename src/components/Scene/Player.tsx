@@ -69,7 +69,7 @@ export function PlayerComponent({ player }: PlayerProps) {
   const rotationStartRef = useRef<{ clientX: number; startRotation: number } | null>(null);
   // Animation time for leg cycle
   const animTimeRef = useRef<number>(0);
-  const { selectedPlayerId, selectPlayer, updatePlayerPosition, updatePlayerRotation, showPlayerNames, showPositionNames, startEditingPlayerName, setDragging, setPlayerPosition, players, getPlayerMoveState } = usePlayerStore();
+  const { selectedPlayerId, selectPlayer, updatePlayerPosition, updatePlayerRotation, labelMode, startEditingPlayerName, setDragging, setPlayerPosition, players, getPlayerMoveState } = usePlayerStore();
   const { addPath, removePath } = usePathStore();
   const { pushSnapshot } = useHistoryStore();
   const isPlaying = useAnimationStore((state) => state.isPlaying);
@@ -80,14 +80,6 @@ export function PlayerComponent({ player }: PlayerProps) {
   // Check if dragging should be disabled (during event mode animation playback)
   const isDragDisabled = isEventMode && isPlaying;
 
-  // Memoize the formatted display name for performance with many players
-  const displayName = useMemo(() => {
-    const name = formatDisplayName(player.playerName);
-    const pos = player.positionName;
-    if (name && pos) return `${name} (${pos})`;
-    if (pos) return pos;
-    return name;
-  }, [player.playerName, player.positionName]);
 
   useFrame((state, delta) => {
     // Apply rotation to the entire group so all body parts rotate together
@@ -255,17 +247,20 @@ export function PlayerComponent({ player }: PlayerProps) {
     lastRecordedPos.current = startPos;
     dragStartTime.current = Date.now();
 
-    // Remove existing paths for this player to start fresh, but protect:
+    // In Draw mode: remove existing paths for this player to start fresh, but protect:
     // 1. Paths referenced by a saved event (Phase 1 arrows while recording Phase 2)
     // 2. Paths captured in the open EventEditor but not yet saved to an event
-    const allPlayerPaths = usePathStore.getState().getPathsByEntity(player.id);
-    for (const path of allPlayerPaths) {
-      const isUsedByEvent = useEventStore.getState().events.some(
-        (event) => event.playerPaths.some((pp) => pp.pathId === path.id)
-      );
-      const isCaptured = useUIStore.getState().capturedPathIds.has(path.id);
-      if (!isUsedByEvent && !isCaptured) {
-        removePath(path.id);
+    // In Setup mode: preserve all paths since we are only repositioning players
+    if (useUIStore.getState().boardSubMode === 'draw') {
+      const allPlayerPaths = usePathStore.getState().getPathsByEntity(player.id);
+      for (const path of allPlayerPaths) {
+        const isUsedByEvent = useEventStore.getState().events.some(
+          (event) => event.playerPaths.some((pp) => pp.pathId === path.id)
+        );
+        const isCaptured = useUIStore.getState().capturedPathIds.has(path.id);
+        if (!isUsedByEvent && !isCaptured) {
+          removePath(path.id);
+        }
       }
     }
   };
@@ -294,9 +289,29 @@ export function PlayerComponent({ player }: PlayerProps) {
 
   // Helper to create path from recorded movement points
   const createPathFromMovement = useCallback(() => {
+    // Setup mode: update position only, skip path creation
+    const boardSubMode = useUIStore.getState().boardSubMode;
+
     // Add final position if different from last recorded
     const finalPos = [...player.position] as [number, number, number];
     const points = [...movementPoints.current];
+
+    if (boardSubMode !== 'draw') {
+      // F6: Auto-suggest position from drop zone if player has none (still applies in setup mode)
+      if (!player.positionName) {
+        const [fx, fz] = [player.position[0], player.position[2]];
+        const suggested = positionToZone(fx, fz);
+        if (suggested) {
+          setPlayerPosition(player.id, suggested);
+        }
+      }
+      // Reset tracking without creating path
+      movementPoints.current = [];
+      lastRecordedPos.current = null;
+      preDragSnapshot.current = null;
+      prevDragPos.current = null;
+      return;
+    }
 
     if (points.length > 0) {
       const lastPoint = points[points.length - 1];
@@ -600,7 +615,7 @@ export function PlayerComponent({ player }: PlayerProps) {
       )}
 
       {/* Player name label - uses Billboard to always face camera */}
-      {showPlayerNames && displayName && (
+      {labelMode === 'name' && formatDisplayName(player.playerName) && (
         <Billboard position={[0, 2.1, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
           <Text
             font="/fonts/Inter-Bold.woff"
@@ -612,14 +627,14 @@ export function PlayerComponent({ player }: PlayerProps) {
             outlineColor="#000000"
             maxWidth={3}
           >
-            {displayName}
+            {formatDisplayName(player.playerName)}
           </Text>
         </Billboard>
       )}
 
       {/* Position code label - shown independently of name label */}
-      {showPositionNames && player.positionName && (
-        <Billboard position={[0, showPlayerNames && displayName ? 2.65 : 2.1, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
+      {labelMode === 'position' && player.positionName && (
+        <Billboard position={[0, 2.1, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
           <Text
             font="/fonts/Inter-Bold.woff"
             fontSize={0.38}

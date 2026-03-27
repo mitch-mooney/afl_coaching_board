@@ -6,8 +6,9 @@ interface CameraState {
   zoom: number;
 
   // POV mode state
-  povMode: boolean;
-  povPlayerId: string | null;
+  povPlayer1Id: string | null;
+  povPlayer2Id: string | null;
+  activePovSlot: 1 | 2 | null;
   povHeight: number;
   povDistance: number;
 
@@ -20,8 +21,10 @@ interface CameraState {
   setPresetView: (view: 'top' | 'sideline' | 'end-to-end') => void;
 
   // POV mode actions
-  enablePOV: (playerId: string) => void;
-  disablePOV: () => void;
+  setPovPlayer: (slot: 1 | 2, playerId: string) => void;
+  clearPov: (slot: 1 | 2) => void;
+  setActivePovSlot: (slot: 1 | 2 | null) => void;
+  switchToBroadcast: () => void;
   setPOVSettings: (height: number, distance: number) => void;
   setPOVDistance: (distance: number) => void;
 
@@ -50,14 +53,15 @@ const DEFAULT_POV_DISTANCE = 10;
 export const MIN_POV_DISTANCE = 3;
 export const MAX_POV_DISTANCE = 40;
 
-export const useCameraStore = create<CameraState>((set) => ({
+export const useCameraStore = create<CameraState>((set, get) => ({
   position: DEFAULT_CAMERA_POSITION,
   target: DEFAULT_TARGET,
   zoom: DEFAULT_ZOOM,
 
   // POV mode state
-  povMode: false,
-  povPlayerId: null,
+  povPlayer1Id: null,
+  povPlayer2Id: null,
+  activePovSlot: null,
   povHeight: DEFAULT_POV_HEIGHT,
   povDistance: DEFAULT_POV_DISTANCE,
 
@@ -78,8 +82,7 @@ export const useCameraStore = create<CameraState>((set) => ({
       position: DEFAULT_CAMERA_POSITION,
       target: DEFAULT_TARGET,
       zoom: DEFAULT_ZOOM,
-      povMode: false,
-      povPlayerId: null,
+      activePovSlot: null,
     });
   },
 
@@ -98,8 +101,7 @@ export const useCameraStore = create<CameraState>((set) => ({
           position: [0, 200, 0],
           target: [0, 0, 0],
           zoom: 1,
-          povMode: false,
-          povPlayerId: null,
+          activePovSlot: null,
         });
         break;
       case 'sideline':
@@ -107,8 +109,7 @@ export const useCameraStore = create<CameraState>((set) => ({
           position: [0, 50, 150],
           target: [0, 0, 0],
           zoom: 1,
-          povMode: false,
-          povPlayerId: null,
+          activePovSlot: null,
         });
         break;
       case 'end-to-end':
@@ -116,27 +117,30 @@ export const useCameraStore = create<CameraState>((set) => ({
           position: [150, 50, 0],
           target: [0, 0, 0],
           zoom: 1,
-          povMode: false,
-          povPlayerId: null,
+          activePovSlot: null,
         });
         break;
     }
   },
 
   // POV mode actions
-  enablePOV: (playerId) => {
+  setPovPlayer: (slot, playerId) => {
+    if (slot === 1) set({ povPlayer1Id: playerId, activePovSlot: 1 });
+    else set({ povPlayer2Id: playerId, activePovSlot: 2 });
+  },
+
+  clearPov: (slot) => {
+    const clearSlot1 = slot === 1;
+    const isActive = get().activePovSlot === slot;
     set({
-      povMode: true,
-      povPlayerId: playerId,
+      ...(clearSlot1 ? { povPlayer1Id: null } : { povPlayer2Id: null }),
+      ...(isActive ? { activePovSlot: null } : {}),
     });
   },
 
-  disablePOV: () => {
-    set({
-      povMode: false,
-      povPlayerId: null,
-    });
-  },
+  setActivePovSlot: (slot) => set({ activePovSlot: slot }),
+
+  switchToBroadcast: () => set({ activePovSlot: null }),
 
   setPOVSettings: (height, distance) => {
     set({
