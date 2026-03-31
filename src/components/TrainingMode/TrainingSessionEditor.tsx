@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useTimerStore } from '../../store/timerStore';
-import { useRotationExerciseStore } from '../../store/rotationExerciseStore';
 import { RotationExerciseEditor } from './RotationExerciseEditor';
 import { TimerControls } from './TimerControls';
 import { drillLibrary } from '../../data/drillLibrary';
@@ -14,9 +13,8 @@ export const TrainingSessionEditor: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const { sessionDrills, addDrill, removeDrill, setDrillRest } = useTimerStore();
-  const { rotationExercise } = useRotationExerciseStore();
   const { setPreviewPositions } = usePlayerStore();
-  const { steps, currentStep } = useRotationExercise();
+  const { steps, currentStepIndex } = useRotationExercise();
 
   const filteredDrills = drillLibrary.filter((drill) => {
     const matchesCategory = selectedCategory === 'all' || drill.category === selectedCategory;
@@ -43,7 +41,7 @@ export const TrainingSessionEditor: React.FC = () => {
   };
 
   const handlePreviewRotation = () => {
-    if (!currentStep) return;
+    if (currentStepIndex === -1) return;
     setPreviewPositions([]);
   };
 
@@ -184,7 +182,7 @@ export const TrainingSessionEditor: React.FC = () => {
             {steps.length > 0 && (
               <div style={{ marginTop: '12px' }}>
                 <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px' }}>
-                  {steps.length} step{steps.length !== 1 ? 's' : ''} · Current: Step {rotationExercise.steps.indexOf(currentStep!) + 1}
+                  {steps.length} step{steps.length !== 1 ? 's' : ''} · Current: Step {currentStepIndex + 1}
                 </div>
                 <button
                   onClick={handlePreviewRotation}
