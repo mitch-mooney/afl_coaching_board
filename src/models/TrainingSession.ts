@@ -16,6 +16,8 @@ export const DRILL_CATEGORIES: DrillCategory[] = [
   'attack', 'fitness', 'goal-kicking', 'rucking',
 ];
 
+export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
+
 export interface Drill {
   id: string;
   name: string;
@@ -25,7 +27,7 @@ export interface Drill {
   playersRequired: number;
   equipment: string[];
   instructions: string[];
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  difficulty: DifficultyLevel;
 }
 
 export interface SessionDrill {
@@ -38,7 +40,7 @@ export interface SessionDrill {
   playersRequired: number;
   equipment: string[];
   instructions: string[];
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  difficulty: DifficultyLevel;
   rotationExercise?: RotationExercise;
 }
 
@@ -51,5 +53,3 @@ export interface TrainingSession {
   createdAt: string;
   updatedAt: string;
 }
-
-export type { RotationExercise };
