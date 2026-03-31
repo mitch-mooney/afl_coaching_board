@@ -1,6 +1,6 @@
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Mesh, Vector3, Plane } from 'three';
+import { Mesh, Vector3, Plane, Euler } from 'three';
 import { Ball } from '../../models/BallModel';
 import { useBallStore } from '../../store/ballStore';
 import { usePlayerStore } from '../../store/playerStore';
@@ -12,6 +12,7 @@ import { useHistoryStore } from '../../store/historyStore';
 import { snapToField } from '../../utils/fieldGeometry';
 import { getPositionAtProgressWithEasing, easeInOut } from '../../utils/pathAnimation';
 import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
+import { generateSmoothTrajectory, calculateTrajectoryTangent, getBounceSquashFactor, interpolateTrajectory } from '../../utils/trajectoryGeneration';
 
 // Minimum distance (in meters) between recorded path points to avoid excessive waypoints
 const MIN_PATH_POINT_DISTANCE = 1.5;
@@ -47,7 +48,7 @@ export function BallComponent({ ball }: BallProps) {
   const dragStartTime = useRef<number>(0);
   // Store pre-drag position for undo
   const preDragPosition = useRef<[number, number, number] | null>(null);
-  const { isBallSelected, selectBall, updateBallPosition } = useBallStore();
+  const { isBallSelected, selectBall, updateBallPosition, mode, currentKickType } = useBallStore();
   const { getPlayer, setDragging } = usePlayerStore();
   const { isPlaying, progress, speed, setProgress } = useAnimationStore();
   const { getPathByEntity, addPath, removePath } = usePathStore();
@@ -78,19 +79,46 @@ export function BallComponent({ ball }: BallProps) {
      // In event playback mode, ball positions are driven by useAnimationPlayback hook
      // via useBallStore. Only handle position updates in these cases:
      
-     // Priority 1: Follow assigned player (overrides path animation)
-     if (assignedPlayer && !isDragging) {
-       // Position ball at player's position with slight Y offset to appear "held"
-       if (groupRef.current) {
-         groupRef.current.position.set(
-           assignedPlayer.position[0],
-           assignedPlayer.position[1] + AFL_BALL.length + 0.5, // Position above player
-           assignedPlayer.position[2]
-         );
-       }
-     }
-     // Priority 2: Handle manual playback scrubbing (not event mode) - update ball position along path
-     else if (isPlaying && !ballPathFromEvent && ballPath && !isDragging) {
+      // Priority 1: Follow assigned player (overrides path animation)
+      if (assignedPlayer && !isDragging) {
+        if (groupRef.current) {
+          groupRef.current.position.set(
+            assignedPlayer.position[0],
+            assignedPlayer.position[1] + AFL_BALL.length + 0.5,
+            assignedPlayer.position[2]
+          );
+        }
+        if (meshRef.current) {
+          meshRef.current.rotation.set(0, 0, 0);
+          meshRef.current.scale.set(AFL_BALL.length, AFL_BALL.width, AFL_BALL.width);
+        }
+      }
+      // Priority 2: Handle in-flight ball with trajectory
+      else if (mode === 'in-flight' && !isDragging && currentKickType) {
+        const startPoint = assignedPlayer ? new Vector3(assignedPlayer.position[0], assignedPlayer.position[1] + AFL_BALL.length + 0.5, assignedPlayer.position[2]) : new Vector3(ball.position[0], ball.position[1], ball.position[2]);
+        const endPoint = new Vector3(ball.position[0], ball.position[1], ball.position[2]);
+        const config = { startPoint, endPoint, kickType: currentKickType, duration: 2000 };
+        const keyframes = generateSmoothTrajectory(config);
+        const progressAtFrame = progress;
+        const currentPos = interpolateTrajectory(keyframes, progressAtFrame);
+        if (groupRef.current) {
+          groupRef.current.position.set(currentPos.x, currentPos.y, currentPos.z);
+        }
+        const tangent = calculateTrajectoryTangent(keyframes, progressAtFrame);
+        const targetRotation = new Euler();
+        targetRotation.setFromVector3(tangent);
+        targetRotation.z = 0;
+        if (meshRef.current) {
+          meshRef.current.rotation.x += (targetRotation.x - meshRef.current.rotation.x) * 0.2;
+          meshRef.current.rotation.y += (targetRotation.y - meshRef.current.rotation.y) * 0.2;
+          meshRef.current.rotation.z += (targetRotation.z - meshRef.current.rotation.z) * 0.2;
+          const { scaleY, scaleX } = getBounceSquashFactor(progressAtFrame);
+          const targetScale = new Vector3(scaleX * AFL_BALL.length, scaleY * AFL_BALL.width, scaleX * AFL_BALL.width);
+          meshRef.current.scale.lerp(targetScale, 0.3);
+        }
+      }
+      // Priority 3: Handle manual playback scrubbing (not event mode) - update ball position along path
+      else if (isPlaying && !ballPathFromEvent && ballPath && !isDragging) {
        // Advance animation progress
        const pathDuration = ballPath.duration;
        const progressIncrement = (delta * speed) / pathDuration;

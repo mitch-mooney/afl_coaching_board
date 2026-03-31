@@ -20,7 +20,11 @@ import { EventTimeline } from '../UI/EventTimeline';
 import { VideoWorkspace } from '../VideoImport/VideoWorkspace';
 import { VideoPiP } from '../VideoImport/VideoPiP';
 import { VideoFeedbackFullscreen } from '../VideoImport/VideoFeedbackFullscreen';
+import { TrainingMode } from '../TrainingMode/TrainingMode';
+import { ConeManager } from '../Scene/ConeManager';
 import { useVideoStore } from '../../store/videoStore';
+import { useModeStore } from '../../store/modeStore';
+import { useConeStore } from '../../store/coneStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useBallStore } from '../../store/ballStore';
 import { usePathStore } from '../../store/pathStore';
@@ -128,6 +132,8 @@ export function MainLayout() {
   const navigate = useNavigate();
   const editorTab = useUIStore((s) => s.editorTab);
   const setEditorTab = useUIStore((s) => s.setEditorTab);
+  const { mode, switchMode } = useModeStore();
+  const { isConePlacementActive, setConePlacementActive } = useConeStore();
   const boardSubMode = useUIStore((s) => s.boardSubMode);
   const toggleBoardSubMode = useUIStore((s) => s.toggleBoardSubMode);
   const isPlaybookOpen = useUIStore((s) => s.isPlaybookOpen);
@@ -341,7 +347,10 @@ export function MainLayout() {
           {/* Tab switcher */}
           <div className="flex rounded-lg overflow-hidden border border-white/20 ml-2">
             <button
-              onClick={() => setEditorTab('board')}
+              onClick={() => {
+                setEditorTab('board');
+                if (mode === 'training') switchMode('match');
+              }}
               className="px-4 py-1.5 text-sm font-medium transition-colors"
               style={editorTab === 'board'
                 ? { background: 'linear-gradient(135deg, #00d4aa, #0099ff)', color: '#000' }
@@ -350,7 +359,10 @@ export function MainLayout() {
               Board
             </button>
             <button
-              onClick={() => setEditorTab('video')}
+              onClick={() => {
+                setEditorTab('video');
+                if (mode === 'training') switchMode('match');
+              }}
               className="px-4 py-1.5 text-sm font-medium transition-colors"
               style={editorTab === 'video'
                 ? { background: 'linear-gradient(135deg, #00d4aa, #0099ff)', color: '#000' }
@@ -358,12 +370,41 @@ export function MainLayout() {
             >
               Video
             </button>
+            <button
+              onClick={() => { setEditorTab('training'); switchMode('training'); }}
+              className="px-4 py-1.5 text-sm font-medium transition-colors"
+              style={editorTab === 'training'
+                ? { background: 'linear-gradient(135deg, #FF6B00, #ffaa00)', color: '#000' }
+                : { background: 'rgba(0,0,0,0.4)', color: 'rgba(255,255,255,0.7)' }}
+            >
+              Training
+            </button>
           </div>
         </div>
 
         {/* Board controls (right side) */}
         {editorTab === 'board' && (
           <div className="ml-auto flex items-center gap-2 pointer-events-auto">
+            {mode === 'training' && (
+              <button
+                onClick={() => {
+                  setConePlacementActive(false);
+                  setEditorTab('training');
+                }}
+                style={{
+                  padding: '6px 12px', borderRadius: 8, border: '1px solid #FF6B00',
+                  background: 'rgba(255,107,0,0.15)', color: '#FF6B00',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                ← Training
+              </button>
+            )}
+            {mode === 'training' && isConePlacementActive && (
+              <span style={{ fontSize: 12, color: '#FF6B00', fontWeight: 600 }}>
+                🔶 Tap field to place cone
+              </span>
+            )}
             <FormationPresetBar />
             <button
               onClick={toggleBoardSubMode}
@@ -495,16 +536,16 @@ export function MainLayout() {
       )}
 
       {/* Canvas container with resize observation */}
-      {editorTab === 'board' && (
-        <div
-          ref={canvasContainerRef}
-          className="absolute inset-0 w-full h-full"
-          style={{
-            // Smooth transitions during resize
-            transition: 'opacity 0.15s ease-out',
-            opacity: containerReady ? 1 : 0,
-          }}
-        >
+      <div
+        ref={canvasContainerRef}
+        className="absolute inset-0 w-full h-full"
+        style={{
+          display: editorTab === 'board' ? undefined : 'none',
+          // Smooth transitions during resize
+          transition: 'opacity 0.15s ease-out',
+          opacity: containerReady ? 1 : 0,
+        }}
+      >
           <Canvas
             shadows
             camera={{ position: [0, 100, 150], fov: 50 }}
@@ -541,6 +582,7 @@ export function MainLayout() {
             <CameraController />
             <Scoreboard />
             <AnnotationLayer />
+            <ConeManager />
 
             {/* FIX: moved inside Canvas so R3F hooks work */}
             <AnnotationInteractionHandler />
@@ -572,7 +614,6 @@ export function MainLayout() {
             </button>
           )}
         </div>
-      )}
 
       {editorTab === 'video' && (
         <div className="absolute inset-0 z-10">
@@ -584,6 +625,12 @@ export function MainLayout() {
           >
             Take to Board →
           </button>
+        </div>
+      )}
+
+      {editorTab === 'training' && (
+        <div className="absolute inset-0 z-10">
+          <TrainingMode />
         </div>
       )}
 

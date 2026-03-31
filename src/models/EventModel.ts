@@ -63,6 +63,11 @@ export interface BallPathConfig {
 }
 
 /**
+ * Unified entity path configuration supporting both players and balls
+ */
+export type EntityPathConfig = PlayerPathConfig | BallPathConfig;
+
+/**
  * Configuration for a single player's path within an animation event
  */
 export interface PlayerPathConfig {
@@ -211,6 +216,70 @@ export function updateEvent(
     ...event,
     ...updates,
   };
+}
+
+/**
+ * Add a ball path configuration to an event
+ */
+export function addBallPathToEvent(
+  event: AnimationEvent,
+  ballPath: BallPathConfig
+): AnimationEvent {
+  const existingIndex = event.ballPaths.findIndex(
+    (bp) =>
+      bp.entityId === ballPath.entityId &&
+      bp.startTimeOffset === ballPath.startTimeOffset
+  );
+
+  if (existingIndex >= 0) {
+    const newBallPaths = [...event.ballPaths];
+    newBallPaths[existingIndex] = ballPath;
+    return {
+      ...event,
+      ballPaths: newBallPaths,
+    };
+  }
+
+  return {
+    ...event,
+    ballPaths: [...event.ballPaths, ballPath],
+  };
+}
+
+/**
+ * Remove a ball path configuration from an event
+ */
+export function removeBallPathFromEvent(
+  event: AnimationEvent,
+  entityId: string,
+  pathId?: string
+): AnimationEvent {
+  return {
+    ...event,
+    ballPaths: pathId
+      ? event.ballPaths.filter(
+          (bp) => !(bp.entityId === entityId)
+        )
+      : event.ballPaths.filter((bp) => bp.entityId !== entityId),
+  };
+}
+
+/**
+ * Check if an entity path is a player path
+ */
+export function isPlayerPath(
+  path: EntityPathConfig
+): path is PlayerPathConfig {
+  return 'playerId' in path;
+}
+
+/**
+ * Check if an entity path is a ball path
+ */
+export function isBallPath(
+  path: EntityPathConfig
+): path is BallPathConfig {
+  return 'kickType' in path;
 }
 
 /**

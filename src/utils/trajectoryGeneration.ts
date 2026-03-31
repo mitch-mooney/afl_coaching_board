@@ -54,6 +54,56 @@ export function generateBallTrajectory(config: TrajectoryConfig): TrajectoryKeyf
 }
 
 /**
+ * Generate 5-point trajectory with smooth parabolic arc using sin(progress * π)
+ */
+export function generateSmoothTrajectory(config: TrajectoryConfig): TrajectoryKeyframe[] {
+  const { startPoint, endPoint, kickType, duration: _duration } = config;
+  const preset = KICK_PRESETS[kickType];
+
+  const midX = (startPoint.x + endPoint.x) / 2;
+  const midZ = (startPoint.z + endPoint.z) / 2;
+  
+  const curveDirection = (endPoint.x - startPoint.x) > 0 ? 1 : -1;
+  const curveX = midX + (preset.curveDeviation * curveDirection);
+  const curveZ = midZ;
+
+  const startKeyframe: TrajectoryKeyframe = {
+    position: startPoint,
+    time: 0,
+  };
+
+  const firstQuarterKeyframe: TrajectoryKeyframe = {
+    position: new Vector3(
+      midX * 0.5 + curveX * 0.5,
+      preset.apexHeight * 0.3,
+      midZ * 0.5 + curveZ * 0.5
+    ),
+    time: 0.25,
+  };
+
+  const apexKeyframe: TrajectoryKeyframe = {
+    position: new Vector3(curveX, preset.apexHeight, curveZ),
+    time: 0.5,
+  };
+
+  const thirdQuarterKeyframe: TrajectoryKeyframe = {
+    position: new Vector3(
+      midX * 1.5 - curveX * 0.5,
+      preset.apexHeight * 0.3,
+      midZ * 1.5 - curveZ * 0.5
+    ),
+    time: 0.75,
+  };
+
+  const endKeyframe: TrajectoryKeyframe = {
+    position: endPoint,
+    time: 1,
+  };
+
+  return [startKeyframe, firstQuarterKeyframe, apexKeyframe, thirdQuarterKeyframe, endKeyframe];
+}
+
+/**
  * Interpolate position along trajectory using parabolic curve
  */
 export function interpolateTrajectory(
@@ -63,7 +113,6 @@ export function interpolateTrajectory(
   if (progress <= 0) return keyframes[0].position.clone();
   if (progress >= 1) return keyframes[keyframes.length - 1].position.clone();
 
-  // Find relevant keyframes
   let beforeIdx = 0;
   let afterIdx = keyframes.length - 1;
 
@@ -78,13 +127,10 @@ export function interpolateTrajectory(
   const before = keyframes[beforeIdx];
   const after = keyframes[afterIdx];
 
-  // Normalize progress within segment
   const segmentProgress = (progress - before.time) / (after.time - before.time);
 
-  // Parabolic Y interpolation using sin curve
   const YFactor = Math.sin(segmentProgress * Math.PI);
 
-  // Lerp position
   const x = before.position.x + (after.position.x - before.position.x) * segmentProgress;
   const y = before.position.y + (after.position.y - before.position.y) * YFactor;
   const z = before.position.z + (after.position.z - before.position.z) * segmentProgress;
@@ -108,17 +154,18 @@ export function calculateTrajectoryTangent(
 }
 
 /**
- * Calculate bounce squash factor (returns 1.0 if no bounce)
+ * Calculate bounce squash/stretch factor
+ * Squash to 80% at impact, stretch to 115% at last 20% of trajectory
  */
 export function getBounceSquashFactor(progress: number): {
   scaleY: number;
   scaleX: number;
   isBouncing: boolean;
 } {
-  const BOUNCE_PHASE_START = 0.80; // Bounce at last 20%
-  const BOUNCE_SQUASH = 0.20; // Compress to 80%
-  const BOUNCE_STRETCH = 0.15; // Stretch to 115%
-  const SECONDARY_BOUNCE = 0.04; // Tiny secondary bounce
+  const BOUNCE_PHASE_START = 0.80;
+  const BOUNCE_SQUASH = 0.20;
+  const BOUNCE_STRETCH = 0.15;
+  const SECONDARY_BOUNCE = 0.04;
 
   if (progress < BOUNCE_PHASE_START) {
     return { scaleY: 1, scaleX: 1, isBouncing: false };
@@ -126,11 +173,9 @@ export function getBounceSquashFactor(progress: number): {
 
   const bouncePhase = (progress - BOUNCE_PHASE_START) / (1 - BOUNCE_PHASE_START);
   
-  // Main squash
   const scaleY = 1 - (BOUNCE_SQUASH * bouncePhase);
   const scaleX = 1 + (BOUNCE_STRETCH * bouncePhase);
 
-  // Optional secondary bounce
   let finalScaleY = scaleY;
   if (bouncePhase > 0.6) {
     const secondary = Math.sin((bouncePhase - 0.6) * 15) * SECONDARY_BOUNCE;
