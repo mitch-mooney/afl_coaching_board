@@ -53,9 +53,9 @@ interface UIState {
   openPlaybook: () => void;
   closePlaybook: () => void;
 
-  // Editor tab: board view vs video view
-  editorTab: 'board' | 'video';
-  setEditorTab: (tab: 'board' | 'video') => void;
+  // Editor tab: board view vs video view vs training mode
+  editorTab: 'board' | 'video' | 'training';
+  setEditorTab: (tab: 'board' | 'video' | 'training') => void;
 
   // Active formation preset (last applied formation ID)
   activeFormationId: string | null;
