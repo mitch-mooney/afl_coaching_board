@@ -637,13 +637,13 @@ export function MainLayout() {
       {/* All DOM-layer UI stays outside */}
       <Toolbar canvas={canvasRef.current} />
       <PlaybookPanel />
-      <AnnotationToolbar />
+      {editorTab === 'board' && <AnnotationToolbar />}
       {editorTab === 'board' && <CameraDock />}
       <OnboardingTour />
       {helpOpen && <HelpScreen onClose={() => setHelpOpen(false)} />}
 
-      {/* Event Timeline (renders when event is active) */}
-      <EventTimeline />
+      {/* Event Timeline (renders when event is active, board tab only) */}
+      {editorTab === 'board' && <EventTimeline />}
 
       {/* Video PiP overlay when in pip mode */}
       {showVideoPiP && <VideoPiP />}
