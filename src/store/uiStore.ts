@@ -60,6 +60,10 @@ interface UIState {
   // Active formation preset (last applied formation ID)
   activeFormationId: string | null;
   setActiveFormationId: (id: string | null) => void;
+
+  // Training Mode: which drill is shown in the detail panel
+  activeDrillId: string | null;
+  setActiveDrillId: (id: string | null) => void;
 }
 
 /**
@@ -175,6 +179,10 @@ export const useUIStore = create<UIState>((set) => {
     // Editor tab
     editorTab: 'board',
     setEditorTab: (tab) => set({ editorTab: tab }),
+
+    // Training Mode: which drill is shown in the detail panel
+    activeDrillId: null,
+    setActiveDrillId: (id: string | null) => set({ activeDrillId: id }),
 
     // Active formation preset
     activeFormationId: null,
