@@ -33,8 +33,7 @@ export const TrainingSessionEditor: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<DrillCategory | 'all'>('all');
 
   const { sessionDrills, addDrill, removeDrill } = useTimerStore();
-  const { activeDrillId, setActiveDrillId } = useUIStore();
-  const { setEditorTab } = useUIStore();
+  const { activeDrillId, setActiveDrillId, setEditorTab } = useUIStore();
   const { clearCones, addCone } = useConeStore();
   const { setPreviewPositions } = usePlayerStore();
 
@@ -71,8 +70,10 @@ export const TrainingSessionEditor: React.FC = () => {
     if (!activeDrill) return;
     const { playerPositions, conePositions } = getDrillBoardLayout(activeDrill);
     setPreviewPositions(playerPositions);
-    clearCones();
-    conePositions.forEach((pos) => addCone(pos));
+    if (conePositions.length > 0) {
+      clearCones();
+      conePositions.forEach((pos) => addCone(pos));
+    }
     setEditorTab('board');
   };
 
