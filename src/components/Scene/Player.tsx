@@ -7,7 +7,6 @@ import { usePlayerStore } from '../../store/playerStore';
 import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore, createPlayerSnapshot } from '../../store/historyStore';
 import { useAnimationStore } from '../../store/animationStore';
-import { useEventStore } from '../../store/eventStore';
 import { useUIStore } from '../../store/uiStore';
 import { useAnnotationStore } from '../../store/annotationStore';
 import { snapToField, positionToZone } from '../../utils/fieldGeometry';
@@ -73,12 +72,12 @@ export function PlayerComponent({ player }: PlayerProps) {
   const { addPath, removePath } = usePathStore();
   const { pushSnapshot } = useHistoryStore();
   const isPlaying = useAnimationStore((state) => state.isPlaying);
-  const isEventMode = useEventStore((state) => state.isEventMode);
   const { camera, raycaster } = useThree();
   const isSelected = selectedPlayerId === player.id;
 
-  // Check if dragging should be disabled (during event mode animation playback)
-  const isDragDisabled = isEventMode && isPlaying;
+  // Disable dragging while an animation is playing (the playback loop owns
+  // player positions during play).
+  const isDragDisabled = isPlaying;
 
 
   useFrame((state, delta) => {
@@ -247,20 +246,12 @@ export function PlayerComponent({ player }: PlayerProps) {
     lastRecordedPos.current = startPos;
     dragStartTime.current = Date.now();
 
-    // In Draw mode: remove existing paths for this player to start fresh, but protect:
-    // 1. Paths referenced by a saved event (Phase 1 arrows while recording Phase 2)
-    // 2. Paths captured in the open EventEditor but not yet saved to an event
-    // In Setup mode: preserve all paths since we are only repositioning players
+    // In Draw mode: clear this player's existing path so a new drag records a
+    // fresh one. In Setup mode: preserve paths (we're only repositioning).
     if (useUIStore.getState().boardSubMode === 'draw') {
       const allPlayerPaths = usePathStore.getState().getPathsByEntity(player.id);
       for (const path of allPlayerPaths) {
-        const isUsedByEvent = useEventStore.getState().events.some(
-          (event) => event.playerPaths.some((pp) => pp.pathId === path.id)
-        );
-        const isCaptured = useUIStore.getState().capturedPathIds.has(path.id);
-        if (!isUsedByEvent && !isCaptured) {
-          removePath(path.id);
-        }
+        removePath(path.id);
       }
     }
   };

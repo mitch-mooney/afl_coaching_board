@@ -15,7 +15,6 @@ import { LabelToggle } from '../UI/LabelToggle';
 import { FormationPresetBar } from '../UI/FormationPresetBar';
 import { HelpScreen } from '../UI/HelpScreen';
 import { OnboardingTour } from '../UI/OnboardingTour';
-import { EventTimeline } from '../UI/EventTimeline';
 import { VideoWorkspace } from '../VideoImport/VideoWorkspace';
 import { VideoPiP } from '../VideoImport/VideoPiP';
 import { usePlayerStore } from '../../store/playerStore';
@@ -589,9 +588,6 @@ export function MainLayout() {
       {editorTab === 'board' && <CameraDock />}
       <OnboardingTour />
       {helpOpen && <HelpScreen onClose={() => setHelpOpen(false)} />}
-
-      {/* Event Timeline (renders when event is active) */}
-      <EventTimeline />
 
       {/* Video PiP overlay when in pip mode */}
       {showVideoPiP && <VideoPiP />}

@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { MovementPath } from '../../models/PathModel';
 import { samplePathPositions, pathHasMovement } from '../../utils/pathAnimation';
 import { usePlayerStore } from '../../store/playerStore';
-import { useEventStore } from '../../store/eventStore';
 
 /**
  * Path component - Visualizes entity movement paths on the 3D field
@@ -227,49 +226,8 @@ export function PathArrowhead({ position, direction, color }: PathArrowheadProps
   );
 }
 
-/** Ball path base color — applied before phase shading */
+/** Ball path base color */
 const BALL_PATH_COLOR = '#ff6b00';
-
-/**
- * Shift the HSL lightness of a hex color by deltaL (-1..+1).
- * Positive = lighter, negative = darker. Clamps to [0.08, 0.92].
- */
-function shiftLightness(hex: string, deltaL: number): string {
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  const newL = Math.max(0.08, Math.min(0.92, l + deltaL));
-
-  if (max === min) {
-    const v = Math.round(newL * 255).toString(16).padStart(2, '0');
-    return `#${v}${v}${v}`;
-  }
-
-  const d = max - min;
-  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  let h = 0;
-  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-  else if (max === g) h = ((b - r) / d + 2) / 6;
-  else h = ((r - g) / d + 4) / 6;
-
-  const q = newL < 0.5 ? newL * (1 + s) : newL + s - newL * s;
-  const p = 2 * newL - q;
-
-  function hue2rgb(pp: number, qq: number, t: number) {
-    if (t < 0) t += 1;
-    if (t > 1) t -= 1;
-    if (t < 1 / 6) return pp + (qq - pp) * 6 * t;
-    if (t < 1 / 2) return qq;
-    if (t < 2 / 3) return pp + (qq - pp) * (2 / 3 - t) * 6;
-    return pp;
-  }
-
-  const toHex = (x: number) => Math.round(x * 255).toString(16).padStart(2, '0');
-  return `#${toHex(hue2rgb(p, q, h + 1 / 3))}${toHex(hue2rgb(p, q, h))}${toHex(hue2rgb(p, q, h - 1 / 3))}`;
-}
 
 /**
  * PathManager - Component to render all paths from pathStore
@@ -287,57 +245,20 @@ export function PathManager({
   showWaypoints = true,
 }: PathManagerProps) {
   const players = usePlayerStore((state) => state.players);
-  const events = useEventStore((state) => state.events);
 
-  // Build a per-path color map: team primary color shaded by phase order.
-  // Earlier phases are lighter, later phases are darker.
+  // Build a per-path color map: ball paths use the ball color, player paths use
+  // the owning player's team color.
   const colorMap = useMemo(() => {
     const map = new Map<string, string>();
-
-    // Map each pathId to its { baseColor, phaseIndex, totalPhases } from saved events
-    const pathPhaseMap = new Map<string, { baseColor: string; phaseIndex: number; totalPhases: number }>();
-
-    for (const event of events) {
-      const phases = [...(event.phases ?? [])].sort((a, b) => a.startTime - b.startTime);
-      const totalPhases = phases.length;
-
-      for (const pp of event.playerPaths) {
-        const matchedPath = paths.find((p) => p.id === pp.pathId);
-        if (!matchedPath) continue;
-
-        const phaseIndex = phases.findIndex((ph) => ph.startTime === pp.startTimeOffset);
-        const idx = phaseIndex === -1 ? 0 : phaseIndex;
-
-        const baseColor =
-          matchedPath.entityType === 'ball'
-            ? BALL_PATH_COLOR
-            : (players.find((p) => p.id === matchedPath.entityId)?.color ?? PATH_CONFIG.colors.player);
-
-        pathPhaseMap.set(pp.pathId, { baseColor, phaseIndex: idx, totalPhases });
-      }
-    }
-
     for (const path of paths) {
-      const phaseInfo = pathPhaseMap.get(path.id);
-      if (phaseInfo) {
-        const { baseColor, phaseIndex, totalPhases } = phaseInfo;
-        // phaseProgress: 0 = first (lightest), 1 = last (darkest)
-        const phaseProgress = totalPhases <= 1 ? 1 : phaseIndex / (totalPhases - 1);
-        // Lerp deltaL: +0.22 (lightest) → -0.15 (darkest)
-        const deltaL = 0.22 * (1 - phaseProgress) - 0.15 * phaseProgress;
-        map.set(path.id, shiftLightness(baseColor, deltaL));
-      } else {
-        // Freshly drawn, not yet in any event — use base color unchanged
-        const baseColor =
-          path.entityType === 'ball'
-            ? BALL_PATH_COLOR
-            : (players.find((p) => p.id === path.entityId)?.color ?? PATH_CONFIG.colors.player);
-        map.set(path.id, baseColor);
-      }
+      const baseColor =
+        path.entityType === 'ball'
+          ? BALL_PATH_COLOR
+          : (players.find((p) => p.id === path.entityId)?.color ?? PATH_CONFIG.colors.player);
+      map.set(path.id, baseColor);
     }
-
     return map;
-  }, [paths, players, events]);
+  }, [paths, players]);
 
   return (
     <group>

@@ -5,14 +5,12 @@ import { useAnimationStore } from '../../store/animationStore';
 import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore } from '../../store/historyStore';
 import { useVideoStore } from '../../store/videoStore';
-import { useEventStore } from '../../store/eventStore';
 import { useUIStore } from '../../store/uiStore';
 import { useVideoRecorder } from '../../hooks/useVideoRecorder';
 import { usePlaybook } from '../../hooks/usePlaybook';
 import { AFL_POSITIONS } from '../../data/aflPositions';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { VideoUploader } from '../VideoImport/VideoUploader';
-import { EventEditor } from './EventEditor';
 import { HamburgerIcon } from './HamburgerIcon';
 import { MobileMenu, createMenuSection, createMenuItem, type MenuSection } from './MobileMenu';
 import { useAuthStore } from '../../store/authStore';
@@ -50,17 +48,9 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const isLoading = useVideoStore((state) => state.isLoading);
   const clearVideo = useVideoStore((state) => state.clearVideo);
 
-  // Event store state
-  const getActiveEvent = useEventStore((state) => state.getActiveEvent);
-  const clearActiveEvent = useEventStore((state) => state.clearActiveEvent);
-
   // UI store state for responsive menu
   const isMenuOpen = useUIStore((state) => state.isMenuOpen);
   const toggleMenu = useUIStore((state) => state.toggleMenu);
-  const eventEditorOpen = useUIStore((state) => state.eventEditorOpen);
-  const eventEditorEditId = useUIStore((state) => state.eventEditorEditId);
-  const openEventEditor = useUIStore((state) => state.openEventEditor);
-  const closeEventEditor = useUIStore((state) => state.closeEventEditor);
 
   const authUser = useAuthStore((state) => state.user);
   const authIsConfigured = useAuthStore((state) => state.isConfigured);
@@ -123,9 +113,6 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const selectedPlayer = selectedPlayerId
     ? players.find(p => p.id === selectedPlayerId)
     : null;
-
-  // Get active event info
-  const activeEvent = getActiveEvent();
 
   // Derive active POV state for display
   const isPovActive = activePovSlot !== null;
@@ -258,12 +245,6 @@ export function Toolbar({ canvas }: ToolbarProps) {
     setShowPOVSelector(false);
   }, [setPovPlayer, povSlotToAssign]);
 
-  // Handle clearing active event
-  const handleClearEvent = useCallback(() => {
-    clearActiveEvent();
-    stop();
-  }, [clearActiveEvent, stop]);
-
   // Build mobile menu sections from toolbar functionality
   const mobileMenuSections: MenuSection[] = useMemo(() => {
     const sections: MenuSection[] = [];
@@ -357,16 +338,6 @@ export function Toolbar({ canvas }: ToolbarProps) {
       sections.push(createMenuSection('ball', 'Ball', ballItems));
     }
 
-    // Events section
-    const eventItems = [
-      createMenuItem('create-event', 'Create Event', () => openEventEditor(), { variant: 'purple', description: 'Create a scripted event sequence with timed animations' }),
-    ];
-    if (activeEvent) {
-      eventItems.push(
-        createMenuItem('clear-event', `Clear: ${activeEvent.name}`, handleClearEvent, { variant: 'danger', description: 'Remove the current active event sequence' })
-      );
-    }
-    sections.push(createMenuSection('events', 'Events', eventItems));
 
     // Video Recording section
     const recordingItems = [
@@ -456,7 +427,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
     isBallSelected, ballPath, handleCreateBallPath, handleRemoveBallPath,
     isPlaying, togglePlayback, handleStopAnimation, isRecording, handleRecordingToggle,
     isConverting, conversionProgress, exportFormat, setExportFormat,
-    activeEvent, handleClearEvent, isPovActive, povPlayer, switchToBroadcast,
+    isPovActive, povPlayer, switchToBroadcast,
     povPlayer1Id, povPlayer2Id, activePovSlot, setPovSlotToAssign, players,
     isVideoMode, isLoaded, isLoading, clearVideo,
     authUser, authIsConfigured, authSignOut,
@@ -723,16 +694,6 @@ export function Toolbar({ canvas }: ToolbarProps) {
               Cancel
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Event Editor – floating panel (no backdrop so the board stays interactive) */}
-      {eventEditorOpen && (
-        <div className="fixed top-4 right-4 z-40 max-h-[calc(100vh-2rem)] overflow-y-auto">
-          <EventEditor
-            onClose={closeEventEditor}
-            editEventId={eventEditorEditId}
-          />
         </div>
       )}
 
