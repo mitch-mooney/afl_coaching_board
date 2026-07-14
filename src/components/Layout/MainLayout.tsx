@@ -21,7 +21,6 @@ import { usePlayerStore } from '../../store/playerStore';
 import { useBallStore } from '../../store/ballStore';
 import { usePathStore } from '../../store/pathStore';
 import { useVideoStore } from '../../store/videoStore';
-import { useAnimationStore } from '../../store/animationStore';
 import { useCameraStore } from '../../store/cameraStore';
 import { useAnnotationStore } from '../../store/annotationStore';
 import { useUIStore } from '../../store/uiStore';
@@ -155,8 +154,6 @@ export function MainLayout() {
   const isVideoMode = useVideoStore((state) => state.isVideoMode);
   const isLoaded = useVideoStore((state) => state.isLoaded);
   const displayMode = useVideoStore((state) => state.displayMode);
-  const videoIsPlaying = useVideoStore((state) => state.isPlaying);
-  const isSyncedWithAnimation = useVideoStore((state) => state.isSyncedWithAnimation);
   const savedVideos = useVideoStore((s) => s.savedVideos);
   const loadSavedVideos = useVideoStore((s) => s.loadSavedVideos);
 
@@ -167,26 +164,6 @@ export function MainLayout() {
   const linkedVideoAvailable = linkedVideoMoment
     ? savedVideos.some((v) => v.id === linkedVideoMoment.videoId)
     : null;
-
-  // Animation store for concert mode
-  const animationPlay = useAnimationStore((state) => state.play);
-  const animationPause = useAnimationStore((state) => state.pause);
-  const animationIsPlaying = useAnimationStore((state) => state.isPlaying);
-
-  // Concert mode: sync video play/pause → animation
-  const concertSyncRef = useRef(false);
-  useEffect(() => {
-    if (!isSyncedWithAnimation) return;
-    // Avoid re-entrant syncing
-    if (concertSyncRef.current) return;
-    concertSyncRef.current = true;
-    if (videoIsPlaying && !animationIsPlaying) {
-      animationPlay();
-    } else if (!videoIsPlaying && animationIsPlaying) {
-      animationPause();
-    }
-    concertSyncRef.current = false;
-  }, [videoIsPlaying, isSyncedWithAnimation, animationIsPlaying, animationPlay, animationPause]);
 
   // Determine if we should show video workspace (full calibration mode)
   const showVideoWorkspace = isVideoMode && isLoaded && displayMode === 'calibration';

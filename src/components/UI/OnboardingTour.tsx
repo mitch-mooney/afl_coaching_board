@@ -19,8 +19,8 @@ const STEPS = [
     body: 'Go to Team Rosters to import from PlayHQ — paste the squad table or enter the page URL. Player names then show on the board.',
   },
   {
-    title: 'Video & board in concert',
-    body: 'Import a match video in the Video tab. Recreate the scenario on the Board. Use Concert Mode in the video toolbar to sync animation playback with the video.',
+    title: 'Video & board side by side',
+    body: 'Import a match video in the Video tab, then recreate the scenario on the Board — review the clip in picture-in-picture while you set up the play.',
   },
 ];
 

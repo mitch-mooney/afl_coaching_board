@@ -6,7 +6,6 @@ import { PerspectiveCalibration } from './PerspectiveCalibration';
 import { CalibrationGridControls, useCalibrationGrid } from './CalibrationGrid';
 import { useVideoStore } from '../../store/videoStore';
 import { useVideoPlayback } from '../../hooks/useVideoPlayback';
-import { useAnimationStore } from '../../store/animationStore';
 import { useScenarioStore } from '../../store/scenarioStore';
 import { useUIStore } from '../../store/uiStore';
 
@@ -87,12 +86,7 @@ export function VideoWorkspace({
   const setIsVideoMode = useVideoStore((state) => state.setIsVideoMode);
   const setDisplayMode = useVideoStore((state) => state.setDisplayMode);
   const playbackRate = useVideoStore((state) => state.playbackRate);
-  const isSyncedWithAnimation = useVideoStore((state) => state.isSyncedWithAnimation);
-  const toggleSyncWithAnimation = useVideoStore((state) => state.toggleSyncWithAnimation);
   const currentTime = useVideoStore((state) => state.currentTime);
-
-  // Animation store (for concert mode indicator)
-  const animationIsPlaying = useAnimationStore((state) => state.isPlaying);
 
   // Scenario store
   const activeScenarioId = useScenarioStore((state) => state.activeScenarioId);
@@ -305,31 +299,10 @@ export function VideoWorkspace({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
             <span className="text-white text-sm font-medium truncate max-w-xs">{videoFile?.name || 'Video'}</span>
-            {isSyncedWithAnimation && (
-              <span className="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded px-1.5 py-0.5 flex-shrink-0">
-                {animationIsPlaying ? '● LIVE' : 'SYNC'}
-              </span>
-            )}
           </div>
 
           {/* Controls */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Concert mode toggle */}
-            <button
-              onClick={toggleSyncWithAnimation}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition shadow-lg backdrop-blur-sm ${
-                isSyncedWithAnimation
-                  ? 'bg-emerald-600/90 hover:bg-emerald-700 text-white'
-                  : 'bg-black/50 hover:bg-black/70 text-gray-300 hover:text-white'
-              }`}
-              title={isSyncedWithAnimation ? 'Disable concert mode (video + animation sync)' : 'Enable concert mode — sync video with 3D animation'}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <span className="hidden md:inline">{isSyncedWithAnimation ? 'Synced' : 'Concert'}</span>
-            </button>
-
             {/* Fullscreen toggle */}
             <button
               onClick={handleToggleFullscreen}

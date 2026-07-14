@@ -36,7 +36,7 @@ const SECTIONS = [
   {
     heading: 'Video & The Board',
     items: [
-      { key: 'Video tab', desc: 'Import a match video to review. Use Concert Mode to sync animation playback with the video.' },
+      { key: 'Video tab', desc: 'Import a match video to review, in picture-in-picture or full-field mode.' },
       { key: 'Take to Board →', desc: 'Switch from video to board to recreate the scenario you just reviewed.' },
     ],
   },
