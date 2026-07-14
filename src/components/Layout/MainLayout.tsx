@@ -582,7 +582,7 @@ export function MainLayout() {
       )}
 
       {/* All DOM-layer UI stays outside */}
-      <Toolbar canvas={canvasRef.current} />
+      <Toolbar />
       <PlaybookPanel />
       <AnnotationToolbar />
       {editorTab === 'board' && <CameraDock />}

@@ -3,7 +3,6 @@ import { VideoCanvas, useVideoCanvasRef } from './VideoCanvas';
 import { VideoTimeline } from './VideoTimeline';
 import { PlaybackControls } from './PlaybackControls';
 import { PerspectiveCalibration } from './PerspectiveCalibration';
-import { VideoExporter } from './VideoExporter';
 import { CalibrationGridControls, useCalibrationGrid } from './CalibrationGrid';
 import { useVideoStore } from '../../store/videoStore';
 import { useVideoPlayback } from '../../hooks/useVideoPlayback';
@@ -20,7 +19,7 @@ function formatVideoTime(seconds: number): string {
 /**
  * Panel types for the right sidebar
  */
-type SidebarPanel = 'calibration' | 'export' | 'grid' | null;
+type SidebarPanel = 'calibration' | 'grid' | null;
 
 /**
  * Props for the VideoWorkspace component
@@ -76,7 +75,7 @@ export function VideoWorkspace({
   const workspaceRef = useRef<HTMLDivElement>(null);
 
   // Canvas reference for export
-  const { canvasRef, setCanvasRef } = useVideoCanvasRef();
+  const { setCanvasRef } = useVideoCanvasRef();
 
   // Calibration grid state
   const { gridSettings, updateGridSettings } = useCalibrationGrid();
@@ -575,26 +574,6 @@ export function VideoWorkspace({
               }
               label="Grid"
             />
-            <PanelTab
-              active={activePanel === 'export'}
-              onClick={() => handlePanelToggle('export')}
-              icon={
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                  />
-                </svg>
-              }
-              label="Export"
-            />
           </div>
 
           {/* Panel Content */}
@@ -608,13 +587,6 @@ export function VideoWorkspace({
                 settings={gridSettings}
                 onSettingsChange={updateGridSettings}
                 isVideoLoaded={isLoaded}
-              />
-            )}
-
-            {activePanel === 'export' && (
-              <VideoExporter
-                canvas={canvasRef.current}
-                isExpanded={true}
               />
             )}
 

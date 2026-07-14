@@ -6,7 +6,6 @@ import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore } from '../../store/historyStore';
 import { useVideoStore } from '../../store/videoStore';
 import { useUIStore } from '../../store/uiStore';
-import { useVideoRecorder } from '../../hooks/useVideoRecorder';
 import { usePlaybook } from '../../hooks/usePlaybook';
 import { AFL_POSITIONS } from '../../data/aflPositions';
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -18,11 +17,7 @@ import { useMatchStore, formatAFLScore } from '../../store/matchStore';
 import { AFL_TEAMS } from '../../data/aflTeams';
 import type { Quarter } from '../../store/matchStore';
 
-interface ToolbarProps {
-  canvas: HTMLCanvasElement | null;
-}
-
-export function Toolbar({ canvas }: ToolbarProps) {
+export function Toolbar() {
   const resetPlayers = usePlayerStore((state) => state.resetPlayers);
   const labelMode = usePlayerStore((state) => state.labelMode);
   const cycleLabelMode = usePlayerStore((state) => state.cycleLabelMode);
@@ -40,7 +35,6 @@ export function Toolbar({ canvas }: ToolbarProps) {
   const assignBallToPlayer = useBallStore((state) => state.assignBallToPlayer);
   const { isPlaying, togglePlayback, stop } = useAnimationStore();
   const { createPath, getPathByEntity, removePath, clearPaths, paths } = usePathStore();
-  const { isRecording, isConverting, conversionProgress, exportFormat, setExportFormat, toggleRecording } = useVideoRecorder(canvas);
   const { saveCurrentScenario } = usePlaybook();
   const { undo, canUndo, pauseRecording, resumeRecording } = useHistoryStore();
   const isVideoMode = useVideoStore((state) => state.isVideoMode);
@@ -174,14 +168,6 @@ export function Toolbar({ canvas }: ToolbarProps) {
       console.error('Error saving playbook:', error);
       alert('Failed to save playbook. Please try again.');
     }
-  };
-
-  const handleRecordingToggle = () => {
-    if (!canvas) {
-      alert('Canvas not ready. Please wait a moment and try again.');
-      return;
-    }
-    toggleRecording();
   };
 
   // Handle undo - restore previous player positions
@@ -339,32 +325,10 @@ export function Toolbar({ canvas }: ToolbarProps) {
     }
 
 
-    // Video Recording section
-    const recordingItems = [
-      createMenuItem('recording', isRecording ? 'Stop Recording' : `Record Video (${exportFormat.toUpperCase()})`, handleRecordingToggle, {
-        variant: isRecording ? 'danger' : 'default',
-        active: isRecording,
-        disabled: isConverting,
-        description: 'Capture a video of the current board animation',
-      }),
-      createMenuItem('format-toggle', `Format: ${exportFormat.toUpperCase()}`, () => setExportFormat(exportFormat === 'mp4' ? 'webm' : 'mp4'), {
-        variant: 'primary',
-        disabled: isRecording || isConverting,
-        description: 'Toggle between MP4 and WebM export formats',
-      }),
+    // Playbook section
+    sections.push(createMenuSection('playbook', 'Playbook', [
       createMenuItem('save-playbook', 'Save Playbook', () => setShowSaveDialog(true), { variant: 'warning', description: 'Save this formation to your playbook library' }),
-    ];
-    if (isConverting && conversionProgress) {
-      const label = conversionProgress.phase === 'loading'
-        ? 'Loading FFmpeg...'
-        : `Converting: ${Math.round(conversionProgress.progress * 100)}%`;
-      recordingItems.splice(1, 0, createMenuItem('converting', label, () => {}, {
-        variant: 'warning',
-        active: true,
-        disabled: true,
-      }));
-    }
-    sections.push(createMenuSection('recording', 'Video Recording', recordingItems));
+    ]));
 
     // POV section — always show both assign slots; show Exit when POV is active
     const pov1Label = povPlayer1Id ? `#${players.find(p => p.id === povPlayer1Id)?.number ?? '?'}` : 'unset';
@@ -425,8 +389,7 @@ export function Toolbar({ canvas }: ToolbarProps) {
     resetPlayers, labelMode, cycleLabelMode, autoAssignPositions, ball, selectedPlayer,
     selectedPlayerId, handleAssignBall, assignedPlayer, handleUnassignBall,
     isBallSelected, ballPath, handleCreateBallPath, handleRemoveBallPath,
-    isPlaying, togglePlayback, handleStopAnimation, isRecording, handleRecordingToggle,
-    isConverting, conversionProgress, exportFormat, setExportFormat,
+    isPlaying, togglePlayback, handleStopAnimation,
     isPovActive, povPlayer, switchToBroadcast,
     povPlayer1Id, povPlayer2Id, activePovSlot, setPovSlotToAssign, players,
     isVideoMode, isLoaded, isLoading, clearVideo,
