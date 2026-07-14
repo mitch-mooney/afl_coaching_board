@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { useVideoStore } from '../../store/videoStore';
+import { useUIStore } from '../../store/uiStore';
 import { useVideoPlayback } from '../../hooks/useVideoPlayback';
 
 // Size constraints
@@ -58,7 +59,7 @@ export function VideoPiP() {
   const duration = useVideoStore((state) => state.duration);
   const volume = useVideoStore((state) => state.volume);
   const isMuted = useVideoStore((state) => state.isMuted);
-  const setDisplayMode = useVideoStore((state) => state.setDisplayMode);
+  const setEditorTab = useUIStore((state) => state.setEditorTab);
   const clearVideo = useVideoStore((state) => state.clearVideo);
   const setVolume = useVideoStore((state) => state.setVolume);
   const toggleMute = useVideoStore((state) => state.toggleMute);
@@ -230,7 +231,7 @@ export function VideoPiP() {
     seekTo(percent * duration);
   };
 
-  const handleEnterCalibration = () => setDisplayMode('calibration');
+  const handleExpandToWorkspace = () => setEditorTab('video');
 
   const handleSnapTo = (corner: SnapCorner) => {
     const pos = getSnapPosition(corner, size.width, actualHeight + 80);
@@ -475,11 +476,11 @@ export function VideoPiP() {
               )}
             </div>
 
-            {/* Calibrate/expand button */}
+            {/* Expand to full video workspace */}
             <button
-              onClick={handleEnterCalibration}
+              onClick={handleExpandToWorkspace}
               className="flex items-center gap-1 px-2 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs rounded-lg transition"
-              title="Open full video workspace with field overlay"
+              title="Open the full video review workspace"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />

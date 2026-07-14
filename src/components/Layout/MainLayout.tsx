@@ -153,7 +153,6 @@ export function MainLayout() {
   // Video mode state from video store
   const isVideoMode = useVideoStore((state) => state.isVideoMode);
   const isLoaded = useVideoStore((state) => state.isLoaded);
-  const displayMode = useVideoStore((state) => state.displayMode);
   const savedVideos = useVideoStore((s) => s.savedVideos);
   const loadSavedVideos = useVideoStore((s) => s.loadSavedVideos);
 
@@ -165,10 +164,9 @@ export function MainLayout() {
     ? savedVideos.some((v) => v.id === linkedVideoMoment.videoId)
     : null;
 
-  // Determine if we should show video workspace (full calibration mode)
-  const showVideoWorkspace = isVideoMode && isLoaded && displayMode === 'calibration';
-  // Determine if we should show PiP (picture-in-picture mode)
-  const showVideoPiP = isVideoMode && isLoaded && displayMode === 'pip';
+  // Determine if we should show PiP (picture-in-picture video review)
+  // PiP overlays the board tab; the Video tab shows the full workspace instead.
+  const showVideoPiP = isVideoMode && isLoaded && editorTab === 'board';
 
   // Initialize keyboard shortcuts
   const registry = getGlobalShortcutRegistry();
@@ -290,14 +288,6 @@ export function MainLayout() {
     };
   }, [preventTouchDefault, canvasReady]);
 
-  // When in video mode, render VideoWorkspace as full-screen experience
-  if (showVideoWorkspace) {
-    return (
-      <div className="w-full h-full min-h-screen max-w-full overflow-hidden relative">
-        <VideoWorkspace showFieldOverlay={true} />
-      </div>
-    );
-  }
 
   // Normal field view (with optional PiP overlay)
   return (
@@ -547,7 +537,7 @@ export function MainLayout() {
 
       {editorTab === 'video' && (
         <div className="absolute inset-0 z-10">
-          <VideoWorkspace showFieldOverlay={true} />
+          <VideoWorkspace />
           <button
             onClick={() => setEditorTab('board')}
             className="absolute top-4 right-4 z-50 px-4 py-2 rounded-lg

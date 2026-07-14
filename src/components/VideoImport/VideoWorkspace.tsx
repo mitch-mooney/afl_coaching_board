@@ -1,9 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { VideoCanvas, useVideoCanvasRef } from './VideoCanvas';
 import { VideoTimeline } from './VideoTimeline';
 import { PlaybackControls } from './PlaybackControls';
-import { PerspectiveCalibration } from './PerspectiveCalibration';
-import { CalibrationGridControls, useCalibrationGrid } from './CalibrationGrid';
 import { useVideoStore } from '../../store/videoStore';
 import { useVideoPlayback } from '../../hooks/useVideoPlayback';
 import { useScenarioStore } from '../../store/scenarioStore';
@@ -16,77 +13,42 @@ function formatVideoTime(seconds: number): string {
 }
 
 /**
- * Panel types for the right sidebar
- */
-type SidebarPanel = 'calibration' | 'grid' | null;
-
-/**
  * Props for the VideoWorkspace component
  */
 interface VideoWorkspaceProps {
   /** Callback when user exits video mode */
   onExitVideoMode?: () => void;
-  /** Whether to show the field overlay by default */
-  showFieldOverlay?: boolean;
 }
 
 /**
- * VideoWorkspace - The main container component for video import mode.
+ * VideoWorkspace - Full-screen video review surface (the "Video" editor tab).
  *
- * This component combines all video-related components into a unified workspace:
- * - VideoCanvas as the main 3D view with video background
- * - VideoTimeline positioned at the bottom for scrubbing
- * - PlaybackControls for speed, loop, and volume
- * - Sidebar panels for calibration, grid, and export controls
- * - Close/exit video mode button
- *
- * Features:
- * - Responsive layout that maximizes canvas space
- * - Collapsible sidebar panels for calibration tools
- * - Keyboard shortcuts for video playback control
- * - Integrated video export functionality
+ * A plain video player for reviewing an imported match clip and marking a
+ * moment (in/out points) to link to the active play. It intentionally does NOT
+ * overlay the 3D board on the video — the field-over-video calibration mode was
+ * removed in the lean; board work happens on the Board tab, with the clip
+ * available as a picture-in-picture window.
  *
  * Keyboard Shortcuts:
- * - Space: Play/Pause
- * - Left/Right Arrow: Frame step
- * - Shift + Left/Right: Skip 5 seconds
- * - J: Slow down playback
- * - K: Play/Pause
- * - L: Speed up playback
- * - Escape: Exit video mode
- *
- * @example
- * ```tsx
- * <VideoWorkspace
- *   onExitVideoMode={() => setIsVideoMode(false)}
- *   showFieldOverlay={true}
- * />
- * ```
+ * - Space / K: Play/Pause      - Left/Right Arrow: Frame step
+ * - J: Slow down   L: Speed up  F: Fullscreen   Esc: Close video
  */
-export function VideoWorkspace({
-  onExitVideoMode,
-  showFieldOverlay = true,
-}: VideoWorkspaceProps) {
-  // Sidebar state
-  const [activePanel, setActivePanel] = useState<SidebarPanel>('calibration');
-  const [showSidebar, setShowSidebar] = useState(true);
+export function VideoWorkspace({ onExitVideoMode }: VideoWorkspaceProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const workspaceRef = useRef<HTMLDivElement>(null);
-
-  // Canvas reference for export
-  const { setCanvasRef } = useVideoCanvasRef();
-
-  // Calibration grid state
-  const { gridSettings, updateGridSettings } = useCalibrationGrid();
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Video store state
   const isLoaded = useVideoStore((state) => state.isLoaded);
   const videoFile = useVideoStore((state) => state.videoFile);
+  const videoElement = useVideoStore((state) => state.videoElement);
   const clearVideo = useVideoStore((state) => state.clearVideo);
   const setIsVideoMode = useVideoStore((state) => state.setIsVideoMode);
-  const setDisplayMode = useVideoStore((state) => state.setDisplayMode);
   const playbackRate = useVideoStore((state) => state.playbackRate);
   const currentTime = useVideoStore((state) => state.currentTime);
+  const isPlaying = useVideoStore((state) => state.isPlaying);
+  const volume = useVideoStore((state) => state.volume);
+  const isMuted = useVideoStore((state) => state.isMuted);
 
   // Scenario store
   const activeScenarioId = useScenarioStore((state) => state.activeScenarioId);
@@ -106,6 +68,26 @@ export function VideoWorkspace({
 
   // Playback controls from hook
   const { togglePlayPause, setRate } = useVideoPlayback();
+
+  // Sync the local <video> element with the shared store playback state.
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !videoElement) return;
+
+    if (videoElement.src && el.src !== videoElement.src) {
+      el.src = videoElement.src;
+    }
+    if (isPlaying && el.paused) {
+      el.play().catch(() => {});
+    } else if (!isPlaying && !el.paused) {
+      el.pause();
+    }
+    if (Math.abs(el.currentTime - currentTime) > 0.5) {
+      el.currentTime = currentTime;
+    }
+    el.volume = volume;
+    el.muted = isMuted;
+  }, [videoElement, isPlaying, currentTime, volume, isMuted]);
 
   // Fullscreen change listener
   useEffect(() => {
@@ -136,25 +118,11 @@ export function VideoWorkspace({
   }, [clearVideo, setIsVideoMode, onExitVideoMode]);
 
   /**
-   * Handle exit to PiP mode (keep video, just switch display mode)
+   * Return to the Board tab (keeps the video; it floats as a PiP window there)
    */
   const handleExitToPiP = useCallback(() => {
-    setDisplayMode('pip');
-  }, [setDisplayMode]);
-
-  /**
-   * Toggle sidebar panel
-   */
-  const handlePanelToggle = useCallback((panel: SidebarPanel) => {
-    setActivePanel((current) => (current === panel ? null : panel));
-  }, []);
-
-  /**
-   * Toggle sidebar visibility
-   */
-  const toggleSidebar = useCallback(() => {
-    setShowSidebar((prev) => !prev);
-  }, []);
+    setEditorTab('board');
+  }, [setEditorTab]);
 
   /**
    * Link the current pending start/end timestamps to the active scenario
@@ -213,26 +181,22 @@ export function VideoWorkspace({
     if (currentIndex < rates.length - 1) {
       setRate(rates[currentIndex + 1]);
     } else if (currentIndex === -1) {
-      // If current rate is not in the list, set to 1x
       setRate(1);
     }
   }, [playbackRate, setRate]);
 
   /**
-   * Keyboard shortcuts for video playback control
-   * Note: Space, Arrow keys are already handled by VideoTimeline
-   * This adds J/K/L shortcuts and Escape for exit
+   * Keyboard shortcuts for video playback control.
+   * Space / Arrow keys are handled by VideoTimeline; this adds J/K/L, F, Esc.
    */
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Don't capture if user is typing in an input
       if (
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLTextAreaElement
       ) {
         return;
       }
-
       if (!isLoaded) return;
 
       switch (event.code) {
@@ -252,11 +216,6 @@ export function VideoWorkspace({
           event.preventDefault();
           handleExitVideoMode();
           break;
-        case 'Tab':
-          // Toggle sidebar with Tab key
-          event.preventDefault();
-          toggleSidebar();
-          break;
         case 'KeyF':
           event.preventDefault();
           handleToggleFullscreen();
@@ -268,7 +227,7 @@ export function VideoWorkspace({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isLoaded, handleSlowDown, handleSpeedUp, togglePlayPause, handleExitVideoMode, toggleSidebar, handleToggleFullscreen]);
+  }, [isLoaded, handleSlowDown, handleSpeedUp, togglePlayPause, handleExitVideoMode, handleToggleFullscreen]);
 
   // Don't render if no video is loaded
   if (!isLoaded) {
@@ -282,16 +241,16 @@ export function VideoWorkspace({
       role="region"
       aria-label="Video workspace"
     >
-      {/* Main Canvas Area */}
       <div className="flex-1 relative overflow-hidden">
-        <VideoCanvas
-          showField={showFieldOverlay}
-          enableControls={true}
-          onCanvasReady={setCanvasRef}
-          gridSettings={gridSettings}
+        {/* Plain video player */}
+        <video
+          ref={videoRef}
+          className="absolute inset-0 w-full h-full object-contain bg-black"
+          playsInline
+          onClick={togglePlayPause}
         />
 
-        {/* Top Bar with Video Info and Exit Button */}
+        {/* Top Bar with Video Info and Exit Buttons */}
         <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between gap-3">
           {/* Video Info */}
           <div className="flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-lg px-3 py-2 min-w-0">
@@ -321,17 +280,17 @@ export function VideoWorkspace({
               <span className="hidden md:inline">{isFullscreen ? 'Exit FS' : 'Fullscreen'}</span>
             </button>
 
-            {/* Exit to PiP Button */}
+            {/* Back to Board (video floats as PiP there) */}
             <button
               onClick={handleExitToPiP}
               className="flex items-center gap-1.5 px-3 py-2 bg-blue-500/80 hover:bg-blue-600 backdrop-blur-sm text-white rounded-lg transition shadow-lg"
-              aria-label="Exit to picture-in-picture"
-              title="Float as PiP window"
+              aria-label="Back to board"
+              title="Back to board (video floats as a PiP window)"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
               </svg>
-              <span className="hidden sm:inline">PiP</span>
+              <span className="hidden sm:inline">Board</span>
             </button>
 
             {/* Close Video Button */}
@@ -348,30 +307,6 @@ export function VideoWorkspace({
             </button>
           </div>
         </div>
-
-        {/* Sidebar Toggle Button (when sidebar is hidden) */}
-        {!showSidebar && (
-          <button
-            onClick={toggleSidebar}
-            className="absolute top-1/2 right-0 transform -translate-y-1/2 bg-white/90 hover:bg-white shadow-lg rounded-l-lg p-2 transition"
-            aria-label="Show sidebar"
-            title="Show tools (Tab)"
-          >
-            <svg
-              className="w-5 h-5 text-gray-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </button>
-        )}
 
         {/* Bottom Controls Container */}
         <div className="absolute left-4 right-4 z-10 flex flex-col gap-3" style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
@@ -471,165 +406,12 @@ export function VideoWorkspace({
           {/* Keyboard Shortcuts Hint */}
           <div className="flex justify-center">
             <span className="text-xs text-white/60 bg-black/30 backdrop-blur-sm px-3 py-1 rounded">
-              Space: Play/Pause | J/K/L: Speed | F: Fullscreen | Tab: Panel | Esc: Exit
+              Space: Play/Pause | J/K/L: Speed | F: Fullscreen | Esc: Close
             </span>
           </div>
         </div>
       </div>
-
-      {/* Right Sidebar */}
-      {showSidebar && (
-        <div className="w-80 bg-gray-100 border-l border-gray-300 flex flex-col overflow-hidden">
-          {/* Sidebar Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
-            <h2 className="font-semibold text-gray-800">Video Tools</h2>
-            <button
-              onClick={toggleSidebar}
-              className="p-1 hover:bg-gray-100 rounded transition"
-              aria-label="Hide sidebar"
-              title="Hide tools (Tab)"
-            >
-              <svg
-                className="w-5 h-5 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </button>
-          </div>
-
-          {/* Panel Navigation */}
-          <div className="flex border-b border-gray-200 bg-white">
-            <PanelTab
-              active={activePanel === 'calibration'}
-              onClick={() => handlePanelToggle('calibration')}
-              icon={
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-                  />
-                </svg>
-              }
-              label="Calibrate"
-            />
-            <PanelTab
-              active={activePanel === 'grid'}
-              onClick={() => handlePanelToggle('grid')}
-              icon={
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                </svg>
-              }
-              label="Grid"
-            />
-          </div>
-
-          {/* Panel Content */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {activePanel === 'calibration' && (
-              <PerspectiveCalibration isExpanded={true} />
-            )}
-
-            {activePanel === 'grid' && (
-              <CalibrationGridControls
-                settings={gridSettings}
-                onSettingsChange={updateGridSettings}
-                isVideoLoaded={isLoaded}
-              />
-            )}
-
-            {activePanel === null && (
-              <div className="text-center text-gray-500 py-8">
-                <p className="text-sm">Select a tool from the tabs above</p>
-              </div>
-            )}
-          </div>
-
-          {/* Sidebar Footer */}
-          <div className="px-4 py-3 bg-white border-t border-gray-200">
-            <div className="text-xs text-gray-500 space-y-1">
-              <p>
-                <span className="font-medium">Tip:</span> Use the calibration tools to align the 3D
-                field with your video.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
-  );
-}
-
-/**
- * Props for the PanelTab component
- */
-interface PanelTabProps {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-}
-
-/**
- * PanelTab - A tab button for the sidebar panel navigation
- */
-function PanelTab({ active, onClick, icon, label }: PanelTabProps) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex-1 flex flex-col items-center gap-1 py-2 px-3 text-xs font-medium transition ${
-        active
-          ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
-          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-      }`}
-      role="tab"
-      aria-selected={active}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
-  );
-}
-
-/**
- * VideoWorkspaceCompact - A compact version of VideoWorkspace for smaller screens
- * or when used as an overlay on the main application
- */
-export function VideoWorkspaceCompact({
-  onExitVideoMode,
-}: {
-  onExitVideoMode?: () => void;
-}) {
-  return (
-    <VideoWorkspace
-      onExitVideoMode={onExitVideoMode}
-      showFieldOverlay={true}
-    />
   );
 }
 

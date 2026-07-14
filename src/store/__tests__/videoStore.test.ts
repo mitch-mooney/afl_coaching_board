@@ -1,17 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useVideoStore, videoDb } from '../videoStore';
-import type { PerspectiveSettings, ExportSettings, VideoMetadata } from '../videoStore';
-
-// Default values for comparison
-const DEFAULT_PERSPECTIVE_SETTINGS: PerspectiveSettings = {
-  cameraPosition: [0, 100, 150],
-  cameraRotation: [0, 0, 0],
-  fieldOfView: 60,
-  fieldScale: 1,
-  fieldOpacity: 0.5,
-  fieldOffset: [0, 0, 0],
-  lockOrbitControls: false,
-};
+import type { ExportSettings, VideoMetadata } from '../videoStore';
 
 const DEFAULT_EXPORT_SETTINGS: ExportSettings = {
   resolution: '1080p',
@@ -75,11 +64,6 @@ describe('videoStore', () => {
       expect(state.savedVideos).toEqual([]);
       expect(state.currentSavedVideoId).toBeNull();
       expect(state.isPersisting).toBe(false);
-    });
-
-    it('should have default perspective settings', () => {
-      const state = useVideoStore.getState();
-      expect(state.perspectiveSettings).toEqual(DEFAULT_PERSPECTIVE_SETTINGS);
     });
 
     it('should have default export settings', () => {
@@ -321,90 +305,6 @@ describe('videoStore', () => {
     });
   });
 
-  describe('Perspective Settings Actions', () => {
-    it('setPerspectiveSettings should merge partial settings', () => {
-      useVideoStore.getState().setPerspectiveSettings({
-        fieldOfView: 90,
-        fieldScale: 1.5,
-      });
-
-      const state = useVideoStore.getState();
-      expect(state.perspectiveSettings.fieldOfView).toBe(90);
-      expect(state.perspectiveSettings.fieldScale).toBe(1.5);
-      // Other settings should remain default
-      expect(state.perspectiveSettings.cameraPosition).toEqual([0, 100, 150]);
-    });
-
-    it('setCameraPosition should update camera position', () => {
-      const newPosition: [number, number, number] = [10, 50, 100];
-      useVideoStore.getState().setCameraPosition(newPosition);
-
-      expect(useVideoStore.getState().perspectiveSettings.cameraPosition).toEqual(newPosition);
-    });
-
-    it('setCameraRotation should update camera rotation', () => {
-      const newRotation: [number, number, number] = [0.1, 0.2, 0.3];
-      useVideoStore.getState().setCameraRotation(newRotation);
-
-      expect(useVideoStore.getState().perspectiveSettings.cameraRotation).toEqual(newRotation);
-    });
-
-    it('setFieldOfView should update FOV', () => {
-      useVideoStore.getState().setFieldOfView(90);
-      expect(useVideoStore.getState().perspectiveSettings.fieldOfView).toBe(90);
-    });
-
-    it('setFieldScale should update field scale', () => {
-      useVideoStore.getState().setFieldScale(2);
-      expect(useVideoStore.getState().perspectiveSettings.fieldScale).toBe(2);
-    });
-
-    it('setFieldOpacity should update field opacity', () => {
-      useVideoStore.getState().setFieldOpacity(0.8);
-      expect(useVideoStore.getState().perspectiveSettings.fieldOpacity).toBe(0.8);
-    });
-
-    it('setFieldOffset should update field offset', () => {
-      const newOffset: [number, number, number] = [5, 10, 15];
-      useVideoStore.getState().setFieldOffset(newOffset);
-
-      expect(useVideoStore.getState().perspectiveSettings.fieldOffset).toEqual(newOffset);
-    });
-
-    it('setLockOrbitControls should update lock state', () => {
-      useVideoStore.getState().setLockOrbitControls(true);
-      expect(useVideoStore.getState().perspectiveSettings.lockOrbitControls).toBe(true);
-    });
-
-    it('toggleLockOrbitControls should toggle lock state', () => {
-      expect(useVideoStore.getState().perspectiveSettings.lockOrbitControls).toBe(false);
-
-      useVideoStore.getState().toggleLockOrbitControls();
-      expect(useVideoStore.getState().perspectiveSettings.lockOrbitControls).toBe(true);
-
-      useVideoStore.getState().toggleLockOrbitControls();
-      expect(useVideoStore.getState().perspectiveSettings.lockOrbitControls).toBe(false);
-    });
-
-    it('resetPerspectiveSettings should restore defaults', () => {
-      // Modify all settings
-      useVideoStore.getState().setPerspectiveSettings({
-        cameraPosition: [1, 2, 3],
-        cameraRotation: [0.1, 0.2, 0.3],
-        fieldOfView: 90,
-        fieldScale: 2,
-        fieldOpacity: 0.3,
-        fieldOffset: [10, 20, 30],
-        lockOrbitControls: true,
-      });
-
-      // Reset
-      useVideoStore.getState().resetPerspectiveSettings();
-
-      expect(useVideoStore.getState().perspectiveSettings).toEqual(DEFAULT_PERSPECTIVE_SETTINGS);
-    });
-  });
-
   describe('Export Settings Actions', () => {
     it('setExportSettings should merge partial settings', () => {
       useVideoStore.getState().setExportSettings({
@@ -452,7 +352,6 @@ describe('videoStore', () => {
       useVideoStore.getState().setIsMuted(true);
       useVideoStore.getState().setIsLoaded(true);
       useVideoStore.getState().setIsVideoMode(true);
-      useVideoStore.getState().setPerspectiveSettings({ fieldOfView: 90 });
       useVideoStore.getState().setExportSettings({ resolution: '720p' });
 
       // Reset everything
@@ -475,7 +374,6 @@ describe('videoStore', () => {
       expect(state.isLoading).toBe(false);
       expect(state.error).toBeNull();
       expect(state.isVideoMode).toBe(false);
-      expect(state.perspectiveSettings).toEqual(DEFAULT_PERSPECTIVE_SETTINGS);
       expect(state.exportSettings).toEqual(DEFAULT_EXPORT_SETTINGS);
       expect(state.currentSavedVideoId).toBeNull();
     });
@@ -515,7 +413,6 @@ describe('videoStore', () => {
         aspectRatio: 16 / 9,
         createdAt: new Date(),
         updatedAt: new Date(),
-        perspectiveSettings: DEFAULT_PERSPECTIVE_SETTINGS,
         exportSettings: DEFAULT_EXPORT_SETTINGS,
       });
 
@@ -536,7 +433,6 @@ describe('videoStore', () => {
       // Set up video metadata
       useVideoStore.getState().setVideoMetadata(createMockVideoMetadata());
       useVideoStore.getState().setDuration(120);
-      useVideoStore.getState().setPerspectiveSettings({ fieldOfView: 75 });
       useVideoStore.getState().setExportSettings({ quality: 0.95 });
 
       const id = await useVideoStore.getState().saveVideoMetadata();
@@ -549,7 +445,6 @@ describe('videoStore', () => {
       expect(saved).toBeDefined();
       expect(saved?.fileName).toBe('test-video.mp4');
       expect(saved?.duration).toBe(120);
-      expect(saved?.perspectiveSettings.fieldOfView).toBe(75);
       expect(saved?.exportSettings.quality).toBe(0.95);
     });
 
@@ -561,14 +456,12 @@ describe('videoStore', () => {
 
       // Update settings
       useVideoStore.getState().setDuration(120);
-      useVideoStore.getState().setPerspectiveSettings({ fieldOfView: 90 });
 
       await useVideoStore.getState().updateVideoMetadata(id);
 
       // Verify update
       const updated = await videoDb.videos.get(id);
       expect(updated?.duration).toBe(120);
-      expect(updated?.perspectiveSettings.fieldOfView).toBe(90);
     });
 
     it('deleteVideoMetadata should remove record from database', async () => {
@@ -598,10 +491,6 @@ describe('videoStore', () => {
     it('loadVideoSettings should load settings from database', async () => {
       // Save with specific settings
       useVideoStore.getState().setVideoMetadata(createMockVideoMetadata());
-      useVideoStore.getState().setPerspectiveSettings({
-        cameraPosition: [10, 20, 30],
-        fieldOfView: 75,
-      });
       useVideoStore.getState().setExportSettings({
         resolution: '720p',
         quality: 0.8,
@@ -609,15 +498,12 @@ describe('videoStore', () => {
       const id = await useVideoStore.getState().saveVideoMetadata();
 
       // Reset to defaults
-      useVideoStore.getState().resetPerspectiveSettings();
       useVideoStore.getState().resetExportSettings();
 
       // Load saved settings
       await useVideoStore.getState().loadVideoSettings(id);
 
       const state = useVideoStore.getState();
-      expect(state.perspectiveSettings.cameraPosition).toEqual([10, 20, 30]);
-      expect(state.perspectiveSettings.fieldOfView).toBe(75);
       expect(state.exportSettings.resolution).toBe('720p');
       expect(state.exportSettings.quality).toBe(0.8);
       expect(state.currentSavedVideoId).toBe(id);
@@ -631,15 +517,6 @@ describe('videoStore', () => {
   });
 
   describe('State Immutability', () => {
-    it('should not mutate perspectiveSettings object reference on partial update', () => {
-      const originalSettings = useVideoStore.getState().perspectiveSettings;
-      useVideoStore.getState().setFieldOfView(90);
-      const newSettings = useVideoStore.getState().perspectiveSettings;
-
-      expect(newSettings).not.toBe(originalSettings);
-      expect(newSettings.fieldOfView).toBe(90);
-    });
-
     it('should not mutate exportSettings object reference on partial update', () => {
       const originalSettings = useVideoStore.getState().exportSettings;
       useVideoStore.getState().setExportSettings({ quality: 0.5 });

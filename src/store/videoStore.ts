@@ -4,21 +4,6 @@ import { playbookDB } from './playbookStore';
 import type { Scenario } from '../models/ScenarioModel';
 
 /**
- * Perspective settings for matching 3D field to video camera angle
- */
-export interface PerspectiveSettings {
-  cameraPosition: [number, number, number];
-  cameraRotation: [number, number, number];
-  fieldOfView: number;
-  fieldScale: number;
-  fieldOpacity: number;
-  /** Field offset in 3D space for fine-tuning alignment */
-  fieldOffset: [number, number, number];
-  /** Lock orbit controls during precise calibration */
-  lockOrbitControls: boolean;
-}
-
-/**
  * Export settings for video output
  */
 export interface ExportSettings {
@@ -52,7 +37,6 @@ export interface PersistedVideoMetadata {
   aspectRatio: number;
   createdAt: Date;
   updatedAt: Date;
-  perspectiveSettings: PerspectiveSettings;
   exportSettings: ExportSettings;
 }
 
@@ -113,12 +97,6 @@ interface VideoState {
   // Video mode
   isVideoMode: boolean;
 
-  // Display mode: 'pip' = picture-in-picture (top right), 'calibration' = full field overlay
-  displayMode: 'pip' | 'calibration';
-
-  // Perspective calibration
-  perspectiveSettings: PerspectiveSettings;
-
   // Export settings
   exportSettings: ExportSettings;
 
@@ -156,20 +134,6 @@ interface VideoState {
 
   // Actions - Video mode
   setIsVideoMode: (isVideoMode: boolean) => void;
-  setDisplayMode: (mode: 'pip' | 'calibration') => void;
-  toggleDisplayMode: () => void;
-
-  // Actions - Perspective settings
-  setPerspectiveSettings: (settings: Partial<PerspectiveSettings>) => void;
-  setCameraPosition: (position: [number, number, number]) => void;
-  setCameraRotation: (rotation: [number, number, number]) => void;
-  setFieldOfView: (fov: number) => void;
-  setFieldScale: (scale: number) => void;
-  setFieldOpacity: (opacity: number) => void;
-  setFieldOffset: (offset: [number, number, number]) => void;
-  setLockOrbitControls: (locked: boolean) => void;
-  toggleLockOrbitControls: () => void;
-  resetPerspectiveSettings: () => void;
 
   // Actions - Export settings
   setExportSettings: (settings: Partial<ExportSettings>) => void;
@@ -191,17 +155,6 @@ interface VideoState {
   // Actions - Full reset
   resetStore: () => void;
 }
-
-// Default perspective settings for video calibration
-const DEFAULT_PERSPECTIVE_SETTINGS: PerspectiveSettings = {
-  cameraPosition: [0, 100, 150],
-  cameraRotation: [0, 0, 0],
-  fieldOfView: 60,
-  fieldScale: 1,
-  fieldOpacity: 0.5,
-  fieldOffset: [0, 0, 0],
-  lockOrbitControls: false,
-};
 
 // Default export settings
 const DEFAULT_EXPORT_SETTINGS: ExportSettings = {
@@ -235,10 +188,8 @@ export const useVideoStore = create<VideoState>((set, get) => ({
 
   // Initial state - Video mode
   isVideoMode: false,
-  displayMode: 'pip',
 
   // Initial state - Settings
-  perspectiveSettings: { ...DEFAULT_PERSPECTIVE_SETTINGS },
   exportSettings: { ...DEFAULT_EXPORT_SETTINGS },
 
   // Initial state - Persistence
@@ -281,7 +232,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       isLoading: false,
       error: null,
       isVideoMode: false,
-      displayMode: 'pip',
     });
   },
 
@@ -359,79 +309,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     set({ isVideoMode });
   },
 
-  setDisplayMode: (mode) => {
-    set({ displayMode: mode });
-  },
-
-  toggleDisplayMode: () => {
-    set((state) => ({
-      displayMode: state.displayMode === 'pip' ? 'calibration' : 'pip',
-    }));
-  },
-
-
-  // Actions - Perspective settings
-  setPerspectiveSettings: (settings) => {
-    set((state) => ({
-      perspectiveSettings: { ...state.perspectiveSettings, ...settings },
-    }));
-  },
-
-  setCameraPosition: (position) => {
-    set((state) => ({
-      perspectiveSettings: { ...state.perspectiveSettings, cameraPosition: position },
-    }));
-  },
-
-  setCameraRotation: (rotation) => {
-    set((state) => ({
-      perspectiveSettings: { ...state.perspectiveSettings, cameraRotation: rotation },
-    }));
-  },
-
-  setFieldOfView: (fov) => {
-    set((state) => ({
-      perspectiveSettings: { ...state.perspectiveSettings, fieldOfView: fov },
-    }));
-  },
-
-  setFieldScale: (scale) => {
-    set((state) => ({
-      perspectiveSettings: { ...state.perspectiveSettings, fieldScale: scale },
-    }));
-  },
-
-  setFieldOpacity: (opacity) => {
-    set((state) => ({
-      perspectiveSettings: { ...state.perspectiveSettings, fieldOpacity: opacity },
-    }));
-  },
-
-  setFieldOffset: (offset) => {
-    set((state) => ({
-      perspectiveSettings: { ...state.perspectiveSettings, fieldOffset: offset },
-    }));
-  },
-
-  setLockOrbitControls: (locked) => {
-    set((state) => ({
-      perspectiveSettings: { ...state.perspectiveSettings, lockOrbitControls: locked },
-    }));
-  },
-
-  toggleLockOrbitControls: () => {
-    set((state) => ({
-      perspectiveSettings: {
-        ...state.perspectiveSettings,
-        lockOrbitControls: !state.perspectiveSettings.lockOrbitControls,
-      },
-    }));
-  },
-
-  resetPerspectiveSettings: () => {
-    set({ perspectiveSettings: { ...DEFAULT_PERSPECTIVE_SETTINGS } });
-  },
-
   // Actions - Export settings
   setExportSettings: (settings) => {
     set((state) => ({
@@ -456,7 +333,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   },
 
   saveVideoMetadata: async () => {
-    const { videoMetadata, duration, perspectiveSettings, exportSettings } = get();
+    const { videoMetadata, duration, exportSettings } = get();
     if (!videoMetadata) {
       throw new Error('No video metadata to save');
     }
@@ -473,7 +350,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
         aspectRatio: videoMetadata.aspectRatio,
         createdAt: now,
         updatedAt: now,
-        perspectiveSettings: { ...perspectiveSettings },
         exportSettings: { ...exportSettings },
       };
       const id = await videoDb.videos.add(record) as number;
@@ -487,13 +363,12 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   },
 
   updateVideoMetadata: async (id) => {
-    const { perspectiveSettings, exportSettings, duration } = get();
+    const { exportSettings, duration } = get();
 
     set({ isPersisting: true });
     try {
       await videoDb.videos.update(id, {
         duration,
-        perspectiveSettings: { ...perspectiveSettings },
         exportSettings: { ...exportSettings },
         updatedAt: new Date(),
       });
@@ -581,7 +456,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       const video = await videoDb.videos.get(id);
       if (video) {
         set({
-          perspectiveSettings: { ...video.perspectiveSettings },
           exportSettings: { ...video.exportSettings },
           currentSavedVideoId: id,
           isPersisting: false,
@@ -642,8 +516,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       isLoading: false,
       error: null,
       isVideoMode: false,
-      displayMode: 'pip',
-      perspectiveSettings: { ...DEFAULT_PERSPECTIVE_SETTINGS },
       exportSettings: { ...DEFAULT_EXPORT_SETTINGS },
       currentSavedVideoId: null,
     });
