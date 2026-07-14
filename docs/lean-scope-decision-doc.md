@@ -59,18 +59,35 @@ All surgical — no standalone concert file exists.
 | `components/VideoImport/VideoPiP.tsx` | **KEEP file:** strip the sync toggle only (~lines 37, 440, 488) |
 | `components/UI/HelpScreen.tsx`, `components/UI/OnboardingTour.tsx` | update copy references (line 39 / lines 22–23) |
 
-### 1.5 Animation: the scripted Event / timeline engine
+### 1.5 Animation: the scripted Event / timeline engine → done (phase B)
 The CUT animation engine — distinct from the KEPT draw-and-play path system (§3.1). ~1,900 lines.
+
+> **Correction applied during execution.** The doc assumed a standalone
+> draw-and-play *player* engine already existed and that `useAnimationPlayback`
+> was part of it (kept, decouple in place). Investigation showed the opposite:
+> **players only ever animated through the event engine** — `useAnimationPlayback`
+> IS that engine (every branch gated on `isEventMode` + an active event), and
+> `Player.tsx` never moved players along a path. Deleting §1.5 literally would
+> have left players static during Play. Per the user's decision, a minimal
+> replacement was built first, then the engine cut.
 
 | File | ~LoC | Action |
 |---|---|---|
-| `store/eventStore.ts` | 360 | delete |
-| `components/UI/EventEditor.tsx` | 718 | delete |
-| `components/UI/EventTimeline.tsx` | 596 | delete (rendered `MainLayout.tsx` line 594) |
-| `utils/trajectoryGeneration.ts` | 153 | delete (fully orphaned — `generateBallTrajectory`, never imported) |
-| `models/EventModel.ts` | 269 | delete (`PlayerPathConfig`, `BallPathConfig`, event types) |
+| `store/eventStore.ts` | 360 | ✅ deleted |
+| `components/UI/EventEditor.tsx` | 718 | ✅ deleted |
+| `components/UI/EventTimeline.tsx` | 596 | ✅ deleted (was rendered in `MainLayout`) |
+| `utils/trajectoryGeneration.ts` | 153 | ✅ deleted in phase A (orphaned) |
+| `models/EventModel.ts` | 269 | ✅ deleted (`KickType` relocated to `BallModel.ts`) |
+| `hooks/useAnimationPlayback.ts` | 427 | ✅ deleted (it WAS the event engine, not a kept path engine) |
 
-**Primary execution risk — decouple, don't just delete.** These KEEP files import `eventStore`/`EventModel` and branch on an "event mode": `hooks/useAnimationPlayback.ts`, `store/animationStore.ts` (`isEventMode`, imports `useEventStore`), `components/Scene/Path.tsx`, `Ball.tsx`, `Player.tsx`, `store/uiStore.ts`, `Toolbar.tsx`. The event-mode branch must be severed from the kept path engine before/while these files delete.
+**Replacement built:** `hooks/usePathPlayback.ts` — a minimal single-path player+ball
+playback loop on a shared 0..1 progress clock (scaled to the longest path), using
+the kept `getPositionAt*` helpers. Wired via `PlayerManager`'s `AnimationDriver`,
+which also keeps `animationStore.hasAnimation` in sync with drawn paths (it was
+never set before, so Play was inert). `animationStore`, `Ball`, `Player`, `Path`,
+`uiStore`, `Toolbar`, `MainLayout` decoupled from the event system. Typecheck +
+build pass; **still needs in-app runtime verification** (draw a path → Play →
+players animate).
 
 ### 1.6 Dead code (cleanest deletes — no external importers)
 | File | ~LoC | Action |
@@ -131,8 +148,8 @@ The surviving animation system. Amplify = **surface Play / Stop / scrub transpor
 | `models/PathModel.ts` | 178 | `MovementPath`, `Keyframe`, factories |
 | `utils/pathAnimation.ts` | 304 | `getPositionAtTime`, `samplePathPositions`, `pathHasMovement` |
 | `components/Scene/Path.tsx` | 357 | path line + waypoints |
-| `hooks/useAnimationPlayback.ts` | 427 | rAF loop — **decouple from eventStore (§1.5)** |
-| `store/animationStore.ts` | 357 | transport: `play`/`pause`/`stop`/`togglePlayback`, `speed`, `progress`/`setProgress` (scrub) — **decouple `isEventMode`** |
+| `hooks/usePathPlayback.ts` | ~140 | ✅ NEW — the playback loop (replaced the event-only `useAnimationPlayback`) |
+| `store/animationStore.ts` | ~300 | transport: `play`/`pause`/`stop`/`togglePlayback`, `speed`, `progress`/`setProgress` (✅ event coupling removed) |
 
 ### 3.2 POV / follow-cam
 Amplify = make POV a **first-class Camera mode** with a "this is what the ruckman sees" framing — a demonstration payoff, not a buried toggle. Broadcast is the default within the Camera mode.
