@@ -17,27 +17,26 @@ All paths below are relative to `src/`. Line counts are approximate.
 
 ## 1. CUT — what dies
 
-### 1.1 Video: calibration / field-over-video overlay
-Aligning the 3D field onto imported video. Full delete of the dedicated files; surgical edits where a cut file is mounted by a kept container.
+### 1.1 Video: calibration / field-over-video overlay — ✅ done
+Aligning the 3D field onto imported video. **User decision during execution: PIP-only video review, but preserve video-moment marking/linking** (it turned out `VideoWorkspace` also held `handleLinkToScenario`, a kept feature feeding §5, not just calibration).
 
 | File | ~LoC | Action |
 |---|---|---|
-| `components/VideoImport/PerspectiveCalibration.tsx` | 685 | delete |
-| `components/VideoImport/CalibrationGrid.tsx` | 541 | delete (`CalibrationGridControls`, `useCalibrationGrid`, `CalibrationGrid3D`) |
-| `components/VideoImport/VideoBackgroundPlane.tsx` | 340 | delete |
-| `components/VideoImport/VideoCanvas.tsx` | 481 | delete if used only by the calibration workspace; else strip the `showField` field-overlay wiring |
-| `store/videoStore.ts` | (shared) | **surgical:** remove `PerspectiveSettings` + all perspective/calibration actions |
+| `components/VideoImport/PerspectiveCalibration.tsx` | 685 | ✅ deleted |
+| `components/VideoImport/CalibrationGrid.tsx` | 541 | ✅ deleted |
+| `components/VideoImport/VideoBackgroundPlane.tsx` | 340 | ✅ deleted |
+| `components/VideoImport/VideoCanvas.tsx` | 481 | ✅ deleted (the 3D overlay) |
+| `store/videoStore.ts` | (shared) | ✅ removed `PerspectiveSettings` + all perspective actions + `displayMode` (+ its persistence) |
+| `components/VideoImport/VideoWorkspace.tsx` | (reworked) | ✅ **kept, slimmed** — reworked from the 3D-overlay calibration workspace into a plain `<video>` review surface that retains the timeline + moment-marking/linking. Video tab shows it; PiP overlays the board tab. |
 
-### 1.2 Video: trimming
+### 1.2 Video: trimming — ✅ done
 | File | ~LoC | Action |
 |---|---|---|
-| `components/VideoImport/VideoTrimmer.tsx` | 208 | delete |
-| `components/VideoImport/VideoUploader.tsx` | 745 | **surgical (KEEP file):** remove the trim step — imports/renders `VideoTrimmer` at lines 4, 429, 453 |
-| `utils/ffmpegConverter.ts` (`trimAndConvertVideo`) | — | delete with 1.3 |
+| `components/VideoImport/VideoTrimmer.tsx` | 208 | ✅ deleted |
+| `components/VideoImport/VideoUploader.tsx` | 745 | ✅ removed the trim step (video loads → uploader closes → PiP) |
+| `utils/ffmpegConverter.ts` (`trimAndConvertVideo`) | — | **KEPT** — used by §5 per-Play share clip |
 
-_No dedicated trim store/util; trim logic rides in `ffmpegConverter.ts` + `utils/videoUtils.ts`._
-
-### 1.3 Video: MP4 export & board screen-recording
+### 1.3 Video: MP4 export & board screen-recording — ✅ done
 | File | ~LoC | Action |
 |---|---|---|
 | `hooks/useVideoRecorder.ts` | 123 | delete (board `captureStream` recorder) |
@@ -48,7 +47,7 @@ _No dedicated trim store/util; trim logic rides in `ffmpegConverter.ts` + `utils
 
 **Couplings to untangle:** `Toolbar.tsx` imports `useVideoRecorder` (lines 10, 45 — `toggleRecording`); `VideoWorkspace.tsx` mounts `VideoExporter` (lines 6, 615); `services/sharingService.ts` imports `trimAndConvertVideo`. Once export is gone, the FFmpeg WASM dependency, COOP/COEP headers (`vite.config.ts`), and the ~1.77 MB bundle pressure all ease.
 
-### 1.4 Video: concert-mode (video ↔ animation sync)
+### 1.4 Video: concert-mode (video ↔ animation sync) — ✅ done
 All surgical — no standalone concert file exists.
 
 | File | Action |
