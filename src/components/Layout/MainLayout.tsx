@@ -8,10 +8,7 @@ import { BallComponent } from '../Scene/Ball';
 import { PathManager } from '../Scene/Path';
 import { Scoreboard } from '../Scene/Scoreboard';
 import { Toolbar } from '../UI/Toolbar';
-import { AnnotationToolbar } from '../UI/AnnotationToolbar';
-import { CameraDock } from '../UI/CameraDock';
-import { LabelToggle } from '../UI/LabelToggle';
-import { FormationPresetBar } from '../UI/FormationPresetBar';
+import { BoardHud } from '../Board/hud/BoardHud';
 import { HelpScreen } from '../UI/HelpScreen';
 import { OnboardingTour } from '../UI/OnboardingTour';
 import { VideoWorkspace } from '../VideoImport/VideoWorkspace';
@@ -123,8 +120,6 @@ export function MainLayout() {
   const navigate = useNavigate();
   const editorTab = useUIStore((s) => s.editorTab);
   const setEditorTab = useUIStore((s) => s.setEditorTab);
-  const boardSubMode = useUIStore((s) => s.boardSubMode);
-  const toggleBoardSubMode = useUIStore((s) => s.toggleBoardSubMode);
   const { setActivePlay, activePlayId, updatePlay } = usePlayStore();
   const players = usePlayerStore((s) => s.players);
   const annotations = useAnnotationStore((s) => s.annotations);
@@ -318,23 +313,6 @@ export function MainLayout() {
             </button>
           </div>
         </div>
-
-        {/* Board controls (right side) */}
-        {editorTab === 'board' && (
-          <div className="ml-auto flex items-center gap-2 pointer-events-auto">
-            <FormationPresetBar />
-            <button
-              onClick={toggleBoardSubMode}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-                ${boardSubMode === 'draw'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-black/60 text-white/70 hover:bg-black/80'}`}
-            >
-              {boardSubMode === 'setup' ? 'Setup' : '● Draw'}
-            </button>
-            <LabelToggle />
-          </div>
-        )}
       </div>
 
       {/* Linked video chip bar — shown on Board tab when a video moment is linked */}
@@ -537,8 +515,7 @@ export function MainLayout() {
 
       {/* All DOM-layer UI stays outside */}
       <Toolbar />
-      <AnnotationToolbar />
-      {editorTab === 'board' && <CameraDock />}
+      {editorTab === 'board' && <BoardHud />}
       <OnboardingTour />
       {helpOpen && <HelpScreen onClose={() => setHelpOpen(false)} />}
 
