@@ -125,8 +125,6 @@ export function MainLayout() {
   const setEditorTab = useUIStore((s) => s.setEditorTab);
   const boardSubMode = useUIStore((s) => s.boardSubMode);
   const toggleBoardSubMode = useUIStore((s) => s.toggleBoardSubMode);
-  const isPlaybookOpen = useUIStore((s) => s.isPlaybookOpen);
-  const togglePlaybook = useUIStore((s) => s.togglePlaybook);
   const { setActivePlay, activePlayId, updatePlay } = usePlayStore();
   const players = usePlayerStore((s) => s.players);
   const annotations = useAnnotationStore((s) => s.annotations);
@@ -335,16 +333,6 @@ export function MainLayout() {
               {boardSubMode === 'setup' ? 'Setup' : '● Draw'}
             </button>
             <LabelToggle />
-            <button
-              data-playbook-toggle
-              onClick={togglePlaybook}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors touch-manipulation
-                ${isPlaybookOpen
-                  ? 'bg-amber-500 text-black'
-                  : 'bg-black/60 text-white/70 hover:bg-black/80'}`}
-            >
-              {isPlaybookOpen ? '✕ Playbooks' : '📚 Playbooks'}
-            </button>
           </div>
         )}
       </div>
