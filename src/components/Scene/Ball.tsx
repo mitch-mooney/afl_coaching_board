@@ -8,6 +8,7 @@ import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore } from '../../store/historyStore';
 import { snapToField } from '../../utils/fieldGeometry';
 import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
+import { heldBallTarget } from '../../utils/ballFollow';
 
 // Minimum distance (in meters) between recorded path points to avoid excessive waypoints
 const MIN_PATH_POINT_DISTANCE = 1.5;
@@ -61,18 +62,25 @@ export function BallComponent({ ball }: BallProps) {
   const assignedPlayer = ball.assignedPlayerId ? getPlayer(ball.assignedPlayerId) : undefined;
 
    useFrame((state) => {
-     // Follow assigned player (ball appears "held") — overrides path playback.
+     // Held-ball follow: an assigned ball rides its player — UNLESS it has a
+     // drawn path, which the path engine (usePathPlayback) owns. Writes through
+     // the store so the ball has a SINGLE position writer and can't fight its
+     // own declarative `position={ball.position}` binding (the bug that froze
+     // the ball then snapped it to the player's end position).
      if (assignedPlayer && !isDragging) {
-       if (groupRef.current) {
-         groupRef.current.position.set(
-           assignedPlayer.position[0],
-           assignedPlayer.position[1] + AFL_BALL.length + 0.5, // Position above player
-           assignedPlayer.position[2]
-         );
+       const ballPath = usePathStore.getState().getPathByEntity(ball.id, 'ball');
+       const target = heldBallTarget(assignedPlayer.position, ballPath);
+       if (target) {
+         const cur = ball.position;
+         const moved =
+           Math.abs(cur[0] - target[0]) > 1e-3 ||
+           Math.abs(cur[1] - target[1]) > 1e-3 ||
+           Math.abs(cur[2] - target[2]) > 1e-3;
+         if (moved) updateBallPosition(target);
        }
      }
-     // Otherwise the ball renders at ball.position (the group's position prop),
-     // which usePathPlayback updates each frame during animation playback.
+     // When the ball has a path (or no assignment) it renders at ball.position
+     // — the group's position prop — which usePathPlayback updates each frame.
 
      // Handle dragging with global pointer events
      if (isDragging) {
