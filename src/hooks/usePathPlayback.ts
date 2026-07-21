@@ -11,8 +11,9 @@ import { collectEntityPaths, positionEntitiesAtProgress } from '../utils/boardSc
  * paths reach their end earlier and hold.
  *
  * Positions are only driven while playing — when paused or stopped the tokens
- * stay put, so the coach can keep dragging players freely during setup. (A
- * board scrubber, once added, would call positionEntitiesAtProgress directly.)
+ * stay put, so the coach can keep dragging players freely during setup. (The
+ * board scrubber calls `scrubTo` in `utils/boardScrub.ts`, which positions
+ * entities directly while paused.)
  *
  * This replaces the former scripted-event engine (useAnimationPlayback): there
  * are no multi-phase events, just the paths the coach draws on the board.

@@ -25,6 +25,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
 import { useCanvasResizeWithWindow } from '../../hooks/useCanvasResize';
+import { useBoardUndo } from '../../hooks/useBoardUndo';
 import { getSharedPlaybook } from '../../services/sharingService';
 import {
   useKeyboardShortcuts,
@@ -167,7 +168,8 @@ export function MainLayout() {
   useToolSelectionShortcuts(registry);
   useAnimationControlShortcuts(registry);
   useHelpOverlayShortcuts(helpOpen, setHelpOpen, registry);
-  useEditOperationShortcuts({}, registry);
+  const { handleUndo: handleKeyboardUndo } = useBoardUndo();
+  useEditOperationShortcuts({ onUndo: handleKeyboardUndo }, registry);
 
   const savePayloadRef = useRef({ activePlayId, players, paths, annotations, camera, updatePlay });
 

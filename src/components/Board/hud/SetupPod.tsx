@@ -8,6 +8,7 @@ import { fanPill, podButton } from './podStyles';
 import { AnnotatePalette } from './AnnotatePalette';
 import { TeamSelectModal } from './TeamSelectModal';
 import { RosterImportModal } from './RosterImportModal';
+import { useBoardUndo } from '../../../hooks/useBoardUndo';
 
 const FORMATIONS = [
   { id: 'centre-bounce', label: 'Centre Bounce' },
@@ -30,6 +31,7 @@ export function SetupPod({ open, onToggle }: { open: boolean; onToggle: () => vo
   const paths = usePathStore((s) => s.paths);
   const ball = useBallStore((s) => s.ball);
   const assignBallToPlayer = useBallStore((s) => s.assignBallToPlayer);
+  const { handleUndo, canUndo } = useBoardUndo();
 
   const [showTeams, setShowTeams] = useState(false);
   const [showRoster, setShowRoster] = useState(false);
@@ -56,6 +58,7 @@ export function SetupPod({ open, onToggle }: { open: boolean; onToggle: () => vo
             <button style={fanPill} onClick={() => setShowTeams(true)}>🔵🔴 Teams / jerseys</button>
             <button style={fanPill} onClick={cycleLabelMode}>Labels: {LABELS[labelMode]}</button>
             <button style={fanPill} onClick={resetPlayers}>Reset players</button>
+            <button style={fanPill} onClick={handleUndo} disabled={!canUndo()}>↩ Undo</button>
             <button style={{ ...fanPill, background: boardSubMode === 'draw' ? '#f59e0b' : undefined, color: boardSubMode === 'draw' ? '#000' : '#fff' }} onClick={toggleBoardSubMode}>
               ✏ Draw path{boardSubMode === 'draw' ? ' (on)' : ''}
             </button>
