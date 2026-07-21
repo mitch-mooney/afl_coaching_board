@@ -1,5 +1,5 @@
 // src/components/UI/PlaybookLibrary.tsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlaybookStore } from '../../store/playbookStore';
 import { usePlayStore } from '../../store/playStore';
@@ -14,6 +14,7 @@ export function PlaybookLibrary() {
   const navigate = useNavigate();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
+  const editingIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     // Root context: a subsequent board quick-save falls back to My Plays.
@@ -51,15 +52,24 @@ export function PlaybookLibrary() {
   };
 
   const startRename = (book: Playbook) => {
+    editingIdRef.current = book.id!;
     setEditingId(book.id!);
     setEditName(book.name);
   };
 
   const commitRename = async () => {
-    const id = editingId;
-    const name = editName.trim();
+    const id = editingIdRef.current;
+    if (id == null) return; // trailing blur after a commit/cancel — no-op
+    editingIdRef.current = null;
     setEditingId(null);
-    if (id != null && name) await renamePlaybook(id, name);
+    const name = editName.trim();
+    const current = playbooks.find((p) => p.id === id);
+    if (name && name !== current?.name) await renamePlaybook(id, name);
+  };
+
+  const cancelRename = () => {
+    editingIdRef.current = null;
+    setEditingId(null);
   };
 
   const handleDelete = async (book: Playbook) => {
@@ -115,7 +125,7 @@ export function PlaybookLibrary() {
               onStartRename={() => startRename(book)}
               onEditName={setEditName}
               onCommitRename={commitRename}
-              onCancelRename={() => setEditingId(null)}
+              onCancelRename={cancelRename}
               onDelete={() => handleDelete(book)}
             />
           ))}

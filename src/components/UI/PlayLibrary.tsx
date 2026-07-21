@@ -64,7 +64,7 @@ export function PlayLibrary() {
   });
 
   // Book was deleted or the id is invalid — books have loaded and none match.
-  if (playbooks.length > 0 && !currentBook) return <Navigate to="/" replace />;
+  if (Number.isNaN(playbookId) || (playbooks.length > 0 && !currentBook)) return <Navigate to="/" replace />;
 
   return (
     <div className="min-h-screen" style={{ background: '#0f0f1a', color: '#ffffff', fontFamily: 'sans-serif' }}>
