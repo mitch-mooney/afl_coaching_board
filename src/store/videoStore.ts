@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import Dexie, { Table } from 'dexie';
-import { playbookDB } from './playbookStore';
+import { playbookDB } from './appDatabase';
 import type { Scenario } from '../models/ScenarioModel';
 
 /**

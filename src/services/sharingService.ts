@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { playbookDB } from '../store/playbookStore';
+import { playbookDB } from '../store/appDatabase';
 import { trimAndConvertVideo } from '../utils/ffmpegConverter';
 
 const MAX_SHARE_VIDEO_SIZE = 10 * 1024 * 1024; // 10MB

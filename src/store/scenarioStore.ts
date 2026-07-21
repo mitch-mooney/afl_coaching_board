@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { playbookDB } from './playbookStore';
+import { playbookDB } from './appDatabase';
 import type { Scenario } from '../models/ScenarioModel';
 
 // Export the table reference so tests can clear it directly
