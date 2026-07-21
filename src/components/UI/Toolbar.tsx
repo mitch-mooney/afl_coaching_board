@@ -35,7 +35,7 @@ export function Toolbar() {
   const assignBallToPlayer = useBallStore((state) => state.assignBallToPlayer);
   const { isPlaying, togglePlayback, stop } = useAnimationStore();
   const { createPath, getPathByEntity, removePath, clearPaths, paths } = usePathStore();
-  const { saveCurrentScenario } = usePlaybook();
+  const { saveCurrentPlay } = usePlaybook();
   const { undo, canUndo, pauseRecording, resumeRecording } = useHistoryStore();
   const isVideoMode = useVideoStore((state) => state.isVideoMode);
   const isLoaded = useVideoStore((state) => state.isLoaded);
@@ -159,7 +159,7 @@ export function Toolbar() {
     }
 
     try {
-      await saveCurrentScenario(playbookName);
+      await saveCurrentPlay(playbookName);
       setShowSaveDialog(false);
       setPlaybookName('');
       setPlaybookDescription('');

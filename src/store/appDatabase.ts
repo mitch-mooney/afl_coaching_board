@@ -1,13 +1,13 @@
 import Dexie, { Table } from 'dexie';
 import type { Player } from '../models/PlayerModel';
-import type { Scenario } from '../models/ScenarioModel';
+import type { Play } from '../models/PlayModel';
 import type { TeamRoster } from '../models/RosterModel';
 
 /**
  * Legacy flat-"Playbook" row shape. The `playbooks` table is dead storage now —
  * kept only so the v3 upgrade (playbooks → scenarios) still has a source table
  * to migrate from. The app no longer reads or writes it directly; the live
- * model is Scenario (see scenarioStore) plus TeamRoster. (§1.8 retirement.)
+ * model is Play (see playStore) plus TeamRoster. (§1.8 retirement.)
  */
 interface LegacyPlaybook {
   id?: number;
@@ -24,7 +24,8 @@ interface LegacyPlaybook {
 class AppDatabase extends Dexie {
   /** Legacy — dead storage, retained only as the v3 migration source. */
   playbooks!: Table<LegacyPlaybook>;
-  scenarios!: Table<Scenario, number>;
+  // Table name kept `scenarios` (legacy storage detail); rows are Plays.
+  scenarios!: Table<Play, number>;
   teamRosters!: Table<TeamRoster, number>;
 
   constructor() {

@@ -41,15 +41,15 @@ export async function getSharedPlaybook(token: string): Promise<SharedPlaybook |
 }
 
 /**
- * Share a scenario that has a linked video moment.
+ * Share a play that has a linked video moment.
  * Extracts the clip via FFmpeg WASM, uploads to Supabase Storage,
  * and creates a shared_playbooks record with video_url.
  *
  * Returns null if Supabase is not configured or on error.
  * Caller provides the raw video blob (the full source video).
  */
-export async function shareScenarioWithClip(
-  scenarioId: number,
+export async function sharePlayWithClip(
+  playId: number,
   videoBlob: Blob,
   onProgress?: (phase: string, progress: number) => void
 ): Promise<{ token: string; url: string; clipTooLarge?: boolean } | null> {
@@ -57,15 +57,15 @@ export async function shareScenarioWithClip(
     return null;
   }
 
-  // Look up the scenario
-  const scenario = await playbookDB.scenarios.get(scenarioId);
-  if (!scenario) return null;
+  // Look up the play
+  const play = await playbookDB.scenarios.get(playId);
+  if (!play) return null;
 
-  const lvm = scenario.linkedVideoMoment;
+  const lvm = play.linkedVideoMoment;
   if (!lvm) return null;
 
   // Use first phase for playbook_data
-  const phase = scenario.phases?.[0];
+  const phase = play.phases?.[0];
   if (!phase) return null;
 
   onProgress?.('Extracting clip…', 0);
@@ -83,7 +83,7 @@ export async function shareScenarioWithClip(
     );
     clipBlob = result.blob;
   } catch (err) {
-    console.error('[shareScenarioWithClip] FFmpeg extraction failed', err);
+    console.error('[sharePlayWithClip] FFmpeg extraction failed', err);
     return null;
   }
 
@@ -109,7 +109,7 @@ export async function shareScenarioWithClip(
       .getPublicUrl(videoPath);
     videoUrl = urlData.publicUrl;
   } else {
-    console.error('[shareScenarioWithClip] upload failed', uploadError);
+    console.error('[sharePlayWithClip] upload failed', uploadError);
     // Continue without video — still share the board diagram
   }
 
@@ -118,7 +118,7 @@ export async function shareScenarioWithClip(
   const { error } = await supabase.from('shared_playbooks').insert({
     token,
     playbook_data: {
-      name: scenario.name,
+      name: play.name,
       playerPositions: phase.playerPositions,
       paths: phase.paths,
       annotations: phase.annotations ?? [],
@@ -133,7 +133,7 @@ export async function shareScenarioWithClip(
   });
 
   if (error) {
-    console.error('[shareScenarioWithClip] insert failed', error);
+    console.error('[sharePlayWithClip] insert failed', error);
     return null;
   }
 

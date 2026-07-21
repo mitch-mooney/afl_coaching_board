@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 const STEPS = [
   {
     title: 'Welcome to your Coaching Board',
-    body: 'Create scenarios to position players and recreate match situations. Switch between board and video in the same session.',
+    body: 'Create plays to position players and recreate match situations. Switch between board and video in the same session.',
   },
   {
     title: 'Setup vs Draw mode',
@@ -20,7 +20,7 @@ const STEPS = [
   },
   {
     title: 'Video & board side by side',
-    body: 'Import a match video in the Video tab, then recreate the scenario on the Board — review the clip in picture-in-picture while you set up the play.',
+    body: 'Import a match video in the Video tab, then recreate the play on the Board — review the clip in picture-in-picture while you set it up.',
   },
 ];
 

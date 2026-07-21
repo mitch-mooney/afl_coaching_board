@@ -3,7 +3,7 @@ import { VideoTimeline } from './VideoTimeline';
 import { PlaybackControls } from './PlaybackControls';
 import { useVideoStore } from '../../store/videoStore';
 import { useVideoPlayback } from '../../hooks/useVideoPlayback';
-import { useScenarioStore } from '../../store/scenarioStore';
+import { usePlayStore } from '../../store/playStore';
 import { useUIStore } from '../../store/uiStore';
 
 function formatVideoTime(seconds: number): string {
@@ -50,20 +50,20 @@ export function VideoWorkspace({ onExitVideoMode }: VideoWorkspaceProps) {
   const volume = useVideoStore((state) => state.volume);
   const isMuted = useVideoStore((state) => state.isMuted);
 
-  // Scenario store
-  const activeScenarioId = useScenarioStore((state) => state.activeScenarioId);
-  const updateScenario = useScenarioStore((state) => state.updateScenario);
+  // Play store
+  const activePlayId = usePlayStore((state) => state.activePlayId);
+  const updatePlay = usePlayStore((state) => state.updatePlay);
 
   // UI store
   const setEditorTab = useUIStore((state) => state.setEditorTab);
 
-  // Link to Scenario pending state
+  // Link to Play pending state
   const [pendingStart, setPendingStart] = useState<number | null>(null);
   const [pendingEnd, setPendingEnd] = useState<number | null>(null);
   const [pendingQuarter, setPendingQuarter] = useState<'Q1' | 'Q2' | 'Q3' | 'Q4' | 'ET' | null>(null);
   const [pendingLabel, setPendingLabel] = useState('');
 
-  // Check if link to scenario button is ready
+  // Check if link to play button is ready
   const linkReady = pendingStart != null && pendingEnd != null && Math.abs((pendingEnd ?? 0) - (pendingStart ?? 0)) >= 1;
 
   // Playback controls from hook
@@ -125,10 +125,10 @@ export function VideoWorkspace({ onExitVideoMode }: VideoWorkspaceProps) {
   }, [setEditorTab]);
 
   /**
-   * Link the current pending start/end timestamps to the active scenario
+   * Link the current pending start/end timestamps to the active play
    */
-  const handleLinkToScenario = useCallback(async () => {
-    if (activeScenarioId == null || pendingStart == null || pendingEnd == null) return;
+  const handleLinkToPlay = useCallback(async () => {
+    if (activePlayId == null || pendingStart == null || pendingEnd == null) return;
     const start = Math.min(pendingStart, pendingEnd);
     const end = Math.max(pendingStart, pendingEnd);
     if (end - start < 1) return;
@@ -140,7 +140,7 @@ export function VideoWorkspace({ onExitVideoMode }: VideoWorkspaceProps) {
     }
 
     try {
-      await updateScenario(activeScenarioId, {
+      await updatePlay(activePlayId, {
         linkedVideoMoment: {
           videoId,
           startTime: start,
@@ -159,7 +159,7 @@ export function VideoWorkspace({ onExitVideoMode }: VideoWorkspaceProps) {
     setPendingQuarter(null);
     setPendingLabel('');
     setEditorTab('board');
-  }, [activeScenarioId, pendingStart, pendingEnd, pendingQuarter, pendingLabel, updateScenario, setEditorTab]);
+  }, [activePlayId, pendingStart, pendingEnd, pendingQuarter, pendingLabel, updatePlay, setEditorTab]);
 
   /**
    * Handle J key - slow down playback
@@ -315,8 +315,8 @@ export function VideoWorkspace({ onExitVideoMode }: VideoWorkspaceProps) {
             <PlaybackControls />
           </div>
 
-          {/* Link to Scenario action bar */}
-          {activeScenarioId != null && (
+          {/* Link to Play action bar */}
+          {activePlayId != null && (
             <div style={{
               background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
               border: '1px solid rgba(0,212,170,0.2)', borderRadius: 8,
@@ -385,7 +385,7 @@ export function VideoWorkspace({ onExitVideoMode }: VideoWorkspaceProps) {
 
               {/* Confirm button */}
               <button
-                onClick={handleLinkToScenario}
+                onClick={handleLinkToPlay}
                 disabled={!linkReady}
                 style={{
                   background: linkReady ? 'linear-gradient(135deg, #00d4aa, #0099ff)' : 'rgba(255,255,255,0.1)',
@@ -395,7 +395,7 @@ export function VideoWorkspace({ onExitVideoMode }: VideoWorkspaceProps) {
                   whiteSpace: 'nowrap', opacity: linkReady ? 1 : 0.5,
                 }}
               >
-                🎬 Link to Scenario
+                🎬 Link to Play
               </button>
             </div>
           )}

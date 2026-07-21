@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import Dexie, { Table } from 'dexie';
 import { playbookDB } from './appDatabase';
-import type { Scenario } from '../models/ScenarioModel';
+import type { Play } from '../models/PlayModel';
 
 /**
  * Export settings for video output
@@ -399,16 +399,16 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   deleteVideoMetadataWithCascade: async (id) => {
     set({ isPersisting: true });
     try {
-      // Find all scenarios that reference this video
-      const allScenarios: Scenario[] = await playbookDB.scenarios.toArray();
-      const linked = allScenarios.filter(
+      // Find all plays that reference this video
+      const allPlays: Play[] = await playbookDB.scenarios.toArray();
+      const linked = allPlays.filter(
         (s) => s.linkedVideoMoment?.videoId === id
       );
 
       if (linked.length > 0) {
         const names = linked.map((s) => `"${s.name}"`).join(', ');
         const ok = window.confirm(
-          `This video is linked to ${linked.length} scenario${linked.length > 1 ? 's' : ''}: ${names}.\n\nDeleting it will remove the video link. Continue?`
+          `This video is linked to ${linked.length} play${linked.length > 1 ? 's' : ''}: ${names}.\n\nDeleting it will remove the video link. Continue?`
         );
         if (!ok) {
           set({ isPersisting: false });
@@ -416,7 +416,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
         }
       }
 
-      // Step 1: Unlink scenarios first (safe to do before delete)
+      // Step 1: Unlink plays first (safe to do before delete)
       try {
         for (const s of linked) {
           if (s.id == null) continue;

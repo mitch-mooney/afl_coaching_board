@@ -9,7 +9,7 @@ export interface LinkedVideoMoment {
   label?: string;           // max 40 chars, optional event label
 }
 
-export interface ScenarioPhase {
+export interface PlayPhase {
   id: string;
   label: string;
   playerPositions: Player[];
@@ -22,7 +22,7 @@ export interface ScenarioPhase {
   } | null;
 }
 
-export interface Scenario {
+export interface Play {
   id?: number;                  // Dexie auto-increment integer
   name: string;
   createdAt: string;            // ISO timestamp
@@ -30,7 +30,7 @@ export interface Scenario {
   // FK to TeamRoster.id (Dexie integer PK — simpler than UUID strings)
   team1RosterId: number | null;
   team2RosterId: number | null;
-  phases: ScenarioPhase[];
+  phases: PlayPhase[];
   videoBlobId?: number;
   tags?: string[];
   linkedVideoMoment?: LinkedVideoMoment;

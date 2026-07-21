@@ -1,10 +1,10 @@
-// src/components/UI/ScenarioLibrary.tsx
+// src/components/UI/PlayLibrary.tsx
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useScenarioStore } from '../../store/scenarioStore';
+import { usePlayStore } from '../../store/playStore';
 import { useRosterStore } from '../../store/rosterStore';
 import { videoDb } from '../../store/videoStore';
-import type { Scenario } from '../../models/ScenarioModel';
+import type { Play } from '../../models/PlayModel';
 
 async function videoMetadataExists(videoId: number): Promise<boolean> {
   try {
@@ -17,40 +17,40 @@ async function videoMetadataExists(videoId: number): Promise<boolean> {
 
 type FilterMode = 'all' | 'linked' | 'board-only';
 
-export function ScenarioLibrary() {
-  const { scenarios, loadScenarios, createScenario, deleteScenario } = useScenarioStore();
+export function PlayLibrary() {
+  const { plays, loadPlays, createPlay, deletePlay } = usePlayStore();
   const { rosters, loadRosters } = useRosterStore();
   const navigate = useNavigate();
   const [filter, setFilter] = useState<FilterMode>('all');
   const [videoAvailability, setVideoAvailability] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
-    loadScenarios();
+    loadPlays();
     loadRosters();
-  }, [loadScenarios, loadRosters]);
+  }, [loadPlays, loadRosters]);
 
   useEffect(() => {
-    const linked = scenarios.filter(s => s.linkedVideoMoment);
+    const linked = plays.filter(p => p.linkedVideoMoment);
     Promise.all(
-      linked.map(async (s) => {
-        const exists = await videoMetadataExists(s.linkedVideoMoment!.videoId);
-        return [s.id!, exists] as [number, boolean];
+      linked.map(async (p) => {
+        const exists = await videoMetadataExists(p.linkedVideoMoment!.videoId);
+        return [p.id!, exists] as [number, boolean];
       })
     ).then(results => {
       const map: Record<number, boolean> = {};
       results.forEach(([id, exists]) => { map[id] = exists; });
       setVideoAvailability(map);
     });
-  }, [scenarios]);
+  }, [plays]);
 
   const handleNew = async () => {
-    const id = await createScenario('New Scenario');
-    navigate(`/scenario/${id}`);
+    const id = await createPlay('New Play');
+    navigate(`/play/${id}`);
   };
 
-  const filtered = scenarios.filter(s => {
-    if (filter === 'linked') return !!s.linkedVideoMoment;
-    if (filter === 'board-only') return !s.linkedVideoMoment;
+  const filtered = plays.filter(p => {
+    if (filter === 'linked') return !!p.linkedVideoMoment;
+    if (filter === 'board-only') return !p.linkedVideoMoment;
     return true;
   });
 
@@ -71,7 +71,7 @@ export function ScenarioLibrary() {
             onClick={handleNew}
             style={{ background: 'linear-gradient(135deg, #00d4aa, #0099ff)', borderRadius: 6, padding: '7px 16px', color: '#000', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer' }}
           >
-            + New Scenario
+            + New Play
           </button>
         </div>
       </div>
@@ -79,8 +79,8 @@ export function ScenarioLibrary() {
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '20px 20px 120px' }}>
         {/* Filter chips */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <span style={{ color: '#ffffff', fontWeight: 600, fontSize: 14, marginRight: 4 }}>Scenarios</span>
-          <span style={{ background: '#1e1e3f', border: '1px solid #2a2a55', borderRadius: 10, padding: '2px 8px', color: '#6666aa', fontSize: 11 }}>{scenarios.length}</span>
+          <span style={{ color: '#ffffff', fontWeight: 600, fontSize: 14, marginRight: 4 }}>Plays</span>
+          <span style={{ background: '#1e1e3f', border: '1px solid #2a2a55', borderRadius: 10, padding: '2px 8px', color: '#6666aa', fontSize: 11 }}>{plays.length}</span>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
             {(['all', 'linked', 'board-only'] as FilterMode[]).map(f => (
               <button
@@ -100,25 +100,25 @@ export function ScenarioLibrary() {
           </div>
         </div>
 
-        {/* Scenario grid */}
+        {/* Play grid */}
         {filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 0', color: '#4444aa' }}>
-            <p style={{ marginBottom: 8 }}>{scenarios.length === 0 ? 'No scenarios yet' : 'No scenarios match this filter'}</p>
-            {scenarios.length === 0 && (
+            <p style={{ marginBottom: 8 }}>{plays.length === 0 ? 'No plays yet' : 'No plays match this filter'}</p>
+            {plays.length === 0 && (
               <button onClick={handleNew} style={{ background: 'linear-gradient(135deg, #00d4aa, #0099ff)', border: 'none', borderRadius: 8, padding: '10px 24px', color: '#000', fontWeight: 700, cursor: 'pointer' }}>
-                Create your first scenario
+                Create your first play
               </button>
             )}
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
-            {filtered.map(s => (
-              <ScenarioCard
-                key={s.id}
-                scenario={s}
-                videoAvailable={s.id != null ? videoAvailability[s.id] : undefined}
-                onOpen={() => navigate(`/scenario/${s.id}`)}
-                onDelete={() => { if (confirm(`Delete "${s.name}"?`)) deleteScenario(s.id!); }}
+            {filtered.map(p => (
+              <PlayCard
+                key={p.id}
+                play={p}
+                videoAvailable={p.id != null ? videoAvailability[p.id] : undefined}
+                onOpen={() => navigate(`/play/${p.id}`)}
+                onDelete={() => { if (confirm(`Delete "${p.name}"?`)) deletePlay(p.id!); }}
               />
             ))}
           </div>
@@ -143,15 +143,15 @@ export function ScenarioLibrary() {
   );
 }
 
-function ScenarioCard({
-  scenario, videoAvailable, onOpen, onDelete,
+function PlayCard({
+  play, videoAvailable, onOpen, onDelete,
 }: {
-  scenario: Scenario;
+  play: Play;
   videoAvailable: boolean | undefined;
   onOpen: () => void;
   onDelete: () => void;
 }) {
-  const lvm = scenario.linkedVideoMoment;
+  const lvm = play.linkedVideoMoment;
 
   return (
     <div
@@ -225,9 +225,9 @@ function ScenarioCard({
       {/* Card body */}
       <div style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ color: '#fff', fontSize: 12, fontWeight: 600, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{scenario.name}</div>
+          <div style={{ color: '#fff', fontSize: 12, fontWeight: 600, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{play.name}</div>
           <div style={{ color: '#5555aa', fontSize: 10 }}>
-            {new Date(scenario.updatedAt).toLocaleDateString()}
+            {new Date(play.updatedAt).toLocaleDateString()}
           </div>
         </div>
         <button

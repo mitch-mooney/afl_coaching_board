@@ -23,7 +23,7 @@ import { useVideoStore } from '../../store/videoStore';
 import { useCameraStore } from '../../store/cameraStore';
 import { useAnnotationStore } from '../../store/annotationStore';
 import { useUIStore } from '../../store/uiStore';
-import { useScenarioStore, scenarioTable } from '../../store/scenarioStore';
+import { usePlayStore, playTable } from '../../store/playStore';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
@@ -127,7 +127,7 @@ export function MainLayout() {
   const toggleBoardSubMode = useUIStore((s) => s.toggleBoardSubMode);
   const isPlaybookOpen = useUIStore((s) => s.isPlaybookOpen);
   const togglePlaybook = useUIStore((s) => s.togglePlaybook);
-  const { setActiveScenario, activeScenarioId, updateScenario } = useScenarioStore();
+  const { setActivePlay, activePlayId, updatePlay } = usePlayStore();
   const players = usePlayerStore((s) => s.players);
   const annotations = useAnnotationStore((s) => s.annotations);
   const camera = useCameraStore((s) => ({
@@ -155,10 +155,10 @@ export function MainLayout() {
   const savedVideos = useVideoStore((s) => s.savedVideos);
   const loadSavedVideos = useVideoStore((s) => s.loadSavedVideos);
 
-  // Scenario data for linked video moment
-  const scenarios = useScenarioStore((s) => s.scenarios);
-  const activeScenario = scenarios.find((s) => s.id === activeScenarioId) ?? null;
-  const linkedVideoMoment = activeScenario?.linkedVideoMoment;
+  // Play data for linked video moment
+  const plays = usePlayStore((s) => s.plays);
+  const activePlay = plays.find((s) => s.id === activePlayId) ?? null;
+  const linkedVideoMoment = activePlay?.linkedVideoMoment;
   const linkedVideoAvailable = linkedVideoMoment
     ? savedVideos.some((v) => v.id === linkedVideoMoment.videoId)
     : null;
@@ -176,17 +176,17 @@ export function MainLayout() {
   useHelpOverlayShortcuts(helpOpen, setHelpOpen, registry);
   useEditOperationShortcuts({}, registry);
 
-  const savePayloadRef = useRef({ activeScenarioId, players, paths, annotations, camera, updateScenario });
+  const savePayloadRef = useRef({ activePlayId, players, paths, annotations, camera, updatePlay });
 
   useEffect(() => {
-    savePayloadRef.current = { activeScenarioId, players, paths, annotations, camera, updateScenario };
+    savePayloadRef.current = { activePlayId, players, paths, annotations, camera, updatePlay };
   });
 
   useEffect(() => {
     return () => {
-      const { activeScenarioId, players, paths, annotations, camera, updateScenario } = savePayloadRef.current;
-      if (!activeScenarioId) return;
-      updateScenario(activeScenarioId, {
+      const { activePlayId, players, paths, annotations, camera, updatePlay } = savePayloadRef.current;
+      if (!activePlayId) return;
+      updatePlay(activePlayId, {
         phases: [{
           id: 'phase-1',
           label: 'Phase 1',
@@ -202,10 +202,10 @@ export function MainLayout() {
   useEffect(() => {
     if (!id) return;
     const numId = Number(id);
-    setActiveScenario(numId);
-    scenarioTable.get(numId).then((scenario) => {
-      if (!scenario) return;
-      const phase = scenario.phases[0];
+    setActivePlay(numId);
+    playTable.get(numId).then((play) => {
+      if (!play) return;
+      const phase = play.phases[0];
       if (!phase) return;
       if (phase.playerPositions?.length) {
         usePlayerStore.setState({ players: phase.playerPositions });
@@ -224,8 +224,8 @@ export function MainLayout() {
         });
       }
     });
-    return () => setActiveScenario(null);
-  }, [id, setActiveScenario]);
+    return () => setActivePlay(null);
+  }, [id, setActivePlay]);
 
   useEffect(() => {
     initializePlayers();
@@ -266,11 +266,11 @@ export function MainLayout() {
     }
   }, []);
 
-  // Handle unlinking video from scenario
+  // Handle unlinking video from play
   const handleUnlink = useCallback(() => {
     if (!window.confirm('Remove video link?')) return;
-    updateScenario(activeScenarioId!, { linkedVideoMoment: undefined });
-  }, [activeScenarioId, updateScenario]);
+    updatePlay(activePlayId!, { linkedVideoMoment: undefined });
+  }, [activePlayId, updatePlay]);
 
   // Setup and cleanup touch event listeners on canvas
   useEffect(() => {
@@ -296,7 +296,7 @@ export function MainLayout() {
            style={{ background: 'linear-gradient(180deg, rgba(13,13,26,0.85) 0%, transparent 100%)' }}>
         <div className="flex items-center gap-2 pointer-events-auto">
           <button onClick={() => navigate('/')} className="text-white/60 hover:text-white text-sm">
-            ← Scenarios
+            ← Plays
           </button>
           {/* Tab switcher */}
           <div className="flex rounded-lg overflow-hidden border border-white/20 ml-2">
@@ -506,8 +506,8 @@ export function MainLayout() {
             <AnnotationInteractionHandler />
           </Canvas>
 
-          {/* Link Video Moment button — visible when scenario is active and no video is linked */}
-          {activeScenarioId !== null && !linkedVideoMoment && (
+          {/* Link Video Moment button — visible when play is active and no video is linked */}
+          {activePlayId !== null && !linkedVideoMoment && (
             <button
               onClick={() => setEditorTab('video')}
               style={{

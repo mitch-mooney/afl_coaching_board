@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import type { Scenario, ScenarioPhase } from '../ScenarioModel';
+import type { Play, PlayPhase } from '../PlayModel';
 
-describe('ScenarioModel', () => {
-  it('Scenario has required fields', () => {
-    const s: Scenario = {
+describe('PlayModel', () => {
+  it('Play has required fields', () => {
+    const p: Play = {
       name: 'Centre bounce press',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -11,12 +11,12 @@ describe('ScenarioModel', () => {
       team2RosterId: null,
       phases: [],
     };
-    expect(s.name).toBe('Centre bounce press');
-    expect(s.phases).toHaveLength(0);
+    expect(p.name).toBe('Centre bounce press');
+    expect(p.phases).toHaveLength(0);
   });
 
-  it('ScenarioPhase has required fields', () => {
-    const p: ScenarioPhase = {
+  it('PlayPhase has required fields', () => {
+    const p: PlayPhase = {
       id: 'phase-1',
       label: 'Phase 1',
       playerPositions: [],

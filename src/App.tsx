@@ -4,7 +4,7 @@ import { MainLayout } from './components/Layout/MainLayout';
 import { LoginPage } from './components/Auth/LoginPage';
 import { SharedPlaybookViewer } from './components/Shared/SharedPlaybookViewer';
 import { useAuthStore } from './store/authStore';
-import { ScenarioLibrary } from './components/UI/ScenarioLibrary';
+import { PlayLibrary } from './components/UI/PlayLibrary';
 import { RosterLibrary } from './components/UI/RosterLibrary';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -41,8 +41,8 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
         )}
         <Route path="/shared/:token" element={<SharedPlaybookViewer />} />
-        <Route path="/" element={<ProtectedRoute><ScenarioLibrary /></ProtectedRoute>} />
-        <Route path="/scenario/:id" element={<ProtectedRoute><MainLayout /></ProtectedRoute>} />
+        <Route path="/" element={<ProtectedRoute><PlayLibrary /></ProtectedRoute>} />
+        <Route path="/play/:id" element={<ProtectedRoute><MainLayout /></ProtectedRoute>} />
         <Route path="/rosters" element={<ProtectedRoute><RosterLibrary /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
