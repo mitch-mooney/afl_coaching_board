@@ -159,7 +159,7 @@ export function Toolbar() {
     }
 
     try {
-      await saveCurrentScenario(playbookName, playbookDescription);
+      await saveCurrentScenario(playbookName);
       setShowSaveDialog(false);
       setPlaybookName('');
       setPlaybookDescription('');
