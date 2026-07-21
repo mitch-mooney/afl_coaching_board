@@ -19,6 +19,46 @@ describe('playbookStore', () => {
     expect(all[0].name).toBe('My Plays');
   });
 
+  it('ensureDefaultPlaybook is concurrency-safe — parallel calls create one default', async () => {
+    const { ensureDefaultPlaybook } = usePlaybookStore.getState();
+    // Fire concurrently (the race the old check-then-add lost, e.g. StrictMode
+    // double-invoking a mount effect).
+    const [id1, id2, id3] = await Promise.all([
+      ensureDefaultPlaybook(),
+      ensureDefaultPlaybook(),
+      ensureDefaultPlaybook(),
+    ]);
+    expect(id1).toBe(id2);
+    expect(id2).toBe(id3);
+    const all = await playbookTable.toArray();
+    expect(all.filter((p) => p.isDefault)).toHaveLength(1);
+  });
+
+  it('ensureDefaultPlaybook self-heals pre-existing duplicate defaults, keeping the earliest', async () => {
+    // Seed two default "My Plays" books directly (as a lost race would leave them),
+    // each owning a Play.
+    const survivorId = (await playbookTable.add({
+      name: 'My Plays', isDefault: true, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    })) as number;
+    const dupeId = (await playbookTable.add({
+      name: 'My Plays', isDefault: true, createdAt: '2026-01-01T00:00:00.001Z', updatedAt: '2026-01-01T00:00:00.001Z',
+    })) as number;
+    const now = new Date().toISOString();
+    const dupePlayId = await playbookDB.scenarios.add({
+      name: 'P', createdAt: now, updatedAt: now,
+      team1RosterId: null, team2RosterId: null, phases: [], playbookId: dupeId,
+    });
+
+    const resolvedId = await usePlaybookStore.getState().ensureDefaultPlaybook();
+
+    expect(resolvedId).toBe(survivorId); // earliest kept
+    const all = await playbookTable.toArray();
+    expect(all.filter((p) => p.isDefault)).toHaveLength(1);
+    expect(await playbookTable.get(dupeId)).toBeUndefined(); // dupe removed
+    // The dupe's Play was reassigned to the survivor, not orphaned.
+    expect((await playbookDB.scenarios.get(dupePlayId))!.playbookId).toBe(survivorId);
+  });
+
   it('createPlaybook persists and loadPlaybooks returns it', async () => {
     const { createPlaybook, loadPlaybooks } = usePlaybookStore.getState();
     const id = await createPlaybook('Set Plays');
