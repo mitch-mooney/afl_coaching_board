@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { MainLayout } from './components/Layout/MainLayout';
 import { LoginPage } from './components/Auth/LoginPage';
 import { SharedPlaybookViewer } from './components/Shared/SharedPlaybookViewer';
@@ -26,6 +26,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Back-compat: old links used /scenario/:id before the Scenario → Play rename.
+function ScenarioRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/play/${id ?? ''}`} replace />;
+}
+
 function App() {
   const initialize = useAuthStore((state) => state.initialize);
   const isConfigured = useAuthStore((state) => state.isConfigured);
@@ -43,6 +49,7 @@ function App() {
         <Route path="/shared/:token" element={<SharedPlaybookViewer />} />
         <Route path="/" element={<ProtectedRoute><PlayLibrary /></ProtectedRoute>} />
         <Route path="/play/:id" element={<ProtectedRoute><MainLayout /></ProtectedRoute>} />
+        <Route path="/scenario/:id" element={<ScenarioRedirect />} />
         <Route path="/rosters" element={<ProtectedRoute><RosterLibrary /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
