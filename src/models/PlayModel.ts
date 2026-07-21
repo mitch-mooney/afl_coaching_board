@@ -34,4 +34,5 @@ export interface Play {
   videoBlobId?: number;
   tags?: string[];
   linkedVideoMoment?: LinkedVideoMoment;
+  playbookId?: number;          // FK → Playbook.id; always set post-migration
 }
