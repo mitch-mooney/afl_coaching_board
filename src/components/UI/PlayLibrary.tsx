@@ -1,6 +1,6 @@
 // src/components/UI/PlayLibrary.tsx
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import { usePlayStore } from '../../store/playStore';
 import { usePlaybookStore } from '../../store/playbookStore';
 import { useRosterStore } from '../../store/rosterStore';
@@ -20,15 +20,22 @@ type FilterMode = 'all' | 'linked' | 'board-only';
 
 export function PlayLibrary() {
   const { plays, loadPlays, createPlay, deletePlay } = usePlayStore();
+  const { playbooks, loadPlaybooks, setActivePlaybook } = usePlaybookStore();
   const { rosters, loadRosters } = useRosterStore();
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const playbookId = Number(id);
+  const currentBook = playbooks.find((b) => b.id === playbookId);
   const [filter, setFilter] = useState<FilterMode>('all');
   const [videoAvailability, setVideoAvailability] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
+    // Board quick-save + New Play here target this book.
+    setActivePlaybook(playbookId);
+    loadPlaybooks();
     loadPlays();
     loadRosters();
-  }, [loadPlays, loadRosters]);
+  }, [playbookId, setActivePlaybook, loadPlaybooks, loadPlays, loadRosters]);
 
   useEffect(() => {
     const linked = plays.filter(p => p.linkedVideoMoment);
@@ -45,23 +52,32 @@ export function PlayLibrary() {
   }, [plays]);
 
   const handleNew = async () => {
-    const playbookId = await usePlaybookStore.getState().ensureDefaultPlaybook();
-    const id = await createPlay('New Play', playbookId);
-    navigate(`/play/${id}`);
+    const newId = await createPlay('New Play', playbookId);
+    navigate(`/play/${newId}`);
   };
 
-  const filtered = plays.filter(p => {
+  const bookPlays = plays.filter(p => p.playbookId === playbookId);
+  const filtered = bookPlays.filter(p => {
     if (filter === 'linked') return !!p.linkedVideoMoment;
     if (filter === 'board-only') return !p.linkedVideoMoment;
     return true;
   });
+
+  // Book was deleted or the id is invalid — books have loaded and none match.
+  if (playbooks.length > 0 && !currentBook) return <Navigate to="/" replace />;
 
   return (
     <div className="min-h-screen" style={{ background: '#0f0f1a', color: '#ffffff', fontFamily: 'sans-serif' }}>
       {/* Top nav */}
       <div style={{ background: '#13132a', borderBottom: '1px solid #1e1e3f', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ width: 28, height: 28, background: 'linear-gradient(135deg, #00d4aa, #0099ff)', borderRadius: 6, flexShrink: 0 }} />
-        <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: 0.5 }}>AFL Coaching Board</span>
+        <button
+          onClick={() => navigate('/')}
+          style={{ background: 'none', border: 'none', color: '#8888aa', fontSize: 12, cursor: 'pointer', padding: 0 }}
+        >
+          ← Playbooks
+        </button>
+        <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: 0.5 }}>{currentBook?.name ?? 'Plays'}</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
           <button
             onClick={() => navigate('/rosters')}
@@ -82,7 +98,7 @@ export function PlayLibrary() {
         {/* Filter chips */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <span style={{ color: '#ffffff', fontWeight: 600, fontSize: 14, marginRight: 4 }}>Plays</span>
-          <span style={{ background: '#1e1e3f', border: '1px solid #2a2a55', borderRadius: 10, padding: '2px 8px', color: '#6666aa', fontSize: 11 }}>{plays.length}</span>
+          <span style={{ background: '#1e1e3f', border: '1px solid #2a2a55', borderRadius: 10, padding: '2px 8px', color: '#6666aa', fontSize: 11 }}>{bookPlays.length}</span>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
             {(['all', 'linked', 'board-only'] as FilterMode[]).map(f => (
               <button
@@ -105,8 +121,8 @@ export function PlayLibrary() {
         {/* Play grid */}
         {filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 0', color: '#4444aa' }}>
-            <p style={{ marginBottom: 8 }}>{plays.length === 0 ? 'No plays yet' : 'No plays match this filter'}</p>
-            {plays.length === 0 && (
+            <p style={{ marginBottom: 8 }}>{bookPlays.length === 0 ? 'No plays in this playbook yet' : 'No plays match this filter'}</p>
+            {bookPlays.length === 0 && (
               <button onClick={handleNew} style={{ background: 'linear-gradient(135deg, #00d4aa, #0099ff)', border: 'none', borderRadius: 8, padding: '10px 24px', color: '#000', fontWeight: 700, cursor: 'pointer' }}>
                 Create your first play
               </button>
