@@ -10,7 +10,7 @@ interface PlayState {
   plays: Play[];
   activePlayId: number | null;
   loadPlays: () => Promise<void>;
-  createPlay: (name: string) => Promise<number>;
+  createPlay: (name: string, playbookId: number) => Promise<number>;
   updatePlay: (id: number, patch: Partial<Play>) => Promise<void>;
   deletePlay: (id: number) => Promise<void>;
   setActivePlay: (id: number | null) => void;
@@ -29,7 +29,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
     }
   },
 
-  createPlay: async (name) => {
+  createPlay: async (name, playbookId) => {
     try {
       const now = new Date().toISOString();
       const id = await playTable.add({
@@ -39,6 +39,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
         team1RosterId: null,
         team2RosterId: null,
         phases: [],
+        playbookId,
       });
       await get().loadPlays();
       return id as number;

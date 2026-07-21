@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayStore } from '../../store/playStore';
+import { usePlaybookStore } from '../../store/playbookStore';
 import { useRosterStore } from '../../store/rosterStore';
 import { videoDb } from '../../store/videoStore';
 import type { Play } from '../../models/PlayModel';
@@ -44,7 +45,8 @@ export function PlayLibrary() {
   }, [plays]);
 
   const handleNew = async () => {
-    const id = await createPlay('New Play');
+    const playbookId = await usePlaybookStore.getState().ensureDefaultPlaybook();
+    const id = await createPlay('New Play', playbookId);
     navigate(`/play/${id}`);
   };
 

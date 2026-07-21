@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { usePlayStore } from '../store/playStore';
+import { usePlaybookStore } from '../store/playbookStore';
 import { usePlayerStore } from '../store/playerStore';
 import { usePathStore } from '../store/pathStore';
 import { useCameraStore } from '../store/cameraStore';
@@ -22,7 +23,10 @@ export function usePlaybook() {
 
   const saveCurrentPlay = useCallback(
     async (name: string) => {
-      const id = await createPlay(name);
+      const playbookId =
+        usePlaybookStore.getState().activePlaybookId ??
+        (await usePlaybookStore.getState().ensureDefaultPlaybook());
+      const id = await createPlay(name, playbookId);
       await updatePlay(id, {
         phases: [
           {
