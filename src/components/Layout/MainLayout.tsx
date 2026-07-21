@@ -8,7 +8,6 @@ import { BallComponent } from '../Scene/Ball';
 import { PathManager } from '../Scene/Path';
 import { Scoreboard } from '../Scene/Scoreboard';
 import { Toolbar } from '../UI/Toolbar';
-import { PlaybookPanel } from '../UI/PlaybookPanel';
 import { AnnotationToolbar } from '../UI/AnnotationToolbar';
 import { CameraDock } from '../UI/CameraDock';
 import { LabelToggle } from '../UI/LabelToggle';
@@ -550,7 +549,6 @@ export function MainLayout() {
 
       {/* All DOM-layer UI stays outside */}
       <Toolbar />
-      <PlaybookPanel />
       <AnnotationToolbar />
       {editorTab === 'board' && <CameraDock />}
       <OnboardingTour />
