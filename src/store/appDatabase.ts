@@ -1,6 +1,7 @@
 import Dexie, { Table } from 'dexie';
 import type { Player } from '../models/PlayerModel';
 import type { Play } from '../models/PlayModel';
+import type { Playbook } from '../models/PlaybookModel';
 import type { TeamRoster } from '../models/RosterModel';
 
 /**
@@ -27,6 +28,8 @@ class AppDatabase extends Dexie {
   // Table name kept `scenarios` (legacy storage detail); rows are Plays.
   scenarios!: Table<Play, number>;
   teamRosters!: Table<TeamRoster, number>;
+  // Playbook collections (each Play carries a playbookId → one of these).
+  playbookCollections!: Table<Playbook, number>;
 
   constructor() {
     super('AFLPlaybookDB');
@@ -74,6 +77,23 @@ class AppDatabase extends Dexie {
       playbooks: '++id, name, createdAt, videoBlobId',
       scenarios: '++id, name, createdAt, updatedAt, team1RosterId, team2RosterId',
       teamRosters: '++id, teamName, createdAt',
+    });
+    // v5: Playbooks-as-collections. Add the playbookCollections table + a
+    // playbookId index on scenarios; create a default "My Plays" and back-fill
+    // every existing Play into it. Additive only — Play content is untouched.
+    this.version(5).stores({
+      playbooks: '++id, name, createdAt, videoBlobId',
+      playbookCollections: '++id, name, createdAt',
+      scenarios: '++id, name, createdAt, updatedAt, team1RosterId, team2RosterId, playbookId',
+      teamRosters: '++id, teamName, createdAt',
+    }).upgrade(async (tx) => {
+      const now = new Date().toISOString();
+      const myPlaysId = await tx.table('playbookCollections').add({
+        name: 'My Plays', createdAt: now, updatedAt: now, isDefault: true,
+      });
+      await tx.table('scenarios').toCollection().modify((p) => {
+        p.playbookId = myPlaysId;
+      });
     });
   }
 }
