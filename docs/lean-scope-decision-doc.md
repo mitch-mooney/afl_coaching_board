@@ -104,7 +104,9 @@ _Verify before touching formation **presets**: `types/Formation.ts`, `data/forma
 | `hooks/useKeyboardShortcuts.ts` (~953) | **surgical:** remove `performRedo` (line 613) + no-op `performUndo` stub (602); redo bindings `edit-redo-shift-z` (676–681), `edit-redo-y` (687–692); never-registered `Ctrl+S` `edit-save` stub (634, 650, 712) |
 | `types/shortcuts.ts` (~134) | trim `onSave`/`onUndo`/`onRedo` from handler types; keep the rest |
 
-### 1.8 Persistence: legacy Playbook layer
+### 1.8 Persistence: legacy Playbook layer — ✅ done (functional retirement)
+> Executed in 4 build-green commits. `PlaybookPanel` + `SharePlaybookDialog` deleted; `usePlaybook.saveCurrentScenario` repointed to `scenarioStore` (was writing the dead flat `playbooks` table) and its `loadScenario` dropped; `playbookSync.ts` + the `sharePlaybook` writer deleted (kept `getSharedPlaybook` + `shareScenarioWithClip`); `Playbook` interface + `usePlaybookStore` removed and the Dexie class moved to `store/appDatabase.ts` (was `playbookStore.ts`), keeping `playbookDB`, the `AFLPlaybookDB` name, and the v1–v4 chain byte-identical (dead `playbooks` table retained as the v3 migration source). The `Scenario`→`Play` rename + net-new Playbook-as-collection model (§5) remain as the feature-shaped follow-on.
+
 The current flat "Playbook" is dead-weight from a half-done v3 migration (`playbooks → scenarios` ran, but the whole Playbook stack was left active and diverging). See §5 for the replacement model.
 
 | File | ~LoC | Action |
