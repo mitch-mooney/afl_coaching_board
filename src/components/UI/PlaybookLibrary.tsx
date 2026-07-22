@@ -1,5 +1,5 @@
 // src/components/UI/PlaybookLibrary.tsx
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlaybookStore } from '../../store/playbookStore';
 import { usePlayStore } from '../../store/playStore';
@@ -9,7 +9,7 @@ import type { Playbook } from '../../models/PlaybookModel';
 export function PlaybookLibrary() {
   const { playbooks, loadPlaybooks, ensureDefaultPlaybook, createPlaybook, renamePlaybook, deletePlaybook, setActivePlaybook } =
     usePlaybookStore();
-  const { plays, loadPlays, createPlay } = usePlayStore();
+  const { loadPlays, createPlay, playsInBook } = usePlayStore();
   const { rosters, loadRosters } = useRosterStore();
   const navigate = useNavigate();
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -25,18 +25,14 @@ export function PlaybookLibrary() {
     loadRosters();
   }, [ensureDefaultPlaybook, loadPlaybooks, loadPlays, loadRosters, setActivePlaybook]);
 
-  // Play count + latest activity per book, grouped in memory.
-  const stats = useMemo(() => {
-    const map: Record<number, { count: number; latest: string }> = {};
-    for (const p of plays) {
-      if (p.playbookId == null) continue;
-      const s = map[p.playbookId] ?? { count: 0, latest: '' };
-      s.count += 1;
-      if (p.updatedAt > s.latest) s.latest = p.updatedAt;
-      map[p.playbookId] = s;
-    }
-    return map;
-  }, [plays]);
+  // Play count + latest activity for a book — containment comes from the store
+  // selector; this view only aggregates. (Whole-store subscription re-renders us
+  // when plays change, so a fresh read each render is correct.)
+  const statsFor = (bookId: number) => {
+    const bookPlays = playsInBook(bookId);
+    const latest = bookPlays.reduce((acc, p) => (p.updatedAt > acc ? p.updatedAt : acc), '');
+    return { count: bookPlays.length, latest };
+  };
 
   const handleNewPlaybook = async () => {
     const name = prompt('Name this playbook')?.trim();
@@ -113,12 +109,14 @@ export function PlaybookLibrary() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
-          {playbooks.map((book) => (
+          {playbooks.map((book) => {
+            const s = book.id != null ? statsFor(book.id) : { count: 0, latest: '' };
+            return (
             <PlaybookCard
               key={book.id}
               book={book}
-              count={book.id != null ? (stats[book.id]?.count ?? 0) : 0}
-              latest={book.id != null ? (stats[book.id]?.latest || book.updatedAt) : book.updatedAt}
+              count={s.count}
+              latest={s.latest || book.updatedAt}
               isEditing={editingId === book.id}
               editName={editName}
               onOpen={() => navigate(`/playbook/${book.id}`)}
@@ -128,7 +126,8 @@ export function PlaybookLibrary() {
               onCancelRename={cancelRename}
               onDelete={() => handleDelete(book)}
             />
-          ))}
+            );
+          })}
         </div>
       </div>
 

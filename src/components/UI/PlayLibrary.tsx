@@ -20,7 +20,7 @@ async function videoMetadataExists(videoId: number): Promise<boolean> {
 type FilterMode = 'all' | 'linked' | 'board-only';
 
 export function PlayLibrary() {
-  const { plays, loadPlays, createPlay, deletePlay } = usePlayStore();
+  const { plays, loadPlays, createPlay, deletePlay, playsInBook } = usePlayStore();
   const { playbooks, loadPlaybooks, setActivePlaybook } = usePlaybookStore();
   const { rosters, loadRosters } = useRosterStore();
   const navigate = useNavigate();
@@ -57,7 +57,7 @@ export function PlayLibrary() {
     navigate(`/play/${newId}`);
   };
 
-  const bookPlays = plays.filter(p => p.playbookId === playbookId);
+  const bookPlays = playsInBook(playbookId);
   const filtered = bookPlays.filter(p => {
     if (filter === 'linked') return !!p.linkedVideoMoment;
     if (filter === 'board-only') return !p.linkedVideoMoment;

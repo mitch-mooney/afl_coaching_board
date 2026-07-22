@@ -95,6 +95,25 @@ describe('playStore', () => {
     await loadPlays();
     expect(usePlayStore.getState().plays).toHaveLength(1);
   });
+
+  describe('playsInBook', () => {
+    it('returns only the Plays contained in the given Playbook', async () => {
+      const { createPlay } = usePlayStore.getState();
+      await createPlay('A', 1);
+      await createPlay('B', 1);
+      await createPlay('Other', 2);
+
+      const inBook1 = usePlayStore.getState().playsInBook(1);
+      expect(inBook1).toHaveLength(2);
+      expect(inBook1.every((p) => p.playbookId === 1)).toBe(true);
+      expect(usePlayStore.getState().playsInBook(2)).toHaveLength(1);
+    });
+
+    it('returns an empty list for a Playbook with no Plays', async () => {
+      await usePlayStore.getState().createPlay('A', 1);
+      expect(usePlayStore.getState().playsInBook(99)).toEqual([]);
+    });
+  });
 });
 
 describe('playStore gateway verbs', () => {

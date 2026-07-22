@@ -36,6 +36,8 @@ interface PlayState {
   reassignBook: (fromId: number, toId: number) => Promise<void>;
   /** Unlink the given video from every Play that references it (video-delete cascade). */
   clearVideoLink: (videoId: number) => Promise<void>;
+  /** The Plays contained in a Playbook. Containment lives here, not in each library view. */
+  playsInBook: (playbookId: number) => Play[];
   setActivePlay: (id: number | null) => void;
 }
 
@@ -144,6 +146,8 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       throw err;
     }
   },
+
+  playsInBook: (playbookId) => get().plays.filter((p) => p.playbookId === playbookId),
 
   setActivePlay: (id) => set({ activePlayId: id }),
 }));

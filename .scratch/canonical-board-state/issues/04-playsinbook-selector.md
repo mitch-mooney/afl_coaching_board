@@ -8,14 +8,14 @@ components consume it. Behaviour is identical to today; this is a cohesion impro
 
 **Blocked by:** 02 — Add playStore gateway verbs.
 
-**Status:** ready-for-agent
+**Status:** DONE
 
 _Optional — explicitly droppable from this slice. Cut it if the slice is running long; the
 client-side filtering is harmless as-is._
 
 Spec: `docs/superpowers/specs/2026-07-22-architecture-pass-canonical-board-state.md` (Wave 1a, lower priority).
 
-- [ ] `playStore.playsInBook(playbookId)` selector returns the Plays in a Playbook.
-- [ ] `PlayLibrary` uses it instead of filtering the global list.
-- [ ] `PlaybookLibrary` uses it instead of the in-component regroup.
-- [ ] Behaviour unchanged; build + affected suites green.
+- [x] `playStore.playsInBook(playbookId)` selector returns the Plays in a Playbook.
+- [x] `PlayLibrary` uses it instead of filtering the global list.
+- [x] `PlaybookLibrary` uses it instead of the in-component regroup.
+- [x] Behaviour unchanged; build + affected suites green.
