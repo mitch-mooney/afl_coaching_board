@@ -5,8 +5,8 @@ const SECTIONS = [
   {
     heading: 'Getting Started',
     items: [
-      { key: 'New Scenario', desc: 'Create a scenario from the home screen. Each scenario stores player positions and movement phases.' },
-      { key: 'Team Rosters', desc: 'Import squads from PlayHQ before opening a scenario so players show their names on the board.' },
+      { key: 'New Play', desc: 'Create a play from the home screen. Each play stores player positions and movement phases.' },
+      { key: 'Team Rosters', desc: 'Import squads from PlayHQ before opening a play so players show their names on the board.' },
     ],
   },
   {
@@ -36,8 +36,8 @@ const SECTIONS = [
   {
     heading: 'Video & The Board',
     items: [
-      { key: 'Video tab', desc: 'Import a match video to review. Use Concert Mode to sync animation playback with the video.' },
-      { key: 'Take to Board →', desc: 'Switch from video to board to recreate the scenario you just reviewed.' },
+      { key: 'Video tab', desc: 'Import a match video to review, in picture-in-picture or full-field mode.' },
+      { key: 'Take to Board →', desc: 'Switch from video to board to recreate the play you just reviewed.' },
     ],
   },
   {

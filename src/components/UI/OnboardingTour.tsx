@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 const STEPS = [
   {
     title: 'Welcome to your Coaching Board',
-    body: 'Create scenarios to position players and recreate match situations. Switch between board and video in the same session.',
+    body: 'Create plays to position players and recreate match situations. Switch between board and video in the same session.',
   },
   {
     title: 'Setup vs Draw mode',
@@ -19,8 +19,8 @@ const STEPS = [
     body: 'Go to Team Rosters to import from PlayHQ — paste the squad table or enter the page URL. Player names then show on the board.',
   },
   {
-    title: 'Video & board in concert',
-    body: 'Import a match video in the Video tab. Recreate the scenario on the Board. Use Concert Mode in the video toolbar to sync animation playback with the video.',
+    title: 'Video & board side by side',
+    body: 'Import a match video in the Video tab, then recreate the play on the Board — review the clip in picture-in-picture while you set it up.',
   },
 ];
 

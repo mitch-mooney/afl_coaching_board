@@ -91,33 +91,3 @@ export async function trimAndConvertVideo(
   copy.set(uint8);
   return { blob: new Blob([copy], { type: 'video/mp4' }), duration: trimDuration };
 }
-
-export async function convertWebMToMP4(
-  webmBlob: Blob,
-  onProgress?: (progress: ConversionProgress) => void
-): Promise<Blob> {
-  const ff = await getFFmpeg(onProgress);
-
-  onProgress?.({ phase: 'converting', progress: 0 });
-
-  // Write input file
-  await ff.writeFile('input.webm', await fetchFile(webmBlob));
-
-  // Convert WebM to MP4
-  await ff.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', 'output.mp4']);
-
-  // Read output file
-  const data = await ff.readFile('output.mp4');
-
-  // Clean up
-  await ff.deleteFile('input.webm');
-  await ff.deleteFile('output.mp4');
-
-  onProgress?.({ phase: 'done', progress: 1 });
-
-  // Convert to a regular ArrayBuffer for Blob compatibility
-  const uint8 = data instanceof Uint8Array ? data : new TextEncoder().encode(data as string);
-  const copy = new Uint8Array(uint8.length);
-  copy.set(uint8);
-  return new Blob([copy], { type: 'video/mp4' });
-}

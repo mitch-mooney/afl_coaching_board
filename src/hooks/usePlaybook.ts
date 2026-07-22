@@ -1,67 +1,50 @@
 import { useCallback } from 'react';
+import { usePlayStore } from '../store/playStore';
 import { usePlaybookStore } from '../store/playbookStore';
 import { usePlayerStore } from '../store/playerStore';
+import { usePathStore } from '../store/pathStore';
 import { useCameraStore } from '../store/cameraStore';
 import { useAnnotationStore } from '../store/annotationStore';
-import { uploadPlaybook } from '../services/playbookSync';
-import { isSupabaseConfigured } from '../lib/supabase';
 
+/**
+ * usePlaybook - quick-save the current board as a named Play.
+ *
+ * Persists through playStore (the kept `scenarios` table), capturing the live
+ * board — players, paths, annotations, camera — as the Play's first phase.
+ * (The legacy flat-Playbook table + Supabase upload were retired in §1.8.)
+ */
 export function usePlaybook() {
-  const { savePlaybook, loadPlaybook: loadPlaybookFromStore } = usePlaybookStore();
+  const createPlay = usePlayStore((s) => s.createPlay);
+  const updatePlay = usePlayStore((s) => s.updatePlay);
   const players = usePlayerStore((state) => state.players);
+  const paths = usePathStore((state) => state.paths);
   const { position, target, zoom } = useCameraStore();
   const annotations = useAnnotationStore((state) => state.annotations);
 
-  const saveCurrentScenario = useCallback(async (name: string, description?: string) => {
-    try {
-      const playbookData = {
-        name,
-        description,
-        playerPositions: players,
-        cameraPosition: position,
-        cameraTarget: target,
-        cameraZoom: zoom,
-        annotations: annotations,
-      };
-      const id = await savePlaybook(playbookData);
-      // Fire-and-forget upload to Supabase if configured
-      if (isSupabaseConfigured()) {
-        uploadPlaybook({ ...playbookData, id: id as number, createdAt: new Date() });
-      }
+  const saveCurrentPlay = useCallback(
+    async (name: string) => {
+      const playbookId =
+        usePlaybookStore.getState().activePlaybookId ??
+        (await usePlaybookStore.getState().ensureDefaultPlaybook());
+      const id = await createPlay(name, playbookId);
+      await updatePlay(id, {
+        phases: [
+          {
+            id: 'phase-1',
+            label: 'Phase 1',
+            playerPositions: players,
+            paths,
+            annotations: annotations as unknown[],
+            cameraState: { position, target, zoom },
+          },
+        ],
+      });
       return id;
-    } catch (error) {
-      console.error('Error saving scenario:', error);
-      throw error;
-    }
-  }, [savePlaybook, players, position, target, zoom, annotations]);
-  
-  const loadScenario = useCallback(async (playbookId: number) => {
-    try {
-      const playbook = await loadPlaybookFromStore(playbookId);
-      if (playbook) {
-        // Restore player positions
-        usePlayerStore.setState({ players: playbook.playerPositions });
-        
-        // Restore camera
-        useCameraStore.setState({
-          position: playbook.cameraPosition,
-          target: playbook.cameraTarget,
-          zoom: playbook.cameraZoom,
-        });
-        
-        // Restore annotations
-        if (playbook.annotations) {
-          useAnnotationStore.setState({ annotations: playbook.annotations });
-        }
-      }
-    } catch (error) {
-      console.error('Error loading scenario:', error);
-      throw error;
-    }
-  }, [loadPlaybookFromStore]);
-  
+    },
+    [createPlay, updatePlay, players, paths, position, target, zoom, annotations]
+  );
+
   return {
-    saveCurrentScenario,
-    loadScenario,
+    saveCurrentPlay,
   };
 }

@@ -1,18 +1,14 @@
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Mesh, Vector3, Plane, Euler } from 'three';
+import { Mesh, Vector3, Plane } from 'three';
 import { Ball } from '../../models/BallModel';
 import { useBallStore } from '../../store/ballStore';
 import { usePlayerStore } from '../../store/playerStore';
-import { useAnimationStore } from '../../store/animationStore';
 import { usePathStore } from '../../store/pathStore';
-import { useEventStore } from '../../store/eventStore';
-import { useUIStore } from '../../store/uiStore';
 import { useHistoryStore } from '../../store/historyStore';
 import { snapToField } from '../../utils/fieldGeometry';
-import { getPositionAtProgressWithEasing, easeInOut } from '../../utils/pathAnimation';
 import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
-import { generateSmoothTrajectory, calculateTrajectoryTangent, getBounceSquashFactor, interpolateTrajectory } from '../../utils/trajectoryGeneration';
+import { heldBallTarget } from '../../utils/ballFollow';
 
 // Minimum distance (in meters) between recorded path points to avoid excessive waypoints
 const MIN_PATH_POINT_DISTANCE = 1.5;
@@ -48,18 +44,11 @@ export function BallComponent({ ball }: BallProps) {
   const dragStartTime = useRef<number>(0);
   // Store pre-drag position for undo
   const preDragPosition = useRef<[number, number, number] | null>(null);
-  const { isBallSelected, selectBall, updateBallPosition, mode, currentKickType } = useBallStore();
+  const { isBallSelected, selectBall, updateBallPosition } = useBallStore();
   const { getPlayer, setDragging } = usePlayerStore();
-  const { isPlaying, progress, speed, setProgress } = useAnimationStore();
-  const { getPathByEntity, addPath, removePath } = usePathStore();
+  const { addPath, removePath } = usePathStore();
   const { pushSnapshot } = useHistoryStore();
   const { camera, raycaster, gl } = useThree();
-  const isEventMode = useEventStore((state) => state.isEventMode);
-  const getActiveEvent = useEventStore((state) => state.getActiveEvent);
-  
-  // Check if there's a ball path from the active event
-  const activeEvent = getActiveEvent();
-  const ballPathFromEvent = activeEvent?.ballPaths && activeEvent.ballPaths.length > 0;
 
   // Calculate ring sizes based on ball size
   const ringSize = useMemo(() => ({
@@ -72,81 +61,26 @@ export function BallComponent({ ball }: BallProps) {
   // Get the assigned player (if ball is assigned to a player)
   const assignedPlayer = ball.assignedPlayerId ? getPlayer(ball.assignedPlayerId) : undefined;
 
-  // Get the ball's movement path (if any)
-  const ballPath = getPathByEntity(ball.id, 'ball');
-
-   useFrame((state, delta) => {
-     // In event playback mode, ball positions are driven by useAnimationPlayback hook
-     // via useBallStore. Only handle position updates in these cases:
-     
-      // Priority 1: Follow assigned player (overrides path animation)
-      if (assignedPlayer && !isDragging) {
-        if (groupRef.current) {
-          groupRef.current.position.set(
-            assignedPlayer.position[0],
-            assignedPlayer.position[1] + AFL_BALL.length + 0.5,
-            assignedPlayer.position[2]
-          );
-        }
-        if (meshRef.current) {
-          meshRef.current.rotation.set(0, 0, 0);
-          meshRef.current.scale.set(AFL_BALL.length, AFL_BALL.width, AFL_BALL.width);
-        }
-      }
-      // Priority 2: Handle in-flight ball with trajectory
-      else if (mode === 'in-flight' && !isDragging && currentKickType) {
-        const startPoint = assignedPlayer ? new Vector3(assignedPlayer.position[0], assignedPlayer.position[1] + AFL_BALL.length + 0.5, assignedPlayer.position[2]) : new Vector3(ball.position[0], ball.position[1], ball.position[2]);
-        const endPoint = new Vector3(ball.position[0], ball.position[1], ball.position[2]);
-        const config = { startPoint, endPoint, kickType: currentKickType, duration: 2000 };
-        const keyframes = generateSmoothTrajectory(config);
-        const progressAtFrame = progress;
-        const currentPos = interpolateTrajectory(keyframes, progressAtFrame);
-        if (groupRef.current) {
-          groupRef.current.position.set(currentPos.x, currentPos.y, currentPos.z);
-        }
-        const tangent = calculateTrajectoryTangent(keyframes, progressAtFrame);
-        const targetRotation = new Euler();
-        targetRotation.setFromVector3(tangent);
-        targetRotation.z = 0;
-        if (meshRef.current) {
-          meshRef.current.rotation.x += (targetRotation.x - meshRef.current.rotation.x) * 0.2;
-          meshRef.current.rotation.y += (targetRotation.y - meshRef.current.rotation.y) * 0.2;
-          meshRef.current.rotation.z += (targetRotation.z - meshRef.current.rotation.z) * 0.2;
-          const { scaleY, scaleX } = getBounceSquashFactor(progressAtFrame);
-          const targetScale = new Vector3(scaleX * AFL_BALL.length, scaleY * AFL_BALL.width, scaleX * AFL_BALL.width);
-          meshRef.current.scale.lerp(targetScale, 0.3);
-        }
-      }
-      // Priority 3: Handle manual playback scrubbing (not event mode) - update ball position along path
-      else if (isPlaying && !ballPathFromEvent && ballPath && !isDragging) {
-       // Advance animation progress
-       const pathDuration = ballPath.duration;
-       const progressIncrement = (delta * speed) / pathDuration;
-       const newProgress = Math.min(1, progress + progressIncrement);
-       setProgress(newProgress);
-
-       // Get interpolated position from path at current progress
-       const animatedPosition = getPositionAtProgressWithEasing(ballPath, progress, easeInOut);
-
-       // Update group position directly for smooth 60fps rendering
-       if (groupRef.current) {
-         groupRef.current.position.set(
-           animatedPosition[0],
-           animatedPosition[1],
-           animatedPosition[2]
-         );
+   useFrame((state) => {
+     // Held-ball follow: an assigned ball rides its player — UNLESS it has a
+     // drawn path, which the path engine (usePathPlayback) owns. Writes through
+     // the store so the ball has a SINGLE position writer and can't fight its
+     // own declarative `position={ball.position}` binding (the bug that froze
+     // the ball then snapped it to the player's end position).
+     if (assignedPlayer && !isDragging) {
+       const ballPath = usePathStore.getState().getPathByEntity(ball.id, 'ball');
+       const target = heldBallTarget(assignedPlayer.position, ballPath);
+       if (target) {
+         const cur = ball.position;
+         const moved =
+           Math.abs(cur[0] - target[0]) > 1e-3 ||
+           Math.abs(cur[1] - target[1]) > 1e-3 ||
+           Math.abs(cur[2] - target[2]) > 1e-3;
+         if (moved) updateBallPosition(target);
        }
      }
-     // Priority 3: When ball is in-flight during event playback, sync to ball store position
-     else if (isEventMode && !isDragging && groupRef.current) {
-        // Ball position is managed by useAnimationPlayback via useBallStore
-        // Update local position to match store position
-        groupRef.current.position.set(
-          ball.position[0],
-          ball.position[1],
-          ball.position[2]
-        );
-      }
+     // When the ball has a path (or no assignment) it renders at ball.position
+     // — the group's position prop — which usePathPlayback updates each frame.
 
      // Handle dragging with global pointer events
      if (isDragging) {
@@ -282,18 +216,10 @@ export function BallComponent({ ball }: BallProps) {
     lastRecordedPos.current = startPos;
     dragStartTime.current = Date.now();
 
-    // Remove existing paths for the ball to start fresh, but protect:
-    // 1. Paths referenced by a saved event (Phase 1 ball arrow while recording Phase 2)
-    // 2. Paths captured in the open EventEditor but not yet saved to an event
+    // Clear the ball's existing path so a new drag records a fresh one.
     const allBallPaths = usePathStore.getState().getPathsByEntity(ball.id);
     for (const path of allBallPaths) {
-      const isUsedByEvent = useEventStore.getState().events.some(
-        (event) => event.playerPaths.some((pp) => pp.pathId === path.id)
-      );
-      const isCaptured = useUIStore.getState().capturedPathIds.has(path.id);
-      if (!isUsedByEvent && !isCaptured) {
-        removePath(path.id);
-      }
+      removePath(path.id);
     }
   };
 

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { playbookDB } from './playbookStore';
+import { playbookDB } from './appDatabase';
 import type { TeamRoster, RosterPlayer } from '../models/RosterModel';
 
 export const rosterTable = playbookDB.teamRosters;

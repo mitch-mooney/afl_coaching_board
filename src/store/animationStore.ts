@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { useEventStore } from './eventStore';
 
 /**
  * Animation playback speed presets
@@ -47,9 +46,7 @@ interface AnimationState {
   hasAnimation: boolean;
   /** Whether the animation should loop when reaching the end */
   loop: boolean;
-  /** Whether event mode is active (vs. normal path preview mode) */
-  isEventMode: boolean;
-  /** Current playback time in milliseconds (used in event mode for scrubbing) */
+  /** Current playback time in milliseconds (reserved for scrubbing UIs) */
   currentTime: number;
 
   // Playback Actions
@@ -92,13 +89,6 @@ interface AnimationState {
   /** Toggle loop on/off */
   toggleLoop: () => void;
 
-  // Event Mode Control
-  /** Enable event mode for multi-player animation */
-  enableEventMode: () => void;
-  /** Disable event mode and return to normal path preview */
-  disableEventMode: () => void;
-  /** Set event mode on or off */
-  setEventMode: (enabled: boolean) => void;
   /** Set the current playback time in milliseconds */
   setCurrentTime: (timeMs: number) => void;
 
@@ -115,22 +105,19 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
   duration: 0,
   hasAnimation: false,
   loop: false,
-  isEventMode: false,
   currentTime: 0,
 
   play: () => {
-    const { hasAnimation, isEventMode } = get();
-    // Check if there's an active event in eventStore
-    const hasActiveEvent = useEventStore.getState().activeEventId !== null;
-    // In event mode or with an active event, allow playing even without hasAnimation flag
-    // since the event itself determines what can be played
-    if (!hasAnimation && !isEventMode && !hasActiveEvent) {
+    const { hasAnimation, progress } = get();
+    if (!hasAnimation) {
       return;
     }
 
     set({
       isPlaying: true,
       playbackState: 'playing',
+      // Replaying from a completed animation restarts from the beginning.
+      progress: progress >= 1 ? 0 : progress,
     });
   },
 
@@ -156,12 +143,9 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
   },
 
   togglePlayback: () => {
-    const { isPlaying, hasAnimation, isEventMode } = get();
-    // Check if there's an active event in eventStore
-    const hasActiveEvent = useEventStore.getState().activeEventId !== null;
+    const { isPlaying, hasAnimation, progress } = get();
 
-    // If no animation is loaded and not in event mode and no active event, do nothing
-    if (!hasAnimation && !isEventMode && !hasActiveEvent) {
+    if (!hasAnimation) {
       return;
     }
 
@@ -172,11 +156,11 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
         playbackState: 'paused',
       });
     } else {
-      // Currently paused or stopped, play it
-      // If stopped, progress is already at 0, so just start playing
+      // Currently paused or stopped, play it. Replaying from the end restarts.
       set({
         isPlaying: true,
         playbackState: 'playing',
+        progress: progress >= 1 ? 0 : progress,
       });
     }
   },
@@ -273,33 +257,6 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
     set((state) => ({ loop: !state.loop }));
   },
 
-  enableEventMode: () => {
-    set({ isEventMode: true });
-  },
-
-  disableEventMode: () => {
-    set({
-      isEventMode: false,
-      // Stop playback when exiting event mode
-      isPlaying: false,
-      playbackState: 'stopped',
-      currentTime: 0,
-    });
-  },
-
-  setEventMode: (enabled) => {
-    if (enabled) {
-      set({ isEventMode: true });
-    } else {
-      set({
-        isEventMode: false,
-        isPlaying: false,
-        playbackState: 'stopped',
-        currentTime: 0,
-      });
-    }
-  },
-
   setCurrentTime: (timeMs) => {
     const { duration } = get();
     // Clamp time to valid range
@@ -316,7 +273,6 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
       duration: 0,
       hasAnimation: false,
       loop: false,
-      isEventMode: false,
       currentTime: 0,
     });
   },

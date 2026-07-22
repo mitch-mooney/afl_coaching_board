@@ -60,7 +60,16 @@ const DEFAULT_CONFIG: Required<Omit<CanvasResizeConfig, 'onResize'>> = {
  * ```
  */
 export function useCanvasResize(config: CanvasResizeConfig = {}) {
-  const mergedConfig = { ...DEFAULT_CONFIG, ...config };
+  // Destructure to PRIMITIVE deps. `config` is typically a fresh object literal
+  // every render; depending on the object (as this hook used to) re-ran the
+  // observer effect every render and setState'd a new dimensions object each
+  // time — an infinite render loop ("Maximum update depth exceeded").
+  const {
+    debounceMs = DEFAULT_CONFIG.debounceMs,
+    minWidth = DEFAULT_CONFIG.minWidth,
+    minHeight = DEFAULT_CONFIG.minHeight,
+    onResize,
+  } = config;
 
   // Ref for the container element to observe
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -71,64 +80,74 @@ export function useCanvasResize(config: CanvasResizeConfig = {}) {
   // Ref for debounce timeout
   const timeoutRef = useRef<number | null>(null);
 
+  // Keep the latest onResize in a ref so it never needs to be an effect dep
+  // (callers commonly pass a fresh inline function each render).
+  const onResizeRef = useRef(onResize);
+  useEffect(() => {
+    onResizeRef.current = onResize;
+  }, [onResize]);
+
   // State for current dimensions
   const [dimensions, setDimensions] = useState<CanvasDimensions>({
-    width: mergedConfig.minWidth,
-    height: mergedConfig.minHeight,
+    width: minWidth,
+    height: minHeight,
   });
 
   // State to track if initial measurement is complete
   const [isReady, setIsReady] = useState(false);
 
+  // Apply a measured size. Bails out when the (rounded, min-clamped) size is
+  // unchanged so we never schedule a needless re-render — this is what stops
+  // the resize → setState → re-render → resize cycle.
+  const applyDimensions = useCallback(
+    (rawWidth: number, rawHeight: number) => {
+      const width = Math.max(Math.round(rawWidth), minWidth);
+      const height = Math.max(Math.round(rawHeight), minHeight);
+      setDimensions((prev) =>
+        prev.width === width && prev.height === height ? prev : { width, height }
+      );
+      setIsReady(true);
+      onResizeRef.current?.({ width, height });
+    },
+    [minWidth, minHeight]
+  );
+
   // Debounced resize handler
-  const handleResize = useCallback((entries: ResizeObserverEntry[]) => {
-    // Clear any pending timeout
-    if (timeoutRef.current !== null) {
-      window.clearTimeout(timeoutRef.current);
-    }
-
-    timeoutRef.current = window.setTimeout(() => {
-      for (const entry of entries) {
-        // Use contentBoxSize for more accurate measurements
-        // Fall back to contentRect for older browsers
-        let newWidth: number;
-        let newHeight: number;
-
-        if (entry.contentBoxSize) {
-          // Modern browsers return an array
-          const boxSize = Array.isArray(entry.contentBoxSize)
-            ? entry.contentBoxSize[0]
-            : entry.contentBoxSize;
-          newWidth = boxSize.inlineSize;
-          newHeight = boxSize.blockSize;
-        } else {
-          // Fallback for older browsers
-          newWidth = entry.contentRect.width;
-          newHeight = entry.contentRect.height;
-        }
-
-        // Apply minimum constraints
-        newWidth = Math.max(newWidth, mergedConfig.minWidth);
-        newHeight = Math.max(newHeight, mergedConfig.minHeight);
-
-        // Round to prevent subpixel rendering issues
-        newWidth = Math.round(newWidth);
-        newHeight = Math.round(newHeight);
-
-        const newDimensions = { width: newWidth, height: newHeight };
-
-        setDimensions(newDimensions);
-        setIsReady(true);
-
-        // Call callback if provided
-        if (config.onResize) {
-          config.onResize(newDimensions);
-        }
+  const handleResize = useCallback(
+    (entries: ResizeObserverEntry[]) => {
+      // Clear any pending timeout
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
       }
 
-      timeoutRef.current = null;
-    }, mergedConfig.debounceMs);
-  }, [mergedConfig.debounceMs, mergedConfig.minWidth, mergedConfig.minHeight, config]);
+      timeoutRef.current = window.setTimeout(() => {
+        for (const entry of entries) {
+          // Use contentBoxSize for more accurate measurements
+          // Fall back to contentRect for older browsers
+          let newWidth: number;
+          let newHeight: number;
+
+          if (entry.contentBoxSize) {
+            // Modern browsers return an array
+            const boxSize = Array.isArray(entry.contentBoxSize)
+              ? entry.contentBoxSize[0]
+              : entry.contentBoxSize;
+            newWidth = boxSize.inlineSize;
+            newHeight = boxSize.blockSize;
+          } else {
+            // Fallback for older browsers
+            newWidth = entry.contentRect.width;
+            newHeight = entry.contentRect.height;
+          }
+
+          applyDimensions(newWidth, newHeight);
+        }
+
+        timeoutRef.current = null;
+      }, debounceMs);
+    },
+    [debounceMs, applyDimensions]
+  );
 
   // Set up ResizeObserver
   useEffect(() => {
@@ -139,11 +158,7 @@ export function useCanvasResize(config: CanvasResizeConfig = {}) {
     if (typeof ResizeObserver === 'undefined') {
       // Fallback: use initial container dimensions
       const rect = container.getBoundingClientRect();
-      setDimensions({
-        width: Math.max(Math.round(rect.width), mergedConfig.minWidth),
-        height: Math.max(Math.round(rect.height), mergedConfig.minHeight),
-      });
-      setIsReady(true);
+      applyDimensions(rect.width, rect.height);
       return;
     }
 
@@ -156,16 +171,7 @@ export function useCanvasResize(config: CanvasResizeConfig = {}) {
     // Get initial dimensions immediately
     const rect = container.getBoundingClientRect();
     if (rect.width > 0 && rect.height > 0) {
-      const initialDimensions = {
-        width: Math.max(Math.round(rect.width), mergedConfig.minWidth),
-        height: Math.max(Math.round(rect.height), mergedConfig.minHeight),
-      };
-      setDimensions(initialDimensions);
-      setIsReady(true);
-
-      if (config.onResize) {
-        config.onResize(initialDimensions);
-      }
+      applyDimensions(rect.width, rect.height);
     }
 
     // Cleanup function
@@ -179,7 +185,7 @@ export function useCanvasResize(config: CanvasResizeConfig = {}) {
         timeoutRef.current = null;
       }
     };
-  }, [handleResize, mergedConfig.minWidth, mergedConfig.minHeight, config]);
+  }, [handleResize, applyDimensions]);
 
   // Force recalculate dimensions (useful for imperative updates)
   const recalculate = useCallback(() => {
@@ -187,17 +193,8 @@ export function useCanvasResize(config: CanvasResizeConfig = {}) {
     if (!container) return;
 
     const rect = container.getBoundingClientRect();
-    const newDimensions = {
-      width: Math.max(Math.round(rect.width), mergedConfig.minWidth),
-      height: Math.max(Math.round(rect.height), mergedConfig.minHeight),
-    };
-
-    setDimensions(newDimensions);
-
-    if (config.onResize) {
-      config.onResize(newDimensions);
-    }
-  }, [mergedConfig.minWidth, mergedConfig.minHeight, config]);
+    applyDimensions(rect.width, rect.height);
+  }, [applyDimensions]);
 
   return {
     /** Ref to attach to the container element */
@@ -223,13 +220,16 @@ export function useCanvasResize(config: CanvasResizeConfig = {}) {
  */
 export function useCanvasResizeWithWindow(config: CanvasResizeConfig = {}) {
   const canvasResize = useCanvasResize(config);
+  const { recalculate } = canvasResize;
 
-  // Also listen to window resize for additional coverage
+  // Also listen to window resize for additional coverage. Depend on the stable
+  // `recalculate` callback, not the whole canvasResize object (which is a new
+  // reference every render and would re-bind the listeners each time).
   useEffect(() => {
     const handleWindowResize = () => {
       // Recalculate after a short delay to allow layout to settle
       setTimeout(() => {
-        canvasResize.recalculate();
+        recalculate();
       }, 50);
     };
 
@@ -242,7 +242,7 @@ export function useCanvasResizeWithWindow(config: CanvasResizeConfig = {}) {
       window.removeEventListener('resize', handleWindowResize);
       window.removeEventListener('orientationchange', handleWindowResize);
     };
-  }, [canvasResize]);
+  }, [recalculate]);
 
   return canvasResize;
 }

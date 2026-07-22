@@ -6,6 +6,9 @@ export interface Ball {
   assignedPlayerId?: string; // Optional player assignment (ball follows player)
 }
 
+/** Kick trajectory style used when the ball animates in-flight along a path. */
+export type KickType = 'standard' | 'high' | 'low' | 'checkside' | 'handball';
+
 // AFL ball visual constants
 export const BALL_DEFAULTS = {
   color: '#8B4513', // Saddle brown (AFL ball color)

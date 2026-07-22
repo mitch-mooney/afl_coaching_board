@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { useVideoStore } from '../../store/videoStore';
+import { useUIStore } from '../../store/uiStore';
 import { useVideoPlayback } from '../../hooks/useVideoPlayback';
 
 // Size constraints
@@ -34,7 +35,7 @@ function getSnapPosition(corner: SnapCorner, width: number, height: number) {
  * VideoPiP - Picture-in-Picture video display component.
  *
  * Shows the video in a small window in the top right corner of the screen.
- * Provides basic playback controls, fullscreen, volume, and concert-mode sync.
+ * Provides basic playback controls, fullscreen, and volume.
  * Window can be dragged and resized. Snaps to screen corners.
  */
 export function VideoPiP() {
@@ -58,15 +59,13 @@ export function VideoPiP() {
   const duration = useVideoStore((state) => state.duration);
   const volume = useVideoStore((state) => state.volume);
   const isMuted = useVideoStore((state) => state.isMuted);
-  const isSyncedWithAnimation = useVideoStore((state) => state.isSyncedWithAnimation);
+  const setEditorTab = useUIStore((state) => state.setEditorTab);
   const clearVideo = useVideoStore((state) => state.clearVideo);
   const setVolume = useVideoStore((state) => state.setVolume);
   const toggleMute = useVideoStore((state) => state.toggleMute);
-  const toggleSyncWithAnimation = useVideoStore((state) => state.toggleSyncWithAnimation);
 
   // Playback controls
   const { togglePlayPause, seekTo } = useVideoPlayback();
-  const setFullscreen = useVideoStore((state) => state.setFullscreen);
 
   // Sync video element (src, playback, time, volume)
   useEffect(() => {
@@ -232,6 +231,7 @@ export function VideoPiP() {
     seekTo(percent * duration);
   };
 
+  const handleExpandToWorkspace = () => setEditorTab('video');
 
   const handleSnapTo = (corner: SnapCorner) => {
     const pos = getSnapPosition(corner, size.width, actualHeight + 80);
@@ -268,9 +268,6 @@ export function VideoPiP() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
           </svg>
           <span className="text-white text-xs truncate max-w-[120px]">{videoMetadata?.fileName || 'Video'}</span>
-          {isSyncedWithAnimation && (
-            <span className="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded px-1">SYNC</span>
-          )}
           <button onClick={() => setIsMinimized(false)} className="p-1 hover:bg-white/20 rounded transition ml-1" title="Expand">
             <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
@@ -319,11 +316,6 @@ export function VideoPiP() {
             <span className="text-white text-xs font-medium truncate" style={{ maxWidth: `${size.width - 160}px` }}>
               {videoMetadata?.fileName || 'Video'}
             </span>
-            {isSyncedWithAnimation && (
-              <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded px-1 py-0.5 flex-shrink-0">
-                SYNC
-              </span>
-            )}
           </div>
 
           <div className="flex items-center gap-1 flex-shrink-0">
@@ -436,7 +428,7 @@ export function VideoPiP() {
             </span>
           </div>
 
-          {/* Right: volume, concert mode, fullscreen */}
+          {/* Right: volume, calibrate */}
           <div className="flex items-center gap-1.5">
             {/* Volume control */}
             <div className="relative">
@@ -484,41 +476,16 @@ export function VideoPiP() {
               )}
             </div>
 
-            {/* Concert mode toggle */}
+            {/* Expand to full video workspace */}
             <button
-              onClick={toggleSyncWithAnimation}
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition ${
-                isSyncedWithAnimation
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                  : 'bg-white/10 hover:bg-white/20 text-gray-300'
-              }`}
-              title={isSyncedWithAnimation ? 'Disable sync with 3D animation' : 'Sync playback with 3D animation'}
+              onClick={handleExpandToWorkspace}
+              className="flex items-center gap-1 px-2 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs rounded-lg transition"
+              title="Open the full video review workspace"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
               </svg>
-              <span className="hidden sm:inline">{isSyncedWithAnimation ? 'Synced' : 'Sync'}</span>
-            </button>
-
-            {/* Fullscreen telestration button */}
-            <button
-              onClick={() => setFullscreen(true)}
-              className="flex items-center gap-1 px-2 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg transition"
-              title="Enter fullscreen telestration mode"
-            >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                />
-              </svg>
+              <span className="hidden sm:inline">Expand</span>
             </button>
           </div>
         </div>

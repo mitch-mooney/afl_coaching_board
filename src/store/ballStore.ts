@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-import { Ball, createBall } from '../models/BallModel';
-import { KickType } from '../models/EventModel';
+import { Ball, createBall, KickType } from '../models/BallModel';
 
 interface BallState {
   ball: Ball | null;

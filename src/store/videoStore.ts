@@ -1,22 +1,7 @@
 import { create } from 'zustand';
 import Dexie, { Table } from 'dexie';
-import { playbookDB } from './playbookStore';
-import type { Scenario } from '../models/ScenarioModel';
-
-/**
- * Perspective settings for matching 3D field to video camera angle
- */
-export interface PerspectiveSettings {
-  cameraPosition: [number, number, number];
-  cameraRotation: [number, number, number];
-  fieldOfView: number;
-  fieldScale: number;
-  fieldOpacity: number;
-  /** Field offset in 3D space for fine-tuning alignment */
-  fieldOffset: [number, number, number];
-  /** Lock orbit controls during precise calibration */
-  lockOrbitControls: boolean;
-}
+import { playbookDB } from './appDatabase';
+import type { Play } from '../models/PlayModel';
 
 /**
  * Export settings for video output
@@ -52,7 +37,6 @@ export interface PersistedVideoMetadata {
   aspectRatio: number;
   createdAt: Date;
   updatedAt: Date;
-  perspectiveSettings: PerspectiveSettings;
   exportSettings: ExportSettings;
 }
 
@@ -113,18 +97,6 @@ interface VideoState {
   // Video mode
   isVideoMode: boolean;
 
-  // Display mode: 'pip' = picture-in-picture (top right), 'calibration' = full field overlay
-  displayMode: 'pip' | 'calibration';
-
-  // Fullscreen mode for video feedback
-  fullscreen: boolean;
-
-  // Concert mode: when true, video play/pause is synced with 3D animation playback
-  isSyncedWithAnimation: boolean;
-
-  // Perspective calibration
-  perspectiveSettings: PerspectiveSettings;
-
   // Export settings
   exportSettings: ExportSettings;
 
@@ -162,26 +134,6 @@ interface VideoState {
 
   // Actions - Video mode
   setIsVideoMode: (isVideoMode: boolean) => void;
-  setDisplayMode: (mode: 'pip' | 'calibration') => void;
-  toggleDisplayMode: () => void;
-  setFullscreen: (fullscreen: boolean) => void;
-  toggleFullscreen: () => void;
-
-  // Actions - Concert mode
-  setSyncedWithAnimation: (synced: boolean) => void;
-  toggleSyncWithAnimation: () => void;
-
-  // Actions - Perspective settings
-  setPerspectiveSettings: (settings: Partial<PerspectiveSettings>) => void;
-  setCameraPosition: (position: [number, number, number]) => void;
-  setCameraRotation: (rotation: [number, number, number]) => void;
-  setFieldOfView: (fov: number) => void;
-  setFieldScale: (scale: number) => void;
-  setFieldOpacity: (opacity: number) => void;
-  setFieldOffset: (offset: [number, number, number]) => void;
-  setLockOrbitControls: (locked: boolean) => void;
-  toggleLockOrbitControls: () => void;
-  resetPerspectiveSettings: () => void;
 
   // Actions - Export settings
   setExportSettings: (settings: Partial<ExportSettings>) => void;
@@ -203,17 +155,6 @@ interface VideoState {
   // Actions - Full reset
   resetStore: () => void;
 }
-
-// Default perspective settings for video calibration
-const DEFAULT_PERSPECTIVE_SETTINGS: PerspectiveSettings = {
-  cameraPosition: [0, 100, 150],
-  cameraRotation: [0, 0, 0],
-  fieldOfView: 60,
-  fieldScale: 1,
-  fieldOpacity: 0.5,
-  fieldOffset: [0, 0, 0],
-  lockOrbitControls: false,
-};
 
 // Default export settings
 const DEFAULT_EXPORT_SETTINGS: ExportSettings = {
@@ -247,12 +188,8 @@ export const useVideoStore = create<VideoState>((set, get) => ({
 
   // Initial state - Video mode
   isVideoMode: false,
-  displayMode: 'pip',
-  fullscreen: false,
-  isSyncedWithAnimation: false,
 
   // Initial state - Settings
-  perspectiveSettings: { ...DEFAULT_PERSPECTIVE_SETTINGS },
   exportSettings: { ...DEFAULT_EXPORT_SETTINGS },
 
   // Initial state - Persistence
@@ -295,9 +232,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       isLoading: false,
       error: null,
       isVideoMode: false,
-      displayMode: 'pip',
-      fullscreen: false,
-      isSyncedWithAnimation: false,
     });
   },
 
@@ -375,94 +309,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     set({ isVideoMode });
   },
 
-  setDisplayMode: (mode) => {
-    set({ displayMode: mode });
-  },
-
-  toggleDisplayMode: () => {
-    set((state) => ({
-      displayMode: state.displayMode === 'pip' ? 'calibration' : 'pip',
-    }));
-  },
-
-  setFullscreen: (fullscreen) => {
-    set({ fullscreen });
-  },
-
-  toggleFullscreen: () => {
-    set((state) => ({ fullscreen: !state.fullscreen }));
-  },
-
-  setSyncedWithAnimation: (synced) => {
-    set({ isSyncedWithAnimation: synced });
-  },
-
-  toggleSyncWithAnimation: () => {
-    set((state) => ({ isSyncedWithAnimation: !state.isSyncedWithAnimation }));
-  },
-
-  // Actions - Perspective settings
-  setPerspectiveSettings: (settings) => {
-    set((state) => ({
-      perspectiveSettings: { ...state.perspectiveSettings, ...settings },
-    }));
-  },
-
-  setCameraPosition: (position) => {
-    set((state) => ({
-      perspectiveSettings: { ...state.perspectiveSettings, cameraPosition: position },
-    }));
-  },
-
-  setCameraRotation: (rotation) => {
-    set((state) => ({
-      perspectiveSettings: { ...state.perspectiveSettings, cameraRotation: rotation },
-    }));
-  },
-
-  setFieldOfView: (fov) => {
-    set((state) => ({
-      perspectiveSettings: { ...state.perspectiveSettings, fieldOfView: fov },
-    }));
-  },
-
-  setFieldScale: (scale) => {
-    set((state) => ({
-      perspectiveSettings: { ...state.perspectiveSettings, fieldScale: scale },
-    }));
-  },
-
-  setFieldOpacity: (opacity) => {
-    set((state) => ({
-      perspectiveSettings: { ...state.perspectiveSettings, fieldOpacity: opacity },
-    }));
-  },
-
-  setFieldOffset: (offset) => {
-    set((state) => ({
-      perspectiveSettings: { ...state.perspectiveSettings, fieldOffset: offset },
-    }));
-  },
-
-  setLockOrbitControls: (locked) => {
-    set((state) => ({
-      perspectiveSettings: { ...state.perspectiveSettings, lockOrbitControls: locked },
-    }));
-  },
-
-  toggleLockOrbitControls: () => {
-    set((state) => ({
-      perspectiveSettings: {
-        ...state.perspectiveSettings,
-        lockOrbitControls: !state.perspectiveSettings.lockOrbitControls,
-      },
-    }));
-  },
-
-  resetPerspectiveSettings: () => {
-    set({ perspectiveSettings: { ...DEFAULT_PERSPECTIVE_SETTINGS } });
-  },
-
   // Actions - Export settings
   setExportSettings: (settings) => {
     set((state) => ({
@@ -487,7 +333,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   },
 
   saveVideoMetadata: async () => {
-    const { videoMetadata, duration, perspectiveSettings, exportSettings } = get();
+    const { videoMetadata, duration, exportSettings } = get();
     if (!videoMetadata) {
       throw new Error('No video metadata to save');
     }
@@ -504,7 +350,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
         aspectRatio: videoMetadata.aspectRatio,
         createdAt: now,
         updatedAt: now,
-        perspectiveSettings: { ...perspectiveSettings },
         exportSettings: { ...exportSettings },
       };
       const id = await videoDb.videos.add(record) as number;
@@ -518,13 +363,12 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   },
 
   updateVideoMetadata: async (id) => {
-    const { perspectiveSettings, exportSettings, duration } = get();
+    const { exportSettings, duration } = get();
 
     set({ isPersisting: true });
     try {
       await videoDb.videos.update(id, {
         duration,
-        perspectiveSettings: { ...perspectiveSettings },
         exportSettings: { ...exportSettings },
         updatedAt: new Date(),
       });
@@ -555,16 +399,16 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   deleteVideoMetadataWithCascade: async (id) => {
     set({ isPersisting: true });
     try {
-      // Find all scenarios that reference this video
-      const allScenarios: Scenario[] = await playbookDB.scenarios.toArray();
-      const linked = allScenarios.filter(
+      // Find all plays that reference this video
+      const allPlays: Play[] = await playbookDB.scenarios.toArray();
+      const linked = allPlays.filter(
         (s) => s.linkedVideoMoment?.videoId === id
       );
 
       if (linked.length > 0) {
         const names = linked.map((s) => `"${s.name}"`).join(', ');
         const ok = window.confirm(
-          `This video is linked to ${linked.length} scenario${linked.length > 1 ? 's' : ''}: ${names}.\n\nDeleting it will remove the video link. Continue?`
+          `This video is linked to ${linked.length} play${linked.length > 1 ? 's' : ''}: ${names}.\n\nDeleting it will remove the video link. Continue?`
         );
         if (!ok) {
           set({ isPersisting: false });
@@ -572,7 +416,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
         }
       }
 
-      // Step 1: Unlink scenarios first (safe to do before delete)
+      // Step 1: Unlink plays first (safe to do before delete)
       try {
         for (const s of linked) {
           if (s.id == null) continue;
@@ -612,7 +456,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       const video = await videoDb.videos.get(id);
       if (video) {
         set({
-          perspectiveSettings: { ...video.perspectiveSettings },
           exportSettings: { ...video.exportSettings },
           currentSavedVideoId: id,
           isPersisting: false,
@@ -673,10 +516,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       isLoading: false,
       error: null,
       isVideoMode: false,
-      displayMode: 'pip',
-      fullscreen: false,
-      isSyncedWithAnimation: false,
-      perspectiveSettings: { ...DEFAULT_PERSPECTIVE_SETTINGS },
       exportSettings: { ...DEFAULT_EXPORT_SETTINGS },
       currentSavedVideoId: null,
     });

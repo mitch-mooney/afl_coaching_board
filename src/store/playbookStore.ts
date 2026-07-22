@@ -1,153 +1,108 @@
 import { create } from 'zustand';
-import Dexie, { Table, IndexableType } from 'dexie';
-import { Player } from '../models/PlayerModel';
-import type { Scenario } from '../models/ScenarioModel';
-import type { TeamRoster } from '../models/RosterModel';
+import { playbookDB } from './appDatabase';
+import type { Playbook } from '../models/PlaybookModel';
 
-export interface Playbook {
-  id?: number;
-  cloudId?: string;
-  name: string;
-  description?: string;
-  createdAt: Date;
-  playerPositions: Player[];
-  cameraPosition: [number, number, number];
-  cameraTarget: [number, number, number];
-  cameraZoom: number;
-  annotations?: any[]; // Will be defined when annotations are implemented
-  /** ID of an attached video blob in the videoBlobs Dexie table */
-  videoBlobId?: number;
-}
+// The Playbook collection table (distinct from the legacy dead `playbooks` table).
+export const playbookTable = playbookDB.playbookCollections;
 
-class PlaybookDatabase extends Dexie {
-  playbooks!: Table<Playbook>;
-  scenarios!: Table<Scenario, number>;
-  teamRosters!: Table<TeamRoster, number>;
-
-  constructor() {
-    super('AFLPlaybookDB');
-    this.version(1).stores({
-      playbooks: '++id, name, createdAt',
-    });
-    // v2: index videoBlobId so playbooks with video can be queried
-    this.version(2).stores({
-      playbooks: '++id, name, createdAt, videoBlobId',
-    });
-    // v3: add scenarios and teamRosters tables; migrate existing playbooks → scenarios
-    this.version(3).stores({
-      playbooks: '++id, name, createdAt, videoBlobId',
-      scenarios: '++id, name, createdAt, updatedAt, team1RosterId, team2RosterId',
-      teamRosters: '++id, teamName, createdAt',
-    }).upgrade(async (tx) => {
-      const playbooks = await tx.table('playbooks').toArray();
-      for (const p of playbooks) {
-        const createdAt =
-          p.createdAt instanceof Date ? p.createdAt.toISOString() : String(p.createdAt);
-        await tx.table('scenarios').add({
-          name: p.name,
-          createdAt,
-          updatedAt: new Date().toISOString(),
-          team1RosterId: null,
-          team2RosterId: null,
-          phases: [
-            {
-              id: 'phase-1',
-              label: 'Phase 1',
-              playerPositions: p.playerPositions ?? [],
-              paths: [],
-              annotations: p.annotations ?? [],
-              cameraState: p.cameraPosition && p.cameraTarget
-                ? { position: p.cameraPosition, target: p.cameraTarget, zoom: p.cameraZoom ?? 1 }
-                : null,
-            },
-          ],
-          videoBlobId: p.videoBlobId,
-        });
-      }
-    });
-    // v4: add linkedVideoMoment support to scenarios (unindexed column — no schema string change needed)
-    this.version(4).stores({
-      playbooks: '++id, name, createdAt, videoBlobId',
-      scenarios: '++id, name, createdAt, updatedAt, team1RosterId, team2RosterId',
-      teamRosters: '++id, teamName, createdAt',
-    });
-  }
-}
-
-const db = new PlaybookDatabase();
-export { db as playbookDB };
+// Coalesces concurrent ensureDefaultPlaybook() calls (e.g. React StrictMode's
+// double-invoked mount effect, or a library mount racing a quick-save) onto a
+// single check-then-create, so the "My Plays" default is never created twice.
+let ensureDefaultInFlight: Promise<number> | null = null;
 
 interface PlaybookState {
   playbooks: Playbook[];
-  currentPlaybook: Playbook | null;
-  isLoading: boolean;
-
-  // Actions
+  activePlaybookId: number | null;
   loadPlaybooks: () => Promise<void>;
-  savePlaybook: (playbook: Omit<Playbook, 'id' | 'createdAt'>) => Promise<IndexableType>;
+  ensureDefaultPlaybook: () => Promise<number>;
+  createPlaybook: (name: string) => Promise<number>;
+  renamePlaybook: (id: number, name: string) => Promise<void>;
   deletePlaybook: (id: number) => Promise<void>;
-  loadPlaybook: (id: number) => Promise<Playbook | undefined>;
-  clearCurrentPlaybook: () => void;
+  setActivePlaybook: (id: number | null) => void;
 }
 
-export const usePlaybookStore = create<PlaybookState>((set) => ({
+export const usePlaybookStore = create<PlaybookState>((set, get) => ({
   playbooks: [],
-  currentPlaybook: null,
-  isLoading: false,
-  
+  activePlaybookId: null,
+
   loadPlaybooks: async () => {
-    set({ isLoading: true });
     try {
-      const playbooks = await db.playbooks.orderBy('createdAt').reverse().toArray();
-      set({ playbooks, isLoading: false });
-    } catch (error) {
-      console.error('Error loading playbooks:', error);
-      set({ isLoading: false });
+      const playbooks = await playbookTable.orderBy('createdAt').toArray();
+      set({ playbooks });
+    } catch (err) {
+      console.error('[playbookStore] loadPlaybooks failed', err);
     }
   },
-  
-  savePlaybook: async (playbookData) => {
-    try {
-      const playbook: Playbook = {
-        ...playbookData,
-        createdAt: new Date(),
-      };
-      const id = await db.playbooks.add(playbook);
-      await usePlaybookStore.getState().loadPlaybooks();
-      return id;
-    } catch (error) {
-      console.error('Error saving playbook:', error);
-      throw error;
-    }
+
+  ensureDefaultPlaybook: async () => {
+    // Coalesce concurrent callers onto one in-flight resolution (fixes the
+    // check-then-add race that could create duplicate "My Plays" defaults).
+    if (ensureDefaultInFlight) return ensureDefaultInFlight;
+    ensureDefaultInFlight = (async () => {
+      try {
+        const all = await playbookTable.toArray();
+        // Only the isDefault flag marks the default; fall back to the "My Plays"
+        // name solely when no flagged default exists at all.
+        const flagged = all.filter((p) => p.isDefault);
+        const pool = flagged.length > 0 ? flagged : all.filter((p) => p.name === 'My Plays');
+        // Deterministic survivor: earliest created (id tie-break).
+        pool.sort((a, b) =>
+          a.createdAt === b.createdAt ? (a.id ?? 0) - (b.id ?? 0) : a.createdAt < b.createdAt ? -1 : 1,
+        );
+
+        if (pool.length > 0 && pool[0].id != null) {
+          const survivor = pool[0];
+          // Self-heal any pre-existing duplicate defaults: move their Plays onto
+          // the survivor and delete the extras, so the library shows one "My Plays".
+          const dupes = pool.slice(1).filter((p) => p.id != null);
+          if (dupes.length > 0) {
+            for (const dupe of dupes) {
+              await playbookDB.scenarios.where('playbookId').equals(dupe.id!).modify({ playbookId: survivor.id! });
+              await playbookTable.delete(dupe.id!);
+            }
+          }
+          if (!survivor.isDefault) {
+            await playbookTable.update(survivor.id!, { isDefault: true });
+          }
+          if (dupes.length > 0 || !survivor.isDefault) await get().loadPlaybooks();
+          return survivor.id!;
+        }
+
+        const now = new Date().toISOString();
+        const id = (await playbookTable.add({
+          name: 'My Plays', isDefault: true, createdAt: now, updatedAt: now,
+        })) as number;
+        await get().loadPlaybooks();
+        return id;
+      } finally {
+        ensureDefaultInFlight = null;
+      }
+    })();
+    return ensureDefaultInFlight;
   },
-  
+
+  createPlaybook: async (name) => {
+    const now = new Date().toISOString();
+    const id = (await playbookTable.add({ name, createdAt: now, updatedAt: now })) as number;
+    await get().loadPlaybooks();
+    return id;
+  },
+
+  renamePlaybook: async (id, name) => {
+    await playbookTable.update(id, { name, updatedAt: new Date().toISOString() });
+    await get().loadPlaybooks();
+  },
+
   deletePlaybook: async (id) => {
-    try {
-      await db.playbooks.delete(id);
-      await usePlaybookStore.getState().loadPlaybooks();
-      if (usePlaybookStore.getState().currentPlaybook?.id === id) {
-        set({ currentPlaybook: null });
-      }
-    } catch (error) {
-      console.error('Error deleting playbook:', error);
-      throw error;
-    }
+    const target = await playbookTable.get(id);
+    if (!target || target.isDefault) return; // never delete the "My Plays" safety net
+    const defaultId = await get().ensureDefaultPlaybook();
+    // Reassign this Playbook's Plays to the default (requires the playbookId index).
+    await playbookDB.scenarios.where('playbookId').equals(id).modify({ playbookId: defaultId });
+    await playbookTable.delete(id);
+    if (get().activePlaybookId === id) set({ activePlaybookId: null });
+    await get().loadPlaybooks();
   },
-  
-  loadPlaybook: async (id) => {
-    try {
-      const playbook = await db.playbooks.get(id);
-      if (playbook) {
-        set({ currentPlaybook: playbook });
-      }
-      return playbook;
-    } catch (error) {
-      console.error('Error loading playbook:', error);
-      throw error;
-    }
-  },
-  
-  clearCurrentPlaybook: () => {
-    set({ currentPlaybook: null });
-  },
+
+  setActivePlaybook: (id) => set({ activePlaybookId: id }),
 }));

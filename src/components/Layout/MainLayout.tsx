@@ -7,19 +7,13 @@ import { AnnotationLayer } from '../Scene/AnnotationLayer';
 import { BallComponent } from '../Scene/Ball';
 import { PathManager } from '../Scene/Path';
 import { Scoreboard } from '../Scene/Scoreboard';
-import { Toolbar } from '../UI/Toolbar';
-import { PlaybookPanel } from '../UI/PlaybookPanel';
-import { AnnotationToolbar } from '../UI/AnnotationToolbar';
+import { GlobalDrawer } from '../UI/GlobalDrawer';
+import { BoardHud } from '../Board/hud/BoardHud';
 import { FeatureNotification } from '../UI/FeatureNotification';
-import { CameraDock } from '../UI/CameraDock';
-import { LabelToggle } from '../UI/LabelToggle';
-import { FormationPresetBar } from '../UI/FormationPresetBar';
 import { HelpScreen } from '../UI/HelpScreen';
 import { OnboardingTour } from '../UI/OnboardingTour';
-import { EventTimeline } from '../UI/EventTimeline';
 import { VideoWorkspace } from '../VideoImport/VideoWorkspace';
 import { VideoPiP } from '../VideoImport/VideoPiP';
-import { VideoFeedbackFullscreen } from '../VideoImport/VideoFeedbackFullscreen';
 import { TrainingMode } from '../TrainingMode/TrainingMode';
 import { ConeManager } from '../Scene/ConeManager';
 import { useVideoStore } from '../../store/videoStore';
@@ -28,15 +22,15 @@ import { useConeStore } from '../../store/coneStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useBallStore } from '../../store/ballStore';
 import { usePathStore } from '../../store/pathStore';
-import { useAnimationStore } from '../../store/animationStore';
 import { useCameraStore } from '../../store/cameraStore';
 import { useAnnotationStore } from '../../store/annotationStore';
 import { useUIStore } from '../../store/uiStore';
-import { useScenarioStore, scenarioTable } from '../../store/scenarioStore';
+import { usePlayStore, playTable } from '../../store/playStore';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
 import { useCanvasResizeWithWindow } from '../../hooks/useCanvasResize';
+import { useBoardUndo } from '../../hooks/useBoardUndo';
 import { getSharedPlaybook } from '../../services/sharingService';
 import {
   useKeyboardShortcuts,
@@ -132,13 +126,9 @@ export function MainLayout() {
   const navigate = useNavigate();
   const editorTab = useUIStore((s) => s.editorTab);
   const setEditorTab = useUIStore((s) => s.setEditorTab);
+  const { setActivePlay, activePlayId, updatePlay } = usePlayStore();
   const { mode, switchMode } = useModeStore();
   const { isConePlacementActive, setConePlacementActive } = useConeStore();
-  const boardSubMode = useUIStore((s) => s.boardSubMode);
-  const toggleBoardSubMode = useUIStore((s) => s.toggleBoardSubMode);
-  const isPlaybookOpen = useUIStore((s) => s.isPlaybookOpen);
-  const togglePlaybook = useUIStore((s) => s.togglePlaybook);
-  const { setActiveScenario, activeScenarioId, updateScenario } = useScenarioStore();
   const players = usePlayerStore((s) => s.players);
   const annotations = useAnnotationStore((s) => s.annotations);
   const camera = useCameraStore((s) => ({
@@ -163,47 +153,20 @@ export function MainLayout() {
   // Video mode state from video store
   const isVideoMode = useVideoStore((state) => state.isVideoMode);
   const isLoaded = useVideoStore((state) => state.isLoaded);
-  const displayMode = useVideoStore((state) => state.displayMode);
-  const fullscreen = useVideoStore((state) => state.fullscreen);
-  const videoIsPlaying = useVideoStore((state) => state.isPlaying);
-  const isSyncedWithAnimation = useVideoStore((state) => state.isSyncedWithAnimation);
   const savedVideos = useVideoStore((s) => s.savedVideos);
   const loadSavedVideos = useVideoStore((s) => s.loadSavedVideos);
 
-  // Scenario data for linked video moment
-  const scenarios = useScenarioStore((s) => s.scenarios);
-  const activeScenario = scenarios.find((s) => s.id === activeScenarioId) ?? null;
-  const linkedVideoMoment = activeScenario?.linkedVideoMoment;
+  // Play data for linked video moment
+  const plays = usePlayStore((s) => s.plays);
+  const activePlay = plays.find((s) => s.id === activePlayId) ?? null;
+  const linkedVideoMoment = activePlay?.linkedVideoMoment;
   const linkedVideoAvailable = linkedVideoMoment
     ? savedVideos.some((v) => v.id === linkedVideoMoment.videoId)
     : null;
 
-  // Animation store for concert mode
-  const animationPlay = useAnimationStore((state) => state.play);
-  const animationPause = useAnimationStore((state) => state.pause);
-  const animationIsPlaying = useAnimationStore((state) => state.isPlaying);
-
-  // Concert mode: sync video play/pause → animation
-  const concertSyncRef = useRef(false);
-  useEffect(() => {
-    if (!isSyncedWithAnimation) return;
-    // Avoid re-entrant syncing
-    if (concertSyncRef.current) return;
-    concertSyncRef.current = true;
-    if (videoIsPlaying && !animationIsPlaying) {
-      animationPlay();
-    } else if (!videoIsPlaying && animationIsPlaying) {
-      animationPause();
-    }
-    concertSyncRef.current = false;
-  }, [videoIsPlaying, isSyncedWithAnimation, animationIsPlaying, animationPlay, animationPause]);
-
-  // Determine if we should show video workspace (full calibration mode)
-  const showVideoWorkspace = isVideoMode && isLoaded && displayMode === 'calibration' && !fullscreen;
-  // Determine if we should show PiP (picture-in-picture mode)
-  const showVideoPiP = isVideoMode && isLoaded && displayMode === 'pip';
-  // Determine if we should show fullscreen video feedback
-  const showVideoFeedbackFullscreen = isVideoMode && isLoaded && fullscreen;
+  // Determine if we should show PiP (picture-in-picture video review)
+  // PiP overlays the board tab; the Video tab shows the full workspace instead.
+  const showVideoPiP = isVideoMode && isLoaded && editorTab === 'board';
 
   // Initialize keyboard shortcuts
   const registry = getGlobalShortcutRegistry();
@@ -212,19 +175,20 @@ export function MainLayout() {
   useToolSelectionShortcuts(registry);
   useAnimationControlShortcuts(registry);
   useHelpOverlayShortcuts(helpOpen, setHelpOpen, registry);
-  useEditOperationShortcuts({}, registry);
+  const { handleUndo: handleKeyboardUndo } = useBoardUndo();
+  useEditOperationShortcuts({ onUndo: handleKeyboardUndo }, registry);
 
-  const savePayloadRef = useRef({ activeScenarioId, players, paths, annotations, camera, updateScenario });
+  const savePayloadRef = useRef({ activePlayId, players, paths, annotations, camera, updatePlay });
 
   useEffect(() => {
-    savePayloadRef.current = { activeScenarioId, players, paths, annotations, camera, updateScenario };
+    savePayloadRef.current = { activePlayId, players, paths, annotations, camera, updatePlay };
   });
 
   useEffect(() => {
     return () => {
-      const { activeScenarioId, players, paths, annotations, camera, updateScenario } = savePayloadRef.current;
-      if (!activeScenarioId) return;
-      updateScenario(activeScenarioId, {
+      const { activePlayId, players, paths, annotations, camera, updatePlay } = savePayloadRef.current;
+      if (!activePlayId) return;
+      updatePlay(activePlayId, {
         phases: [{
           id: 'phase-1',
           label: 'Phase 1',
@@ -240,10 +204,10 @@ export function MainLayout() {
   useEffect(() => {
     if (!id) return;
     const numId = Number(id);
-    setActiveScenario(numId);
-    scenarioTable.get(numId).then((scenario) => {
-      if (!scenario) return;
-      const phase = scenario.phases[0];
+    setActivePlay(numId);
+    playTable.get(numId).then((play) => {
+      if (!play) return;
+      const phase = play.phases[0];
       if (!phase) return;
       if (phase.playerPositions?.length) {
         usePlayerStore.setState({ players: phase.playerPositions });
@@ -262,8 +226,8 @@ export function MainLayout() {
         });
       }
     });
-    return () => setActiveScenario(null);
-  }, [id, setActiveScenario]);
+    return () => setActivePlay(null);
+  }, [id, setActivePlay]);
 
   useEffect(() => {
     initializePlayers();
@@ -304,11 +268,11 @@ export function MainLayout() {
     }
   }, []);
 
-  // Handle unlinking video from scenario
+  // Handle unlinking video from play
   const handleUnlink = useCallback(() => {
     if (!window.confirm('Remove video link?')) return;
-    updateScenario(activeScenarioId!, { linkedVideoMoment: undefined });
-  }, [activeScenarioId, updateScenario]);
+    updatePlay(activePlayId!, { linkedVideoMoment: undefined });
+  }, [activePlayId, updatePlay]);
 
   // Setup and cleanup touch event listeners on canvas
   useEffect(() => {
@@ -325,14 +289,6 @@ export function MainLayout() {
     };
   }, [preventTouchDefault, canvasReady]);
 
-  // When in video mode, render VideoWorkspace as full-screen experience
-  if (showVideoWorkspace) {
-    return (
-      <div className="w-full h-full min-h-screen max-w-full overflow-hidden relative">
-        <VideoWorkspace showFieldOverlay={true} />
-      </div>
-    );
-  }
 
   // Normal field view (with optional PiP overlay)
   return (
@@ -342,7 +298,7 @@ export function MainLayout() {
            style={{ background: 'linear-gradient(180deg, rgba(13,13,26,0.85) 0%, transparent 100%)' }}>
         <div className="flex items-center gap-2 pointer-events-auto">
           <button onClick={() => navigate('/')} className="text-white/60 hover:text-white text-sm">
-            ← Scenarios
+            ← Plays
           </button>
           {/* Tab switcher */}
           <div className="flex rounded-lg overflow-hidden border border-white/20 ml-2">
@@ -382,50 +338,27 @@ export function MainLayout() {
           </div>
         </div>
 
-        {/* Board controls (right side) */}
-        {editorTab === 'board' && (
+        {/* Training-mode board controls (cone placement) */}
+        {editorTab === 'board' && mode === 'training' && (
           <div className="ml-auto flex items-center gap-2 pointer-events-auto">
-            {mode === 'training' && (
-              <button
-                onClick={() => {
-                  setConePlacementActive(false);
-                  setEditorTab('training');
-                }}
-                style={{
-                  padding: '6px 12px', borderRadius: 8, border: '1px solid #FF6B00',
-                  background: 'rgba(255,107,0,0.15)', color: '#FF6B00',
-                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                }}
-              >
-                ← Training
-              </button>
-            )}
-            {mode === 'training' && isConePlacementActive && (
+            <button
+              onClick={() => {
+                setConePlacementActive(false);
+                setEditorTab('training');
+              }}
+              style={{
+                padding: '6px 12px', borderRadius: 8, border: '1px solid #FF6B00',
+                background: 'rgba(255,107,0,0.15)', color: '#FF6B00',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              ← Training
+            </button>
+            {isConePlacementActive && (
               <span style={{ fontSize: 12, color: '#FF6B00', fontWeight: 600 }}>
                 🔶 Tap field to place cone
               </span>
             )}
-            <FormationPresetBar />
-            <button
-              onClick={toggleBoardSubMode}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-                ${boardSubMode === 'draw'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-black/60 text-white/70 hover:bg-black/80'}`}
-            >
-              {boardSubMode === 'setup' ? 'Setup' : '● Draw'}
-            </button>
-            <LabelToggle />
-            <button
-              data-playbook-toggle
-              onClick={togglePlaybook}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors touch-manipulation
-                ${isPlaybookOpen
-                  ? 'bg-amber-500 text-black'
-                  : 'bg-black/60 text-white/70 hover:bg-black/80'}`}
-            >
-              {isPlaybookOpen ? '✕ Playbooks' : '📚 Playbooks'}
-            </button>
           </div>
         )}
       </div>
@@ -588,8 +521,8 @@ export function MainLayout() {
             <AnnotationInteractionHandler />
           </Canvas>
 
-          {/* Link Video Moment button — visible when scenario is active and no video is linked */}
-          {activeScenarioId !== null && !linkedVideoMoment && (
+          {/* Link Video Moment button — visible when play is active and no video is linked */}
+          {activePlayId !== null && !linkedVideoMoment && (
             <button
               onClick={() => setEditorTab('video')}
               style={{
@@ -617,7 +550,7 @@ export function MainLayout() {
 
       {editorTab === 'video' && (
         <div className="absolute inset-0 z-10">
-          <VideoWorkspace showFieldOverlay={true} />
+          <VideoWorkspace />
           <button
             onClick={() => setEditorTab('board')}
             className="absolute top-4 right-4 z-50 px-4 py-2 rounded-lg
@@ -635,22 +568,14 @@ export function MainLayout() {
       )}
 
       {/* All DOM-layer UI stays outside */}
-      <Toolbar canvas={canvasRef.current} />
-      <PlaybookPanel />
-      {editorTab === 'board' && <AnnotationToolbar />}
-      {editorTab === 'board' && <CameraDock />}
+      <GlobalDrawer />
+      {editorTab === 'board' && <BoardHud />}
       <OnboardingTour />
       {helpOpen && <HelpScreen onClose={() => setHelpOpen(false)} />}
 
-      {/* Event Timeline (renders when event is active, board tab only) */}
-      {editorTab === 'board' && <EventTimeline />}
-
       {/* Video PiP overlay when in pip mode */}
       {showVideoPiP && <VideoPiP />}
-      
-      {/* Fullscreen video feedback with telestrations */}
-      {showVideoFeedbackFullscreen && <VideoFeedbackFullscreen />}
-      
+
       {/* Feature notification popup */}
       <FeatureNotification />
     </div>
