@@ -25,9 +25,9 @@ extend this file rather than inventing parallel names.
 ## Board snapshot
 
 - **BoardSnapshot** — the canonical **in-memory** shape of a board's live content:
-  `players`, `paths`, `annotations`, `camera`. Distinct from `PlayPhase`: a snapshot is
-  board content without persistence identity or stored field names. This is the type
-  every capture/restore/share path speaks. Defined in `utils/boardSnapshot.ts`.
+  `players`, `paths`, `annotations`, `camera`, `ball`, `cones`. Distinct from `PlayPhase`:
+  a snapshot is board content without persistence identity or stored field names. This is
+  the type every capture/restore/share path speaks. Defined in `utils/boardSnapshot.ts`.
 
 - **boardSnapshot** (`utils/boardSnapshot.ts`) — the pure, store-free module that owns
   the `BoardSnapshot` type and its serialization **adapters**:
@@ -39,12 +39,20 @@ extend this file rather than inventing parallel names.
   without pulling in the UI store graph.
 
 - **boardSnapshotIO** (`utils/boardSnapshotIO.ts`) — the store-touching half:
-  `capture()` reads the four board stores; `restore(snap)` writes them back through their
+  `capture()` reads the board stores; `restore(snap)` writes them back through their
   own actions. The single owner of that store access.
 
-  > Scope note: a BoardSnapshot is deliberately the four slices a Play persists today.
-  > Ball, scoreboard/match, and cones are **not** yet captured — extending the snapshot to
-  > cover them is a known, deliberate follow-on, not an accident.
+- **boardPlayback** (`utils/boardPlayback.ts`) — the pure "where is everything at *t*"
+  query: `positionsAtProgress(entityPaths, progress)` returns each entity's position at a
+  global progress (0..1) — longest path drives the clock, shorter paths clamp at their own
+  end — with no store access. `boardScrub` is its IO half (`collectEntityPaths` reads; the
+  mutator applies the query result), the same pure-vs-IO split as boardSnapshot / boardSnapshotIO.
+
+  > Scope note: a BoardSnapshot captures players/paths/annotations/camera **plus the ball
+  > and cones**. `toPhase`/`toShareData` emit `ball`/`cones` only when present, so pre-ball/
+  > pre-cones Plays and shared links keep a byte-identical stored shape. Scoreboard/match
+  > state is **deliberately excluded** — it is app-wide match context, not per-Play board
+  > content, so capturing it would make restoring a Play clobber the live scoreboard.
 
 - **SharePayload** — the flat wire shape stored in a shared-link record
   (`shared_playbooks.playbook_data`): board content with the camera split into
