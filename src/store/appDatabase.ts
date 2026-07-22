@@ -1,8 +1,10 @@
 import Dexie, { Table } from 'dexie';
 import type { Player } from '../models/PlayerModel';
-import type { Play } from '../models/PlayModel';
+import type { Play, PlayPhase } from '../models/PlayModel';
 import type { Playbook } from '../models/PlaybookModel';
 import type { TeamRoster } from '../models/RosterModel';
+import { toPhase } from '../utils/boardSnapshot';
+import type { Annotation } from './annotationStore';
 
 /**
  * Legacy flat-"Playbook" row shape. The `playbooks` table is dead storage now —
@@ -10,7 +12,7 @@ import type { TeamRoster } from '../models/RosterModel';
  * to migrate from. The app no longer reads or writes it directly; the live
  * model is Play (see playStore) plus TeamRoster. (§1.8 retirement.)
  */
-interface LegacyPlaybook {
+export interface LegacyPlaybook {
   id?: number;
   name: string;
   createdAt: Date;
@@ -20,6 +22,26 @@ interface LegacyPlaybook {
   cameraZoom?: number;
   annotations?: unknown[];
   videoBlobId?: number;
+}
+
+/**
+ * Map a legacy flat playbook row to a Play's first phase. Routed through the
+ * shared toPhase adapter so the field-name mapping lives in one place; output is
+ * byte-identical to the original inline literal (guarded by a fixture test).
+ */
+export function legacyRowToPhase(p: LegacyPlaybook): PlayPhase {
+  return toPhase(
+    {
+      players: p.playerPositions ?? [],
+      paths: [],
+      annotations: (p.annotations ?? []) as Annotation[],
+      camera:
+        p.cameraPosition && p.cameraTarget
+          ? { position: p.cameraPosition, target: p.cameraTarget, zoom: p.cameraZoom ?? 1 }
+          : null,
+    },
+    { id: 'phase-1', label: 'Phase 1' },
+  );
 }
 
 class AppDatabase extends Dexie {
@@ -56,18 +78,7 @@ class AppDatabase extends Dexie {
           updatedAt: new Date().toISOString(),
           team1RosterId: null,
           team2RosterId: null,
-          phases: [
-            {
-              id: 'phase-1',
-              label: 'Phase 1',
-              playerPositions: p.playerPositions ?? [],
-              paths: [],
-              annotations: p.annotations ?? [],
-              cameraState: p.cameraPosition && p.cameraTarget
-                ? { position: p.cameraPosition, target: p.cameraTarget, zoom: p.cameraZoom ?? 1 }
-                : null,
-            },
-          ],
+          phases: [legacyRowToPhase(p as LegacyPlaybook)],
           videoBlobId: p.videoBlobId,
         });
       }

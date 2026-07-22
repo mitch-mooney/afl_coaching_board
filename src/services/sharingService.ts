@@ -1,13 +1,15 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { playbookDB } from '../store/appDatabase';
 import { trimAndConvertVideo } from '../utils/ffmpegConverter';
+import { toShareData, fromPhase } from '../utils/boardSnapshot';
+import type { SharePayload } from '../utils/boardSnapshot';
 
 const MAX_SHARE_VIDEO_SIZE = 10 * 1024 * 1024; // 10MB
 
 export interface SharedPlaybook {
   id: string;
   token: string;
-  playbook_data: any;
+  playbook_data: SharePayload;
   video_url: string | null;
   expires_at: string | null;
   created_at: string;
@@ -131,19 +133,15 @@ export async function sharePlay(
 
   onProgress?.('Saving share link…', 0.95);
 
+  const playbookData: SharePayload = toShareData(fromPhase(phase), {
+    name: play.name,
+    quarter: lvm?.quarter ?? null,
+    label: lvm?.label ?? null,
+  });
+
   const { error } = await supabase.from('shared_playbooks').insert({
     token,
-    playbook_data: {
-      name: play.name,
-      playerPositions: phase.playerPositions,
-      paths: phase.paths,
-      annotations: phase.annotations ?? [],
-      cameraPosition: phase.cameraState?.position ?? null,
-      cameraTarget: phase.cameraState?.target ?? null,
-      cameraZoom: phase.cameraState?.zoom ?? 1,
-      quarter: lvm?.quarter ?? null,
-      label: lvm?.label ?? null,
-    },
+    playbook_data: playbookData,
     video_url: videoUrl,
     expires_at: null,
   });
