@@ -1,48 +1,25 @@
 import { useCallback } from 'react';
 import { usePlayStore } from '../store/playStore';
 import { usePlaybookStore } from '../store/playbookStore';
-import { usePlayerStore } from '../store/playerStore';
-import { usePathStore } from '../store/pathStore';
-import { useCameraStore } from '../store/cameraStore';
-import { useAnnotationStore } from '../store/annotationStore';
+import { capture, toPhase } from '../utils/boardSnapshot';
 
 /**
  * usePlaybook - quick-save the current board as a named Play.
  *
- * Persists through playStore (the kept `scenarios` table), capturing the live
- * board — players, paths, annotations, camera — as the Play's first phase.
+ * Captures the live board through the boardSnapshot module and persists it as
+ * the Play's first phase in a single write (createPlay with an initial phase).
  * (The legacy flat-Playbook table + Supabase upload were retired in §1.8.)
  */
 export function usePlaybook() {
   const createPlay = usePlayStore((s) => s.createPlay);
-  const updatePlay = usePlayStore((s) => s.updatePlay);
-  const players = usePlayerStore((state) => state.players);
-  const paths = usePathStore((state) => state.paths);
-  const { position, target, zoom } = useCameraStore();
-  const annotations = useAnnotationStore((state) => state.annotations);
 
-  const saveCurrentPlay = useCallback(
-    async (name: string) => {
-      const playbookId =
-        usePlaybookStore.getState().activePlaybookId ??
-        (await usePlaybookStore.getState().ensureDefaultPlaybook());
-      const id = await createPlay(name, playbookId);
-      await updatePlay(id, {
-        phases: [
-          {
-            id: 'phase-1',
-            label: 'Phase 1',
-            playerPositions: players,
-            paths,
-            annotations: annotations as unknown[],
-            cameraState: { position, target, zoom },
-          },
-        ],
-      });
-      return id;
-    },
-    [createPlay, updatePlay, players, paths, position, target, zoom, annotations]
-  );
+  const saveCurrentPlay = useCallback(async (name: string) => {
+    const playbookId =
+      usePlaybookStore.getState().activePlaybookId ??
+      (await usePlaybookStore.getState().ensureDefaultPlaybook());
+    const phase = toPhase(capture(), { id: 'phase-1', label: 'Phase 1' });
+    return createPlay(name, playbookId, phase);
+  }, [createPlay]);
 
   return {
     saveCurrentPlay,
