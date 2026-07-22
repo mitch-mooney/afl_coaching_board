@@ -7,8 +7,11 @@ import { MobileMenu, createMenuSection, createMenuItem, type MenuSection } from 
 import { useAuthStore } from '../../store/authStore';
 import { useMatchStore } from '../../store/matchStore';
 import { useHudPreferenceStore } from '../../store/hudPreferenceStore';
+import { usePlayStore } from '../../store/playStore';
+import { isSupabaseConfigured } from '../../lib/supabase';
 import { SavePlayDialog } from './SavePlayDialog';
 import { MatchSetupModal } from './MatchSetupModal';
+import { SharePlayModal } from './SharePlayModal';
 
 export function GlobalDrawer() {
   const isVideoMode = useVideoStore((state) => state.isVideoMode);
@@ -27,6 +30,9 @@ export function GlobalDrawer() {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showVideoUploader, setShowVideoUploader] = useState(false);
   const [showMatchSetup, setShowMatchSetup] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+
+  const activePlayId = usePlayStore((s) => s.activePlayId);
 
   // Match store state (only what the menu sections need directly)
   const matchShowScoreboard = useMatchStore((s) => s.showScoreboard);
@@ -72,9 +78,19 @@ export function GlobalDrawer() {
     );
 
     // Playbook section
-    sections.push(createMenuSection('playbook', 'Playbook', [
+    const playbookItems = [
       createMenuItem('save-playbook', 'Save Playbook', () => setShowSaveDialog(true), { variant: 'warning', description: 'Save this formation to your playbook library' }),
-    ]));
+    ];
+    if (isSupabaseConfigured()) {
+      playbookItems.push(
+        createMenuItem('share-play', 'Share Play', () => setShowShare(true), {
+          variant: 'purple',
+          disabled: activePlayId == null,
+          description: activePlayId == null ? 'Save this play first' : 'Create a shareable link for this play',
+        })
+      );
+    }
+    sections.push(createMenuSection('playbook', 'Playbook', playbookItems));
 
     // Display section
     sections.push(createMenuSection('display', 'Display', [
@@ -99,6 +115,7 @@ export function GlobalDrawer() {
     authUser, authIsConfigured, authSignOut,
     matchShowScoreboard, toggleScoreboard,
     skinLabel, cycleSkinOverride,
+    activePlayId,
   ]);
 
   return (
@@ -129,6 +146,8 @@ export function GlobalDrawer() {
       )}
 
       <MatchSetupModal open={showMatchSetup} onClose={() => setShowMatchSetup(false)} />
+
+      <SharePlayModal open={showShare} onClose={() => setShowShare(false)} />
     </div>
   );
 }
