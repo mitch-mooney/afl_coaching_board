@@ -11,6 +11,7 @@ interface BallState {
 
   // Actions
   initializeBall: (position?: [number, number, number]) => void;
+  setBall: (ball: Ball | null) => void;
   updateBallPosition: (position: [number, number, number]) => void;
   assignBallToPlayer: (playerId: string | null) => void;
   selectBall: (selected: boolean) => void;
@@ -33,6 +34,10 @@ export const useBallStore = create<BallState>((set, get) => ({
   initializeBall: (position = [0, 0.5, 0]) => {
     const ball = createBall(position);
     set({ ball, mode: 'assigned', currentPathId: null, currentKickType: null });
+  },
+
+  setBall: (ball) => {
+    set({ ball });
   },
 
   updateBallPosition: (position) => {

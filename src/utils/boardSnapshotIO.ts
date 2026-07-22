@@ -2,6 +2,7 @@ import { usePlayerStore } from '../store/playerStore';
 import { usePathStore } from '../store/pathStore';
 import { useAnnotationStore } from '../store/annotationStore';
 import { useCameraStore } from '../store/cameraStore';
+import { useBallStore } from '../store/ballStore';
 import type { BoardSnapshot } from './boardSnapshot';
 
 /**
@@ -11,7 +12,7 @@ import type { BoardSnapshot } from './boardSnapshot';
  * in `boardSnapshot`, which this module (and only this module) bridges to state.
  */
 
-/** Read the current board state from the four board stores. */
+/** Read the current board state from the board stores. */
 export function capture(): BoardSnapshot {
   const { position, target, zoom } = useCameraStore.getState();
   return {
@@ -19,13 +20,15 @@ export function capture(): BoardSnapshot {
     paths: usePathStore.getState().paths,
     annotations: useAnnotationStore.getState().annotations,
     camera: { position, target, zoom },
+    ball: useBallStore.getState().ball,
   };
 }
 
 /**
- * Write a snapshot back into the four board stores through their own actions,
- * so each store keeps enforcing its invariants. A null camera is left untouched
- * (matches the legacy restore, which only set the camera when one was saved).
+ * Write a snapshot back into the board stores through their own actions, so each
+ * store keeps enforcing its invariants. A null camera or ball is left untouched
+ * (matches the legacy restore, which only set what was saved) — so restoring a
+ * pre-ball Play leaves the live ball where it is rather than clearing it.
  */
 export function restore(snap: BoardSnapshot): void {
   usePlayerStore.getState().setPlayers(snap.players);
@@ -36,5 +39,8 @@ export function restore(snap: BoardSnapshot): void {
     camera.setCameraPosition(snap.camera.position);
     camera.setCameraTarget(snap.camera.target);
     camera.setZoom(snap.camera.zoom);
+  }
+  if (snap.ball) {
+    useBallStore.getState().setBall(snap.ball);
   }
 }

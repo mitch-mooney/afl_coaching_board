@@ -1,5 +1,6 @@
 import type { Player } from './PlayerModel';
 import type { MovementPath } from './PathModel';
+import type { Ball } from './BallModel';
 
 export interface LinkedVideoMoment {
   videoId: number;          // ++id PK from VideoImportDB.videos
@@ -20,6 +21,8 @@ export interface PlayPhase {
     target: [number, number, number];
     zoom: number;
   } | null;
+  /** The match ball. Optional/absent on Plays saved before ball capture. */
+  ball?: Ball | null;
 }
 
 export interface Play {

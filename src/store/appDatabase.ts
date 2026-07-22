@@ -39,6 +39,9 @@ export function legacyRowToPhase(p: LegacyPlaybook): PlayPhase {
         p.cameraPosition && p.cameraTarget
           ? { position: p.cameraPosition, target: p.cameraTarget, zoom: p.cameraZoom ?? 1 }
           : null,
+      // Legacy playbooks predate the ball; toPhase omits the key when null, so
+      // migrated rows keep their byte-identical (ball-less) stored shape.
+      ball: null,
     },
     { id: 'phase-1', label: 'Phase 1' },
   );
