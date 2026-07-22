@@ -43,10 +43,16 @@ extend this file rather than inventing parallel names.
   own actions. The single owner of that store access.
 
 - **boardPlayback** (`utils/boardPlayback.ts`) — the pure "where is everything at *t*"
-  query: `positionsAtProgress(entityPaths, progress)` returns each entity's position at a
-  global progress (0..1) — longest path drives the clock, shorter paths clamp at their own
-  end — with no store access. `boardScrub` is its IO half (`collectEntityPaths` reads; the
-  mutator applies the query result), the same pure-vs-IO split as boardSnapshot / boardSnapshotIO.
+  queries, no store access:
+  - `positionsAtProgress(entityPaths, progress)` returns each entity's position at a global
+    progress (0..1) — longest path drives the clock, shorter paths clamp at their own end.
+    `boardScrub` is its IO half (`collectEntityPaths` reads; the mutator applies the result),
+    the same pure-vs-IO split as boardSnapshot / boardSnapshotIO.
+  - `boardAt(snap, progress)` is the snapshot-level form: a new `BoardSnapshot` with players
+    and the ball moved to their positions at `progress`, everything else carried through. Its
+    entity paths come from `snap.paths` filtered by `pathHasMovement`, matching `collectEntityPaths`,
+    so it renders the same moment the live scrubber would. Store-free — for export frames,
+    thumbnails, and the shared viewer.
 
   > Scope note: a BoardSnapshot captures players/paths/annotations/camera **plus the ball
   > and cones**. `toPhase`/`toShareData` emit `ball`/`cones` only when present, so pre-ball/
