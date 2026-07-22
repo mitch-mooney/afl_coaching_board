@@ -2,14 +2,10 @@ import { useAnimationStore } from '../store/animationStore';
 import { usePlayerStore, PlayerUpdate } from '../store/playerStore';
 import { usePathStore } from '../store/pathStore';
 import { useBallStore } from '../store/ballStore';
-import { getPositionAtProgressWithEasing, easeInOut, pathHasMovement } from './pathAnimation';
-import { MovementPath } from '../models/PathModel';
+import { pathHasMovement } from './pathAnimation';
+import { positionsAtProgress, type EntityPath } from './boardPlayback';
 
-export interface EntityPath {
-  path: MovementPath;
-  kind: 'player' | 'ball';
-  id: string;
-}
+export type { EntityPath };
 
 /** Collect the current movement paths for all players and the ball. */
 export function collectEntityPaths(): EntityPath[] {
@@ -41,20 +37,10 @@ export function collectEntityPaths(): EntityPath[] {
  * and clamps at its own end.
  */
 export function positionEntitiesAtProgress(progress: number, entityPaths: EntityPath[]): void {
-  if (entityPaths.length === 0) return;
-
-  const globalDurationSec = Math.max(...entityPaths.map((e) => e.path.duration));
-  if (globalDurationSec <= 0) return;
-
-  const elapsedSec = Math.min(1, Math.max(0, progress)) * globalDurationSec;
-
   const playerUpdates: PlayerUpdate[] = [];
-  for (const entity of entityPaths) {
-    const localProgress =
-      entity.path.duration > 0 ? Math.min(1, elapsedSec / entity.path.duration) : 0;
-    const position = getPositionAtProgressWithEasing(entity.path, localProgress, easeInOut);
-    if (entity.kind === 'player') {
-      playerUpdates.push({ playerId: entity.id, position });
+  for (const { id, kind, position } of positionsAtProgress(entityPaths, progress)) {
+    if (kind === 'player') {
+      playerUpdates.push({ playerId: id, position });
     } else {
       useBallStore.getState().updateBallPosition(position);
     }
