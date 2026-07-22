@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePlayStore } from '../../store/playStore';
 import { useVideoStore } from '../../store/videoStore';
 import { sharePlay } from '../../services/sharingService';
@@ -21,6 +21,18 @@ export function SharePlayModal({ open, onClose }: { open: boolean; onClose: () =
   const [copied, setCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState("Couldn't create a share link. Try again.");
   const [retryable, setRetryable] = useState(true);
+
+  // Reset to a clean idle state each time the modal opens — it stays mounted
+  // (returns null when closed), so a prior 'done'/URL would otherwise leak into
+  // the next open (e.g. reopening for a different play).
+  useEffect(() => {
+    if (open) {
+      setState('idle');
+      setProgress({ phase: '', p: 0 });
+      setShareUrl(null);
+      setCopied(false);
+    }
+  }, [open]);
 
   if (!open) return null;
 
