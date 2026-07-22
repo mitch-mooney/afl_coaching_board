@@ -10,7 +10,7 @@ import { useMatchStore, formatAFLScore } from '../../store/matchStore';
 import type { Quarter } from '../../store/matchStore';
 import { useHudPreferenceStore } from '../../store/hudPreferenceStore';
 
-export function Toolbar() {
+export function GlobalDrawer() {
   const { saveCurrentPlay } = usePlaybook();
   const isVideoMode = useVideoStore((state) => state.isVideoMode);
   const isLoaded = useVideoStore((state) => state.isLoaded);

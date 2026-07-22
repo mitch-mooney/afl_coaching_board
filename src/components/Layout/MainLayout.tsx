@@ -7,7 +7,7 @@ import { AnnotationLayer } from '../Scene/AnnotationLayer';
 import { BallComponent } from '../Scene/Ball';
 import { PathManager } from '../Scene/Path';
 import { Scoreboard } from '../Scene/Scoreboard';
-import { Toolbar } from '../UI/Toolbar';
+import { GlobalDrawer } from '../UI/GlobalDrawer';
 import { BoardHud } from '../Board/hud/BoardHud';
 import { HelpScreen } from '../UI/HelpScreen';
 import { OnboardingTour } from '../UI/OnboardingTour';
@@ -516,7 +516,7 @@ export function MainLayout() {
       )}
 
       {/* All DOM-layer UI stays outside */}
-      <Toolbar />
+      <GlobalDrawer />
       {editorTab === 'board' && <BoardHud />}
       <OnboardingTour />
       {helpOpen && <HelpScreen onClose={() => setHelpOpen(false)} />}
