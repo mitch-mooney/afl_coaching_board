@@ -30,7 +30,8 @@ import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
 import { useCanvasResizeWithWindow } from '../../hooks/useCanvasResize';
 import { useBoardUndo } from '../../hooks/useBoardUndo';
 import { getSharedPlaybook } from '../../services/sharingService';
-import { capture, restore, toPhase, fromPhase, fromShareData } from '../../utils/boardSnapshot';
+import { toPhase, fromPhase, fromShareData } from '../../utils/boardSnapshot';
+import { capture, restore } from '../../utils/boardSnapshotIO';
 import {
   useKeyboardShortcuts,
   useCameraPresetShortcuts,

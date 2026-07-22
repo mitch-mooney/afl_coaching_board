@@ -1,20 +1,15 @@
-import { usePlayerStore } from '../store/playerStore';
-import { usePathStore } from '../store/pathStore';
-import { useAnnotationStore } from '../store/annotationStore';
-import { useCameraStore } from '../store/cameraStore';
 import type { Player } from '../models/PlayerModel';
 import type { MovementPath } from '../models/PathModel';
 import type { Annotation } from '../store/annotationStore';
 import type { PlayPhase } from '../models/PlayModel';
 
 /**
- * boardSnapshot — the single owner of "capture the board / restore the board".
- *
- * A `BoardSnapshot` is the live board content a Play stores: player positions,
- * movement paths, annotations, and camera framing. Every site that used to
- * hand-roll `read-N-stores → object` / `object → setState-into-N-stores`
- * (usePlaybook, MainLayout, SharedPlaybookViewer, sharingService) crosses this
- * one interface instead. See CONTEXT.md — "Board snapshot".
+ * boardSnapshot — the canonical shape of a board's content, and the adapters
+ * that serialize it. This module is PURE: it owns the `BoardSnapshot` type and
+ * the mappings to/from the two persisted formats, and imports no stores, so
+ * store-free layers (the Dexie migration, sharingService) can depend on it
+ * without pulling the UI store graph in. The store-touching capture()/restore()
+ * live in `boardSnapshotIO`. See CONTEXT.md — "Board snapshot".
  *
  * Scope is deliberately the four slices a Play persists today; ball, scoreboard,
  * and cones are a later additive decision (they are not yet captured anywhere).
@@ -33,34 +28,6 @@ export interface BoardSnapshot {
   paths: MovementPath[];
   annotations: Annotation[];
   camera: BoardCamera | null;
-}
-
-/** Read the current board state from the four board stores. */
-export function capture(): BoardSnapshot {
-  const { position, target, zoom } = useCameraStore.getState();
-  return {
-    players: usePlayerStore.getState().players,
-    paths: usePathStore.getState().paths,
-    annotations: useAnnotationStore.getState().annotations,
-    camera: { position, target, zoom },
-  };
-}
-
-/**
- * Write a snapshot back into the four board stores through their own actions,
- * so each store keeps enforcing its invariants. A null camera is left untouched
- * (matches the legacy restore, which only set the camera when one was saved).
- */
-export function restore(snap: BoardSnapshot): void {
-  usePlayerStore.getState().setPlayers(snap.players);
-  usePathStore.getState().setPaths(snap.paths);
-  useAnnotationStore.getState().setAnnotations(snap.annotations);
-  if (snap.camera) {
-    const camera = useCameraStore.getState();
-    camera.setCameraPosition(snap.camera.position);
-    camera.setCameraTarget(snap.camera.target);
-    camera.setZoom(snap.camera.zoom);
-  }
 }
 
 // ── Persistence adapter: BoardSnapshot ↔ PlayPhase ──────────────────────────

@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import { usePlayStore } from '../store/playStore';
 import { usePlaybookStore } from '../store/playbookStore';
-import { capture, toPhase } from '../utils/boardSnapshot';
+import { toPhase } from '../utils/boardSnapshot';
+import { capture } from '../utils/boardSnapshotIO';
 
 /**
  * usePlaybook - quick-save the current board as a named Play.

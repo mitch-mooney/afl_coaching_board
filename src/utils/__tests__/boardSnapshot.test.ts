@@ -6,8 +6,9 @@ import { useCameraStore } from '../../store/cameraStore';
 import { createMovementPath } from '../../models/PathModel';
 import type { Player } from '../../models/PlayerModel';
 import type { Annotation } from '../../store/annotationStore';
-import { capture, restore, toPhase, fromPhase, toShareData, fromShareData } from '../boardSnapshot';
+import { toPhase, fromPhase, toShareData, fromShareData } from '../boardSnapshot';
 import type { BoardSnapshot } from '../boardSnapshot';
+import { capture, restore } from '../boardSnapshotIO';
 import type { PlayPhase } from '../../models/PlayModel';
 
 const aPlayer: Player = {
