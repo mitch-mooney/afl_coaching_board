@@ -16,6 +16,7 @@ export interface HudAction {
   active?: boolean; // amber highlight (e.g. Draw path on)
   disabled?: boolean;
   hidden?: boolean; // e.g. ball buttons when no ball
+  extraStyle?: CSSProperties; // override base/active/disabled styles
 }
 
 export interface HudControls {
@@ -71,6 +72,7 @@ export function useSetupControls(): HudControls {
       label: `✏ Draw path${boardSubMode === 'draw' ? ' (on)' : ''}`,
       onClick: toggleBoardSubMode,
       active: boardSubMode === 'draw',
+      extraStyle: boardSubMode === 'draw' ? undefined : { background: 'transparent' },
     },
     { key: 'clear', label: 'Clear paths', onClick: clearPaths, disabled: paths.length === 0 },
     {
@@ -111,6 +113,7 @@ export function renderAction(a: HudAction, base: CSSProperties) {
         ...base,
         ...(a.active ? { background: '#f59e0b', color: '#000' } : {}),
         ...(a.disabled ? { opacity: 0.4 } : {}),
+        ...a.extraStyle,
       }}
     >
       {a.label}
