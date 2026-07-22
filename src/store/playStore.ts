@@ -36,6 +36,8 @@ interface PlayState {
   reassignBook: (fromId: number, toId: number) => Promise<void>;
   /** Unlink the given video from every Play that references it (video-delete cascade). */
   clearVideoLink: (videoId: number) => Promise<void>;
+  /** The Plays that reference the given video. The one place the link predicate lives. */
+  playsLinkedToVideo: (videoId: number) => Play[];
   /** The Plays contained in a Playbook. Containment lives here, not in each library view. */
   playsInBook: (playbookId: number) => Play[];
   setActivePlay: (id: number | null) => void;
@@ -130,9 +132,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
 
   clearVideoLink: async (videoId) => {
     try {
-      const linked = (await playTable.toArray()).filter(
-        (p) => p.linkedVideoMoment?.videoId === videoId,
-      );
+      const linked = get().playsLinkedToVideo(videoId);
       for (const play of linked) {
         if (play.id == null) continue;
         await playTable.update(play.id, {
@@ -146,6 +146,9 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       throw err;
     }
   },
+
+  playsLinkedToVideo: (videoId) =>
+    get().plays.filter((p) => p.linkedVideoMoment?.videoId === videoId),
 
   playsInBook: (playbookId) => get().plays.filter((p) => p.playbookId === playbookId),
 

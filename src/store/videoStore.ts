@@ -362,11 +362,10 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     set({ isPersisting: true });
     try {
       // Find all plays that reference this video. Refresh the playStore's
-      // canonical list first so the confirm names match what's on disk.
+      // canonical list first so the confirm names match what's on disk; the
+      // same loaded list then backs clearVideoLink below (one read, not two).
       await usePlayStore.getState().loadPlays();
-      const linked = usePlayStore.getState().plays.filter(
-        (s) => s.linkedVideoMoment?.videoId === id
-      );
+      const linked = usePlayStore.getState().playsLinkedToVideo(id);
 
       if (linked.length > 0) {
         const names = linked.map((s) => `"${s.name}"`).join(', ');
