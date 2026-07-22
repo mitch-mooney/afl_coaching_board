@@ -43,6 +43,21 @@ describe('playStore', () => {
     expect(usePlayStore.getState().activePlayId).toBeNull();
   });
 
+  it('creates a play with an initial phase in a single write', async () => {
+    const { createPlay } = usePlayStore.getState();
+    const phase = {
+      id: 'phase-1',
+      label: 'Phase 1',
+      playerPositions: [],
+      paths: [],
+      annotations: [],
+      cameraState: null,
+    };
+    const id = await createPlay('With Phase', 1, phase);
+    const play = usePlayStore.getState().plays.find((p) => p.id === id);
+    expect(play?.phases).toEqual([phase]);
+  });
+
   it('loads plays from DB', async () => {
     const { createPlay, loadPlays } = usePlayStore.getState();
     await createPlay('Persisted', 1);

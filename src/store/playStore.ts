@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { playbookDB } from './appDatabase';
-import type { Play } from '../models/PlayModel';
+import type { Play, PlayPhase } from '../models/PlayModel';
 
 // Export the table reference so tests can clear it directly.
 // (The IndexedDB table keeps its legacy name `scenarios`; a Play is what it stores.)
@@ -10,7 +10,7 @@ interface PlayState {
   plays: Play[];
   activePlayId: number | null;
   loadPlays: () => Promise<void>;
-  createPlay: (name: string, playbookId: number) => Promise<number>;
+  createPlay: (name: string, playbookId: number, initialPhase?: PlayPhase) => Promise<number>;
   updatePlay: (id: number, patch: Partial<Play>) => Promise<void>;
   deletePlay: (id: number) => Promise<void>;
   setActivePlay: (id: number | null) => void;
@@ -29,7 +29,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
     }
   },
 
-  createPlay: async (name, playbookId) => {
+  createPlay: async (name, playbookId, initialPhase) => {
     try {
       const now = new Date().toISOString();
       const id = await playTable.add({
@@ -38,7 +38,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
         updatedAt: now,
         team1RosterId: null,
         team2RosterId: null,
-        phases: [],
+        phases: initialPhase ? [initialPhase] : [],
         playbookId,
       });
       await get().loadPlays();
