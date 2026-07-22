@@ -26,7 +26,7 @@ export enum VideoErrorCode {
   LOAD_TIMEOUT = 'LOAD_TIMEOUT',
   UNKNOWN_LOAD_ERROR = 'UNKNOWN_LOAD_ERROR',
 
-  // Load errors reachable from createVideoError's message mapping
+  // Codes still produced by createVideoError's 'cancel' / 'memory' message mapping
   EXPORT_CANCELLED = 'EXPORT_CANCELLED',
   MEMORY_LIMIT_EXCEEDED = 'MEMORY_LIMIT_EXCEEDED',
 
@@ -153,19 +153,19 @@ const VIDEO_ERROR_INFO: Record<VideoErrorCode, Omit<VideoErrorInfo, 'code'>> = {
     isRetryable: true,
   },
 
-  // Load errors reachable from createVideoError's message mapping
+  // Codes still produced by createVideoError's 'cancel' / 'memory' message mapping
   [VideoErrorCode.EXPORT_CANCELLED]: {
-    title: 'Cancelled',
-    message: 'The video operation was cancelled.',
-    recovery: ['Start again when ready.'],
+    title: 'Export Cancelled',
+    message: 'The video export was cancelled.',
+    recovery: ['Start a new export when ready.'],
     isRetryable: true,
   },
   [VideoErrorCode.MEMORY_LIMIT_EXCEEDED]: {
     title: 'Memory Limit Exceeded',
-    message: 'The operation ran out of memory. The video may be too long or high resolution.',
+    message: 'The export ran out of memory. The video may be too long or high resolution.',
     recovery: [
-      'Try a lower resolution (720p).',
-      'Use a shorter portion of the video.',
+      'Try exporting at a lower resolution (720p).',
+      'Export a shorter portion of the video.',
       'Close other browser tabs and applications.',
       'Restart your browser and try again.',
     ],
