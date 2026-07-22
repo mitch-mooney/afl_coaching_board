@@ -32,6 +32,7 @@ import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
 import { useCanvasResizeWithWindow } from '../../hooks/useCanvasResize';
 import { useBoardUndo } from '../../hooks/useBoardUndo';
 import { getSharedPlaybook } from '../../services/sharingService';
+import { capture, restore, toPhase, fromPhase } from '../../utils/boardSnapshot';
 import {
   useKeyboardShortcuts,
   useCameraPresetShortcuts,
@@ -129,13 +130,6 @@ export function MainLayout() {
   const { setActivePlay, activePlayId, updatePlay } = usePlayStore();
   const { mode, switchMode } = useModeStore();
   const { isConePlacementActive, setConePlacementActive } = useConeStore();
-  const players = usePlayerStore((s) => s.players);
-  const annotations = useAnnotationStore((s) => s.annotations);
-  const camera = useCameraStore((s) => ({
-    position: s.position as [number, number, number],
-    target: s.target as [number, number, number],
-    zoom: s.zoom,
-  }));
 
   // Canvas resize handling with debounced ResizeObserver
   // React Three Fiber handles the actual resize through its built-in resize observer
@@ -178,25 +172,14 @@ export function MainLayout() {
   const { handleUndo: handleKeyboardUndo } = useBoardUndo();
   useEditOperationShortcuts({ onUndo: handleKeyboardUndo }, registry);
 
-  const savePayloadRef = useRef({ activePlayId, players, paths, annotations, camera, updatePlay });
-
-  useEffect(() => {
-    savePayloadRef.current = { activePlayId, players, paths, annotations, camera, updatePlay };
-  });
-
+  // Autosave the active Play on unmount. capture() reads the live board stores
+  // directly, so no ref of stale selector values is needed.
   useEffect(() => {
     return () => {
-      const { activePlayId, players, paths, annotations, camera, updatePlay } = savePayloadRef.current;
+      const { activePlayId, updatePlay } = usePlayStore.getState();
       if (!activePlayId) return;
       updatePlay(activePlayId, {
-        phases: [{
-          id: 'phase-1',
-          label: 'Phase 1',
-          playerPositions: players,
-          paths,
-          annotations: annotations as unknown[],
-          cameraState: camera,
-        }],
+        phases: [toPhase(capture(), { id: 'phase-1', label: 'Phase 1' })],
       });
     };
   }, []); // empty array = runs cleanup on unmount only
@@ -206,25 +189,9 @@ export function MainLayout() {
     const numId = Number(id);
     setActivePlay(numId);
     playTable.get(numId).then((play) => {
-      if (!play) return;
-      const phase = play.phases[0];
+      const phase = play?.phases[0];
       if (!phase) return;
-      if (phase.playerPositions?.length) {
-        usePlayerStore.setState({ players: phase.playerPositions });
-      }
-      if (phase.paths?.length) {
-        usePathStore.setState({ paths: phase.paths });
-      }
-      if (phase.annotations?.length) {
-        useAnnotationStore.setState({ annotations: phase.annotations as any });
-      }
-      if (phase.cameraState) {
-        useCameraStore.setState({
-          position: phase.cameraState.position,
-          target: phase.cameraState.target,
-          zoom: phase.cameraState.zoom,
-        });
-      }
+      restore(fromPhase(phase));
     });
     return () => setActivePlay(null);
   }, [id, setActivePlay]);
