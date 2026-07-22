@@ -26,6 +26,8 @@ interface PathState {
   updatePath: (pathId: string, updates: Partial<Omit<MovementPath, 'id'>>) => void;
   removePath: (pathId: string) => void;
   clearPaths: () => void;
+  /** Replace the whole path set — used when restoring a saved board. */
+  setPaths: (paths: MovementPath[]) => void;
 
   // Actions - Keyframe CRUD
   addKeyframe: (pathId: string, keyframe: Keyframe) => void;
@@ -83,6 +85,10 @@ export const usePathStore = create<PathState>((set, get) => ({
 
   clearPaths: () => {
     set({ paths: [], selectedPathId: null });
+  },
+
+  setPaths: (paths) => {
+    set({ paths, selectedPathId: null });
   },
 
   // Keyframe CRUD
