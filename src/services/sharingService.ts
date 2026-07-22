@@ -40,6 +40,18 @@ export async function getSharedPlaybook(token: string): Promise<SharedPlaybook |
   return data as SharedPlaybook;
 }
 
+/** Why a share could not be created, so the UI can explain it precisely. */
+export type ShareFailReason = 'not-configured' | 'not-found' | 'no-content' | 'failed';
+
+/**
+ * Result of a share attempt: the link on success, a size flag when the clip
+ * was too large, or a typed reason when it could not be created.
+ */
+export type ShareResult =
+  | { token: string; url: string }
+  | { clipTooLarge: true }
+  | { reason: ShareFailReason };
+
 /**
  * Share a play, board-only or with a video clip.
  *
@@ -48,25 +60,26 @@ export async function getSharedPlaybook(token: string): Promise<SharedPlaybook |
  * includes `video_url` in the shared_playbooks record. Otherwise the share
  * is board-only (`video_url: null`) — no extraction or upload happens.
  *
- * Returns null if Supabase is not configured, the play isn't found, the
- * play has no first phase, or on insert error.
+ * On failure returns a typed `reason`: 'not-configured' (Supabase off),
+ * 'not-found' (play missing), 'no-content' (play has no saved phase yet —
+ * arrange and save it first), or 'failed' (extraction/upload/insert error).
  */
 export async function sharePlay(
   playId: number,
   videoBlob?: Blob | null,
   onProgress?: (phase: string, progress: number) => void
-): Promise<{ token: string; url: string; clipTooLarge?: boolean } | null> {
+): Promise<ShareResult> {
   if (!isSupabaseConfigured() || !supabase) {
-    return null;
+    return { reason: 'not-configured' };
   }
 
   // Look up the play
   const play = await playbookDB.scenarios.get(playId);
-  if (!play) return null;
+  if (!play) return { reason: 'not-found' };
 
-  // Use first phase for playbook_data
+  // Use first phase for playbook_data — absent until the play is arranged + saved
   const phase = play.phases?.[0];
-  if (!phase) return null;
+  if (!phase) return { reason: 'no-content' };
 
   const lvm = play.linkedVideoMoment;
   const token = generateToken();
@@ -89,12 +102,12 @@ export async function sharePlay(
       clipBlob = result.blob;
     } catch (err) {
       console.error('[sharePlay] FFmpeg extraction failed', err);
-      return null;
+      return { reason: 'failed' };
     }
 
     // Size guard — return early with clipTooLarge flag
     if (clipBlob.size > MAX_SHARE_VIDEO_SIZE) {
-      return { token: '', url: '', clipTooLarge: true };
+      return { clipTooLarge: true };
     }
 
     onProgress?.('Uploading…', 0.8);
@@ -137,7 +150,7 @@ export async function sharePlay(
 
   if (error) {
     console.error('[sharePlay] insert failed', error);
-    return null;
+    return { reason: 'failed' };
   }
 
   onProgress?.('Done', 1);

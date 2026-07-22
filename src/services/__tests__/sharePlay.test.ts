@@ -72,8 +72,28 @@ describe('sharePlay — board-only branch', () => {
     expect(insertArg.video_url).toBeNull();
     expect(insertArg.playbook_data.quarter).toBeNull();
     expect(insertArg.playbook_data.label).toBeNull();
-    expect(result).not.toBeNull();
-    expect(result?.token).toBeTruthy();
+    if (!('url' in result)) throw new Error('expected a successful share result');
+    expect(result.token).toBeTruthy();
+    expect(result.url).toContain('/shared/');
+  });
+
+  it('returns reason "no-content" without inserting when the play has no saved phase', async () => {
+    const play: Play = {
+      id: 3,
+      name: 'Freshly created play',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      team1RosterId: null,
+      team2RosterId: null,
+      phases: [],
+    };
+    scenariosGetMock.mockResolvedValue(play);
+
+    const result = await sharePlay(3, null);
+
+    expect(result).toEqual({ reason: 'no-content' });
+    expect(insertMock).not.toHaveBeenCalled();
+    expect(trimAndConvertVideoMock).not.toHaveBeenCalled();
   });
 
   it('still shares board-only when a linkedVideoMoment exists but no videoBlob is supplied', async () => {

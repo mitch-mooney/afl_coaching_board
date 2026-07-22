@@ -19,10 +19,13 @@ export function SharePlayModal({ open, onClose }: { open: boolean; onClose: () =
   const [progress, setProgress] = useState<Progress>({ phase: '', p: 0 });
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("Couldn't create a share link. Try again.");
+  const [retryable, setRetryable] = useState(true);
 
   if (!open) return null;
 
   const hasClip = Boolean(activePlay?.linkedVideoMoment && videoFile);
+  const blockedReason = activePlayId == null ? 'Save this play first.' : null;
 
   const handleClose = () => {
     onClose();
@@ -36,16 +39,24 @@ export function SharePlayModal({ open, onClose }: { open: boolean; onClose: () =
     if (activePlayId == null) return;
     setState('working');
     const result = await sharePlay(activePlayId, blob, (phase, p) => setProgress({ phase, p }));
-    if (!result) {
-      setState('error');
+    if ('url' in result) {
+      setShareUrl(result.url);
+      setState('done');
       return;
     }
-    if (result.clipTooLarge) {
+    if ('clipTooLarge' in result) {
       setState('tooLarge');
       return;
     }
-    setShareUrl(result.url);
-    setState('done');
+    // A typed failure reason — explain no-content specifically; it isn't retryable.
+    if (result.reason === 'no-content') {
+      setErrorMsg('Arrange players and save this play before you can share it.');
+      setRetryable(false);
+    } else {
+      setErrorMsg("Couldn't create a share link. Try again.");
+      setRetryable(true);
+    }
+    setState('error');
   };
 
   const handleCreate = () => {
@@ -78,9 +89,9 @@ export function SharePlayModal({ open, onClose }: { open: boolean; onClose: () =
       <div className="relative z-10 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 w-[90vw] max-w-sm">
         <h3 className="text-lg font-bold mb-3">Share Play</h3>
 
-        {activePlayId == null ? (
+        {blockedReason ? (
           <div className="space-y-3">
-            <p className="text-sm text-gray-600">Save this play first.</p>
+            <p className="text-sm text-gray-600">{blockedReason}</p>
             <div className="flex justify-end">
               <button
                 onClick={handleClose}
@@ -176,7 +187,7 @@ export function SharePlayModal({ open, onClose }: { open: boolean; onClose: () =
 
             {state === 'error' && (
               <>
-                <p className="text-sm text-red-600">Couldn't create a share link. Try again.</p>
+                <p className="text-sm text-red-600">{errorMsg}</p>
                 <div className="flex gap-2 justify-end">
                   <button
                     onClick={handleClose}
@@ -184,12 +195,14 @@ export function SharePlayModal({ open, onClose }: { open: boolean; onClose: () =
                   >
                     Close
                   </button>
-                  <button
-                    onClick={handleCreate}
-                    className="px-4 py-2 min-h-[44px] bg-orange-500 text-white rounded hover:bg-orange-600 transition touch-manipulation"
-                  >
-                    Try again
-                  </button>
+                  {retryable && (
+                    <button
+                      onClick={handleCreate}
+                      className="px-4 py-2 min-h-[44px] bg-orange-500 text-white rounded hover:bg-orange-600 transition touch-manipulation"
+                    >
+                      Try again
+                    </button>
+                  )}
                 </div>
               </>
             )}
