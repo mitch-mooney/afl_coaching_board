@@ -23,15 +23,15 @@ import { usePlayerStore } from '../../store/playerStore';
 import { useBallStore } from '../../store/ballStore';
 import { usePathStore } from '../../store/pathStore';
 import { useUIStore } from '../../store/uiStore';
-import { usePlayStore, playTable } from '../../store/playStore';
+import { usePlayStore } from '../../store/playStore';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
 import { useCanvasResizeWithWindow } from '../../hooks/useCanvasResize';
 import { useBoardUndo } from '../../hooks/useBoardUndo';
 import { getSharedPlaybook } from '../../services/sharingService';
-import { toPhase, fromPhase, fromShareData } from '../../utils/boardSnapshot';
-import { capture, restore } from '../../utils/boardSnapshotIO';
+import { fromShareData } from '../../utils/boardSnapshot';
+import { restore } from '../../utils/boardSnapshotIO';
 import {
   useKeyboardShortcuts,
   useCameraPresetShortcuts,
@@ -171,15 +171,13 @@ export function MainLayout() {
   const { handleUndo: handleKeyboardUndo } = useBoardUndo();
   useEditOperationShortcuts({ onUndo: handleKeyboardUndo }, registry);
 
-  // Autosave the active Play on unmount. capture() reads the live board stores
-  // directly, so no ref of stale selector values is needed.
+  // Autosave the active Play on unmount. saveActiveBoard captures the live board
+  // through the playStore gateway, so no ref of stale selector values is needed.
   useEffect(() => {
     return () => {
-      const { activePlayId, updatePlay } = usePlayStore.getState();
+      const { activePlayId, saveActiveBoard } = usePlayStore.getState();
       if (!activePlayId) return;
-      updatePlay(activePlayId, {
-        phases: [toPhase(capture(), { id: 'phase-1', label: 'Phase 1' })],
-      });
+      saveActiveBoard(activePlayId);
     };
   }, []); // empty array = runs cleanup on unmount only
 
@@ -187,11 +185,7 @@ export function MainLayout() {
     if (!id) return;
     const numId = Number(id);
     setActivePlay(numId);
-    playTable.get(numId).then((play) => {
-      const phase = play?.phases[0];
-      if (!phase) return;
-      restore(fromPhase(phase));
-    });
+    usePlayStore.getState().loadPlayBoard(numId);
     return () => setActivePlay(null);
   }, [id, setActivePlay]);
 

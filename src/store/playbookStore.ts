@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { playbookDB } from './appDatabase';
+import { usePlayStore } from './playStore';
 import type { Playbook } from '../models/PlaybookModel';
 
 // The Playbook collection table (distinct from the legacy dead `playbooks` table).
@@ -57,7 +58,7 @@ export const usePlaybookStore = create<PlaybookState>((set, get) => ({
           const dupes = pool.slice(1).filter((p) => p.id != null);
           if (dupes.length > 0) {
             for (const dupe of dupes) {
-              await playbookDB.scenarios.where('playbookId').equals(dupe.id!).modify({ playbookId: survivor.id! });
+              await usePlayStore.getState().reassignBook(dupe.id!, survivor.id!);
               await playbookTable.delete(dupe.id!);
             }
           }
@@ -98,7 +99,7 @@ export const usePlaybookStore = create<PlaybookState>((set, get) => ({
     if (!target || target.isDefault) return; // never delete the "My Plays" safety net
     const defaultId = await get().ensureDefaultPlaybook();
     // Reassign this Playbook's Plays to the default (requires the playbookId index).
-    await playbookDB.scenarios.where('playbookId').equals(id).modify({ playbookId: defaultId });
+    await usePlayStore.getState().reassignBook(id, defaultId);
     await playbookTable.delete(id);
     if (get().activePlaybookId === id) set({ activePlaybookId: null });
     await get().loadPlaybooks();

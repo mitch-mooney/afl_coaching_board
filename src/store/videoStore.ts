@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import Dexie, { Table } from 'dexie';
-import { playbookDB } from './appDatabase';
-import type { Play } from '../models/PlayModel';
+import { usePlayStore } from './playStore';
 
 /**
  * Export settings for video output
@@ -399,9 +398,10 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   deleteVideoMetadataWithCascade: async (id) => {
     set({ isPersisting: true });
     try {
-      // Find all plays that reference this video
-      const allPlays: Play[] = await playbookDB.scenarios.toArray();
-      const linked = allPlays.filter(
+      // Find all plays that reference this video. Refresh the playStore's
+      // canonical list first so the confirm names match what's on disk.
+      await usePlayStore.getState().loadPlays();
+      const linked = usePlayStore.getState().plays.filter(
         (s) => s.linkedVideoMoment?.videoId === id
       );
 
@@ -416,15 +416,9 @@ export const useVideoStore = create<VideoState>((set, get) => ({
         }
       }
 
-      // Step 1: Unlink plays first (safe to do before delete)
+      // Step 1: Unlink plays first (safe to do before delete) via the gateway.
       try {
-        for (const s of linked) {
-          if (s.id == null) continue;
-          await playbookDB.scenarios.update(s.id, {
-            linkedVideoMoment: undefined,
-            updatedAt: new Date().toISOString(),
-          });
-        }
+        await usePlayStore.getState().clearVideoLink(id);
       } catch (err) {
         console.error('[videoStore] cascade unlink failed — aborting delete', err);
         set({ isPersisting: false });

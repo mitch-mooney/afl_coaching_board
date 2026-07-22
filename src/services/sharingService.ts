@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { playbookDB } from '../store/appDatabase';
+import { usePlayStore } from '../store/playStore';
 import { trimAndConvertVideo } from '../utils/ffmpegConverter';
 import { toShareData, fromPhase } from '../utils/boardSnapshot';
 import type { SharePayload } from '../utils/boardSnapshot';
@@ -75,8 +75,8 @@ export async function sharePlay(
     return { reason: 'not-configured' };
   }
 
-  // Look up the play
-  const play = await playbookDB.scenarios.get(playId);
+  // Look up the play through the playStore gateway
+  const play = await usePlayStore.getState().getPlay(playId);
   if (!play) return { reason: 'not-found' };
 
   // Use first phase for playbook_data — absent until the play is arranged + saved
