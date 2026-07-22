@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { usePlayerStore } from './playerStore';
 import { useAnnotationStore } from './annotationStore';
 import { useConeStore } from './coneStore';
+import { useHistoryStore } from './historyStore';
 import { capture, restore } from '../utils/boardSnapshotIO';
 import type { BoardSnapshot } from '../utils/boardSnapshot';
 
@@ -50,7 +51,11 @@ export const useModeStore = create<ModeState>((set, get) => ({
   resetMode: () => {
     set({ mode: 'match', contextSnapshot: null });
     usePlayerStore.getState().resetPlayers();
+    // A mode reset is not a user board-edit — don't record it as undoable.
+    const history = useHistoryStore.getState();
+    history.pauseRecording();
     useAnnotationStore.getState().clearAnnotations();
+    history.resumeRecording();
     useConeStore.getState().clearCones();
   },
 }));

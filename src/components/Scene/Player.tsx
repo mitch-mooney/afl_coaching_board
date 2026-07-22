@@ -8,7 +8,7 @@ import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore, createPlayerSnapshot } from '../../store/historyStore';
 import { useAnimationStore } from '../../store/animationStore';
 import { useUIStore } from '../../store/uiStore';
-import { useAnnotationStore } from '../../store/annotationStore';
+import { useAnnotationStore, captureAnnotationSnapshots } from '../../store/annotationStore';
 import { snapToField, positionToZone } from '../../utils/fieldGeometry';
 import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
 import { getTeamById } from '../../data/aflTeams';
@@ -345,7 +345,7 @@ export function PlayerComponent({ player }: PlayerProps) {
                 ? { id: p.id, position: preDragSnapshot.current!.position, rotation: p.rotation }
                 : createPlayerSnapshot(p)
             ),
-            annotations: [],
+            annotations: captureAnnotationSnapshots(),
           });
         }
       }

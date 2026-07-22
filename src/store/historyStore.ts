@@ -99,6 +99,23 @@ export function createAnnotationSnapshot(annotation: Annotation): AnnotationSnap
 }
 
 /**
+ * Rehydrates a full Annotation from a history snapshot.
+ * The snapshot deliberately omits non-undoable metadata (createdAt, magnify
+ * params), so those are reset — undo restores geometry + style, not identity.
+ */
+export function annotationFromSnapshot(snapshot: AnnotationSnapshot): Annotation {
+  return {
+    id: snapshot.id,
+    type: snapshot.type,
+    points: snapshot.points.map(point => [...point]),
+    color: snapshot.color,
+    thickness: snapshot.thickness,
+    text: snapshot.text,
+    createdAt: new Date(),
+  };
+}
+
+/**
  * Creates a complete state snapshot from players and annotations.
  */
 export function createStateSnapshot(

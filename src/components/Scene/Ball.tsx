@@ -6,6 +6,7 @@ import { useBallStore } from '../../store/ballStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore } from '../../store/historyStore';
+import { captureAnnotationSnapshots } from '../../store/annotationStore';
 import { snapToField } from '../../utils/fieldGeometry';
 import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
 import { heldBallTarget } from '../../utils/ballFollow';
@@ -162,7 +163,7 @@ export function BallComponent({ ball }: BallProps) {
         if (preDragPosition.current) {
           pushSnapshot({
             players: [], // Ball undo doesn't need player state
-            annotations: [],
+            annotations: captureAnnotationSnapshots(),
           });
         }
       }

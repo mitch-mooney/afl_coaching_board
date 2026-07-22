@@ -1,4 +1,11 @@
 import { create } from 'zustand';
+import {
+  useHistoryStore,
+  createStateSnapshot,
+  createAnnotationSnapshot,
+  type AnnotationSnapshot,
+} from './historyStore';
+import { usePlayerStore } from './playerStore';
 
 export type AnnotationType = 'line' | 'arrow' | 'circle' | 'rectangle' | 'text' | 'measure' | 'magnifying-glass';
 
@@ -38,7 +45,25 @@ interface AnnotationState {
   loadAnnotations: (json: string) => void;
 }
 
-export const useAnnotationStore = create<AnnotationState>((set) => ({
+/**
+ * Records the board state *before* an annotation mutation so the mutation is
+ * undoable. pushSnapshot honours the paused flag, so undo/redo restoration and
+ * system-driven clears (e.g. mode reset) don't record spurious history.
+ */
+function recordPreMutationSnapshot(annotations: Annotation[]) {
+  const players = usePlayerStore.getState().players;
+  useHistoryStore.getState().pushSnapshot(createStateSnapshot(players, annotations));
+}
+
+/**
+ * Snapshots the live annotations for a history record — the single owner of
+ * that shape, shared by the player/ball drag-end push sites.
+ */
+export function captureAnnotationSnapshots(): AnnotationSnapshot[] {
+  return useAnnotationStore.getState().annotations.map(createAnnotationSnapshot);
+}
+
+export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   annotations: [],
   selectedTool: null,
   selectedColor: '#ffff00', // Yellow default
@@ -51,6 +76,7 @@ export const useAnnotationStore = create<AnnotationState>((set) => ({
   },
 
   addAnnotation: (annotation) => {
+    recordPreMutationSnapshot(get().annotations);
     const newAnnotation: Annotation = {
       ...annotation,
       id: `annotation-${Date.now()}-${Math.random()}`,
@@ -60,14 +86,16 @@ export const useAnnotationStore = create<AnnotationState>((set) => ({
       annotations: [...state.annotations, newAnnotation],
     }));
   },
-  
+
   removeAnnotation: (id) => {
+    recordPreMutationSnapshot(get().annotations);
     set((state) => ({
       annotations: state.annotations.filter((a) => a.id !== id),
     }));
   },
-  
+
   clearAnnotations: () => {
+    recordPreMutationSnapshot(get().annotations);
     set({ annotations: [] });
   },
   
