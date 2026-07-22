@@ -4,6 +4,7 @@ import { Canvas } from '@react-three/fiber';
 import { getSharedPlaybook } from '../../services/sharingService';
 import type { SharedPlaybook } from '../../services/sharingService';
 import { fromShareData } from '../../utils/boardSnapshot';
+import { boardAt } from '../../utils/boardPlayback';
 import { capture, restore } from '../../utils/boardSnapshotIO';
 import { Field } from '../Scene/Field';
 import { PlayerManager } from '../Scene/PlayerManager';
@@ -30,10 +31,13 @@ export function SharedPlaybookViewer() {
   }, [token]);
 
   // Seed stores when entering board step; put the prior board back on leave.
+  // Render the play's end state via boardAt(…, 1): tokens and the ball sit at
+  // their path ends while PathManager draws the arrows showing how they got
+  // there. A play with no movement renders its arranged positions unchanged.
   useEffect(() => {
     if (step !== 'board' || !data) return;
     const previous = capture();
-    restore(fromShareData(data.playbook_data));
+    restore(boardAt(fromShareData(data.playbook_data), 1));
     return () => {
       restore(previous);
     };
