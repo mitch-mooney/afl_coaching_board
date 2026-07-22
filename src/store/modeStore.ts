@@ -2,17 +2,14 @@ import { create } from 'zustand';
 import { usePlayerStore } from './playerStore';
 import { useAnnotationStore } from './annotationStore';
 import { useConeStore } from './coneStore';
+import { capture, restore } from '../utils/boardSnapshotIO';
+import type { BoardSnapshot } from '../utils/boardSnapshot';
 
 export type AppMode = 'match' | 'training';
 
-interface ContextSnapshot {
-  players: ReturnType<typeof usePlayerStore.getState>['players'];
-  annotations: ReturnType<typeof useAnnotationStore.getState>['annotations'];
-}
-
 interface ModeState {
   mode: AppMode;
-  contextSnapshot: ContextSnapshot | null;
+  contextSnapshot: BoardSnapshot | null;
   switchMode: (newMode: AppMode) => void;
   saveContext: () => void;
   restoreContext: () => void;
@@ -23,24 +20,17 @@ export const useModeStore = create<ModeState>((set, get) => ({
   mode: 'match',
   contextSnapshot: null,
 
+  // Stash the whole board through the canonical snapshot seam, so a mode switch
+  // preserves paths/ball/cones/camera too — not just players + annotations.
   saveContext: () => {
-    const players = usePlayerStore.getState().players;
-    const annotations = useAnnotationStore.getState().annotations;
-
-    set({
-      contextSnapshot: {
-        players,
-        annotations,
-      },
-    });
+    set({ contextSnapshot: capture() });
   },
 
   restoreContext: () => {
     const { contextSnapshot } = get();
     if (!contextSnapshot) return;
 
-    usePlayerStore.getState().setPlayers(contextSnapshot.players);
-    useAnnotationStore.getState().setAnnotations(contextSnapshot.annotations);
+    restore(contextSnapshot);
   },
 
   switchMode: (newMode: AppMode) => {
