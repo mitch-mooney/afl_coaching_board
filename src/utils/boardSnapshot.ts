@@ -1,6 +1,7 @@
 import type { Player } from '../models/PlayerModel';
 import type { MovementPath } from '../models/PathModel';
 import type { Ball } from '../models/BallModel';
+import type { Cone } from '../store/coneStore';
 import type { Annotation } from '../store/annotationStore';
 import type { PlayPhase } from '../models/PlayModel';
 
@@ -12,10 +13,10 @@ import type { PlayPhase } from '../models/PlayModel';
  * without pulling the UI store graph in. The store-touching capture()/restore()
  * live in `boardSnapshotIO`. See CONTEXT.md — "Board snapshot".
  *
- * Scope: the four board slices a Play persists, plus the ball. Scoreboard/match
- * state is deliberately excluded (it is app-wide match context, not per-Play board
- * content — capturing it would make restoring a Play clobber the live scoreboard);
- * cones are the next additive step.
+ * Scope: the four board slices a Play persists, plus the ball and cones.
+ * Scoreboard/match state is deliberately excluded — it is app-wide match context,
+ * not per-Play board content, so capturing it would make restoring a Play clobber
+ * the live scoreboard.
  */
 
 /** Camera framing captured in a snapshot — the broadcast pose, without POV state. */
@@ -33,6 +34,8 @@ export interface BoardSnapshot {
   camera: BoardCamera | null;
   /** The match ball, or null when the board has none (e.g. a legacy Play). */
   ball: Ball | null;
+  /** Placed drill cones; an empty list when none. */
+  cones: Cone[];
 }
 
 // ── Persistence adapter: BoardSnapshot ↔ PlayPhase ──────────────────────────
@@ -42,8 +45,9 @@ export interface BoardSnapshot {
 
 /**
  * Wrap a snapshot as a persisted PlayPhase (renames to the stored field names).
- * `ball` is written only when present, so pre-ball Plays (and the v3 migration's
- * legacy rows) keep a byte-identical stored shape with no `ball` key.
+ * `ball` and `cones` are written only when present, so pre-ball/pre-cones Plays
+ * (and the v3 migration's legacy rows) keep a byte-identical stored shape with no
+ * `ball`/`cones` key.
  */
 export function toPhase(snap: BoardSnapshot, identity: { id: string; label: string }): PlayPhase {
   return {
@@ -54,6 +58,7 @@ export function toPhase(snap: BoardSnapshot, identity: { id: string; label: stri
     annotations: snap.annotations,
     cameraState: snap.camera,
     ...(snap.ball ? { ball: snap.ball } : {}),
+    ...(snap.cones.length ? { cones: snap.cones } : {}),
   };
 }
 
@@ -65,6 +70,7 @@ export function fromPhase(phase: PlayPhase): BoardSnapshot {
     annotations: (phase.annotations ?? []) as Annotation[],
     camera: phase.cameraState ?? null,
     ball: phase.ball ?? null,
+    cones: phase.cones ?? [],
   };
 }
 
@@ -91,6 +97,8 @@ export interface SharePayload extends ShareMeta {
   cameraZoom: number;
   /** Present only when the shared board had a ball; older links omit it. */
   ball?: Ball | null;
+  /** Present only when the shared board had cones; older links omit it. */
+  cones?: Cone[];
 }
 
 /** Flatten a snapshot into the shared-link wire shape. */
@@ -106,13 +114,14 @@ export function toShareData(snap: BoardSnapshot, meta: ShareMeta): SharePayload 
     quarter: meta.quarter ?? null,
     label: meta.label ?? null,
     ...(snap.ball ? { ball: snap.ball } : {}),
+    ...(snap.cones.length ? { cones: snap.cones } : {}),
   };
 }
 
 /**
  * Read a shared-link payload back into a snapshot. Reads `paths` (the legacy
  * restore sites forgot to, silently dropping movement paths from shared plays),
- * re-nests the flat camera fields, and tolerates links that predate the ball.
+ * re-nests the flat camera fields, and tolerates links that predate the ball/cones.
  */
 export function fromShareData(data: SharePayload): BoardSnapshot {
   return {
@@ -124,5 +133,6 @@ export function fromShareData(data: SharePayload): BoardSnapshot {
         ? { position: data.cameraPosition, target: data.cameraTarget, zoom: data.cameraZoom ?? 1 }
         : null,
     ball: data.ball ?? null,
+    cones: data.cones ?? [],
   };
 }

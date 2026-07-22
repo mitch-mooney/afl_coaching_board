@@ -10,6 +10,7 @@ interface ConeState {
   isConePlacementActive: boolean;
   addCone: (position: [number, number, number]) => void;
   removeCone: (id: string) => void;
+  setCones: (cones: Cone[]) => void;
   clearCones: () => void;
   setConePlacementActive: (active: boolean) => void;
 }
@@ -28,6 +29,10 @@ export const useConeStore = create<ConeState>((set) => ({
 
   removeCone(id: string) {
     set((state) => ({ cones: state.cones.filter((c) => c.id !== id) }));
+  },
+
+  setCones(cones: Cone[]) {
+    set({ cones });
   },
 
   clearCones() {

@@ -4,9 +4,11 @@ import { usePathStore } from '../../store/pathStore';
 import { useAnnotationStore } from '../../store/annotationStore';
 import { useCameraStore } from '../../store/cameraStore';
 import { useBallStore } from '../../store/ballStore';
+import { useConeStore } from '../../store/coneStore';
 import { createMovementPath } from '../../models/PathModel';
 import { createBall } from '../../models/BallModel';
 import type { Player } from '../../models/PlayerModel';
+import type { Cone } from '../../store/coneStore';
 import type { Annotation } from '../../store/annotationStore';
 import { toPhase, fromPhase, toShareData, fromShareData } from '../boardSnapshot';
 import type { BoardSnapshot } from '../boardSnapshot';
@@ -29,6 +31,7 @@ const anAnnotation: Annotation = {
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
 };
 const aBall = createBall([3, 0.5, 4], { assignedPlayerId: 'team1-player-1' });
+const aCone: Cone = { id: 'cone-1', position: [8, 0, 8] };
 
 beforeEach(() => {
   usePlayerStore.setState({ players: [] });
@@ -36,15 +39,17 @@ beforeEach(() => {
   useAnnotationStore.setState({ annotations: [] });
   useCameraStore.setState({ position: [0, 0, 0], target: [0, 0, 0], zoom: 1 });
   useBallStore.setState({ ball: null });
+  useConeStore.setState({ cones: [] });
 });
 
 describe('boardSnapshot.capture', () => {
-  it('reads the board slices, including the ball, from their stores', () => {
+  it('reads the board slices, including the ball and cones, from their stores', () => {
     usePlayerStore.setState({ players: [aPlayer] });
     usePathStore.setState({ paths: [aPath] });
     useAnnotationStore.setState({ annotations: [anAnnotation] });
     useCameraStore.setState({ position: [1, 2, 3], target: [4, 5, 6], zoom: 2 });
     useBallStore.setState({ ball: aBall });
+    useConeStore.setState({ cones: [aCone] });
 
     const snap = capture();
 
@@ -53,21 +58,25 @@ describe('boardSnapshot.capture', () => {
     expect(snap.annotations).toEqual([anAnnotation]);
     expect(snap.camera).toEqual({ position: [1, 2, 3], target: [4, 5, 6], zoom: 2 });
     expect(snap.ball).toEqual(aBall);
+    expect(snap.cones).toEqual([aCone]);
   });
 
-  it('captures a null ball when the board has none', () => {
-    expect(capture().ball).toBeNull();
+  it('captures a null ball and empty cones when the board has neither', () => {
+    const snap = capture();
+    expect(snap.ball).toBeNull();
+    expect(snap.cones).toEqual([]);
   });
 });
 
 describe('boardSnapshot.restore', () => {
-  it('writes the board slices, including the ball, back into their stores', () => {
+  it('writes the board slices, including the ball and cones, back into their stores', () => {
     restore({
       players: [aPlayer],
       paths: [aPath],
       annotations: [anAnnotation],
       camera: { position: [7, 8, 9], target: [1, 1, 1], zoom: 3 },
       ball: aBall,
+      cones: [aCone],
     });
 
     expect(usePlayerStore.getState().players).toEqual([aPlayer]);
@@ -76,12 +85,13 @@ describe('boardSnapshot.restore', () => {
     const cam = useCameraStore.getState();
     expect([cam.position, cam.target, cam.zoom]).toEqual([[7, 8, 9], [1, 1, 1], 3]);
     expect(useBallStore.getState().ball).toEqual(aBall);
+    expect(useConeStore.getState().cones).toEqual([aCone]);
   });
 
   it('leaves the camera untouched when the snapshot camera is null', () => {
     useCameraStore.setState({ position: [5, 5, 5], target: [6, 6, 6], zoom: 9 });
 
-    restore({ players: [], paths: [], annotations: [], camera: null, ball: null });
+    restore({ players: [], paths: [], annotations: [], camera: null, ball: null, cones: [] });
 
     const cam = useCameraStore.getState();
     expect([cam.position, cam.target, cam.zoom]).toEqual([[5, 5, 5], [6, 6, 6], 9]);
@@ -90,9 +100,17 @@ describe('boardSnapshot.restore', () => {
   it('leaves the ball untouched when the snapshot ball is null', () => {
     useBallStore.setState({ ball: aBall });
 
-    restore({ players: [], paths: [], annotations: [], camera: null, ball: null });
+    restore({ players: [], paths: [], annotations: [], camera: null, ball: null, cones: [] });
 
     expect(useBallStore.getState().ball).toEqual(aBall);
+  });
+
+  it('sets cones authoritatively — an empty snapshot list clears existing cones', () => {
+    useConeStore.setState({ cones: [aCone] });
+
+    restore({ players: [], paths: [], annotations: [], camera: null, ball: null, cones: [] });
+
+    expect(useConeStore.getState().cones).toEqual([]);
   });
 
   it('round-trips: restore(capture()) preserves the board', () => {
@@ -101,6 +119,7 @@ describe('boardSnapshot.restore', () => {
     useAnnotationStore.setState({ annotations: [anAnnotation] });
     useCameraStore.setState({ position: [1, 2, 3], target: [4, 5, 6], zoom: 2 });
     useBallStore.setState({ ball: aBall });
+    useConeStore.setState({ cones: [aCone] });
 
     const snap = capture();
     // Wipe, then restore from the snapshot.
@@ -109,6 +128,7 @@ describe('boardSnapshot.restore', () => {
     useAnnotationStore.setState({ annotations: [] });
     useCameraStore.setState({ position: [0, 0, 0], target: [0, 0, 0], zoom: 1 });
     useBallStore.setState({ ball: null });
+    useConeStore.setState({ cones: [] });
 
     restore(snap);
 
@@ -118,6 +138,7 @@ describe('boardSnapshot.restore', () => {
     const cam = useCameraStore.getState();
     expect([cam.position, cam.target, cam.zoom]).toEqual([[1, 2, 3], [4, 5, 6], 2]);
     expect(useBallStore.getState().ball).toEqual(aBall);
+    expect(useConeStore.getState().cones).toEqual([aCone]);
   });
 });
 
@@ -127,10 +148,11 @@ const sampleSnapshot: BoardSnapshot = {
   annotations: [anAnnotation],
   camera: { position: [1, 2, 3], target: [4, 5, 6], zoom: 2 },
   ball: aBall,
+  cones: [aCone],
 };
 
 describe('boardSnapshot phase adapter', () => {
-  it('toPhase renames players→playerPositions, camera→cameraState, and carries the ball', () => {
+  it('toPhase renames players→playerPositions, camera→cameraState, and carries ball + cones', () => {
     const phase = toPhase(sampleSnapshot, { id: 'phase-1', label: 'Phase 1' });
 
     expect(phase).toEqual({
@@ -141,16 +163,18 @@ describe('boardSnapshot phase adapter', () => {
       annotations: [anAnnotation],
       cameraState: { position: [1, 2, 3], target: [4, 5, 6], zoom: 2 },
       ball: aBall,
+      cones: [aCone],
     });
   });
 
-  it('toPhase omits the ball key when the snapshot has none (byte-identical to pre-ball Plays)', () => {
-    const phase = toPhase({ ...sampleSnapshot, ball: null }, { id: 'p', label: 'l' });
+  it('toPhase omits ball and cones keys when the snapshot has none (byte-identical to legacy Plays)', () => {
+    const phase = toPhase({ ...sampleSnapshot, ball: null, cones: [] }, { id: 'p', label: 'l' });
 
     expect('ball' in phase).toBe(false);
+    expect('cones' in phase).toBe(false);
   });
 
-  it('fromPhase reads the legacy nested cameraState and the ball back into a snapshot', () => {
+  it('fromPhase reads the legacy nested cameraState, the ball, and cones back into a snapshot', () => {
     const legacyPhase: PlayPhase = {
       id: 'p',
       label: 'l',
@@ -159,12 +183,13 @@ describe('boardSnapshot phase adapter', () => {
       annotations: [anAnnotation],
       cameraState: { position: [1, 2, 3], target: [4, 5, 6], zoom: 2 },
       ball: aBall,
+      cones: [aCone],
     };
 
     expect(fromPhase(legacyPhase)).toEqual(sampleSnapshot);
   });
 
-  it('fromPhase tolerates a null cameraState and a missing ball', () => {
+  it('fromPhase tolerates a null cameraState, a missing ball, and missing cones', () => {
     const phase: PlayPhase = {
       id: 'p',
       label: 'l',
@@ -177,6 +202,7 @@ describe('boardSnapshot phase adapter', () => {
     const snap = fromPhase(phase);
     expect(snap.camera).toBeNull();
     expect(snap.ball).toBeNull();
+    expect(snap.cones).toEqual([]);
   });
 
   it('phase round-trips through toPhase → fromPhase', () => {
@@ -185,7 +211,7 @@ describe('boardSnapshot phase adapter', () => {
 });
 
 describe('boardSnapshot share adapter', () => {
-  it('toShareData flattens the camera and carries the ball plus share metadata', () => {
+  it('toShareData flattens the camera and carries ball + cones plus share metadata', () => {
     const data = toShareData(sampleSnapshot, { name: 'My Play', quarter: 'Q3', label: 'goal' });
 
     expect(data).toEqual({
@@ -199,13 +225,15 @@ describe('boardSnapshot share adapter', () => {
       quarter: 'Q3',
       label: 'goal',
       ball: aBall,
+      cones: [aCone],
     });
   });
 
-  it('toShareData omits the ball key when the snapshot has none', () => {
-    const data = toShareData({ ...sampleSnapshot, ball: null }, { name: 'x', quarter: null, label: null });
+  it('toShareData omits ball and cones keys when the snapshot has none', () => {
+    const data = toShareData({ ...sampleSnapshot, ball: null, cones: [] }, { name: 'x', quarter: null, label: null });
 
     expect('ball' in data).toBe(false);
+    expect('cones' in data).toBe(false);
   });
 
   it('fromShareData restores paths — regression guard for the shared-restore path drop', () => {
@@ -214,7 +242,7 @@ describe('boardSnapshot share adapter', () => {
     expect(fromShareData(data).paths).toEqual([aPath]);
   });
 
-  it('fromShareData reads the legacy flat camera fields and defaults a missing ball to null', () => {
+  it('fromShareData reads the legacy flat camera fields and defaults a missing ball/cones', () => {
     const legacyFlat = {
       name: 'x',
       playerPositions: [aPlayer],
@@ -227,7 +255,7 @@ describe('boardSnapshot share adapter', () => {
       label: null,
     };
 
-    expect(fromShareData(legacyFlat)).toEqual({ ...sampleSnapshot, ball: null });
+    expect(fromShareData(legacyFlat)).toEqual({ ...sampleSnapshot, ball: null, cones: [] });
   });
 
   it('fromShareData yields a null camera when the flat fields are absent', () => {

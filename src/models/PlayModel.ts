@@ -1,6 +1,7 @@
 import type { Player } from './PlayerModel';
 import type { MovementPath } from './PathModel';
 import type { Ball } from './BallModel';
+import type { Cone } from '../store/coneStore';
 
 export interface LinkedVideoMoment {
   videoId: number;          // ++id PK from VideoImportDB.videos
@@ -23,6 +24,8 @@ export interface PlayPhase {
   } | null;
   /** The match ball. Optional/absent on Plays saved before ball capture. */
   ball?: Ball | null;
+  /** Placed drill cones. Optional/absent on Plays saved before cone capture. */
+  cones?: Cone[];
 }
 
 export interface Play {

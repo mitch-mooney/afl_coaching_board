@@ -3,6 +3,7 @@ import { usePathStore } from '../store/pathStore';
 import { useAnnotationStore } from '../store/annotationStore';
 import { useCameraStore } from '../store/cameraStore';
 import { useBallStore } from '../store/ballStore';
+import { useConeStore } from '../store/coneStore';
 import type { BoardSnapshot } from './boardSnapshot';
 
 /**
@@ -21,19 +22,22 @@ export function capture(): BoardSnapshot {
     annotations: useAnnotationStore.getState().annotations,
     camera: { position, target, zoom },
     ball: useBallStore.getState().ball,
+    cones: useConeStore.getState().cones,
   };
 }
 
 /**
  * Write a snapshot back into the board stores through their own actions, so each
- * store keeps enforcing its invariants. A null camera or ball is left untouched
- * (matches the legacy restore, which only set what was saved) — so restoring a
- * pre-ball Play leaves the live ball where it is rather than clearing it.
+ * store keeps enforcing its invariants. Lists (players/paths/annotations/cones) are
+ * set authoritatively — restoring a Play with no cones clears them. The nullable
+ * singletons (camera, ball) are left untouched on null, matching the legacy restore,
+ * so restoring a pre-ball Play leaves the live ball where it is rather than clearing it.
  */
 export function restore(snap: BoardSnapshot): void {
   usePlayerStore.getState().setPlayers(snap.players);
   usePathStore.getState().setPaths(snap.paths);
   useAnnotationStore.getState().setAnnotations(snap.annotations);
+  useConeStore.getState().setCones(snap.cones);
   if (snap.camera) {
     const camera = useCameraStore.getState();
     camera.setCameraPosition(snap.camera.position);
