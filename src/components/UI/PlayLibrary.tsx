@@ -6,6 +6,7 @@ import { usePlaybookStore } from '../../store/playbookStore';
 import { useRosterStore } from '../../store/rosterStore';
 import { videoDb } from '../../store/videoStore';
 import type { Play } from '../../models/PlayModel';
+import { PlayThumbnail } from './PlayThumbnail';
 
 async function videoMetadataExists(videoId: number): Promise<boolean> {
   try {
@@ -186,7 +187,7 @@ function PlayCard({
       {/* Thumbnail area */}
       <div style={{ height: 100, background: '#0d2a0d', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 60%, #1a4a1a, #0a1a0a)' }} />
-        <div style={{ position: 'relative', width: 80, height: 60, border: '1px solid #2a5a2a', borderRadius: 3 }} />
+        <PlayThumbnail play={play} />
 
         {/* Video badge / link prompt */}
         {lvm && videoAvailable === true ? (
