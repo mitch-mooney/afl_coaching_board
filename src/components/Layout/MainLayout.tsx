@@ -22,8 +22,6 @@ import { useConeStore } from '../../store/coneStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useBallStore } from '../../store/ballStore';
 import { usePathStore } from '../../store/pathStore';
-import { useCameraStore } from '../../store/cameraStore';
-import { useAnnotationStore } from '../../store/annotationStore';
 import { useUIStore } from '../../store/uiStore';
 import { usePlayStore, playTable } from '../../store/playStore';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -32,7 +30,7 @@ import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
 import { useCanvasResizeWithWindow } from '../../hooks/useCanvasResize';
 import { useBoardUndo } from '../../hooks/useBoardUndo';
 import { getSharedPlaybook } from '../../services/sharingService';
-import { capture, restore, toPhase, fromPhase } from '../../utils/boardSnapshot';
+import { capture, restore, toPhase, fromPhase, fromShareData } from '../../utils/boardSnapshot';
 import {
   useKeyboardShortcuts,
   useCameraPresetShortcuts,
@@ -209,20 +207,7 @@ export function MainLayout() {
       window.history.replaceState({}, '', window.location.pathname);
       getSharedPlaybook(shareToken).then((shared) => {
         if (!shared) return;
-        const data = shared.playbook_data;
-        if (data.playerPositions) {
-          usePlayerStore.setState({ players: data.playerPositions });
-        }
-        if (data.cameraPosition) {
-          useCameraStore.setState({
-            position: data.cameraPosition,
-            target: data.cameraTarget,
-            zoom: data.cameraZoom,
-          });
-        }
-        if (data.annotations) {
-          useAnnotationStore.setState({ annotations: data.annotations });
-        }
+        restore(fromShareData(shared.playbook_data));
       });
     }
   }, [initializePlayers, initializeBall, loadSavedVideos]);

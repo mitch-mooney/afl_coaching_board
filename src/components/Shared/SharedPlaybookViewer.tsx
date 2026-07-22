@@ -3,9 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Canvas } from '@react-three/fiber';
 import { getSharedPlaybook } from '../../services/sharingService';
 import type { SharedPlaybook } from '../../services/sharingService';
-import { usePlayerStore } from '../../store/playerStore';
-import { usePathStore } from '../../store/pathStore';
-import { useCameraStore } from '../../store/cameraStore';
+import { capture, restore, fromShareData } from '../../utils/boardSnapshot';
 import { Field } from '../Scene/Field';
 import { PlayerManager } from '../Scene/PlayerManager';
 import { PathManager } from '../Scene/Path';
@@ -30,36 +28,13 @@ export function SharedPlaybookViewer() {
     });
   }, [token]);
 
-  // Seed stores when entering board step
+  // Seed stores when entering board step; put the prior board back on leave.
   useEffect(() => {
     if (step !== 'board' || !data) return;
-    const pd = data.playbook_data;
-
-    // Capture current state before overwriting
-    const prevPlayers = usePlayerStore.getState().players;
-    const prevPaths = usePathStore.getState().paths;
-    const prevCamPosition = useCameraStore.getState().position;
-    const prevCamTarget = useCameraStore.getState().target;
-    const prevCamZoom = useCameraStore.getState().zoom;
-
-    if (pd.playerPositions) usePlayerStore.setState({ players: pd.playerPositions });
-    if (pd.paths) usePathStore.setState({ paths: pd.paths });
-    if (pd.cameraPosition) {
-      useCameraStore.setState({
-        position: pd.cameraPosition,
-        target: pd.cameraTarget ?? [0, 0, 0],
-        zoom: pd.cameraZoom ?? 1,
-      });
-    }
-
+    const previous = capture();
+    restore(fromShareData(data.playbook_data));
     return () => {
-      usePlayerStore.setState({ players: prevPlayers });
-      usePathStore.setState({ paths: prevPaths });
-      useCameraStore.setState({
-        position: prevCamPosition,
-        target: prevCamTarget,
-        zoom: prevCamZoom,
-      });
+      restore(previous);
     };
   }, [step, data]);
 
