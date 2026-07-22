@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useState } from 'react';
 import { usePlayerStore } from '../../../store/playerStore';
 import { useUIStore } from '../../../store/uiStore';
 import { usePathStore } from '../../../store/pathStore';
@@ -8,21 +8,7 @@ import { AnnotatePalette } from './AnnotatePalette';
 import { TeamSelectModal } from './TeamSelectModal';
 import { RosterImportModal } from './RosterImportModal';
 import { useBoardUndo } from '../../../hooks/useBoardUndo';
-
-export interface HudAction {
-  key: string;
-  label: ReactNode; // may be dynamic ("Labels: #", "🏉 Give ball to #7")
-  onClick: () => void;
-  active?: boolean; // amber highlight (e.g. Draw path on)
-  disabled?: boolean;
-  hidden?: boolean; // e.g. ball buttons when no ball
-  extraStyle?: CSSProperties; // override base/active/disabled styles
-}
-
-export interface HudControls {
-  actions: HudAction[];
-  modals: ReactNode;
-}
+import type { HudAction, HudControls } from './hudActions';
 
 const FORMATIONS = [
   { id: 'centre-bounce', label: 'Centre Bounce' },
@@ -101,22 +87,4 @@ export function useSetupControls(): HudControls {
   );
 
   return { actions, modals };
-}
-
-export function renderAction(a: HudAction, base: CSSProperties) {
-  return (
-    <button
-      key={a.key}
-      onClick={a.onClick}
-      disabled={a.disabled}
-      style={{
-        ...base,
-        ...(a.active ? { background: '#f59e0b', color: '#000' } : {}),
-        ...(a.disabled ? { opacity: 0.4 } : {}),
-        ...a.extraStyle,
-      }}
-    >
-      {a.label}
-    </button>
-  );
 }

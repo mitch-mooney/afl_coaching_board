@@ -1,5 +1,6 @@
 import { fanPill, podButton } from './podStyles';
-import { useSetupControls, renderAction } from './useSetupControls';
+import { useSetupControls } from './useSetupControls';
+import { renderAction } from './hudActions';
 
 export function SetupPod({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { actions, modals } = useSetupControls();

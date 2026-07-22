@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useCameraStore } from '../../../store/cameraStore';
 import { usePlayerStore } from '../../../store/playerStore';
 import { PovSelectModal } from './PovSelectModal';
-import type { HudAction, HudControls } from './useSetupControls';
+import type { HudAction, HudControls } from './hudActions';
 
 export function useCameraControls(): HudControls {
   const { povPlayer1Id, povPlayer2Id, switchToBroadcast, setPresetView, resetCamera, setActivePovSlot } =

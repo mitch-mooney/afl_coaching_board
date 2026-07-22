@@ -1,6 +1,6 @@
 import { useCameraStore } from '../../../store/cameraStore';
 import { fanPill, podButton } from './podStyles';
-import { renderAction } from './useSetupControls';
+import { renderAction } from './hudActions';
 import { useCameraControls } from './useCameraControls';
 
 export function CameraPod({ open, onToggle }: { open: boolean; onToggle: () => void }) {

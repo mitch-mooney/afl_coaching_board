@@ -1,7 +1,7 @@
 import { useAnimationStore } from '../../../../store/animationStore';
 import { scrubTo } from '../../../../utils/boardScrub';
+import { TEAL } from '../podStyles';
 
-const TEAL = '#00d4aa';
 export function TransportBar() {
   const { isPlaying, hasAnimation, progress, speed, togglePlayback, cycleSpeed } = useAnimationStore();
   const stop = () => { if (isPlaying) togglePlayback(); scrubTo(0); };

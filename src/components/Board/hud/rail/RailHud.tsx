@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { glass, panelPill, TEAL } from '../podStyles';
-import { useSetupControls, renderAction } from '../useSetupControls';
+import { useSetupControls } from '../useSetupControls';
+import { renderAction } from '../hudActions';
 import { useCameraControls } from '../useCameraControls';
 import { TransportBar } from './TransportBar';
 
