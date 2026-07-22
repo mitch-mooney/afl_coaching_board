@@ -34,8 +34,6 @@ import {
   getResolutionLabel,
   // Browser support
   supportsVideoFrameCallback,
-  supportsMediaRecorder,
-  getSupportedExportFormats,
 } from '../videoUtils';
 
 // Helper to create a mock File
@@ -64,7 +62,8 @@ describe('videoUtils', () => {
       expect(VideoErrorCode.DECODE_ERROR).toBe('DECODE_ERROR');
       expect(VideoErrorCode.FORMAT_NOT_SUPPORTED).toBe('FORMAT_NOT_SUPPORTED');
       expect(VideoErrorCode.LOAD_TIMEOUT).toBe('LOAD_TIMEOUT');
-      expect(VideoErrorCode.EXPORT_NOT_SUPPORTED).toBe('EXPORT_NOT_SUPPORTED');
+      expect(VideoErrorCode.EXPORT_CANCELLED).toBe('EXPORT_CANCELLED');
+      expect(VideoErrorCode.MEMORY_LIMIT_EXCEEDED).toBe('MEMORY_LIMIT_EXCEEDED');
       expect(VideoErrorCode.UNKNOWN).toBe('UNKNOWN');
     });
   });
@@ -113,8 +112,6 @@ describe('videoUtils', () => {
         VideoErrorCode.FILE_CORRUPTED,
         VideoErrorCode.DECODE_ERROR,
         VideoErrorCode.FORMAT_NOT_SUPPORTED,
-        VideoErrorCode.EXPORT_NOT_SUPPORTED,
-        VideoErrorCode.NO_EXPORT_FORMAT,
       ];
 
       nonRetryableCodes.forEach((code) => {
@@ -129,8 +126,6 @@ describe('videoUtils', () => {
         VideoErrorCode.LOAD_ABORTED,
         VideoErrorCode.NETWORK_ERROR,
         VideoErrorCode.LOAD_TIMEOUT,
-        VideoErrorCode.NO_VIDEO_LOADED,
-        VideoErrorCode.RECORDING_FAILED,
         VideoErrorCode.EXPORT_CANCELLED,
         VideoErrorCode.UNKNOWN,
       ];
@@ -837,23 +832,4 @@ describe('videoUtils', () => {
     });
   });
 
-  describe('supportsMediaRecorder', () => {
-    it('should return boolean indicating support', () => {
-      const result = supportsMediaRecorder();
-      expect(typeof result).toBe('boolean');
-    });
-  });
-
-  describe('getSupportedExportFormats', () => {
-    it('should return array of strings', () => {
-      const formats = getSupportedExportFormats();
-      expect(formats).toBeInstanceOf(Array);
-    });
-
-    it('should return empty array if MediaRecorder not supported', () => {
-      // This depends on the test environment
-      const formats = getSupportedExportFormats();
-      expect(formats).toBeInstanceOf(Array);
-    });
-  });
 });

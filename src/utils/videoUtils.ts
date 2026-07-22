@@ -26,15 +26,9 @@ export enum VideoErrorCode {
   LOAD_TIMEOUT = 'LOAD_TIMEOUT',
   UNKNOWN_LOAD_ERROR = 'UNKNOWN_LOAD_ERROR',
 
-  // Export errors
-  EXPORT_NOT_SUPPORTED = 'EXPORT_NOT_SUPPORTED',
-  NO_VIDEO_LOADED = 'NO_VIDEO_LOADED',
-  CANVAS_NOT_AVAILABLE = 'CANVAS_NOT_AVAILABLE',
-  NO_EXPORT_FORMAT = 'NO_EXPORT_FORMAT',
-  RECORDING_FAILED = 'RECORDING_FAILED',
+  // Load errors reachable from createVideoError's message mapping
   EXPORT_CANCELLED = 'EXPORT_CANCELLED',
   MEMORY_LIMIT_EXCEEDED = 'MEMORY_LIMIT_EXCEEDED',
-  UNKNOWN_EXPORT_ERROR = 'UNKNOWN_EXPORT_ERROR',
 
   // Playback errors
   PLAYBACK_FAILED = 'PLAYBACK_FAILED',
@@ -159,74 +153,21 @@ const VIDEO_ERROR_INFO: Record<VideoErrorCode, Omit<VideoErrorInfo, 'code'>> = {
     isRetryable: true,
   },
 
-  // Export errors
-  [VideoErrorCode.EXPORT_NOT_SUPPORTED]: {
-    title: 'Export Not Supported',
-    message: 'Video export is not supported in this browser.',
-    recovery: [
-      'Use Chrome, Edge, or Firefox for export functionality.',
-      'Update your browser to the latest version.',
-    ],
-    isRetryable: false,
-  },
-  [VideoErrorCode.NO_VIDEO_LOADED]: {
-    title: 'No Video Loaded',
-    message: 'Please import a video before exporting.',
-    recovery: ['Import a video file first, then try exporting again.'],
-    isRetryable: true,
-  },
-  [VideoErrorCode.CANVAS_NOT_AVAILABLE]: {
-    title: 'Canvas Not Available',
-    message: 'The video canvas could not be accessed.',
-    recovery: [
-      'Refresh the page and try again.',
-      'Check if WebGL is enabled in your browser.',
-    ],
-    isRetryable: true,
-  },
-  [VideoErrorCode.NO_EXPORT_FORMAT]: {
-    title: 'No Export Format Available',
-    message: 'No supported video export format is available in your browser.',
-    recovery: [
-      'Try using Chrome, which has the best export format support.',
-      'Update your browser to the latest version.',
-    ],
-    isRetryable: false,
-  },
-  [VideoErrorCode.RECORDING_FAILED]: {
-    title: 'Recording Failed',
-    message: 'An error occurred while recording the video.',
-    recovery: [
-      'Try exporting again.',
-      'Try a lower resolution or shorter duration.',
-      'Close other browser tabs to free up resources.',
-    ],
-    isRetryable: true,
-  },
+  // Load errors reachable from createVideoError's message mapping
   [VideoErrorCode.EXPORT_CANCELLED]: {
-    title: 'Export Cancelled',
-    message: 'The video export was cancelled.',
-    recovery: ['Start a new export when ready.'],
+    title: 'Cancelled',
+    message: 'The video operation was cancelled.',
+    recovery: ['Start again when ready.'],
     isRetryable: true,
   },
   [VideoErrorCode.MEMORY_LIMIT_EXCEEDED]: {
     title: 'Memory Limit Exceeded',
-    message: 'The export ran out of memory. The video may be too long or high resolution.',
+    message: 'The operation ran out of memory. The video may be too long or high resolution.',
     recovery: [
-      'Try exporting at a lower resolution (720p).',
-      'Export a shorter portion of the video.',
+      'Try a lower resolution (720p).',
+      'Use a shorter portion of the video.',
       'Close other browser tabs and applications.',
       'Restart your browser and try again.',
-    ],
-    isRetryable: true,
-  },
-  [VideoErrorCode.UNKNOWN_EXPORT_ERROR]: {
-    title: 'Export Failed',
-    message: 'An unexpected error occurred during export.',
-    recovery: [
-      'Try exporting again.',
-      'Try a different format or resolution.',
-      'Refresh the page and try again.',
     ],
     isRetryable: true,
   },
@@ -739,33 +680,6 @@ export function supportsVideoFrameCallback(): boolean {
 }
 
 /**
- * Checks if the browser supports MediaRecorder API for video export
- * @returns True if supported
- */
-export function supportsMediaRecorder(): boolean {
-  return typeof MediaRecorder !== 'undefined';
-}
-
-/**
- * Gets supported export MIME types for MediaRecorder
- * @returns Array of supported MIME types for export
- */
-export function getSupportedExportFormats(): string[] {
-  if (!supportsMediaRecorder()) {
-    return [];
-  }
-
-  const formats = [
-    'video/webm;codecs=vp9',
-    'video/webm;codecs=vp8',
-    'video/webm',
-    'video/mp4',
-  ];
-
-  return formats.filter((format) => MediaRecorder.isTypeSupported(format));
-}
-
-/**
  * Parses time string (mm:ss or hh:mm:ss) to seconds
  * @param timeString - Time string in mm:ss or hh:mm:ss format
  * @returns Time in seconds, or 0 if invalid
@@ -816,44 +730,6 @@ export function frameToTime(frameNumber: number, frameRate: number = 30): number
  */
 export function timeToFrame(time: number, frameRate: number = 30): number {
   return Math.floor(time * frameRate);
-}
-
-/**
- * Creates a video element from a File object
- * @param file - The video file
- * @returns Promise that resolves with the video element and its URL
- */
-export function createVideoElement(file: File): Promise<{ element: HTMLVideoElement; url: string }> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const video = document.createElement('video');
-
-    video.preload = 'metadata';
-    video.muted = true; // Required for autoplay in some browsers
-    video.playsInline = true;
-
-    const handleLoadedMetadata = () => {
-      cleanup();
-      resolve({ element: video, url });
-    };
-
-    const handleError = () => {
-      cleanup();
-      URL.revokeObjectURL(url);
-      reject(new Error('Failed to load video file'));
-    };
-
-    const cleanup = () => {
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('error', handleError);
-    };
-
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('error', handleError);
-
-    video.src = url;
-    video.load();
-  });
 }
 
 /**
