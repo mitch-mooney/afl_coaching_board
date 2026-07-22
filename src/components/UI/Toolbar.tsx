@@ -8,6 +8,7 @@ import { MobileMenu, createMenuSection, createMenuItem, type MenuSection } from 
 import { useAuthStore } from '../../store/authStore';
 import { useMatchStore, formatAFLScore } from '../../store/matchStore';
 import type { Quarter } from '../../store/matchStore';
+import { useHudPreferenceStore } from '../../store/hudPreferenceStore';
 
 export function Toolbar() {
   const { saveCurrentPlay } = usePlaybook();
@@ -43,6 +44,11 @@ export function Toolbar() {
   const setMatchAwayScore = useMatchStore((s) => s.setAwayScore);
   const setMatchQuarter = useMatchStore((s) => s.setQuarter);
   const toggleScoreboard = useMatchStore((s) => s.toggleScoreboard);
+
+  // HUD skin override (Auto/Rail/Pods)
+  const skinOverride = useHudPreferenceStore((s) => s.skinOverride);
+  const cycleSkinOverride = useHudPreferenceStore((s) => s.cycleSkinOverride);
+  const skinLabel = skinOverride === 'auto' ? 'Auto' : skinOverride === 'B' ? 'Rail' : 'Pods';
 
   const handleSave = async () => {
     if (!playbookName.trim()) {
@@ -101,6 +107,14 @@ export function Toolbar() {
       createMenuItem('save-playbook', 'Save Playbook', () => setShowSaveDialog(true), { variant: 'warning', description: 'Save this formation to your playbook library' }),
     ]));
 
+    // Display section
+    sections.push(createMenuSection('display', 'Display', [
+      createMenuItem('board-layout', `Board layout: ${skinLabel}`, cycleSkinOverride, {
+        variant: 'indigo',
+        description: 'Force the desktop rail or tablet pods layout, or let it auto-select by device',
+      }),
+    ]));
+
     // User section (if authenticated)
     if (authIsConfigured && authUser) {
       sections.push(
@@ -115,6 +129,7 @@ export function Toolbar() {
     isVideoMode, isLoaded, isLoading, clearVideo,
     authUser, authIsConfigured, authSignOut,
     matchShowScoreboard, toggleScoreboard,
+    skinLabel, cycleSkinOverride,
   ]);
 
   return (
