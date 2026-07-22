@@ -3,15 +3,6 @@ import Dexie, { Table } from 'dexie';
 import { usePlayStore } from './playStore';
 
 /**
- * Export settings for video output
- */
-export interface ExportSettings {
-  resolution: '1080p' | '720p' | 'original';
-  format: 'webm' | 'mp4';
-  quality: number;
-}
-
-/**
  * Video metadata stored for reference
  */
 export interface VideoMetadata {
@@ -24,7 +15,10 @@ export interface VideoMetadata {
 
 /**
  * Persisted video metadata in IndexedDB
- * Stores video file metadata and calibration settings for session persistence
+ * Stores video file metadata for session persistence.
+ * Note: rows written before the export-settings removal may still carry an
+ * `exportSettings` field on disk; Dexie ignores unmodelled fields on read, so
+ * no migration is required.
  */
 export interface PersistedVideoMetadata {
   id?: number;
@@ -36,7 +30,6 @@ export interface PersistedVideoMetadata {
   aspectRatio: number;
   createdAt: Date;
   updatedAt: Date;
-  exportSettings: ExportSettings;
 }
 
 /**
@@ -96,9 +89,6 @@ interface VideoState {
   // Video mode
   isVideoMode: boolean;
 
-  // Export settings
-  exportSettings: ExportSettings;
-
   // Persistence state
   savedVideos: PersistedVideoMetadata[];
   currentSavedVideoId: number | null;
@@ -134,10 +124,6 @@ interface VideoState {
   // Actions - Video mode
   setIsVideoMode: (isVideoMode: boolean) => void;
 
-  // Actions - Export settings
-  setExportSettings: (settings: Partial<ExportSettings>) => void;
-  resetExportSettings: () => void;
-
   // Actions - Persistence
   loadSavedVideos: () => Promise<void>;
   saveVideoMetadata: () => Promise<number>;
@@ -154,13 +140,6 @@ interface VideoState {
   // Actions - Full reset
   resetStore: () => void;
 }
-
-// Default export settings
-const DEFAULT_EXPORT_SETTINGS: ExportSettings = {
-  resolution: '1080p',
-  format: 'webm',
-  quality: 0.9,
-};
 
 // Frame rate assumption for frame stepping (30 fps is common)
 const ASSUMED_FRAME_RATE = 30;
@@ -187,9 +166,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
 
   // Initial state - Video mode
   isVideoMode: false,
-
-  // Initial state - Settings
-  exportSettings: { ...DEFAULT_EXPORT_SETTINGS },
 
   // Initial state - Persistence
   savedVideos: [],
@@ -308,17 +284,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     set({ isVideoMode });
   },
 
-  // Actions - Export settings
-  setExportSettings: (settings) => {
-    set((state) => ({
-      exportSettings: { ...state.exportSettings, ...settings },
-    }));
-  },
-
-  resetExportSettings: () => {
-    set({ exportSettings: { ...DEFAULT_EXPORT_SETTINGS } });
-  },
-
   // Actions - Persistence
   loadSavedVideos: async () => {
     set({ isPersisting: true });
@@ -332,7 +297,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   },
 
   saveVideoMetadata: async () => {
-    const { videoMetadata, duration, exportSettings } = get();
+    const { videoMetadata, duration } = get();
     if (!videoMetadata) {
       throw new Error('No video metadata to save');
     }
@@ -349,7 +314,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
         aspectRatio: videoMetadata.aspectRatio,
         createdAt: now,
         updatedAt: now,
-        exportSettings: { ...exportSettings },
       };
       const id = await videoDb.videos.add(record) as number;
       set({ currentSavedVideoId: id, isPersisting: false });
@@ -362,13 +326,12 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   },
 
   updateVideoMetadata: async (id) => {
-    const { exportSettings, duration } = get();
+    const { duration } = get();
 
     set({ isPersisting: true });
     try {
       await videoDb.videos.update(id, {
         duration,
-        exportSettings: { ...exportSettings },
         updatedAt: new Date(),
       });
       set({ isPersisting: false });
@@ -450,7 +413,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       const video = await videoDb.videos.get(id);
       if (video) {
         set({
-          exportSettings: { ...video.exportSettings },
           currentSavedVideoId: id,
           isPersisting: false,
         });
@@ -510,7 +472,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       isLoading: false,
       error: null,
       isVideoMode: false,
-      exportSettings: { ...DEFAULT_EXPORT_SETTINGS },
       currentSavedVideoId: null,
     });
   },

@@ -1,12 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useVideoStore, videoDb } from '../videoStore';
-import type { ExportSettings, VideoMetadata } from '../videoStore';
-
-const DEFAULT_EXPORT_SETTINGS: ExportSettings = {
-  resolution: '1080p',
-  format: 'webm',
-  quality: 0.9,
-};
+import type { VideoMetadata } from '../videoStore';
 
 // Helper to create a mock File
 const createMockFile = (name = 'test.mp4', _size = 1000): File => {
@@ -64,11 +58,6 @@ describe('videoStore', () => {
       expect(state.savedVideos).toEqual([]);
       expect(state.currentSavedVideoId).toBeNull();
       expect(state.isPersisting).toBe(false);
-    });
-
-    it('should have default export settings', () => {
-      const state = useVideoStore.getState();
-      expect(state.exportSettings).toEqual(DEFAULT_EXPORT_SETTINGS);
     });
   });
 
@@ -305,38 +294,6 @@ describe('videoStore', () => {
     });
   });
 
-  describe('Export Settings Actions', () => {
-    it('setExportSettings should merge partial settings', () => {
-      useVideoStore.getState().setExportSettings({
-        resolution: '720p',
-        quality: 0.8,
-      });
-
-      const state = useVideoStore.getState();
-      expect(state.exportSettings.resolution).toBe('720p');
-      expect(state.exportSettings.quality).toBe(0.8);
-      // Format should remain default
-      expect(state.exportSettings.format).toBe('webm');
-    });
-
-    it('setExportSettings should allow setting format', () => {
-      useVideoStore.getState().setExportSettings({ format: 'mp4' });
-      expect(useVideoStore.getState().exportSettings.format).toBe('mp4');
-    });
-
-    it('resetExportSettings should restore defaults', () => {
-      useVideoStore.getState().setExportSettings({
-        resolution: '720p',
-        format: 'mp4',
-        quality: 0.5,
-      });
-
-      useVideoStore.getState().resetExportSettings();
-
-      expect(useVideoStore.getState().exportSettings).toEqual(DEFAULT_EXPORT_SETTINGS);
-    });
-  });
-
   describe('Reset Store Action', () => {
     it('resetStore should reset all state to initial values', () => {
       // Set various state values
@@ -352,7 +309,6 @@ describe('videoStore', () => {
       useVideoStore.getState().setIsMuted(true);
       useVideoStore.getState().setIsLoaded(true);
       useVideoStore.getState().setIsVideoMode(true);
-      useVideoStore.getState().setExportSettings({ resolution: '720p' });
 
       // Reset everything
       useVideoStore.getState().resetStore();
@@ -374,7 +330,6 @@ describe('videoStore', () => {
       expect(state.isLoading).toBe(false);
       expect(state.error).toBeNull();
       expect(state.isVideoMode).toBe(false);
-      expect(state.exportSettings).toEqual(DEFAULT_EXPORT_SETTINGS);
       expect(state.currentSavedVideoId).toBeNull();
     });
 
@@ -413,7 +368,6 @@ describe('videoStore', () => {
         aspectRatio: 16 / 9,
         createdAt: new Date(),
         updatedAt: new Date(),
-        exportSettings: DEFAULT_EXPORT_SETTINGS,
       });
 
       await useVideoStore.getState().loadSavedVideos();
@@ -433,7 +387,6 @@ describe('videoStore', () => {
       // Set up video metadata
       useVideoStore.getState().setVideoMetadata(createMockVideoMetadata());
       useVideoStore.getState().setDuration(120);
-      useVideoStore.getState().setExportSettings({ quality: 0.95 });
 
       const id = await useVideoStore.getState().saveVideoMetadata();
 
@@ -445,7 +398,6 @@ describe('videoStore', () => {
       expect(saved).toBeDefined();
       expect(saved?.fileName).toBe('test-video.mp4');
       expect(saved?.duration).toBe(120);
-      expect(saved?.exportSettings.quality).toBe(0.95);
     });
 
     it('updateVideoMetadata should update existing record', async () => {
@@ -488,41 +440,22 @@ describe('videoStore', () => {
       expect(useVideoStore.getState().currentSavedVideoId).toBeNull();
     });
 
-    it('loadVideoSettings should load settings from database', async () => {
-      // Save with specific settings
+    it('loadVideoSettings should select the saved video by id', async () => {
       useVideoStore.getState().setVideoMetadata(createMockVideoMetadata());
-      useVideoStore.getState().setExportSettings({
-        resolution: '720p',
-        quality: 0.8,
-      });
       const id = await useVideoStore.getState().saveVideoMetadata();
 
-      // Reset to defaults
-      useVideoStore.getState().resetExportSettings();
+      // Clear the current selection, then load it back by id
+      useVideoStore.getState().resetStore();
 
-      // Load saved settings
       await useVideoStore.getState().loadVideoSettings(id);
 
-      const state = useVideoStore.getState();
-      expect(state.exportSettings.resolution).toBe('720p');
-      expect(state.exportSettings.quality).toBe(0.8);
-      expect(state.currentSavedVideoId).toBe(id);
+      expect(useVideoStore.getState().currentSavedVideoId).toBe(id);
     });
 
     it('loadVideoSettings should throw error for non-existent id', async () => {
       await expect(useVideoStore.getState().loadVideoSettings(999999)).rejects.toThrow(
         'Video with id 999999 not found'
       );
-    });
-  });
-
-  describe('State Immutability', () => {
-    it('should not mutate exportSettings object reference on partial update', () => {
-      const originalSettings = useVideoStore.getState().exportSettings;
-      useVideoStore.getState().setExportSettings({ quality: 0.5 });
-      const newSettings = useVideoStore.getState().exportSettings;
-
-      expect(newSettings).not.toBe(originalSettings);
     });
   });
 
