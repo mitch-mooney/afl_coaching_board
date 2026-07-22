@@ -27,4 +27,9 @@ describe('editorTab', () => {
     useUIStore.getState().setEditorTab('video');
     expect(useUIStore.getState().editorTab).toBe('video');
   });
+
+  it('setEditorTab switches to training', () => {
+    useUIStore.getState().setEditorTab('training');
+    expect(useUIStore.getState().editorTab).toBe('training');
+  });
 });

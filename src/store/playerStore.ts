@@ -41,6 +41,7 @@ interface PlayerState {
   updateMultiplePlayers: (updates: PlayerUpdate[]) => void;
   selectPlayer: (playerId: string | null) => void;
   resetPlayers: () => void;
+  setPlayers: (players: Player[]) => void;
   getPlayer: (playerId: string) => Player | undefined;
   getTeamPlayers: (teamId: 'team1' | 'team2') => Player[];
   /** Set the global dragging state */
@@ -61,6 +62,11 @@ interface PlayerState {
   getPlayerMoveState: (playerId: string) => PlayerMoveState | undefined;
   /** Apply a formation template, repositioning all matched players */
   applyFormation: (formation: Formation) => void;
+  getPlayersByPosition: (positionCode: string) => Player[];
+  getActivePlayers: () => Player[];
+  previewPositions: Player[] | null;
+  setPreviewPositions: (positions: Player[]) => void;
+  clearPreviewPositions: () => void;
 }
 
 const LABEL_MODE_ORDER: Array<'number' | 'name' | 'position'> = ['number', 'name', 'position'];
@@ -75,6 +81,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   team1PresetId: null,
   team2PresetId: null,
   playerMoveState: new Map<string, PlayerMoveState>(),
+  previewPositions: null,
 
   initializePlayers: () => {
     const team1Players = createTeamPlayers('team1', DEFAULT_TEAM_COLORS.team1);
@@ -265,6 +272,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     get().initializePlayers();
   },
   
+  setPlayers: (players) => {
+    set({ players });
+  },
+  
   getPlayer: (playerId) => {
     return get().players.find((p) => p.id === playerId);
   },
@@ -418,5 +429,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       return { ...player, position: match.position, rotation: match.rotation ?? player.rotation };
     });
     set({ players: updatedPlayers });
+  },
+
+  getPlayersByPosition: (positionCode) => {
+    return get().players.filter((p) => p.positionName === positionCode);
+  },
+
+  getActivePlayers: () => {
+    return get().players.filter((p) => p.teamId === 'team1' || p.teamId === 'team2');
+  },
+
+  setPreviewPositions(positions: Player[]) {
+    set({ previewPositions: positions });
+  },
+
+  clearPreviewPositions() {
+    set({ previewPositions: null });
   },
 }));

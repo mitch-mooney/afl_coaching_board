@@ -95,6 +95,20 @@ export function LoginPage() {
             {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
           </button>
         </div>
+
+        {/* Debug button to test feature notification */}
+        {import.meta.env.DEV && (
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.removeItem('feature-notification-dismissed');
+              window.location.reload();
+            }}
+            className="mt-4 text-xs text-gray-400 hover:text-green-600 transition"
+          >
+            🔔 Reset feature notification (dev)
+          </button>
+        )}
       </div>
     </div>
   );

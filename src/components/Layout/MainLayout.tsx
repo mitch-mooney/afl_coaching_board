@@ -9,14 +9,19 @@ import { PathManager } from '../Scene/Path';
 import { Scoreboard } from '../Scene/Scoreboard';
 import { GlobalDrawer } from '../UI/GlobalDrawer';
 import { BoardHud } from '../Board/hud/BoardHud';
+import { FeatureNotification } from '../UI/FeatureNotification';
 import { HelpScreen } from '../UI/HelpScreen';
 import { OnboardingTour } from '../UI/OnboardingTour';
 import { VideoWorkspace } from '../VideoImport/VideoWorkspace';
 import { VideoPiP } from '../VideoImport/VideoPiP';
+import { TrainingMode } from '../TrainingMode/TrainingMode';
+import { ConeManager } from '../Scene/ConeManager';
+import { useVideoStore } from '../../store/videoStore';
+import { useModeStore } from '../../store/modeStore';
+import { useConeStore } from '../../store/coneStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useBallStore } from '../../store/ballStore';
 import { usePathStore } from '../../store/pathStore';
-import { useVideoStore } from '../../store/videoStore';
 import { useCameraStore } from '../../store/cameraStore';
 import { useAnnotationStore } from '../../store/annotationStore';
 import { useUIStore } from '../../store/uiStore';
@@ -122,6 +127,8 @@ export function MainLayout() {
   const editorTab = useUIStore((s) => s.editorTab);
   const setEditorTab = useUIStore((s) => s.setEditorTab);
   const { setActivePlay, activePlayId, updatePlay } = usePlayStore();
+  const { mode, switchMode } = useModeStore();
+  const { isConePlacementActive, setConePlacementActive } = useConeStore();
   const players = usePlayerStore((s) => s.players);
   const annotations = useAnnotationStore((s) => s.annotations);
   const camera = useCameraStore((s) => ({
@@ -296,7 +303,10 @@ export function MainLayout() {
           {/* Tab switcher */}
           <div className="flex rounded-lg overflow-hidden border border-white/20 ml-2">
             <button
-              onClick={() => setEditorTab('board')}
+              onClick={() => {
+                setEditorTab('board');
+                if (mode === 'training') switchMode('match');
+              }}
               className="px-4 py-1.5 text-sm font-medium transition-colors"
               style={editorTab === 'board'
                 ? { background: 'linear-gradient(135deg, #00d4aa, #0099ff)', color: '#000' }
@@ -305,7 +315,10 @@ export function MainLayout() {
               Board
             </button>
             <button
-              onClick={() => setEditorTab('video')}
+              onClick={() => {
+                setEditorTab('video');
+                if (mode === 'training') switchMode('match');
+              }}
               className="px-4 py-1.5 text-sm font-medium transition-colors"
               style={editorTab === 'video'
                 ? { background: 'linear-gradient(135deg, #00d4aa, #0099ff)', color: '#000' }
@@ -313,8 +326,41 @@ export function MainLayout() {
             >
               Video
             </button>
+            <button
+              onClick={() => { setEditorTab('training'); switchMode('training'); }}
+              className="px-4 py-1.5 text-sm font-medium transition-colors"
+              style={editorTab === 'training'
+                ? { background: 'linear-gradient(135deg, #FF6B00, #ffaa00)', color: '#000' }
+                : { background: 'rgba(0,0,0,0.4)', color: 'rgba(255,255,255,0.7)' }}
+            >
+              Training
+            </button>
           </div>
         </div>
+
+        {/* Training-mode board controls (cone placement) */}
+        {editorTab === 'board' && mode === 'training' && (
+          <div className="ml-auto flex items-center gap-2 pointer-events-auto">
+            <button
+              onClick={() => {
+                setConePlacementActive(false);
+                setEditorTab('training');
+              }}
+              style={{
+                padding: '6px 12px', borderRadius: 8, border: '1px solid #FF6B00',
+                background: 'rgba(255,107,0,0.15)', color: '#FF6B00',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              ← Training
+            </button>
+            {isConePlacementActive && (
+              <span style={{ fontSize: 12, color: '#FF6B00', fontWeight: 600 }}>
+                🔶 Tap field to place cone
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Linked video chip bar — shown on Board tab when a video moment is linked */}
@@ -423,16 +469,16 @@ export function MainLayout() {
       )}
 
       {/* Canvas container with resize observation */}
-      {editorTab === 'board' && (
-        <div
-          ref={canvasContainerRef}
-          className="absolute inset-0 w-full h-full"
-          style={{
-            // Smooth transitions during resize
-            transition: 'opacity 0.15s ease-out',
-            opacity: containerReady ? 1 : 0,
-          }}
-        >
+      <div
+        ref={canvasContainerRef}
+        className="absolute inset-0 w-full h-full"
+        style={{
+          display: editorTab === 'board' ? undefined : 'none',
+          // Smooth transitions during resize
+          transition: 'opacity 0.15s ease-out',
+          opacity: containerReady ? 1 : 0,
+        }}
+      >
           <Canvas
             shadows
             camera={{ position: [0, 100, 150], fov: 50 }}
@@ -469,6 +515,7 @@ export function MainLayout() {
             <CameraController />
             <Scoreboard />
             <AnnotationLayer />
+            <ConeManager />
 
             {/* FIX: moved inside Canvas so R3F hooks work */}
             <AnnotationInteractionHandler />
@@ -500,7 +547,6 @@ export function MainLayout() {
             </button>
           )}
         </div>
-      )}
 
       {editorTab === 'video' && (
         <div className="absolute inset-0 z-10">
@@ -515,6 +561,12 @@ export function MainLayout() {
         </div>
       )}
 
+      {editorTab === 'training' && (
+        <div className="absolute inset-0 z-10">
+          <TrainingMode />
+        </div>
+      )}
+
       {/* All DOM-layer UI stays outside */}
       <GlobalDrawer />
       {editorTab === 'board' && <BoardHud />}
@@ -523,6 +575,9 @@ export function MainLayout() {
 
       {/* Video PiP overlay when in pip mode */}
       {showVideoPiP && <VideoPiP />}
+
+      {/* Feature notification popup */}
+      <FeatureNotification />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type AnnotationType = 'line' | 'arrow' | 'circle' | 'rectangle' | 'text' | 'measure';
+export type AnnotationType = 'line' | 'arrow' | 'circle' | 'rectangle' | 'text' | 'measure' | 'magnifying-glass';
 
 export interface Annotation {
   id: string;
@@ -9,6 +9,8 @@ export interface Annotation {
   color: string;
   thickness?: number;
   text?: string;
+  magnifySize?: number;
+  magnifyZoom?: number;
   createdAt: Date;
 }
 
@@ -30,6 +32,10 @@ interface AnnotationState {
   setThickness: (thickness: number) => void;
   setLivePreview: (preview: { type: AnnotationType; points: number[][] } | null) => void;
   setPendingTextPoint: (point: [number, number, number] | null) => void;
+  clearLivePreview: () => void;
+  setAnnotations: (annotations: Annotation[]) => void;
+  exportAnnotations: () => string;
+  loadAnnotations: (json: string) => void;
 }
 
 export const useAnnotationStore = create<AnnotationState>((set) => ({
@@ -79,5 +85,29 @@ export const useAnnotationStore = create<AnnotationState>((set) => ({
 
   setLivePreview: (preview) => {
     set({ livePreview: preview });
+  },
+
+  clearLivePreview: () => {
+    set({ livePreview: null });
+  },
+
+  setAnnotations: (annotations) => {
+    set({ annotations });
+  },
+
+  exportAnnotations: () => {
+    let currentState: Annotation[];
+    useAnnotationStore.getState();
+    currentState = useAnnotationStore.getState().annotations;
+    return JSON.stringify(currentState);
+  },
+
+  loadAnnotations: (json) => {
+    try {
+      const parsed = JSON.parse(json) as Annotation[];
+      set({ annotations: parsed });
+    } catch (error) {
+      console.error('Failed to load annotations:', error);
+    }
   },
 }));
