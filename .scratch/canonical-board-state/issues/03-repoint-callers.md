@@ -9,16 +9,16 @@ this is a pure internal rewiring. (Contract half of the expand→contract begun 
 
 **Blocked by:** 02 — Add playStore gateway verbs.
 
-**Status:** ready-for-agent
+**Status:** DONE (commit 1ed243e)
 
 Spec: `docs/superpowers/specs/2026-07-22-architecture-pass-canonical-board-state.md` (Wave 1a).
 
-- [ ] `usePlaybook` quick-save goes through the gateway; stops importing `capture`/`toPhase`.
-- [ ] `MainLayout` autosave-on-unmount uses `saveActiveBoard`; play-load uses `loadPlayBoard`; stops importing `playTable`/`capture`/`toPhase` and no longer indexes `phases[0]`.
-- [ ] `sharingService` reads its Play via `getPlay` instead of `playbookDB.scenarios.get`.
-- [ ] `playbookStore` book-reassignment calls `reassignBook`.
-- [ ] `videoStore` video-delete cascade calls `clearVideoLink`.
-- [ ] `playTable` remains exported for tests only; a grep confirms no non-test module imports `playTable`/`capture`/`toPhase`.
-- [ ] Full app flows verified unchanged (quick-save, autosave-on-leave, open a Play, share a Play, delete a video, merge/reassign a Playbook); build + affected suites green.
+- [x] `usePlaybook` quick-save goes through the gateway; stops importing `capture`/`toPhase`.
+- [x] `MainLayout` autosave-on-unmount uses `saveActiveBoard`; play-load uses `loadPlayBoard`; stops importing `playTable`/`capture`/`toPhase` and no longer indexes `phases[0]`.
+- [x] `sharingService` reads its Play via `getPlay` instead of `playbookDB.scenarios.get`.
+- [x] `playbookStore` book-reassignment calls `reassignBook`.
+- [x] `videoStore` video-delete cascade calls `clearVideoLink`.
+- [x] `playTable` remains exported for tests only; a grep confirms no non-test module imports `playTable`/`capture`/`toPhase`.
+- [x] Full app flows verified unchanged (quick-save, autosave-on-leave, open a Play, share a Play, delete a video, merge/reassign a Playbook); build + affected suites green.
 
 _Note: touches `videoStore.ts` (the `clearVideoLink` cascade region) — coordinate ordering with ticket 01, which touches the `ExportSettings` region of the same file._
