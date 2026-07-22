@@ -86,7 +86,7 @@ export function GlobalDrawer() {
         createMenuItem('share-play', 'Share Play', () => setShowShare(true), {
           variant: 'purple',
           disabled: activePlayId == null,
-          description: activePlayId == null ? 'Save this play first' : 'Create a shareable link for this play',
+          description: activePlayId == null ? 'Open a saved play from your library to share it' : 'Create a shareable link for this play',
         })
       );
     }
