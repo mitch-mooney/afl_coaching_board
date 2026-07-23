@@ -33,3 +33,32 @@ describe('editorTab', () => {
     expect(useUIStore.getState().editorTab).toBe('training');
   });
 });
+
+describe('overlay counter', () => {
+  beforeEach(() => {
+    useUIStore.setState({ overlayOpenCount: 0 });
+  });
+
+  it('defaults to 0', () => {
+    expect(useUIStore.getState().overlayOpenCount).toBe(0);
+  });
+
+  it('pushOverlay increments', () => {
+    useUIStore.getState().pushOverlay();
+    expect(useUIStore.getState().overlayOpenCount).toBe(1);
+    useUIStore.getState().pushOverlay();
+    expect(useUIStore.getState().overlayOpenCount).toBe(2);
+  });
+
+  it('popOverlay decrements', () => {
+    useUIStore.getState().pushOverlay();
+    useUIStore.getState().pushOverlay();
+    useUIStore.getState().popOverlay();
+    expect(useUIStore.getState().overlayOpenCount).toBe(1);
+  });
+
+  it('popOverlay clamps at 0', () => {
+    useUIStore.getState().popOverlay();
+    expect(useUIStore.getState().overlayOpenCount).toBe(0);
+  });
+});

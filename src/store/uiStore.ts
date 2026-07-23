@@ -16,6 +16,10 @@ interface UIState {
   // Apple Pencil / pen drawing state
   isPenDrawing: boolean;
 
+  // Number of blocking overlays (modals) currently open — read by the keyboard
+  // layer to suppress shortcuts while a modal is up.
+  overlayOpenCount: number;
+
   // Menu actions
   toggleMenu: () => void;
   openMenu: () => void;
@@ -26,6 +30,10 @@ interface UIState {
 
   // Pen drawing actions
   setPenDrawing: (val: boolean) => void;
+
+  // Overlay ref-count actions
+  pushOverlay: () => void;
+  popOverlay: () => void;
 
   // Board sub-mode: setup (move players only) vs draw (record paths)
   boardSubMode: 'setup' | 'draw';
@@ -83,6 +91,7 @@ export const useUIStore = create<UIState>((set) => {
     isMobile: isMobileWidth(initialWidth),
     screenWidth: initialWidth,
     isPenDrawing: false,
+    overlayOpenCount: 0,
 
     // Menu actions
     toggleMenu: () => {
@@ -119,6 +128,14 @@ export const useUIStore = create<UIState>((set) => {
     // Pen drawing actions
     setPenDrawing: (val: boolean) => {
       set({ isPenDrawing: val });
+    },
+
+    pushOverlay: () => {
+      set((state) => ({ overlayOpenCount: state.overlayOpenCount + 1 }));
+    },
+
+    popOverlay: () => {
+      set((state) => ({ overlayOpenCount: Math.max(0, state.overlayOpenCount - 1) }));
     },
 
     // Board sub-mode
