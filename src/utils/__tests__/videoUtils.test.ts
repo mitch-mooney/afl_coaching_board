@@ -17,6 +17,7 @@ import {
   validateVideoFile,
   // Time formatting
   formatTime,
+  formatVideoTime,
   formatTimeWithMs,
   parseTimeString,
   clampTime,
@@ -829,6 +830,23 @@ describe('videoUtils', () => {
     it('should return boolean indicating support', () => {
       const result = supportsVideoFrameCallback();
       expect(typeof result).toBe('boolean');
+    });
+  });
+
+  describe('formatVideoTime', () => {
+    it('formats zero and pads single-digit seconds', () => {
+      expect(formatVideoTime(0)).toBe('0:00');
+      expect(formatVideoTime(5)).toBe('0:05');
+    });
+
+    it('formats minutes and seconds', () => {
+      expect(formatVideoTime(65)).toBe('1:05');
+      expect(formatVideoTime(600)).toBe('10:00');
+    });
+
+    it('rounds fractional seconds (not floor)', () => {
+      expect(formatVideoTime(90.4)).toBe('1:30');
+      expect(formatVideoTime(90.6)).toBe('1:31');
     });
   });
 

@@ -32,6 +32,7 @@ import { useBoardUndo } from '../../hooks/useBoardUndo';
 import { getSharedPlaybook } from '../../services/sharingService';
 import { fromShareData } from '../../utils/boardSnapshot';
 import { restore } from '../../utils/boardSnapshotIO';
+import { formatVideoTime } from '../../utils/videoUtils';
 import {
   useKeyboardShortcuts,
   useCameraPresetShortcuts,
@@ -41,12 +42,6 @@ import {
   useEditOperationShortcuts,
   getGlobalShortcutRegistry,
 } from '../../hooks/useKeyboardShortcuts';
-
-function formatVideoTime(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
 
 /**
  * Generates a pixelated AFL stadium crowd texture onto a canvas.

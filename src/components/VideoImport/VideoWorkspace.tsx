@@ -5,12 +5,7 @@ import { useVideoStore } from '../../store/videoStore';
 import { useVideoPlayback } from '../../hooks/useVideoPlayback';
 import { usePlayStore } from '../../store/playStore';
 import { useUIStore } from '../../store/uiStore';
-
-function formatVideoTime(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
+import { formatVideoTime } from '../../utils/videoUtils';
 
 /**
  * Props for the VideoWorkspace component

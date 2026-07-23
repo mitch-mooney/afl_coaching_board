@@ -495,6 +495,17 @@ export function formatTime(seconds: number): string {
 }
 
 /**
+ * Formats seconds to "m:ss" for the linked-video moment chip. Unlike formatTime
+ * (which floors and supports hh:mm:ss), this rounds the seconds and is
+ * minute-only. Kept distinct to preserve the moment chip's existing display.
+ */
+export function formatVideoTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+/**
  * Formats time with milliseconds for frame-accurate display
  * @param seconds - Time in seconds
  * @returns Formatted time string with milliseconds
