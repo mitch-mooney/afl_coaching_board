@@ -6,6 +6,7 @@ import { useCameraStore } from '../../store/cameraStore';
 import { useAnnotationStore } from '../../store/annotationStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useGestures } from '../../hooks/useGestures';
+import { povCameraPose } from '../../utils/cameraMath';
 
 export function CameraController() {
   const { camera, gl } = useThree();
@@ -179,30 +180,18 @@ export function CameraController() {
     const player = getPlayer(activePovPlayerId);
     if (!player) return;
 
-    const [px, py, pz] = player.position;
-
-    // Always use player's facing rotation for camera direction
-    // rotation=0 means facing positive Z, so:
-    // directionX = sin(rotation), directionZ = cos(rotation)
-    const directionX = Math.sin(player.rotation);
-    const directionZ = Math.cos(player.rotation);
-
-    // Position camera behind and above the player
-    // Camera is positioned opposite to the direction of movement
-    const cameraX = px - directionX * povDistance;
-    const cameraY = py + povHeight;
-    const cameraZ = pz - directionZ * povDistance;
-
-    // Look ahead of the player in their direction of movement
-    const lookAtX = px + directionX * 5;
-    const lookAtY = py + 1; // Look slightly above player height
-    const lookAtZ = pz + directionZ * 5;
+    const { position: camPos, lookAt } = povCameraPose(
+      player.position,
+      player.rotation,
+      povHeight,
+      povDistance,
+    );
 
     // Smoothly interpolate camera position for smoother following
-    camera.position.lerp(new THREE.Vector3(cameraX, cameraY, cameraZ), 0.1);
+    camera.position.lerp(new THREE.Vector3(...camPos), 0.1);
 
     // Create a target point and smoothly look at it
-    const targetPoint = new THREE.Vector3(lookAtX, lookAtY, lookAtZ);
+    const targetPoint = new THREE.Vector3(...lookAt);
 
     // Create a quaternion for smooth rotation
     const targetQuaternion = new THREE.Quaternion();
