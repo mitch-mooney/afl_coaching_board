@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { useVideoStore } from '../../store/videoStore';
+import { useOverlayOpen } from '../../hooks/useOverlayOpen';
 import {
   validateVideoFile,
   getAcceptedMimeTypes,
@@ -219,6 +220,7 @@ interface VideoUploaderProps {
 }
 
 export function VideoUploader({ onClose }: VideoUploaderProps) {
+  useOverlayOpen(); // blocking modal — suppress board shortcuts while open
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const [errorInfo, setErrorInfo] = useState<VideoErrorInfo | null>(null);
