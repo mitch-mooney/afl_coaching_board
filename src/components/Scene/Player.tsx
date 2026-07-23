@@ -1,7 +1,6 @@
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Text, Billboard } from '@react-three/drei';
-import { Vector3, Plane } from 'three';
 import { Player } from '../../models/PlayerModel';
 import { usePlayerStore } from '../../store/playerStore';
 import { usePathStore } from '../../store/pathStore';
@@ -9,7 +8,8 @@ import { useHistoryStore, createPlayerSnapshot } from '../../store/historyStore'
 import { useAnimationStore } from '../../store/animationStore';
 import { useUIStore } from '../../store/uiStore';
 import { useAnnotationStore, captureAnnotationSnapshots } from '../../store/annotationStore';
-import { snapToField, positionToZone } from '../../utils/fieldGeometry';
+import { positionToZone } from '../../utils/fieldGeometry';
+import { snapPointerToField, dragRotation, facingRotation } from '../../utils/dragMath';
 import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
 import { getTeamById } from '../../data/aflTeams';
 
@@ -132,37 +132,29 @@ export function PlayerComponent({ player }: PlayerProps) {
 
     // Handle rotation (right-click drag)
     if (isRotating && rotationStartRef.current) {
-      const clientX = state.pointer.x * window.innerWidth / 2;
-      const deltaX = clientX - (rotationStartRef.current.clientX - window.innerWidth / 2);
-      const rotationDelta = deltaX * 0.01; // Sensitivity factor
-      const newRotation = rotationStartRef.current.startRotation + rotationDelta;
+      const newRotation = dragRotation(
+        rotationStartRef.current.startRotation,
+        rotationStartRef.current.clientX,
+        state.pointer.x,
+        window.innerWidth,
+      );
       updatePlayerRotation(player.id, newRotation);
     }
 
     // Handle dragging with global pointer events
     if (isDragging && !isRotating) {
-      raycaster.setFromCamera(state.pointer, camera);
-      const planeNormal = new Vector3(0, 1, 0);
-      const planePoint = new Vector3(0, 0, 0);
-      const intersection = raycaster.ray.intersectPlane(
-        new Plane(planeNormal, -planeNormal.dot(planePoint)),
-        new Vector3()
-      );
+      const field = snapPointerToField(state.pointer, camera, raycaster);
 
-      if (intersection) {
-        const [x, z] = snapToField(intersection.x, intersection.z);
+      if (field) {
+        const [x, z] = field;
         const newPos: [number, number, number] = [x, 0, z];
         updatePlayerPosition(player.id, newPos);
 
-        // Auto-rotate player to face movement direction
+        // Auto-rotate player to face movement direction. prevDragPos only
+        // advances when a facing is actually applied — matching the old logic.
         if (prevDragPos.current) {
-          const deltaX = newPos[0] - prevDragPos.current[0];
-          const deltaZ = newPos[2] - prevDragPos.current[2];
-          const moveDist = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
-
-          // Only update rotation if moved enough to determine direction
-          if (moveDist > 0.3) {
-            const newRotation = Math.atan2(deltaX, deltaZ);
+          const newRotation = facingRotation(prevDragPos.current, newPos);
+          if (newRotation !== null) {
             updatePlayerRotation(player.id, newRotation);
             prevDragPos.current = newPos;
           }
