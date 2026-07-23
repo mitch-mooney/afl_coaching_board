@@ -37,7 +37,7 @@ export function PlayFab() {
         {isPlaying ? '❚❚' : '▶'}
       </button>
 
-      {/* Scrub — a range input mapped to progress; scrubTo repositions tokens live. */}
+      {/* Scrub — a range input mapped to progress; scrub repositions tokens live. */}
       <input
         type="range" min={0} max={1000} value={Math.round(progress * 1000)}
         onChange={(e) => scrub(Number(e.target.value) / 1000)}
