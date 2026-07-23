@@ -18,6 +18,7 @@ import { SHORTCUT_CATEGORY_LABELS } from '../types/shortcuts';
 import { useCameraStore } from '../store/cameraStore';
 import { useAnnotationStore, type AnnotationType } from '../store/annotationStore';
 import { useAnimationStore } from '../store/animationStore';
+import { useUIStore } from '../store/uiStore';
 
 // ============================================================================
 // Platform Detection Utilities
@@ -184,6 +185,19 @@ export function modifiersMatch(
   const metaMatch = (modifiers.meta ?? false) === eventModifiers.meta;
 
   return ctrlMatch && shiftMatch && altMatch && metaMatch;
+}
+
+/**
+ * Whether a matched shortcut is blocked because a blocking overlay (modal or
+ * menu) is open. `allowInModalGlobal` is the hook option; `shortcutAllowInModal`
+ * is the per-shortcut opt-out (e.g. Esc-to-close).
+ */
+export function isBlockedByOverlay(
+  overlayOpen: boolean,
+  allowInModalGlobal: boolean,
+  shortcutAllowInModal: boolean,
+): boolean {
+  return overlayOpen && !allowInModalGlobal && !shortcutAllowInModal;
 }
 
 /**
@@ -358,18 +372,17 @@ export function useKeyboardShortcuts(
       return;
     }
 
-    // Check if we should process this shortcut when in a modal
-    if (!allowInModalRef.current && !matchedShortcut.allowInModal) {
-      // Check if a modal/dialog is currently open
-      const activeElement = document.activeElement;
-      const isInDialog =
-        activeElement?.closest('[role="dialog"]') !== null ||
-        activeElement?.closest('[role="alertdialog"]') !== null ||
-        document.querySelector('[role="dialog"]') !== null;
-
-      if (isInDialog) {
-        return;
-      }
+    // Suppress the shortcut when a blocking overlay (modal or menu) is open,
+    // unless the hook or the shortcut opts into modal handling (e.g. Esc).
+    const { overlayOpenCount, isMenuOpen } = useUIStore.getState();
+    if (
+      isBlockedByOverlay(
+        overlayOpenCount > 0 || isMenuOpen,
+        allowInModalRef.current ?? false,
+        matchedShortcut.allowInModal ?? false,
+      )
+    ) {
+      return;
     }
 
     // Prevent browser default behavior for this key combination
