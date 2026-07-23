@@ -1,13 +1,13 @@
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Mesh, Vector3, Plane } from 'three';
+import { Mesh } from 'three';
 import { Ball } from '../../models/BallModel';
 import { useBallStore } from '../../store/ballStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore } from '../../store/historyStore';
 import { captureAnnotationSnapshots } from '../../store/annotationStore';
-import { snapToField } from '../../utils/fieldGeometry';
+import { snapPointerToField } from '../../utils/dragMath';
 import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
 import { heldBallTarget } from '../../utils/ballFollow';
 
@@ -85,16 +85,10 @@ export function BallComponent({ ball }: BallProps) {
 
      // Handle dragging with global pointer events
      if (isDragging) {
-       raycaster.setFromCamera(state.pointer, camera);
-       const planeNormal = new Vector3(0, 1, 0);
-       const planePoint = new Vector3(0, 0, 0);
-       const intersection = raycaster.ray.intersectPlane(
-         new Plane(planeNormal, -planeNormal.dot(planePoint)),
-         new Vector3()
-       );
+       const field = snapPointerToField(state.pointer, camera, raycaster);
 
-       if (intersection) {
-         const [x, z] = snapToField(intersection.x, intersection.z);
+       if (field) {
+         const [x, z] = field;
          const newPos: [number, number, number] = [x, AFL_BALL.length, z];
          updateBallPosition(newPos);
 
