@@ -1,17 +1,11 @@
-import { useAnimationStore } from '../../../store/animationStore';
-import { scrubTo } from '../../../utils/boardScrub';
+import { useTransportControls } from './useTransportControls';
 import { arcPath, polar } from '../../../utils/arcGeometry';
 
 const TEAL = '#00d4aa';
 const R = 46, SWEEP = 270, START = 135; // matches the prototype ring
 
 export function PlayFab() {
-  const isPlaying = useAnimationStore((s) => s.isPlaying);
-  const hasAnimation = useAnimationStore((s) => s.hasAnimation);
-  const progress = useAnimationStore((s) => s.progress);
-  const speed = useAnimationStore((s) => s.speed);
-  const togglePlayback = useAnimationStore((s) => s.togglePlayback);
-  const cycleSpeed = useAnimationStore((s) => s.cycleSpeed);
+  const { isPlaying, hasAnimation, progress, speed, togglePlayback, cycleSpeed, scrub } = useTransportControls();
 
   const knob = polar(60, 60, R, START + progress * SWEEP);
 
@@ -46,7 +40,7 @@ export function PlayFab() {
       {/* Scrub — a range input mapped to progress; scrubTo repositions tokens live. */}
       <input
         type="range" min={0} max={1000} value={Math.round(progress * 1000)}
-        onChange={(e) => scrubTo(Number(e.target.value) / 1000)}
+        onChange={(e) => scrub(Number(e.target.value) / 1000)}
         aria-label="Scrub animation"
         style={{ position: 'absolute', left: 6, bottom: -22, width: 108, accentColor: TEAL }}
       />
