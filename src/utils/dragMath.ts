@@ -7,7 +7,10 @@ export const ROTATION_SENSITIVITY = 0.01;
 export const FACING_MIN_DISTANCE = 0.3;
 
 // Module-scoped scratch — avoids the per-frame Vector3/Plane allocation the
-// inline callers used to do.
+// inline callers used to do. Safe to share only because callers run inside a
+// synchronous, single-threaded useFrame: intersectGroundPlane writes then
+// reads scratchHit within one uninterrupted call and returns a fresh array,
+// so nothing aliases the scratch across calls. Don't reuse from async code.
 const GROUND_PLANE = new Plane(new Vector3(0, 1, 0), 0); // y = 0
 const scratchHit = new Vector3();
 
