@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { usePlaybook } from '../../hooks/usePlaybook';
+import { useOverlayOpen } from '../../hooks/useOverlayOpen';
 
 export function SavePlayDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  useOverlayOpen(open);
   const { saveCurrentPlay } = usePlaybook();
   const [playbookName, setPlaybookName] = useState('');
   const [playbookDescription, setPlaybookDescription] = useState('');

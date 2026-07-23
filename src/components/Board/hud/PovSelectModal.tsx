@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { usePlayerStore } from '../../../store/playerStore';
 import { useCameraStore } from '../../../store/cameraStore';
+import { useOverlayOpen } from '../../../hooks/useOverlayOpen';
 
 export function PovSelectModal({
   open,
@@ -11,6 +12,7 @@ export function PovSelectModal({
   onClose: () => void;
   povSlot: 1 | 2;
 }) {
+  useOverlayOpen(open);
   const players = usePlayerStore((state) => state.players);
   const selectedPlayerId = usePlayerStore((state) => state.selectedPlayerId);
   const setPovPlayer = useCameraStore((state) => state.setPovPlayer);

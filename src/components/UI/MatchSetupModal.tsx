@@ -1,7 +1,9 @@
 import { useMatchStore, formatAFLScore } from '../../store/matchStore';
 import type { Quarter } from '../../store/matchStore';
+import { useOverlayOpen } from '../../hooks/useOverlayOpen';
 
 export function MatchSetupModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  useOverlayOpen(open);
   const matchHome = useMatchStore((s) => s.homeTeamName);
   const matchAway = useMatchStore((s) => s.awayTeamName);
   const matchHomeScore = useMatchStore((s) => s.homeScore);

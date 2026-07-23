@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { parsePlayHQText, fetchPlayHQRoster } from '../../store/rosterStore';
 import type { RosterPlayer } from '../../models/RosterModel';
+import { useOverlayOpen } from '../../hooks/useOverlayOpen';
 
 interface Props {
   onImport: (teamName: string, players: RosterPlayer[]) => void;
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function PlayHQImportDialog({ onImport, onClose }: Props) {
+  useOverlayOpen();
   const [teamName, setTeamName] = useState('');
   const [pasteText, setPasteText] = useState('');
   const [url, setUrl] = useState('');

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { usePlayerStore } from '../../../store/playerStore';
+import { useOverlayOpen } from '../../../hooks/useOverlayOpen';
 
 export function RosterImportModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  useOverlayOpen(open);
   const importRoster = usePlayerStore((state) => state.importRoster);
   const autoAssignPositions = usePlayerStore((state) => state.autoAssignPositions);
 

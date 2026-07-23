@@ -1,4 +1,6 @@
 // src/components/UI/HelpScreen.tsx
+import { useOverlayOpen } from '../../hooks/useOverlayOpen';
+
 interface Props { onClose: () => void; }
 
 const SECTIONS = [
@@ -51,6 +53,7 @@ const SECTIONS = [
 ];
 
 export function HelpScreen({ onClose }: Props) {
+  useOverlayOpen();
   return (
     <div
       className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"

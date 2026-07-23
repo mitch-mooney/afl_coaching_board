@@ -1,8 +1,10 @@
 import { usePlayerStore } from '../../../store/playerStore';
 import { useMatchStore } from '../../../store/matchStore';
 import { AFL_TEAMS } from '../../../data/aflTeams';
+import { useOverlayOpen } from '../../../hooks/useOverlayOpen';
 
 export function TeamSelectModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  useOverlayOpen(open);
   const team1PresetId = usePlayerStore((state) => state.team1PresetId);
   const team2PresetId = usePlayerStore((state) => state.team2PresetId);
   const setTeamPreset = usePlayerStore((state) => state.setTeamPreset);

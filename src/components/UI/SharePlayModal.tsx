@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { usePlayStore } from '../../store/playStore';
 import { useVideoStore } from '../../store/videoStore';
 import { sharePlay } from '../../services/sharingService';
+import { useOverlayOpen } from '../../hooks/useOverlayOpen';
 
 type ShareState = 'idle' | 'working' | 'done' | 'error' | 'tooLarge';
 
@@ -11,6 +12,7 @@ interface Progress {
 }
 
 export function SharePlayModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  useOverlayOpen(open);
   const activePlayId = usePlayStore((s) => s.activePlayId);
   const activePlay = usePlayStore((s) => s.plays.find((p) => p.id === s.activePlayId));
   const videoFile = useVideoStore((s) => s.videoFile);
