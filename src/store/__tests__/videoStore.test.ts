@@ -400,63 +400,6 @@ describe('videoStore', () => {
       expect(saved?.duration).toBe(120);
     });
 
-    it('updateVideoMetadata should update existing record', async () => {
-      // First save
-      useVideoStore.getState().setVideoMetadata(createMockVideoMetadata());
-      useVideoStore.getState().setDuration(60);
-      const id = await useVideoStore.getState().saveVideoMetadata();
-
-      // Update settings
-      useVideoStore.getState().setDuration(120);
-
-      await useVideoStore.getState().updateVideoMetadata(id);
-
-      // Verify update
-      const updated = await videoDb.videos.get(id);
-      expect(updated?.duration).toBe(120);
-    });
-
-    it('deleteVideoMetadata should remove record from database', async () => {
-      // Save a record
-      useVideoStore.getState().setVideoMetadata(createMockVideoMetadata());
-      const id = await useVideoStore.getState().saveVideoMetadata();
-
-      // Delete it
-      await useVideoStore.getState().deleteVideoMetadata(id);
-
-      // Verify deletion
-      const record = await videoDb.videos.get(id);
-      expect(record).toBeUndefined();
-    });
-
-    it('deleteVideoMetadata should clear currentSavedVideoId if deleted record was current', async () => {
-      useVideoStore.getState().setVideoMetadata(createMockVideoMetadata());
-      const id = await useVideoStore.getState().saveVideoMetadata();
-
-      expect(useVideoStore.getState().currentSavedVideoId).toBe(id);
-
-      await useVideoStore.getState().deleteVideoMetadata(id);
-
-      expect(useVideoStore.getState().currentSavedVideoId).toBeNull();
-    });
-
-    it('loadVideoSettings should select the saved video by id', async () => {
-      useVideoStore.getState().setVideoMetadata(createMockVideoMetadata());
-      const id = await useVideoStore.getState().saveVideoMetadata();
-
-      // Clear the current selection, then load it back by id
-      useVideoStore.getState().resetStore();
-
-      await useVideoStore.getState().loadVideoSettings(id);
-
-      expect(useVideoStore.getState().currentSavedVideoId).toBe(id);
-    });
-
-    it('loadVideoSettings should throw error for non-existent id', async () => {
-      await expect(useVideoStore.getState().loadVideoSettings(999999)).rejects.toThrow(
-        'Video with id 999999 not found'
-      );
-    });
   });
 
   describe('Edge Cases', () => {

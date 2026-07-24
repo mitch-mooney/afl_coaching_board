@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import Dexie, { Table } from 'dexie';
-import { usePlayStore } from './playStore';
 
 /**
  * Video metadata stored for reference
@@ -33,24 +32,10 @@ export interface PersistedVideoMetadata {
 }
 
 /**
- * Stored video blob entry for attaching clips to playbooks
- */
-export interface PersistedVideoBlob {
-  id?: number;
-  videoId: string; // opaque key (e.g. playbook name + timestamp)
-  blob: Blob;
-  mimeType: string;
-  createdAt: Date;
-}
-
-const MAX_BLOB_SIZE = 50 * 1024 * 1024; // 50 MB
-
-/**
  * Dexie database class for video metadata persistence
  */
 class VideoDatabase extends Dexie {
   videos!: Table<PersistedVideoMetadata>;
-  videoBlobs!: Table<PersistedVideoBlob>;
 
   constructor() {
     super('VideoImportDB');
@@ -60,6 +45,9 @@ class VideoDatabase extends Dexie {
     this.version(2).stores({
       videos: '++id, fileName, createdAt, updatedAt',
       videoBlobs: '++id, videoId',
+    });
+    this.version(3).stores({
+      videoBlobs: null, // drop the unused blob table
     });
   }
 }
@@ -127,15 +115,6 @@ interface VideoState {
   // Actions - Persistence
   loadSavedVideos: () => Promise<void>;
   saveVideoMetadata: () => Promise<number>;
-  updateVideoMetadata: (id: number) => Promise<void>;
-  deleteVideoMetadata: (id: number) => Promise<void>;
-  deleteVideoMetadataWithCascade: (id: number) => Promise<'deleted' | 'cancelled' | 'error'>;
-  loadVideoSettings: (id: number) => Promise<void>;
-
-  // Actions - Video blob storage
-  saveVideoBlob: (videoId: string, blob: Blob) => Promise<number>;
-  loadVideoBlob: (videoId: string) => Promise<PersistedVideoBlob | undefined>;
-  deleteVideoBlob: (id: number) => Promise<void>;
 
   // Actions - Full reset
   resetStore: () => void;
@@ -325,128 +304,9 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     }
   },
 
-  updateVideoMetadata: async (id) => {
-    const { duration } = get();
 
-    set({ isPersisting: true });
-    try {
-      await videoDb.videos.update(id, {
-        duration,
-        updatedAt: new Date(),
-      });
-      set({ isPersisting: false });
-      await useVideoStore.getState().loadSavedVideos();
-    } catch (error) {
-      set({ isPersisting: false });
-      throw error;
-    }
-  },
 
-  deleteVideoMetadata: async (id) => {
-    set({ isPersisting: true });
-    try {
-      await videoDb.videos.delete(id);
-      const { currentSavedVideoId } = get();
-      if (currentSavedVideoId === id) {
-        set({ currentSavedVideoId: null });
-      }
-      set({ isPersisting: false });
-      await useVideoStore.getState().loadSavedVideos();
-    } catch (error) {
-      set({ isPersisting: false });
-      throw error;
-    }
-  },
 
-  deleteVideoMetadataWithCascade: async (id) => {
-    set({ isPersisting: true });
-    try {
-      // Find all plays that reference this video. Refresh the playStore's
-      // canonical list first so the confirm names match what's on disk; the
-      // same loaded list then backs clearVideoLink below (one read, not two).
-      await usePlayStore.getState().loadPlays();
-      const linked = usePlayStore.getState().playsLinkedToVideo(id);
-
-      if (linked.length > 0) {
-        const names = linked.map((s) => `"${s.name}"`).join(', ');
-        const ok = window.confirm(
-          `This video is linked to ${linked.length} play${linked.length > 1 ? 's' : ''}: ${names}.\n\nDeleting it will remove the video link. Continue?`
-        );
-        if (!ok) {
-          set({ isPersisting: false });
-          return 'cancelled';
-        }
-      }
-
-      // Step 1: Unlink plays first (safe to do before delete) via the gateway.
-      try {
-        await usePlayStore.getState().clearVideoLink(id);
-      } catch (err) {
-        console.error('[videoStore] cascade unlink failed — aborting delete', err);
-        set({ isPersisting: false });
-        return 'error';
-      }
-
-      // Step 2: Delete the video metadata record
-      await videoDb.videos.delete(id);
-
-      // Step 3: Clear current saved video if needed and refresh list
-      const { currentSavedVideoId } = get();
-      if (currentSavedVideoId === id) {
-        set({ currentSavedVideoId: null });
-      }
-      set({ isPersisting: false });
-      await useVideoStore.getState().loadSavedVideos();
-
-      return 'deleted';
-    } catch (err) {
-      console.error('[videoStore] deleteVideoMetadataWithCascade failed', err);
-      set({ isPersisting: false });
-      return 'error';
-    }
-  },
-
-  loadVideoSettings: async (id) => {
-    set({ isPersisting: true });
-    try {
-      const video = await videoDb.videos.get(id);
-      if (video) {
-        set({
-          currentSavedVideoId: id,
-          isPersisting: false,
-        });
-      } else {
-        set({ isPersisting: false });
-        throw new Error(`Video with id ${id} not found`);
-      }
-    } catch (error) {
-      set({ isPersisting: false });
-      throw error;
-    }
-  },
-
-  // Actions - Video blob storage
-  saveVideoBlob: async (videoId, blob) => {
-    if (blob.size > MAX_BLOB_SIZE) {
-      throw new Error(`Video clip is ${(blob.size / (1024 * 1024)).toFixed(1)} MB — exceeds the 50 MB limit. Try a shorter trim or lower quality source.`);
-    }
-    const record: PersistedVideoBlob = {
-      videoId,
-      blob,
-      mimeType: blob.type || 'video/mp4',
-      createdAt: new Date(),
-    };
-    const id = await videoDb.videoBlobs.add(record) as number;
-    return id;
-  },
-
-  loadVideoBlob: async (videoId) => {
-    return videoDb.videoBlobs.where('videoId').equals(videoId).first();
-  },
-
-  deleteVideoBlob: async (id) => {
-    await videoDb.videoBlobs.delete(id);
-  },
 
   // Actions - Full reset
   resetStore: () => {
