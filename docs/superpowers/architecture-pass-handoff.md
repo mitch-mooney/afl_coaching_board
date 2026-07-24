@@ -41,10 +41,13 @@ one, run the same workflow.
 - **MainLayout JSX-blob + orchestration split** (deferred from R3 wave 3) — the two big inline JSX
   blobs (tab switcher, linked-video chip bar) → components; lifecycle effects → hooks. Pure
   build-verified moves.
-- **PRODUCT DECISION (not a refactor): video↔play linking** — the video-metadata write path
-  (`saveVideoMetadata`) is unwired, so `savedVideos` is always empty and `PlayLibrary`'s
-  `videoDb.videos.get` always misses → the linking feature is effectively non-functional. Rebuild the
-  write path, or remove the read-side residue. Settle this before any further video work.
+- ~~**PRODUCT DECISION: video↔play linking**~~ **SETTLED + REBUILT (`66f5d90`).** Root cause was a
+  single missing call — `VideoUploader` never ran `saveVideoMetadata` on import, so
+  `currentSavedVideoId` stayed null and "Link to Play" always refused. Fixed with one
+  `await saveVideoMetadata()` in the load handler; linking + chip + filters + clip-share now work
+  end-to-end within a session. **Still pending: a manual runtime smoke** (import → link → chip → share)
+  — couldn't be driven automatically (R3F tab-freeze). Out of scope (noted): cross-session video *blob*
+  storage, `videos`-row dedup, delete-metadata UI.
 - **TrainingMode repair** — rotation model triple-divergent + broken, `timerStore.tick` never driven,
   no session persistence. This is **feature work, not the architecture pass.**
 
