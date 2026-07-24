@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import { useVideoStore } from '../../store/videoStore';
 import { useUIStore } from '../../store/uiStore';
 import { useVideoPlayback } from '../../hooks/useVideoPlayback';
+import { useVideoElementSync } from '../../hooks/useVideoElementSync';
 
 // Size constraints
 const MIN_WIDTH = 240;
@@ -52,7 +53,6 @@ export function VideoPiP() {
   const resizeStart = useRef({ x: 0, y: 0, width: 0, height: 0, posX: 0, posY: 0 });
 
   // Video store state
-  const videoElement = useVideoStore((state) => state.videoElement);
   const videoMetadata = useVideoStore((state) => state.videoMetadata);
   const isPlaying = useVideoStore((state) => state.isPlaying);
   const currentTime = useVideoStore((state) => state.currentTime);
@@ -67,28 +67,8 @@ export function VideoPiP() {
   // Playback controls
   const { togglePlayPause, seekTo } = useVideoPlayback();
 
-  // Sync video element (src, playback, time, volume)
-  useEffect(() => {
-    if (videoRef.current && videoElement) {
-      if (videoElement.src && videoRef.current.src !== videoElement.src) {
-        videoRef.current.src = videoElement.src;
-      }
-
-      if (isPlaying && videoRef.current.paused) {
-        videoRef.current.play().catch(() => {});
-      } else if (!isPlaying && !videoRef.current.paused) {
-        videoRef.current.pause();
-      }
-
-      if (Math.abs(videoRef.current.currentTime - currentTime) > 0.5) {
-        videoRef.current.currentTime = currentTime;
-      }
-
-      // Apply volume/mute from store
-      videoRef.current.volume = volume;
-      videoRef.current.muted = isMuted;
-    }
-  }, [videoElement, isPlaying, currentTime, volume, isMuted]);
+  // Keep the local <video> mirrored to the shared store playback state.
+  useVideoElementSync(videoRef);
 
   // Fullscreen change listener
   useEffect(() => {
