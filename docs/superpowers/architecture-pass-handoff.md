@@ -1,7 +1,7 @@
 # Architecture Pass — Handoff / Pick-up Note
 
 > **Purpose:** resume the deferred §7 architecture pass in a fresh session. Read this top-to-bottom,
-> then pick a remaining wave and run the workflow below. Last updated 2026-07-24; `main` tip `7a8989d`
+> then pick a remaining wave and run the workflow below. Last updated 2026-07-24; `main` tip `d8f3768`
 > (local `main` is a few commits ahead of `origin` — push when ready).
 
 ## Where things stand
@@ -22,21 +22,18 @@ subagent-driven implementation → merge → push.
 | R4 — transport controls | deduped `PlayFab`↔`TransportBar` bindings behind `src/components/Board/hud/useTransportControls.ts` | — |
 | R5 — shortcut suppression | replaced dead `[role=dialog]` DOM sniff with `uiStore.overlayOpenCount` + `useOverlayOpen` hook + tested `isBlockedByOverlay` predicate; wired 9 blocking modals | `97a8341` |
 | R6 wave 1 — dead video-persistence | removed the verified-dead persistence surface from `videoStore` (7 zero-caller actions incl. the cascade + its `window.confirm`, the `videoBlobs` table, playStore orphans); killed the `window.confirm`-in-store smell by deletion (−~200 lines) | `7a8989d` |
+| R2 — cameraStore math tests | **re-scoped:** Dexie-injection seam DECLINED as YAGNI (fake-indexeddb already provides the test seam); instead added characterization tests for cameraStore's untested pinch/pan/zoom/preset math (5→18 tests, no source change) | `d8f3768` |
 
 ## Remaining waves (pick one)
 
-### R2 — Dexie-injection seam / shallow-store residue
-- The **shallow-store** half is largely done: `playStore` is now the single gateway to the `scenarios`
-  (Plays) Dexie table.
-- What's left: the app still uses **singleton Dexie instances** with no injection seam
-  (`playbookDB`, `VideoImportDB`, etc.). The canonical spec explicitly deferred "introducing a
-  DB-injection interface for Dexie (later; keep the singleton for now)." A wave here would introduce a
-  narrow DB seam so stores/services depend on an interface, not the singleton — improving testability.
-- Also loose: **`cameraStore`'s pinch/pan/zoom math** (`applyPinchZoom`/`applyTwoFingerPan`/
-  `setPOVDistance`) is untested store-seam logic (not trapped in a god-component, just uncovered) — a
-  cheap characterization-test add, could ride along or be its own tiny slice.
-- **Risk/appraisal:** the Dexie-injection seam is real but easy to over-engineer. Scope it tightly
-  (likely one DB and its store) and check YAGNI. Confirm it's worth doing before a big injection refactor.
+### R2 — DONE (and the DI seam was declined)
+- **Resolved (`d8f3768`).** The **Dexie-injection seam was declined as YAGNI**: `src/test/setup.ts`
+  imports `fake-indexeddb/auto`, so the singleton Dexie stores are already testable against a real
+  in-memory IndexedDB (playStore/videoStore/playbookStore/appDatabaseMigration all exercise real Dexie
+  CRUD), and the canonical spec had deferred DI. The real gap — `cameraStore`'s untested pinch/pan/zoom
+  math — was closed with characterization tests (5→18, no source change).
+- If a *future* need for DI arises (e.g., swapping the DB backend, or per-test DB isolation that
+  fake-indexeddb can't give), revisit then — but it's not warranted for testability alone.
 
 ### R6 — video ownership scattered
 - **Wave 1 DONE** (`7a8989d`): the store's `window.confirm` + dead Dexie persistence are gone. Key
