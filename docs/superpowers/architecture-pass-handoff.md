@@ -1,7 +1,8 @@
 # Architecture Pass — Handoff / Pick-up Note
 
 > **Purpose:** resume the deferred §7 architecture pass in a fresh session. Read this top-to-bottom,
-> then pick a remaining wave and run the workflow below. Last updated 2026-07-23; `main` tip `97a8341`.
+> then pick a remaining wave and run the workflow below. Last updated 2026-07-24; `main` tip `7a8989d`
+> (local `main` is a few commits ahead of `origin` — push when ready).
 
 ## Where things stand
 
@@ -20,8 +21,7 @@ subagent-driven implementation → merge → push.
 | R3 wave 3 — MainLayout leaves | `SkyDome`+crowd texture → `src/components/Scene/SkyDome.tsx`; deduped `formatVideoTime` → shared `videoUtils` export + test | — |
 | R4 — transport controls | deduped `PlayFab`↔`TransportBar` bindings behind `src/components/Board/hud/useTransportControls.ts` | — |
 | R5 — shortcut suppression | replaced dead `[role=dialog]` DOM sniff with `uiStore.overlayOpenCount` + `useOverlayOpen` hook + tested `isBlockedByOverlay` predicate; wired 9 blocking modals | `97a8341` |
-
-**`origin/main` is up to date** (nothing unpushed as of the last push).
+| R6 wave 1 — dead video-persistence | removed the verified-dead persistence surface from `videoStore` (7 zero-caller actions incl. the cascade + its `window.confirm`, the `videoBlobs` table, playStore orphans); killed the `window.confirm`-in-store smell by deletion (−~200 lines) | `7a8989d` |
 
 ## Remaining waves (pick one)
 
@@ -39,11 +39,17 @@ subagent-driven implementation → merge → push.
   (likely one DB and its store) and check YAGNI. Confirm it's worth doing before a big injection refactor.
 
 ### R6 — video ownership scattered
-- Video is the messiest subsystem: **three `<video>` elements**, a **762-line god-hook**
-  (`useVideoPlayback.ts`), and `videoStore` **fusing transport + Dexie persistence + `window.confirm`**.
-- Candidate slices (do NOT try all at once): (a) pull `window.confirm` out of the store; (b) split the
-  god-hook's concerns; (c) consolidate the `<video>` elements / single-owner playback. Each is its own
-  wave.
+- **Wave 1 DONE** (`7a8989d`): the store's `window.confirm` + dead Dexie persistence are gone. Key
+  finding from that wave: the video-metadata **write path (`saveVideoMetadata`) is unwired**, so the
+  video↔play *linking* feature is effectively non-functional (`savedVideos` always empty; PlayLibrary's
+  `videoDb.videos.get` always misses). Deciding to **rebuild or fully remove** that linking feature is a
+  product call, not yet made — worth surfacing before further video work.
+- **Remaining R6 waves (both LIVE code, bigger/riskier — one wave each):**
+  - **`useVideoPlayback.ts` god-hook** (762 lines) — decompose its concerns (rAF sync, play/pause/seek,
+    buffering, keyboard). No `renderHook` in the repo, so extract pure helpers where possible; the
+    imperative hook itself is build-verified.
+  - **3 `<video>` elements** — consolidate toward single-owner playback across VideoWorkspace / VideoPiP /
+    VideoUploader(probe).
 - **Note:** R4 already *declined* unifying `animationStore`↔`videoStore` transport (different mediums).
   R6 is about video's *internal* ownership mess, not unifying it with the board clock.
 
