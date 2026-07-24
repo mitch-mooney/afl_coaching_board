@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVideoStore } from '../store/videoStore';
-import { supportsVideoFrameCallback, clampTime } from '../utils/videoUtils';
+import { supportsVideoFrameCallback, clampTime, frameToTime, timeToFrame } from '../utils/videoUtils';
+import { getBufferedRanges, calculateBufferedPercent } from '../utils/videoBuffer';
 
 /**
  * Frame metadata from requestVideoFrameCallback
@@ -77,9 +78,6 @@ export interface UseVideoPlaybackReturn {
   toggleLoop: () => void;
 }
 
-// Assumed frame rate for frame-based operations
-const ASSUMED_FRAME_RATE = 30;
-
 /**
  * Custom hook for managing video playback with frame-accurate synchronization.
  *
@@ -102,36 +100,6 @@ const DEFAULT_BUFFER_STATE: BufferState = {
   bufferedRanges: [],
   canPlayThrough: false,
 };
-
-/**
- * Helper function to get buffered ranges from a video element
- */
-function getBufferedRanges(video: HTMLVideoElement): Array<{ start: number; end: number }> {
-  const ranges: Array<{ start: number; end: number }> = [];
-  for (let i = 0; i < video.buffered.length; i++) {
-    ranges.push({
-      start: video.buffered.start(i),
-      end: video.buffered.end(i),
-    });
-  }
-  return ranges;
-}
-
-/**
- * Helper function to calculate buffered percentage
- */
-function calculateBufferedPercent(video: HTMLVideoElement): number {
-  if (!video.duration || video.duration === 0) return 0;
-  if (video.buffered.length === 0) return 0;
-
-  // Get total buffered time
-  let totalBuffered = 0;
-  for (let i = 0; i < video.buffered.length; i++) {
-    totalBuffered += video.buffered.end(i) - video.buffered.start(i);
-  }
-
-  return Math.min((totalBuffered / video.duration) * 100, 100);
-}
 
 export function useVideoPlayback(): UseVideoPlaybackReturn {
   // Refs
@@ -360,8 +328,7 @@ export function useVideoPlayback(): UseVideoPlaybackReturn {
         pause();
       }
 
-      const frameDuration = 1 / ASSUMED_FRAME_RATE;
-      const newTime = clampTime(video.currentTime + frames * frameDuration, video.duration);
+      const newTime = clampTime(video.currentTime + frameToTime(frames), video.duration);
       seekTo(newTime);
       stepForward(frames);
     },
@@ -381,8 +348,7 @@ export function useVideoPlayback(): UseVideoPlaybackReturn {
         pause();
       }
 
-      const frameDuration = 1 / ASSUMED_FRAME_RATE;
-      const newTime = clampTime(video.currentTime - frames * frameDuration, video.duration);
+      const newTime = clampTime(video.currentTime - frameToTime(frames), video.duration);
       seekTo(newTime);
       stepBackward(frames);
     },
@@ -443,7 +409,7 @@ export function useVideoPlayback(): UseVideoPlaybackReturn {
   }, [toggleLooping]);
 
   // Calculate current frame based on current time
-  const currentFrame = Math.floor(currentTime * ASSUMED_FRAME_RATE);
+  const currentFrame = timeToFrame(currentTime);
 
   /**
    * Effect: Sync with video element from store
@@ -547,7 +513,7 @@ export function useVideoPlayback(): UseVideoPlaybackReturn {
       setBufferState((prev) => ({
         ...prev,
         isBuffering: false,
-        bufferedPercent: calculateBufferedPercent(video),
+        bufferedPercent: calculateBufferedPercent(getBufferedRanges(video), video.duration),
         bufferedRanges: getBufferedRanges(video),
       }));
     };
@@ -556,7 +522,7 @@ export function useVideoPlayback(): UseVideoPlaybackReturn {
       // Enough data buffered to play through without interruption
       setBufferState({
         isBuffering: false,
-        bufferedPercent: calculateBufferedPercent(video),
+        bufferedPercent: calculateBufferedPercent(getBufferedRanges(video), video.duration),
         bufferedRanges: getBufferedRanges(video),
         canPlayThrough: true,
       });
@@ -566,7 +532,7 @@ export function useVideoPlayback(): UseVideoPlaybackReturn {
       // New data has been downloaded
       setBufferState((prev) => ({
         ...prev,
-        bufferedPercent: calculateBufferedPercent(video),
+        bufferedPercent: calculateBufferedPercent(getBufferedRanges(video), video.duration),
         bufferedRanges: getBufferedRanges(video),
       }));
     };
@@ -605,7 +571,7 @@ export function useVideoPlayback(): UseVideoPlaybackReturn {
     if (video.buffered.length > 0) {
       setBufferState({
         isBuffering: false,
-        bufferedPercent: calculateBufferedPercent(video),
+        bufferedPercent: calculateBufferedPercent(getBufferedRanges(video), video.duration),
         bufferedRanges: getBufferedRanges(video),
         canPlayThrough: video.readyState >= 4,
       });
