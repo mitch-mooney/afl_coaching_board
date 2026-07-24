@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useVideoStore } from '../store/videoStore';
 import { supportsVideoFrameCallback, clampTime, frameToTime, timeToFrame } from '../utils/videoUtils';
-import { getBufferedRanges, calculateBufferedPercent } from '../utils/videoBuffer';
+import { useVideoBuffering, type BufferState } from './useVideoBuffering';
 
 /**
  * Frame metadata from requestVideoFrameCallback
@@ -24,20 +24,6 @@ interface VideoElementWithFrameCallback extends HTMLVideoElement {
     callback: (now: DOMHighResTimeStamp, metadata: VideoFrameMetadata) => void
   ) => number;
   cancelVideoFrameCallback: (handle: number) => void;
-}
-
-/**
- * Buffer state information for streaming video
- */
-export interface BufferState {
-  /** Whether the video is currently buffering */
-  isBuffering: boolean;
-  /** Percentage of video that has been buffered (0-100) */
-  bufferedPercent: number;
-  /** Array of buffered time ranges */
-  bufferedRanges: Array<{ start: number; end: number }>;
-  /** Whether enough data is buffered for smooth playback */
-  canPlayThrough: boolean;
 }
 
 /**
@@ -91,16 +77,6 @@ export interface UseVideoPlaybackReturn {
  *
  * @returns Object containing video ref, playback controls, and state
  */
-/**
- * Default buffer state when no video is loaded
- */
-const DEFAULT_BUFFER_STATE: BufferState = {
-  isBuffering: false,
-  bufferedPercent: 0,
-  bufferedRanges: [],
-  canPlayThrough: false,
-};
-
 export function useVideoPlayback(): UseVideoPlaybackReturn {
   // Refs
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -110,8 +86,8 @@ export function useVideoPlayback(): UseVideoPlaybackReturn {
   const isSeekingRef = useRef<boolean>(false);
   const objectUrlRef = useRef<string | null>(null);
 
-  // Buffer state for streaming large videos
-  const [bufferState, setBufferState] = useState<BufferState>(DEFAULT_BUFFER_STATE);
+  // Buffering state is owned by a dedicated hook.
+  const bufferState = useVideoBuffering(videoRef);
 
   // Store state and actions
   const videoElement = useVideoStore((state) => state.videoElement);
@@ -499,52 +475,6 @@ export function useVideoPlayback(): UseVideoPlaybackReturn {
       setIsMuted(video.muted);
     };
 
-    // Buffering event handlers for streaming large videos
-    const handleWaiting = () => {
-      // Video is waiting for more data - buffering
-      setBufferState((prev) => ({
-        ...prev,
-        isBuffering: true,
-      }));
-    };
-
-    const handleCanPlay = () => {
-      // Enough data to start playing
-      setBufferState((prev) => ({
-        ...prev,
-        isBuffering: false,
-        bufferedPercent: calculateBufferedPercent(getBufferedRanges(video), video.duration),
-        bufferedRanges: getBufferedRanges(video),
-      }));
-    };
-
-    const handleCanPlayThrough = () => {
-      // Enough data buffered to play through without interruption
-      setBufferState({
-        isBuffering: false,
-        bufferedPercent: calculateBufferedPercent(getBufferedRanges(video), video.duration),
-        bufferedRanges: getBufferedRanges(video),
-        canPlayThrough: true,
-      });
-    };
-
-    const handleProgress = () => {
-      // New data has been downloaded
-      setBufferState((prev) => ({
-        ...prev,
-        bufferedPercent: calculateBufferedPercent(getBufferedRanges(video), video.duration),
-        bufferedRanges: getBufferedRanges(video),
-      }));
-    };
-
-    const handleStalled = () => {
-      // Download has stalled unexpectedly
-      setBufferState((prev) => ({
-        ...prev,
-        isBuffering: true,
-      }));
-    };
-
     // Add event listeners
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('timeupdate', handleTimeUpdate);
@@ -555,26 +485,10 @@ export function useVideoPlayback(): UseVideoPlaybackReturn {
     video.addEventListener('ended', handleEnded);
     video.addEventListener('ratechange', handleRateChange);
     video.addEventListener('volumechange', handleVolumeChange);
-    // Buffering events
-    video.addEventListener('waiting', handleWaiting);
-    video.addEventListener('canplay', handleCanPlay);
-    video.addEventListener('canplaythrough', handleCanPlayThrough);
-    video.addEventListener('progress', handleProgress);
-    video.addEventListener('stalled', handleStalled);
 
     // If metadata is already loaded, apply settings
     if (video.readyState >= 1) {
       handleLoadedMetadata();
-    }
-
-    // Initialize buffer state if video already has buffered data
-    if (video.buffered.length > 0) {
-      setBufferState({
-        isBuffering: false,
-        bufferedPercent: calculateBufferedPercent(getBufferedRanges(video), video.duration),
-        bufferedRanges: getBufferedRanges(video),
-        canPlayThrough: video.readyState >= 4,
-      });
     }
 
     // Cleanup
@@ -588,12 +502,6 @@ export function useVideoPlayback(): UseVideoPlaybackReturn {
       video.removeEventListener('ended', handleEnded);
       video.removeEventListener('ratechange', handleRateChange);
       video.removeEventListener('volumechange', handleVolumeChange);
-      // Buffering events
-      video.removeEventListener('waiting', handleWaiting);
-      video.removeEventListener('canplay', handleCanPlay);
-      video.removeEventListener('canplaythrough', handleCanPlayThrough);
-      video.removeEventListener('progress', handleProgress);
-      video.removeEventListener('stalled', handleStalled);
     };
   }, [
     setDuration,
@@ -701,9 +609,6 @@ export function useVideoPlayback(): UseVideoPlaybackReturn {
         URL.revokeObjectURL(objectUrlRef.current);
         objectUrlRef.current = null;
       }
-
-      // Reset buffer state
-      setBufferState(DEFAULT_BUFFER_STATE);
     };
   }, [stopTimeSync]);
 
