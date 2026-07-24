@@ -87,7 +87,7 @@ export function useVideoPlayback(): UseVideoPlaybackReturn {
   const objectUrlRef = useRef<string | null>(null);
 
   // Buffering state is owned by a dedicated hook.
-  const bufferState = useVideoBuffering(videoRef);
+  const bufferState = useVideoBuffering();
 
   // Store state and actions
   const videoElement = useVideoStore((state) => state.videoElement);

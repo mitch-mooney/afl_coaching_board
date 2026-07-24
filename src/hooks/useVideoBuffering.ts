@@ -1,4 +1,5 @@
-import { useEffect, useState, type RefObject } from 'react';
+import { useEffect, useState } from 'react';
+import { useVideoStore } from '../store/videoStore';
 import { getBufferedRanges, calculateBufferedPercent } from '../utils/videoBuffer';
 
 /**
@@ -23,16 +24,18 @@ const DEFAULT_BUFFER_STATE: BufferState = {
 };
 
 /**
- * Owns the buffering state for a <video>: wires the waiting/canplay/
+ * Owns the buffering state for the loaded video: wires the waiting/canplay/
  * canplaythrough/progress/stalled listeners and returns the current BufferState.
  * Extracted from useVideoPlayback — the buffering concern shares nothing with
- * its sync/transport code.
+ * its sync/transport code. Keyed off the store's videoElement (the source of
+ * truth) so the listeners attach/migrate whenever the element appears or changes.
  */
-export function useVideoBuffering(videoRef: RefObject<HTMLVideoElement | null>): BufferState {
+export function useVideoBuffering(): BufferState {
+  const videoElement = useVideoStore((s) => s.videoElement);
   const [bufferState, setBufferState] = useState<BufferState>(DEFAULT_BUFFER_STATE);
 
   useEffect(() => {
-    const video = videoRef.current;
+    const video = videoElement;
     if (!video) return;
 
     // Buffering event handlers for streaming large videos
@@ -104,7 +107,7 @@ export function useVideoBuffering(videoRef: RefObject<HTMLVideoElement | null>):
       video.removeEventListener('progress', handleProgress);
       video.removeEventListener('stalled', handleStalled);
     };
-  }, [videoRef]);
+  }, [videoElement]);
 
   return bufferState;
 }
