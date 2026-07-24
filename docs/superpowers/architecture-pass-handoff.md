@@ -1,7 +1,7 @@
 # Architecture Pass — Handoff / Pick-up Note
 
 > **Purpose:** resume the deferred §7 architecture pass in a fresh session. Read this top-to-bottom,
-> then pick a remaining wave and run the workflow below. Last updated 2026-07-24; `main` tip `d8f3768`
+> then pick a remaining wave and run the workflow below. Last updated 2026-07-24; `main` tip `b2208e7`
 > (local `main` is a few commits ahead of `origin` — push when ready).
 
 ## Where things stand
@@ -23,6 +23,7 @@ subagent-driven implementation → merge → push.
 | R5 — shortcut suppression | replaced dead `[role=dialog]` DOM sniff with `uiStore.overlayOpenCount` + `useOverlayOpen` hook + tested `isBlockedByOverlay` predicate; wired 9 blocking modals | `97a8341` |
 | R6 wave 1 — dead video-persistence | removed the verified-dead persistence surface from `videoStore` (7 zero-caller actions incl. the cascade + its `window.confirm`, the `videoBlobs` table, playStore orphans); killed the `window.confirm`-in-store smell by deletion (−~200 lines) | `7a8989d` |
 | R2 — cameraStore math tests | **re-scoped:** Dexie-injection seam DECLINED as YAGNI (fake-indexeddb already provides the test seam); instead added characterization tests for cameraStore's untested pinch/pan/zoom/preset math (5→18 tests, no source change) | `d8f3768` |
+| R6 wave 2 — useVideoPlayback pure core | extracted the buffer math into tested `videoBuffer.ts` + deduped inline frame math onto `videoUtils.timeToFrame`/`frameToTime` (removed private `ASSUMED_FRAME_RATE`); structural sub-hook split declined for this slice | `b2208e7` |
 
 ## Remaining waves (pick one)
 
@@ -41,10 +42,11 @@ subagent-driven implementation → merge → push.
   video↔play *linking* feature is effectively non-functional (`savedVideos` always empty; PlayLibrary's
   `videoDb.videos.get` always misses). Deciding to **rebuild or fully remove** that linking feature is a
   product call, not yet made — worth surfacing before further video work.
-- **Remaining R6 waves (both LIVE code, bigger/riskier — one wave each):**
-  - **`useVideoPlayback.ts` god-hook** (762 lines) — decompose its concerns (rAF sync, play/pause/seek,
-    buffering, keyboard). No `renderHook` in the repo, so extract pure helpers where possible; the
-    imperative hook itself is build-verified.
+- **Wave 2 DONE** (`b2208e7`): extracted `useVideoPlayback`'s pure core (buffer math → `videoBuffer.ts`;
+  frame-math dedup onto `videoUtils`). The **structural sub-hook split** (rAF loop / transport commands /
+  DOM-event wiring into sub-hooks) was **declined** for that slice — it's build-verified-only (no
+  `renderHook`) and higher risk; still available as an optional later wave if wanted.
+- **Remaining R6 wave (LIVE code, structural, bigger/riskier):**
   - **3 `<video>` elements** — consolidate toward single-owner playback across VideoWorkspace / VideoPiP /
     VideoUploader(probe).
 - **Note:** R4 already *declined* unifying `animationStore`↔`videoStore` transport (different mediums).
