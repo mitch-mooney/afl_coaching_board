@@ -214,6 +214,5 @@ describe('playStore gateway verbs', () => {
       expect(usePlayStore.getState().plays.every((p) => p.playbookId === 2)).toBe(true);
     });
   });
-
 });
 

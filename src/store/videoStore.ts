@@ -304,10 +304,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     }
   },
 
-
-
-
-
   // Actions - Full reset
   resetStore: () => {
     const { videoElement } = get();
