@@ -34,10 +34,13 @@ subagent-driven implementation → merge → push.
 The R-themes are complete. Nothing below is required; each is a discretionary follow-up. If you pick
 one, run the same workflow.
 
-- **`useVideoPlayback` structural sub-hook split** (deferred from R6 wave 2) — split the imperative
-  shell (rAF loop / transport commands / DOM-event wiring) into sub-hooks. Build-verified-only (no
-  `renderHook`), higher regression risk, modest structural gain. Likely not worth it; do only if the
-  hook keeps growing.
+- ~~**`useVideoPlayback` structural sub-hook split**~~ **DONE as a buffering-only extraction (`dea298f`).**
+  A coupling map proved the sync-loop/transport/events cluster is too interlocked to split safely
+  (shared `isSeekingRef` + `startTimeSync`/`stopTimeSync`, no `renderHook`), so the full split was
+  **declined** and only the clean seam (buffering) was pulled into `useVideoBuffering.ts`. A subtle
+  regression was caught + fixed at review (the extracted effect must key off the reactive store
+  `videoElement`, not a ref populated by a later effect). The rest of the imperative shell stays in
+  `useVideoPlayback` by design.
 - **MainLayout JSX-blob + orchestration split** (deferred from R3 wave 3) — the two big inline JSX
   blobs (tab switcher, linked-video chip bar) → components; lifecycle effects → hooks. Pure
   build-verified moves.
