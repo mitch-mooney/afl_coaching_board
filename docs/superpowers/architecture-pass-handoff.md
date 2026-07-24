@@ -4,8 +4,9 @@
 > then pick a remaining wave and run the workflow below. Last updated 2026-07-24; `main` tip `f23de2e`
 > (local `main` is a few commits ahead of `origin` — push when ready).
 >
-> **STATUS: the architecture pass is substantially complete.** All audit R-themes (R2–R6) are done or
-> explicitly declined (see the done table). What's left is optional/deferred (below), not core pass work.
+> **STATUS: the architecture pass is COMPLETE.** All audit R-themes (R2–R6) AND every optional/deferred
+> structural item are done or explicitly declined (see the done table). Nothing below is architecture-pass
+> work — only runtime smokes (which need a human, due to an R3F tab-freeze quirk) and TrainingMode (feature work).
 
 ## Where things stand
 
@@ -28,22 +29,36 @@ subagent-driven implementation → merge → push.
 | R2 — cameraStore math tests | **re-scoped:** Dexie-injection seam DECLINED as YAGNI (fake-indexeddb already provides the test seam); instead added characterization tests for cameraStore's untested pinch/pan/zoom/preset math (5→18 tests, no source change) | `d8f3768` |
 | R6 wave 2 — useVideoPlayback pure core | extracted the buffer math into tested `videoBuffer.ts` + deduped inline frame math onto `videoUtils.timeToFrame`/`frameToTime` (removed private `ASSUMED_FRAME_RATE`); structural sub-hook split declined for this slice | `b2208e7` |
 | R6 wave 3 — shared video-element sync | deduped the verbatim `<video>`-to-store sync effect (VideoWorkspace + VideoPiP) behind a tested `useVideoElementSync` hook (`syncVideoElement` core); literal single-element consolidation declined (different tabs/DOM, draggable PiP) | `f23de2e` |
+| video↔play linking rebuild | one `await saveVideoMetadata()` on import restores the whole (severed) linking + clip-share feature within a session | `66f5d90` |
+| useVideoPlayback buffering extraction | pulled the buffering concern into `useVideoBuffering.ts` (keyed off reactive store `videoElement`); full sync/transport/events split declined as too-coupled; regression caught+fixed at review | `dea298f` |
+| MainLayout JSX-blob split | extracted `EditorTopBar` + `LinkedVideoBar` presentational components (MainLayout −170 lines); lifecycle-effects→hooks declined | `c0f9121` |
 
-## What's left (all optional / deferred — core pass is done)
+## What's left (NOT architecture-pass work)
 
-The R-themes are complete. Nothing below is required; each is a discretionary follow-up. If you pick
-one, run the same workflow.
+The R-themes and every optional structural item are done. The only remaining follow-ups:
+
+- **Runtime smokes (need a human).** The automated env has an R3F tab-freeze quirk, so a few
+  behaviour-changing waves are verified by reasoning + review, not click-through. Worth an eyeball:
+  the video↔play linking flow (import → link → chip → share), the video buffering spinner/buffered-bar
+  (after the `useVideoBuffering` extraction), and the general board/video/training tab interplay.
+- **TrainingMode repair — FEATURE work, not this pass.** Rotation model triple-divergent + broken,
+  `timerStore.tick` never driven, no session persistence.
+- **Accepted, left as-is:** `useVideoPlayback`'s dead `objectUrlRef` + the double-`startTimeSync`-per-play
+  quirk (pre-existing, behaviour-preserving); the `useVideoPlayback` sync/transport/events cluster is
+  intentionally NOT split (too coupled — see below). `"0:60"` `formatVideoTime` rounding edge; SharePlayModal
+  a11y; PlayFab safe-area cosmetics — all previously noted, deferrable.
+
+### Done during the pass (for reference)
 
 - ~~**`useVideoPlayback` structural sub-hook split**~~ **DONE as a buffering-only extraction (`dea298f`).**
   A coupling map proved the sync-loop/transport/events cluster is too interlocked to split safely
   (shared `isSeekingRef` + `startTimeSync`/`stopTimeSync`, no `renderHook`), so the full split was
   **declined** and only the clean seam (buffering) was pulled into `useVideoBuffering.ts`. A subtle
   regression was caught + fixed at review (the extracted effect must key off the reactive store
-  `videoElement`, not a ref populated by a later effect). The rest of the imperative shell stays in
-  `useVideoPlayback` by design.
-- **MainLayout JSX-blob + orchestration split** (deferred from R3 wave 3) — the two big inline JSX
-  blobs (tab switcher, linked-video chip bar) → components; lifecycle effects → hooks. Pure
-  build-verified moves.
+  `videoElement`, not a ref populated by a later effect).
+- ~~**MainLayout JSX-blob split**~~ **DONE (`c0f9121`).** The two big inline JSX blobs → `EditorTopBar`
+  + `LinkedVideoBar` presentational components; MainLayout −170 lines. The lifecycle-effects→hooks half
+  was **declined** (higher-risk orchestration, not worth it).
 - ~~**PRODUCT DECISION: video↔play linking**~~ **SETTLED + REBUILT (`66f5d90`).** Root cause was a
   single missing call — `VideoUploader` never ran `saveVideoMetadata` on import, so
   `currentSavedVideoId` stayed null and "Link to Play" always refused. Fixed with one
