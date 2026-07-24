@@ -17,8 +17,10 @@
 - The hook re-derives frame math inline that already exists in `videoUtils`:
   `currentFrame = Math.floor(currentTime * ASSUMED_FRAME_RATE)` is exactly `timeToFrame(currentTime)`
   (`videoUtils.timeToFrame = Math.floor(time * 30)`), and the two `stepFrame` bodies'
-  `frames * (1/ASSUMED_FRAME_RATE)` is exactly `frameToTime(frames)` (`= frames / 30`). Both verified
-  byte-identical. `clampTime` is already imported from `videoUtils`.
+  `frames * (1/ASSUMED_FRAME_RATE)` is `frameToTime(frames)` (`= frames / 30`). `timeToFrame` is
+  bit-identical; `frames/30` vs `frames*(1/30)` are exactly equal at every reachable call site (all
+  callers pass `frames = 1`) and differ by at most ~1 ULP (~1e-16 s — far below one frame, clamped on
+  seek) otherwise. `clampTime` is already imported from `videoUtils`.
 
 ## Goals
 
@@ -110,8 +112,10 @@ The hook repoint has no unit test (no `renderHook`); it's covered by `tsc` + `bu
 
 ## Risks
 
-- **Frame-dedup drift** — mitigated: `timeToFrame`/`frameToTime` were verified byte-identical to the
-  inline math (`Math.floor(t*30)`, `n/30`), and both are already unit-tested in `videoUtils`.
+- **Frame-dedup drift** — mitigated: `timeToFrame` is bit-identical to `Math.floor(t*30)`;
+  `frameToTime(frames)=frames/30` equals the old `frames*(1/30)` exactly at every reachable call site
+  (callers pass `frames=1`) and differs by ≤1 ULP (~1e-16 s, negligible + seek-clamped) otherwise.
+  Both are already unit-tested in `videoUtils`.
 - **Buffer-math drift** — the extracted `calculateBufferedPercent` reproduces the original guards
   (`!duration`, empty ranges) and formula exactly; the new tests pin it.
 - **Double `video.buffered` read** at each site is preserved (not "optimized"), keeping the change a

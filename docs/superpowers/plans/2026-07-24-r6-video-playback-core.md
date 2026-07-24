@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **Behaviour-preserving.** `calculateBufferedPercent`'s formula + guards are unchanged (just made pure). `timeToFrame(t) = Math.floor(t*30)` and `frameToTime(n) = n/30` were verified byte-identical to the inline math being replaced. Do NOT "optimize" the double `video.buffered` read at the call sites — keep it a literal move.
+- **Behaviour-preserving.** `calculateBufferedPercent`'s formula + guards are unchanged (just made pure). `timeToFrame(t) = Math.floor(t*30)` is bit-identical to the inline math; `frameToTime(n) = n/30` equals the old `n*(1/30)` exactly at every reachable call site (callers pass `frames=1`) and differs by ≤1 ULP otherwise (negligible, seek-clamped). Do NOT "optimize" the double `video.buffered` read at the call sites — keep it a literal move.
 - **Only extract the pure core.** Do NOT restructure the rAF loop, transport commands, or the DOM event-listener effect (out of scope — that's the declined structural split).
 - **Full vitest run OOMs on Windows** (pre-existing) — run `videoBuffer.test.ts` targeted; verify the hook repoint with `npx tsc --noEmit` + `npm run build` (no `renderHook` in the repo).
 - **Commit footer:** end each commit message with `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
