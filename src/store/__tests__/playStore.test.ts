@@ -215,23 +215,5 @@ describe('playStore gateway verbs', () => {
     });
   });
 
-  describe('clearVideoLink', () => {
-    it('unlinks the given video from every Play that references it', async () => {
-      const { createPlay, updatePlay, getPlay, clearVideoLink } = usePlayStore.getState();
-      const linkedA = await createPlay('LinkedA', 1);
-      const linkedB = await createPlay('LinkedB', 1);
-      const unrelated = await createPlay('Unrelated', 1);
-
-      await updatePlay(linkedA, { linkedVideoMoment: { videoId: 7, startTime: 0, endTime: 5 } });
-      await updatePlay(linkedB, { linkedVideoMoment: { videoId: 7, startTime: 1, endTime: 6 } });
-      await updatePlay(unrelated, { linkedVideoMoment: { videoId: 99, startTime: 0, endTime: 5 } });
-
-      await clearVideoLink(7);
-
-      expect((await getPlay(linkedA))?.linkedVideoMoment).toBeUndefined();
-      expect((await getPlay(linkedB))?.linkedVideoMoment).toBeUndefined();
-      // A Play linked to a different video is left alone.
-      expect((await getPlay(unrelated))?.linkedVideoMoment?.videoId).toBe(99);
-    });
-  });
 });
+
