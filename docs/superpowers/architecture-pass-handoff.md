@@ -1,8 +1,11 @@
 # Architecture Pass — Handoff / Pick-up Note
 
 > **Purpose:** resume the deferred §7 architecture pass in a fresh session. Read this top-to-bottom,
-> then pick a remaining wave and run the workflow below. Last updated 2026-07-24; `main` tip `b2208e7`
+> then pick a remaining wave and run the workflow below. Last updated 2026-07-24; `main` tip `f23de2e`
 > (local `main` is a few commits ahead of `origin` — push when ready).
+>
+> **STATUS: the architecture pass is substantially complete.** All audit R-themes (R2–R6) are done or
+> explicitly declined (see the done table). What's left is optional/deferred (below), not core pass work.
 
 ## Where things stand
 
@@ -24,8 +27,26 @@ subagent-driven implementation → merge → push.
 | R6 wave 1 — dead video-persistence | removed the verified-dead persistence surface from `videoStore` (7 zero-caller actions incl. the cascade + its `window.confirm`, the `videoBlobs` table, playStore orphans); killed the `window.confirm`-in-store smell by deletion (−~200 lines) | `7a8989d` |
 | R2 — cameraStore math tests | **re-scoped:** Dexie-injection seam DECLINED as YAGNI (fake-indexeddb already provides the test seam); instead added characterization tests for cameraStore's untested pinch/pan/zoom/preset math (5→18 tests, no source change) | `d8f3768` |
 | R6 wave 2 — useVideoPlayback pure core | extracted the buffer math into tested `videoBuffer.ts` + deduped inline frame math onto `videoUtils.timeToFrame`/`frameToTime` (removed private `ASSUMED_FRAME_RATE`); structural sub-hook split declined for this slice | `b2208e7` |
+| R6 wave 3 — shared video-element sync | deduped the verbatim `<video>`-to-store sync effect (VideoWorkspace + VideoPiP) behind a tested `useVideoElementSync` hook (`syncVideoElement` core); literal single-element consolidation declined (different tabs/DOM, draggable PiP) | `f23de2e` |
 
-## Remaining waves (pick one)
+## What's left (all optional / deferred — core pass is done)
+
+The R-themes are complete. Nothing below is required; each is a discretionary follow-up. If you pick
+one, run the same workflow.
+
+- **`useVideoPlayback` structural sub-hook split** (deferred from R6 wave 2) — split the imperative
+  shell (rAF loop / transport commands / DOM-event wiring) into sub-hooks. Build-verified-only (no
+  `renderHook`), higher regression risk, modest structural gain. Likely not worth it; do only if the
+  hook keeps growing.
+- **MainLayout JSX-blob + orchestration split** (deferred from R3 wave 3) — the two big inline JSX
+  blobs (tab switcher, linked-video chip bar) → components; lifecycle effects → hooks. Pure
+  build-verified moves.
+- **PRODUCT DECISION (not a refactor): video↔play linking** — the video-metadata write path
+  (`saveVideoMetadata`) is unwired, so `savedVideos` is always empty and `PlayLibrary`'s
+  `videoDb.videos.get` always misses → the linking feature is effectively non-functional. Rebuild the
+  write path, or remove the read-side residue. Settle this before any further video work.
+- **TrainingMode repair** — rotation model triple-divergent + broken, `timerStore.tick` never driven,
+  no session persistence. This is **feature work, not the architecture pass.**
 
 ### R2 — DONE (and the DI seam was declined)
 - **Resolved (`d8f3768`).** The **Dexie-injection seam was declined as YAGNI**: `src/test/setup.ts`
@@ -46,9 +67,12 @@ subagent-driven implementation → merge → push.
   frame-math dedup onto `videoUtils`). The **structural sub-hook split** (rAF loop / transport commands /
   DOM-event wiring into sub-hooks) was **declined** for that slice — it's build-verified-only (no
   `renderHook`) and higher risk; still available as an optional later wave if wanted.
-- **Remaining R6 wave (LIVE code, structural, bigger/riskier):**
-  - **3 `<video>` elements** — consolidate toward single-owner playback across VideoWorkspace / VideoPiP /
-    VideoUploader(probe).
+- **Wave 3 DONE** (`f23de2e`): deduped the verbatim `<video>`-to-store sync effect (VideoWorkspace +
+  VideoPiP) behind a tested `useVideoElementSync` hook. Literal single-element consolidation was
+  **declined** — the elements live on different tabs/DOM subtrees and PiP is draggable, so merging to
+  one `<video>` would need portaling a shared element around (big rework, low payoff).
+- **All three R6 waves done.** Remaining video items are the optional `useVideoPlayback` split and the
+  video↔play-linking product decision (both in "What's left" above).
 - **Note:** R4 already *declined* unifying `animationStore`↔`videoStore` transport (different mediums).
   R6 is about video's *internal* ownership mess, not unifying it with the board clock.
 
