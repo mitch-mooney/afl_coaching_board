@@ -3,6 +3,7 @@ import { VideoTimeline } from './VideoTimeline';
 import { PlaybackControls } from './PlaybackControls';
 import { useVideoStore } from '../../store/videoStore';
 import { useVideoPlayback } from '../../hooks/useVideoPlayback';
+import { useVideoElementSync } from '../../hooks/useVideoElementSync';
 import { usePlayStore } from '../../store/playStore';
 import { useUIStore } from '../../store/uiStore';
 import { formatVideoTime } from '../../utils/videoUtils';
@@ -36,14 +37,10 @@ export function VideoWorkspace({ onExitVideoMode }: VideoWorkspaceProps) {
   // Video store state
   const isLoaded = useVideoStore((state) => state.isLoaded);
   const videoFile = useVideoStore((state) => state.videoFile);
-  const videoElement = useVideoStore((state) => state.videoElement);
   const clearVideo = useVideoStore((state) => state.clearVideo);
   const setIsVideoMode = useVideoStore((state) => state.setIsVideoMode);
   const playbackRate = useVideoStore((state) => state.playbackRate);
   const currentTime = useVideoStore((state) => state.currentTime);
-  const isPlaying = useVideoStore((state) => state.isPlaying);
-  const volume = useVideoStore((state) => state.volume);
-  const isMuted = useVideoStore((state) => state.isMuted);
 
   // Play store
   const activePlayId = usePlayStore((state) => state.activePlayId);
@@ -64,25 +61,8 @@ export function VideoWorkspace({ onExitVideoMode }: VideoWorkspaceProps) {
   // Playback controls from hook
   const { togglePlayPause, setRate } = useVideoPlayback();
 
-  // Sync the local <video> element with the shared store playback state.
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el || !videoElement) return;
-
-    if (videoElement.src && el.src !== videoElement.src) {
-      el.src = videoElement.src;
-    }
-    if (isPlaying && el.paused) {
-      el.play().catch(() => {});
-    } else if (!isPlaying && !el.paused) {
-      el.pause();
-    }
-    if (Math.abs(el.currentTime - currentTime) > 0.5) {
-      el.currentTime = currentTime;
-    }
-    el.volume = volume;
-    el.muted = isMuted;
-  }, [videoElement, isPlaying, currentTime, volume, isMuted]);
+  // Keep the local <video> mirrored to the shared store playback state.
+  useVideoElementSync(videoRef);
 
   // Fullscreen change listener
   useEffect(() => {
