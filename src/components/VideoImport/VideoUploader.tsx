@@ -239,6 +239,7 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
     setVideoElement,
     setVideoMetadata,
     setDuration,
+    saveVideoMetadata,
     setIsLoaded,
     setIsLoading,
     setError: setStoreError,
@@ -322,6 +323,17 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
         setIsLoaded(true);
         setIsVideoMode(true);
 
+        // Persist the loaded video's metadata so it gets a stable saved id. This
+        // sets currentSavedVideoId, which the Video-tab "Link to Play" flow
+        // requires; without it, linking always refuses with "No video loaded".
+        try {
+          await saveVideoMetadata();
+        } catch (err) {
+          // Non-fatal: the video still plays this session; only its saved id +
+          // cross-session metadata row are missing.
+          console.error('[VideoUploader] failed to persist video metadata', err);
+        }
+
         // Reset progress state
         setLoadingProgress({ phase: 'idle', percent: 0, message: '' });
         setLastFailedFile(null);
@@ -347,6 +359,7 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
       setVideoElement,
       setVideoMetadata,
       setDuration,
+      saveVideoMetadata,
       setIsLoaded,
       setIsLoading,
       setStoreError,
