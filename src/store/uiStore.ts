@@ -13,9 +13,6 @@ interface UIState {
   isMobile: boolean;
   screenWidth: number;
 
-  // Apple Pencil / pen drawing state
-  isPenDrawing: boolean;
-
   // Number of blocking overlays (modals) currently open — read by the keyboard
   // layer to suppress shortcuts while a modal is up.
   overlayOpenCount: number;
@@ -27,9 +24,6 @@ interface UIState {
 
   // Responsive actions
   updateScreenSize: (width: number) => void;
-
-  // Pen drawing actions
-  setPenDrawing: (val: boolean) => void;
 
   // Overlay ref-count actions
   pushOverlay: () => void;
@@ -90,7 +84,6 @@ export const useUIStore = create<UIState>((set) => {
     showMenuPulse: getInitialMenuPulse(),
     isMobile: isMobileWidth(initialWidth),
     screenWidth: initialWidth,
-    isPenDrawing: false,
     overlayOpenCount: 0,
 
     // Menu actions
@@ -123,11 +116,6 @@ export const useUIStore = create<UIState>((set) => {
         screenWidth: width,
         isMobile: newIsMobile,
       });
-    },
-
-    // Pen drawing actions
-    setPenDrawing: (val: boolean) => {
-      set({ isPenDrawing: val });
     },
 
     pushOverlay: () => {

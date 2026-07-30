@@ -6,8 +6,9 @@ import { useBallStore } from '../../store/ballStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore } from '../../store/historyStore';
-import { captureAnnotationSnapshots } from '../../store/annotationStore';
+import { useAnnotationStore, captureAnnotationSnapshots } from '../../store/annotationStore';
 import { snapPointerToField } from '../../utils/dragMath';
+import { authoringIntent } from '../../utils/inputContract';
 import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
 import { heldBallTarget } from '../../utils/ballFollow';
 
@@ -198,6 +199,16 @@ export function BallComponent({ ball }: BallProps) {
 
   const handlePointerDown = (e: any) => {
     e.stopPropagation();
+
+    // The pen authors, the finger manipulates — the ball is under the same
+    // contract as a player, so an authoring stroke must not drag it.
+    const authoring = authoringIntent({
+      pointerType: e.pointerType,
+      armedTip: useAnnotationStore.getState().selectedTool,
+      button: e.button,
+    });
+    if (authoring === 'author') return;
+
     selectBall(true);
     setIsDragging(true);
     setDragging(true);  // Notify store to disable camera controls

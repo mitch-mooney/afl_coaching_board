@@ -10,6 +10,7 @@ import { useUIStore } from '../../store/uiStore';
 import { useAnnotationStore, captureAnnotationSnapshots } from '../../store/annotationStore';
 import { positionToZone } from '../../utils/fieldGeometry';
 import { snapPointerToField, dragRotation, facingRotation } from '../../utils/dragMath';
+import { authoringIntent } from '../../utils/inputContract';
 import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
 import { getTeamById } from '../../data/aflTeams';
 
@@ -203,14 +204,14 @@ export function PlayerComponent({ player }: PlayerProps) {
       return;
     }
 
-    // F3: Apple Pencil — if an annotation tool is active and the input is a pen, skip drag
-    // This lets the pencil draw annotations without inadvertently moving players
-    if (e.pointerType === 'pen') {
-      const { selectedTool } = useAnnotationStore.getState();
-      if (selectedTool) return;
-      // Also check the global isPenDrawing flag (set by useAnnotationInteraction)
-      if (useUIStore.getState().isPenDrawing) return;
-    }
+    // The pen authors, the finger manipulates: an authoring pointer is drawing on
+    // the board, so it must not also drag the player out from under the stroke.
+    const authoring = authoringIntent({
+      pointerType: e.pointerType,
+      armedTip: useAnnotationStore.getState().selectedTool,
+      button: e.button,
+    });
+    if (authoring === 'author') return;
 
     // For touch events, check if this is a multi-touch gesture (2+ fingers)
     // If so, don't start player drag - let camera gestures handle it instead
