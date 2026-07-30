@@ -3,19 +3,14 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Text, Billboard } from '@react-three/drei';
 import { Player } from '../../models/PlayerModel';
 import { usePlayerStore } from '../../store/playerStore';
-import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore, createPlayerSnapshot } from '../../store/historyStore';
 import { useAnimationStore } from '../../store/animationStore';
-import { useUIStore } from '../../store/uiStore';
-import { useAnnotationStore, captureAnnotationSnapshots } from '../../store/annotationStore';
+import { captureAnnotationSnapshots } from '../../store/annotationStore';
+import { usePenStore } from '../../store/penStore';
 import { positionToZone } from '../../utils/fieldGeometry';
 import { snapPointerToField, dragRotation, facingRotation } from '../../utils/dragMath';
 import { authoringIntent } from '../../utils/inputContract';
-import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
 import { getTeamById } from '../../data/aflTeams';
-
-// Minimum distance (in meters) between recorded path points to avoid excessive waypoints
-const MIN_PATH_POINT_DISTANCE = 1.5;
 
 // Maximum character length for player name labels before truncation
 const MAX_NAME_LENGTH = 12;
@@ -53,10 +48,6 @@ export function PlayerComponent({ player }: PlayerProps) {
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
-  // Track all movement points during drag for curved path recording
-  const movementPoints = useRef<[number, number, number][]>([]);
-  const lastRecordedPos = useRef<[number, number, number] | null>(null);
-  const dragStartTime = useRef<number>(0);
   // Store pre-drag position for undo
   const preDragSnapshot = useRef<{ position: [number, number, number] } | null>(null);
   // Track touch count to distinguish single-finger drag from multi-touch camera gestures
@@ -70,7 +61,6 @@ export function PlayerComponent({ player }: PlayerProps) {
   // Animation time for leg cycle
   const animTimeRef = useRef<number>(0);
   const { selectedPlayerId, selectPlayer, updatePlayerPosition, updatePlayerRotation, labelMode, startEditingPlayerName, setDragging, setPlayerPosition, players, getPlayerMoveState } = usePlayerStore();
-  const { addPath, removePath } = usePathStore();
   const { pushSnapshot } = useHistoryStore();
   const isPlaying = useAnimationStore((state) => state.isPlaying);
   const { camera, raycaster } = useThree();
@@ -162,20 +152,6 @@ export function PlayerComponent({ player }: PlayerProps) {
         } else {
           prevDragPos.current = newPos;
         }
-
-        // Record movement point if moved far enough from last recorded position
-        if (lastRecordedPos.current) {
-          const lastPos = lastRecordedPos.current;
-          const distance = Math.sqrt(
-            Math.pow(newPos[0] - lastPos[0], 2) +
-            Math.pow(newPos[2] - lastPos[2], 2)
-          );
-
-          if (distance >= MIN_PATH_POINT_DISTANCE) {
-            movementPoints.current.push(newPos);
-            lastRecordedPos.current = newPos;
-          }
-        }
       }
     }
   });
@@ -208,7 +184,7 @@ export function PlayerComponent({ player }: PlayerProps) {
     // the board, so it must not also drag the player out from under the stroke.
     const authoring = authoringIntent({
       pointerType: e.pointerType,
-      armedTip: useAnnotationStore.getState().selectedTool,
+      armedTip: usePenStore.getState().armedTip,
       button: e.button,
     });
     if (authoring === 'author') return;
@@ -234,19 +210,6 @@ export function PlayerComponent({ player }: PlayerProps) {
     const startPos = [...player.position] as [number, number, number];
     preDragSnapshot.current = { position: startPos };
 
-    // Initialize movement tracking for path recording
-    movementPoints.current = [startPos];
-    lastRecordedPos.current = startPos;
-    dragStartTime.current = Date.now();
-
-    // In Draw mode: clear this player's existing path so a new drag records a
-    // fresh one. In Setup mode: preserve paths (we're only repositioning).
-    if (useUIStore.getState().boardSubMode === 'draw') {
-      const allPlayerPaths = usePathStore.getState().getPathsByEntity(player.id);
-      for (const path of allPlayerPaths) {
-        removePath(path.id);
-      }
-    }
   };
 
   const handlePointerMove = (e: any) => {
@@ -271,94 +234,37 @@ export function PlayerComponent({ player }: PlayerProps) {
     };
   };
 
-  // Helper to create path from recorded movement points
-  const createPathFromMovement = useCallback(() => {
-    // Setup mode: update position only, skip path creation
-    const boardSubMode = useUIStore.getState().boardSubMode;
+  /**
+   * Finishes a reposition. A drag only ever moves the player now — a
+   * MovementPath comes from a Path-tip Stroke, never from dragging.
+   */
+  const finishReposition = useCallback(() => {
+    const startPos = preDragSnapshot.current?.position;
+    const finalPos = player.position;
 
-    // Add final position if different from last recorded
-    const finalPos = [...player.position] as [number, number, number];
-    const points = [...movementPoints.current];
-
-    if (boardSubMode !== 'draw') {
-      // F6: Auto-suggest position from drop zone if player has none (still applies in setup mode)
-      if (!player.positionName) {
-        const [fx, fz] = [player.position[0], player.position[2]];
-        const suggested = positionToZone(fx, fz);
-        if (suggested) {
-          setPlayerPosition(player.id, suggested);
-        }
-      }
-      // Reset tracking without creating path
-      movementPoints.current = [];
-      lastRecordedPos.current = null;
-      preDragSnapshot.current = null;
-      prevDragPos.current = null;
-      return;
-    }
-
-    if (points.length > 0) {
-      const lastPoint = points[points.length - 1];
-      const distToFinal = Math.sqrt(
-        Math.pow(finalPos[0] - lastPoint[0], 2) +
-        Math.pow(finalPos[2] - lastPoint[2], 2)
-      );
-      if (distToFinal > 0.1) {
-        points.push(finalPos);
-      }
-    }
-
-    // Only create path if we have at least 2 points and meaningful movement
-    if (points.length >= 2) {
-      const startPos = points[0];
-      const endPos = points[points.length - 1];
-      const totalDistance = Math.sqrt(
-        Math.pow(endPos[0] - startPos[0], 2) +
-        Math.pow(endPos[2] - startPos[2], 2)
-      );
-
-      if (totalDistance > 1) {
-        // Calculate duration based on drag time (minimum 2 seconds)
-        const dragDuration = Math.max(2, (Date.now() - dragStartTime.current) / 1000);
-
-        // Create waypoints with evenly distributed timestamps
-        const waypoints: Waypoint[] = points.map((pos, index) => ({
-          timestamp: (index / (points.length - 1)) * dragDuration,
-          position: pos,
-        }));
-
-        const path = createPathFromWaypoints(player.id, 'player', waypoints);
-        addPath(path);
-
-        // Save snapshot for undo (pre-drag state)
-        if (preDragSnapshot.current) {
-          pushSnapshot({
-            players: players.map(p =>
-              p.id === player.id
-                ? { id: p.id, position: preDragSnapshot.current!.position, rotation: p.rotation }
-                : createPlayerSnapshot(p)
-            ),
-            annotations: captureAnnotationSnapshots(),
-          });
-        }
-      }
+    // Record the pre-drag state for undo, but only if the player actually moved.
+    if (startPos && (startPos[0] !== finalPos[0] || startPos[2] !== finalPos[2])) {
+      pushSnapshot({
+        players: players.map(p =>
+          p.id === player.id
+            ? { id: p.id, position: startPos, rotation: p.rotation }
+            : createPlayerSnapshot(p)
+        ),
+        annotations: captureAnnotationSnapshots(),
+      });
     }
 
     // F6: Auto-suggest position from drop zone if player has none
     if (!player.positionName) {
-      const [fx, fz] = [player.position[0], player.position[2]];
-      const suggested = positionToZone(fx, fz);
+      const suggested = positionToZone(finalPos[0], finalPos[2]);
       if (suggested) {
         setPlayerPosition(player.id, suggested);
       }
     }
 
-    // Reset tracking
-    movementPoints.current = [];
-    lastRecordedPos.current = null;
     preDragSnapshot.current = null;
     prevDragPos.current = null;
-  }, [player.id, player.position, player.positionName, addPath, pushSnapshot, players, setPlayerPosition]);
+  }, [player.id, player.position, player.positionName, pushSnapshot, players, setPlayerPosition]);
 
   // End dragging helper - used by both pointerUp and window events
   const endDragging = useCallback(() => {
@@ -367,8 +273,8 @@ export function PlayerComponent({ player }: PlayerProps) {
     setIsDragging(false);
     setDragging(false);
     dragPointerIdRef.current = null;
-    createPathFromMovement();
-  }, [isDragging, setDragging, createPathFromMovement]);
+    finishReposition();
+  }, [isDragging, setDragging, finishReposition]);
 
   // Use window-level event listener to reliably end drag even when pointer leaves canvas
   useEffect(() => {
@@ -400,9 +306,6 @@ export function PlayerComponent({ player }: PlayerProps) {
         setIsDragging(false);
         setDragging(false);
         dragPointerIdRef.current = null;
-        // Reset movement tracking without creating path
-        movementPoints.current = [];
-        lastRecordedPos.current = null;
         preDragSnapshot.current = null;
         prevDragPos.current = null;
       }

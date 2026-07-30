@@ -23,7 +23,6 @@ export interface Annotation {
 
 interface AnnotationState {
   annotations: Annotation[];
-  selectedTool: AnnotationType | null;
   selectedColor: string;
   thickness: number;
   livePreview: { type: AnnotationType; points: number[][] } | null;
@@ -34,7 +33,6 @@ interface AnnotationState {
   addAnnotation: (annotation: Omit<Annotation, 'id' | 'createdAt'>) => void;
   removeAnnotation: (id: string) => void;
   clearAnnotations: () => void;
-  setSelectedTool: (tool: AnnotationType | null) => void;
   setSelectedColor: (color: string) => void;
   setThickness: (thickness: number) => void;
   setLivePreview: (preview: { type: AnnotationType; points: number[][] } | null) => void;
@@ -65,7 +63,6 @@ export function captureAnnotationSnapshots(): AnnotationSnapshot[] {
 
 export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   annotations: [],
-  selectedTool: null,
   selectedColor: '#ffff00', // Yellow default
   thickness: 2,
   livePreview: null,
@@ -97,10 +94,6 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   clearAnnotations: () => {
     recordPreMutationSnapshot(get().annotations);
     set({ annotations: [] });
-  },
-  
-  setSelectedTool: (tool) => {
-    set({ selectedTool: tool });
   },
   
   setSelectedColor: (color) => {

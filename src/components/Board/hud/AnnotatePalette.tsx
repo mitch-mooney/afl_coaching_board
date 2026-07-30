@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAnnotationStore, AnnotationType } from '../../../store/annotationStore';
+import { usePenStore } from '../../../store/penStore';
 import { glass, fanPill } from './podStyles';
 
 const TOOLS: { type: AnnotationType; label: string; icon: string }[] = [
@@ -15,17 +16,17 @@ const COLORS = ['#ffff00', '#ff0000', '#0000ff', '#00ff00', '#ffffff', '#000000'
 
 export function AnnotatePalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const {
-    selectedTool,
     selectedColor,
     thickness,
     pendingTextPoint,
-    setSelectedTool,
     setSelectedColor,
     setThickness,
     clearAnnotations,
     addAnnotation,
     setPendingTextPoint,
   } = useAnnotationStore();
+  const armedTip = usePenStore((state) => state.armedTip);
+  const armTip = usePenStore((state) => state.armTip);
 
   const [textInput, setTextInput] = useState('');
   const textInputRef = useRef<HTMLInputElement>(null);
@@ -57,9 +58,8 @@ export function AnnotatePalette({ open, onClose }: { open: boolean; onClose: () 
     setTextInput('');
   };
 
-  const handleToolSelect = (tool: AnnotationType) => {
-    setSelectedTool(selectedTool === tool ? null : tool);
-  };
+  // armTip already toggles off when the tip is the armed one.
+  const handleToolSelect = (tool: AnnotationType) => armTip(tool);
 
   return (
     <div
@@ -88,12 +88,12 @@ export function AnnotatePalette({ open, onClose }: { open: boolean; onClose: () 
             onClick={() => handleToolSelect(tool.type)}
             title={tool.label}
             aria-label={tool.label}
-            aria-pressed={selectedTool === tool.type}
+            aria-pressed={armedTip === tool.type}
             style={{
               ...fanPill,
               minWidth: 36, textAlign: 'center', padding: '8px 10px',
-              background: selectedTool === tool.type ? '#f59e0b' : glass.background,
-              color: selectedTool === tool.type ? '#000' : '#fff',
+              background: armedTip === tool.type ? '#f59e0b' : glass.background,
+              color: armedTip === tool.type ? '#000' : '#fff',
             }}
           >
             {tool.icon}
@@ -118,7 +118,7 @@ export function AnnotatePalette({ open, onClose }: { open: boolean; onClose: () 
         ))}
       </div>
 
-      {selectedTool !== 'text' && selectedTool !== 'measure' && (
+      {armedTip !== 'text' && armedTip !== 'measure' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 11, color: '#ffffffaa' }}>Thickness</span>
           <input

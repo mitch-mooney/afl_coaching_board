@@ -3,7 +3,7 @@ import { useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useCameraStore } from '../../store/cameraStore';
-import { useAnnotationStore } from '../../store/annotationStore';
+import { usePenStore } from '../../store/penStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useGestures } from '../../hooks/useGestures';
 import { povCameraPose } from '../../utils/cameraMath';
@@ -12,7 +12,7 @@ export function CameraController() {
   const { camera, gl } = useThree();
   const controlsRef = useRef<any>(null);
   const { position, target, zoom, povPlayer1Id, povPlayer2Id, activePovSlot, povHeight, povDistance, applyPinchZoom, applyTwoFingerPan, setPOVDistance } = useCameraStore();
-  const selectedTool = useAnnotationStore((state) => state.selectedTool);
+  const armedTip = usePenStore((state) => state.armedTip);
   const isDraggingPlayer = usePlayerStore((state) => state.isDragging);
   const getPlayer = usePlayerStore((state) => state.getPlayer);
   // Gesture detection for pinch-to-zoom
@@ -36,7 +36,7 @@ export function CameraController() {
   const isPovActive = activePovSlot !== null;
 
   // Disable orbit controls when annotation tool is active, player is being dragged, POV mode is active, or gesturing
-  const isAnnotating = selectedTool !== null;
+  const isAnnotating = armedTip !== null;
   const shouldDisableControls = isAnnotating || isDraggingPlayer || isPovActive || isPinching || isPanning;
 
   // Update camera position when store changes (non-POV mode)
