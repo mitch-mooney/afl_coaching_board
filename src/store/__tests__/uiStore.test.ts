@@ -2,20 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useUIStore } from '../uiStore';
 
 beforeEach(() => {
-  useUIStore.setState({ boardSubMode: 'setup', editorTab: 'board' });
-});
-
-describe('boardSubMode', () => {
-  it('defaults to setup', () => {
-    expect(useUIStore.getState().boardSubMode).toBe('setup');
-  });
-
-  it('toggleBoardSubMode cycles setup→draw→setup', () => {
-    useUIStore.getState().toggleBoardSubMode();
-    expect(useUIStore.getState().boardSubMode).toBe('draw');
-    useUIStore.getState().toggleBoardSubMode();
-    expect(useUIStore.getState().boardSubMode).toBe('setup');
-  });
+  useUIStore.setState({ editorTab: 'board' });
 });
 
 describe('editorTab', () => {

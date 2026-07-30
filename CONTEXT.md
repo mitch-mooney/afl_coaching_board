@@ -64,6 +64,64 @@ extend this file rather than inventing parallel names.
   (`shared_playbooks.playbook_data`): board content with the camera split into
   `cameraPosition`/`cameraTarget`/`cameraZoom`, plus share metadata (`name`, `quarter`, `label`).
 
+## Board content
+
+- **MovementPath** — the route one entity travels during playback, as timed waypoints.
+  Belongs to exactly one entity (a Player or the Ball), identified by `entityId` +
+  `entityType`. This is the *only* term for this concept — "run", "route" and "line"
+  are not synonyms for it and must not appear as domain nouns. Model: `models/PathModel.ts`.
+
+- **Annotation** — inert markup drawn on the board (line, arrow, circle, rectangle,
+  text, measure). Distinct from a MovementPath: an Annotation never moves anything
+  during playback. Store: `store/annotationStore.ts`.
+
+## The ground
+
+- **Venue** — a named ground the coach has measured: a name plus its boundary dimensions.
+  Venues are created by the user, not shipped as presets — the grounds that matter are
+  community grounds whose dimensions are published nowhere.
+
+- **Boundary dimensions** — the length and width of a Venue's boundary ellipse. The *only*
+  part of the field that varies between grounds.
+
+- **Absolute markings** — every other field marking: centre square (50×50m), 50m arcs,
+  goal square, goal and behind post spacing. These are identical at every ground and are
+  never scaled. A narrow ground is not a scaled-down MCG; it is the same markings with the
+  boundary pulled in tighter, so the 50m arc sits closer to the wing.
+
+- **Active Venue** — the ground the board is currently rendered on. This is app-wide match
+  context, **not** per-Play board content — the same exclusion that applies to the
+  scoreboard, and for the same reason. Setting the Active Venue re-renders every Play on
+  that ground, which is the point: a coach asks "what does this play look like at
+  Saturday's ground?"
+
+  > Entity positions are stored in absolute metres, never as fractions of the field.
+  > Fractions would slide centre-square players outside the centre square, because the
+  > markings they sit against are Absolute markings. The cost is that a Play authored on a
+  > wide ground can place entities outside a narrower Venue's boundary; that is surfaced to
+  > the coach rather than silently corrected.
+
+## Board input
+
+- **Stroke** — one continuous pen gesture on the board. A Stroke is raw input; what it
+  *becomes* is decided entirely by the armed Pen tip.
+
+- **Pen tip** — the currently armed authoring instrument: at most one of the Annotation
+  kinds, or Path, or none. Called a *tip* rather than a mode deliberately — it describes
+  what a Stroke turns into, not a state the board is in. Nothing else about the board's
+  behaviour changes when the tip changes.
+
+- **Path tip** — the Pen tip that turns a Stroke into a MovementPath. The Stroke must
+  begin on the entity it belongs to; a Stroke starting on open grass produces nothing.
+
+- **Tool rail** — the always-visible surface presenting the Pen tips and the current
+  colour. Always-visible is the point: arming a tip is never a trip through a menu.
+
+- **Input contract** — **the pen authors, the finger manipulates.** A finger repositions
+  players and the ball, moves the camera, and selects; it never authors anything. A pen
+  with a tip armed authors; a pen with no tip armed behaves as a finger. This contract is
+  the board's only modal axis, and it lives in the user's hand rather than in app state.
+
 ## Architecture vocabulary
 
 Design discussions use the deep-module vocabulary (see the `codebase-design` skill):

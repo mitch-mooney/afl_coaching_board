@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { usePlayerStore } from '../../../store/playerStore';
 import { useUIStore } from '../../../store/uiStore';
 import { usePathStore } from '../../../store/pathStore';
+import { usePenStore } from '../../../store/penStore';
 import { useBallStore } from '../../../store/ballStore';
 import { getFormationById } from '../../../data/formations';
 import { AnnotatePalette } from './AnnotatePalette';
@@ -25,8 +26,8 @@ export function useSetupControls(): HudControls {
   const selectedPlayerId = usePlayerStore((s) => s.selectedPlayerId);
   const players = usePlayerStore((s) => s.players);
   const setActiveFormationId = useUIStore((s) => s.setActiveFormationId);
-  const boardSubMode = useUIStore((s) => s.boardSubMode);
-  const toggleBoardSubMode = useUIStore((s) => s.toggleBoardSubMode);
+  const armedTip = usePenStore((s) => s.armedTip);
+  const armTip = usePenStore((s) => s.armTip);
   const clearPaths = usePathStore((s) => s.clearPaths);
   const paths = usePathStore((s) => s.paths);
   const ball = useBallStore((s) => s.ball);
@@ -54,11 +55,11 @@ export function useSetupControls(): HudControls {
     { key: 'reset', label: 'Reset players', onClick: resetPlayers },
     { key: 'undo', label: '↩ Undo', onClick: handleUndo, disabled: !canUndo() },
     {
-      key: 'draw',
-      label: `✏ Draw path${boardSubMode === 'draw' ? ' (on)' : ''}`,
-      onClick: toggleBoardSubMode,
-      active: boardSubMode === 'draw',
-      extraStyle: boardSubMode === 'draw' ? undefined : { background: 'transparent' },
+      key: 'path-tip',
+      label: `✏ Path tip${armedTip === 'path' ? ' (armed)' : ''}`,
+      onClick: () => armTip('path'),
+      active: armedTip === 'path',
+      extraStyle: armedTip === 'path' ? undefined : { background: 'transparent' },
     },
     { key: 'clear', label: 'Clear paths', onClick: clearPaths, disabled: paths.length === 0 },
     {

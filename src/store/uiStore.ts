@@ -13,9 +13,6 @@ interface UIState {
   isMobile: boolean;
   screenWidth: number;
 
-  // Apple Pencil / pen drawing state
-  isPenDrawing: boolean;
-
   // Number of blocking overlays (modals) currently open — read by the keyboard
   // layer to suppress shortcuts while a modal is up.
   overlayOpenCount: number;
@@ -28,17 +25,9 @@ interface UIState {
   // Responsive actions
   updateScreenSize: (width: number) => void;
 
-  // Pen drawing actions
-  setPenDrawing: (val: boolean) => void;
-
   // Overlay ref-count actions
   pushOverlay: () => void;
   popOverlay: () => void;
-
-  // Board sub-mode: setup (move players only) vs draw (record paths)
-  boardSubMode: 'setup' | 'draw';
-  setBoardSubMode: (mode: 'setup' | 'draw') => void;
-  toggleBoardSubMode: () => void;
 
   // Editor tab: board view vs video view vs training mode
   editorTab: 'board' | 'video' | 'training';
@@ -90,7 +79,6 @@ export const useUIStore = create<UIState>((set) => {
     showMenuPulse: getInitialMenuPulse(),
     isMobile: isMobileWidth(initialWidth),
     screenWidth: initialWidth,
-    isPenDrawing: false,
     overlayOpenCount: 0,
 
     // Menu actions
@@ -125,11 +113,6 @@ export const useUIStore = create<UIState>((set) => {
       });
     },
 
-    // Pen drawing actions
-    setPenDrawing: (val: boolean) => {
-      set({ isPenDrawing: val });
-    },
-
     pushOverlay: () => {
       set((state) => ({ overlayOpenCount: state.overlayOpenCount + 1 }));
     },
@@ -137,12 +120,6 @@ export const useUIStore = create<UIState>((set) => {
     popOverlay: () => {
       set((state) => ({ overlayOpenCount: Math.max(0, state.overlayOpenCount - 1) }));
     },
-
-    // Board sub-mode
-    boardSubMode: 'setup',
-    setBoardSubMode: (mode) => set({ boardSubMode: mode }),
-    toggleBoardSubMode: () =>
-      set((s) => ({ boardSubMode: s.boardSubMode === 'setup' ? 'draw' : 'setup' })),
 
     // Editor tab
     editorTab: 'board',

@@ -3,18 +3,14 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Text, Billboard } from '@react-three/drei';
 import { Player } from '../../models/PlayerModel';
 import { usePlayerStore } from '../../store/playerStore';
-import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore, createPlayerSnapshot } from '../../store/historyStore';
 import { useAnimationStore } from '../../store/animationStore';
-import { useUIStore } from '../../store/uiStore';
-import { useAnnotationStore, captureAnnotationSnapshots } from '../../store/annotationStore';
+import { captureAnnotationSnapshots } from '../../store/annotationStore';
+import { usePenStore } from '../../store/penStore';
 import { positionToZone } from '../../utils/fieldGeometry';
 import { snapPointerToField, dragRotation, facingRotation } from '../../utils/dragMath';
-import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
+import { authoringIntent } from '../../utils/inputContract';
 import { getTeamById } from '../../data/aflTeams';
-
-// Minimum distance (in meters) between recorded path points to avoid excessive waypoints
-const MIN_PATH_POINT_DISTANCE = 1.5;
 
 // Maximum character length for player name labels before truncation
 const MAX_NAME_LENGTH = 12;
@@ -24,6 +20,11 @@ const LEG_AMPITUDE = 0.4;        // Radians (~23°) leg swing amplitude
 const SPEED_THRESHOLD = 0.2;      // Minimum speed to trigger animation
 const DECAY_TIME = 300;           // ms to fade to static after stopping
 const BASE_FREQUENCY = 8;         // Radians per second base frequency
+
+// Leg geometry. The thigh mesh used to be centred on its pivot group at
+// y = 0.41; the hip is half a thigh above that, and the pivot belongs there.
+const THIGH_HEIGHT = 0.65;
+const HIP_Y = 0.41 + THIGH_HEIGHT / 2;  // 0.735
 
 /**
  * Formats a player name for display:
@@ -52,10 +53,6 @@ export function PlayerComponent({ player }: PlayerProps) {
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
-  // Track all movement points during drag for curved path recording
-  const movementPoints = useRef<[number, number, number][]>([]);
-  const lastRecordedPos = useRef<[number, number, number] | null>(null);
-  const dragStartTime = useRef<number>(0);
   // Store pre-drag position for undo
   const preDragSnapshot = useRef<{ position: [number, number, number] } | null>(null);
   // Track touch count to distinguish single-finger drag from multi-touch camera gestures
@@ -69,7 +66,6 @@ export function PlayerComponent({ player }: PlayerProps) {
   // Animation time for leg cycle
   const animTimeRef = useRef<number>(0);
   const { selectedPlayerId, selectPlayer, updatePlayerPosition, updatePlayerRotation, labelMode, startEditingPlayerName, setDragging, setPlayerPosition, players, getPlayerMoveState } = usePlayerStore();
-  const { addPath, removePath } = usePathStore();
   const { pushSnapshot } = useHistoryStore();
   const isPlaying = useAnimationStore((state) => state.isPlaying);
   const { camera, raycaster } = useThree();
@@ -101,12 +97,13 @@ export function PlayerComponent({ player }: PlayerProps) {
       const leftThighAngle = Math.sin(animTimeRef.current) * LEG_AMPITUDE;
       const rightThighAngle = Math.sin(animTimeRef.current + Math.PI) * LEG_AMPITUDE;
 
-      // Apply rotations to leg pivots
+      // Apply rotations to leg pivots. X swings the leg forward/back in the
+      // player's local frame; Y would spin it about its own long axis.
       if (leftThighRef.current) {
-        leftThighRef.current.rotation.y = leftThighAngle;
+        leftThighRef.current.rotation.x = leftThighAngle;
       }
       if (rightThighRef.current) {
-        rightThighRef.current.rotation.y = rightThighAngle;
+        rightThighRef.current.rotation.x = rightThighAngle;
       }
     } else {
       // Decay: reset legs to static position
@@ -114,18 +111,18 @@ export function PlayerComponent({ player }: PlayerProps) {
       if (timeSinceLastMove < DECAY_TIME) {
         const decayFactor = 1 - (timeSinceLastMove / DECAY_TIME);
         if (leftThighRef.current) {
-          leftThighRef.current.rotation.y = leftThighRef.current.rotation.y * decayFactor;
+          leftThighRef.current.rotation.x = leftThighRef.current.rotation.x * decayFactor;
         }
         if (rightThighRef.current) {
-          rightThighRef.current.rotation.y = rightThighRef.current.rotation.y * decayFactor;
+          rightThighRef.current.rotation.x = rightThighRef.current.rotation.x * decayFactor;
         }
       } else {
         // Fully reset to static
         if (leftThighRef.current) {
-          leftThighRef.current.rotation.y = 0;
+          leftThighRef.current.rotation.x = 0;
         }
         if (rightThighRef.current) {
-          rightThighRef.current.rotation.y = 0;
+          rightThighRef.current.rotation.x = 0;
         }
       }
     }
@@ -161,20 +158,6 @@ export function PlayerComponent({ player }: PlayerProps) {
         } else {
           prevDragPos.current = newPos;
         }
-
-        // Record movement point if moved far enough from last recorded position
-        if (lastRecordedPos.current) {
-          const lastPos = lastRecordedPos.current;
-          const distance = Math.sqrt(
-            Math.pow(newPos[0] - lastPos[0], 2) +
-            Math.pow(newPos[2] - lastPos[2], 2)
-          );
-
-          if (distance >= MIN_PATH_POINT_DISTANCE) {
-            movementPoints.current.push(newPos);
-            lastRecordedPos.current = newPos;
-          }
-        }
       }
     }
   });
@@ -203,14 +186,14 @@ export function PlayerComponent({ player }: PlayerProps) {
       return;
     }
 
-    // F3: Apple Pencil — if an annotation tool is active and the input is a pen, skip drag
-    // This lets the pencil draw annotations without inadvertently moving players
-    if (e.pointerType === 'pen') {
-      const { selectedTool } = useAnnotationStore.getState();
-      if (selectedTool) return;
-      // Also check the global isPenDrawing flag (set by useAnnotationInteraction)
-      if (useUIStore.getState().isPenDrawing) return;
-    }
+    // The pen authors, the finger manipulates: an authoring pointer is drawing on
+    // the board, so it must not also drag the player out from under the stroke.
+    const authoring = authoringIntent({
+      pointerType: e.pointerType,
+      armedTip: usePenStore.getState().armedTip,
+      button: e.button,
+    });
+    if (authoring === 'author') return;
 
     // For touch events, check if this is a multi-touch gesture (2+ fingers)
     // If so, don't start player drag - let camera gestures handle it instead
@@ -233,19 +216,6 @@ export function PlayerComponent({ player }: PlayerProps) {
     const startPos = [...player.position] as [number, number, number];
     preDragSnapshot.current = { position: startPos };
 
-    // Initialize movement tracking for path recording
-    movementPoints.current = [startPos];
-    lastRecordedPos.current = startPos;
-    dragStartTime.current = Date.now();
-
-    // In Draw mode: clear this player's existing path so a new drag records a
-    // fresh one. In Setup mode: preserve paths (we're only repositioning).
-    if (useUIStore.getState().boardSubMode === 'draw') {
-      const allPlayerPaths = usePathStore.getState().getPathsByEntity(player.id);
-      for (const path of allPlayerPaths) {
-        removePath(path.id);
-      }
-    }
   };
 
   const handlePointerMove = (e: any) => {
@@ -270,94 +240,37 @@ export function PlayerComponent({ player }: PlayerProps) {
     };
   };
 
-  // Helper to create path from recorded movement points
-  const createPathFromMovement = useCallback(() => {
-    // Setup mode: update position only, skip path creation
-    const boardSubMode = useUIStore.getState().boardSubMode;
+  /**
+   * Finishes a reposition. A drag only ever moves the player now — a
+   * MovementPath comes from a Path-tip Stroke, never from dragging.
+   */
+  const finishReposition = useCallback(() => {
+    const startPos = preDragSnapshot.current?.position;
+    const finalPos = player.position;
 
-    // Add final position if different from last recorded
-    const finalPos = [...player.position] as [number, number, number];
-    const points = [...movementPoints.current];
-
-    if (boardSubMode !== 'draw') {
-      // F6: Auto-suggest position from drop zone if player has none (still applies in setup mode)
-      if (!player.positionName) {
-        const [fx, fz] = [player.position[0], player.position[2]];
-        const suggested = positionToZone(fx, fz);
-        if (suggested) {
-          setPlayerPosition(player.id, suggested);
-        }
-      }
-      // Reset tracking without creating path
-      movementPoints.current = [];
-      lastRecordedPos.current = null;
-      preDragSnapshot.current = null;
-      prevDragPos.current = null;
-      return;
-    }
-
-    if (points.length > 0) {
-      const lastPoint = points[points.length - 1];
-      const distToFinal = Math.sqrt(
-        Math.pow(finalPos[0] - lastPoint[0], 2) +
-        Math.pow(finalPos[2] - lastPoint[2], 2)
-      );
-      if (distToFinal > 0.1) {
-        points.push(finalPos);
-      }
-    }
-
-    // Only create path if we have at least 2 points and meaningful movement
-    if (points.length >= 2) {
-      const startPos = points[0];
-      const endPos = points[points.length - 1];
-      const totalDistance = Math.sqrt(
-        Math.pow(endPos[0] - startPos[0], 2) +
-        Math.pow(endPos[2] - startPos[2], 2)
-      );
-
-      if (totalDistance > 1) {
-        // Calculate duration based on drag time (minimum 2 seconds)
-        const dragDuration = Math.max(2, (Date.now() - dragStartTime.current) / 1000);
-
-        // Create waypoints with evenly distributed timestamps
-        const waypoints: Waypoint[] = points.map((pos, index) => ({
-          timestamp: (index / (points.length - 1)) * dragDuration,
-          position: pos,
-        }));
-
-        const path = createPathFromWaypoints(player.id, 'player', waypoints);
-        addPath(path);
-
-        // Save snapshot for undo (pre-drag state)
-        if (preDragSnapshot.current) {
-          pushSnapshot({
-            players: players.map(p =>
-              p.id === player.id
-                ? { id: p.id, position: preDragSnapshot.current!.position, rotation: p.rotation }
-                : createPlayerSnapshot(p)
-            ),
-            annotations: captureAnnotationSnapshots(),
-          });
-        }
-      }
+    // Record the pre-drag state for undo, but only if the player actually moved.
+    if (startPos && (startPos[0] !== finalPos[0] || startPos[2] !== finalPos[2])) {
+      pushSnapshot({
+        players: players.map(p =>
+          p.id === player.id
+            ? { id: p.id, position: startPos, rotation: p.rotation }
+            : createPlayerSnapshot(p)
+        ),
+        annotations: captureAnnotationSnapshots(),
+      });
     }
 
     // F6: Auto-suggest position from drop zone if player has none
     if (!player.positionName) {
-      const [fx, fz] = [player.position[0], player.position[2]];
-      const suggested = positionToZone(fx, fz);
+      const suggested = positionToZone(finalPos[0], finalPos[2]);
       if (suggested) {
         setPlayerPosition(player.id, suggested);
       }
     }
 
-    // Reset tracking
-    movementPoints.current = [];
-    lastRecordedPos.current = null;
     preDragSnapshot.current = null;
     prevDragPos.current = null;
-  }, [player.id, player.position, player.positionName, addPath, pushSnapshot, players, setPlayerPosition]);
+  }, [player.id, player.position, player.positionName, pushSnapshot, players, setPlayerPosition]);
 
   // End dragging helper - used by both pointerUp and window events
   const endDragging = useCallback(() => {
@@ -366,8 +279,8 @@ export function PlayerComponent({ player }: PlayerProps) {
     setIsDragging(false);
     setDragging(false);
     dragPointerIdRef.current = null;
-    createPathFromMovement();
-  }, [isDragging, setDragging, createPathFromMovement]);
+    finishReposition();
+  }, [isDragging, setDragging, finishReposition]);
 
   // Use window-level event listener to reliably end drag even when pointer leaves canvas
   useEffect(() => {
@@ -399,9 +312,6 @@ export function PlayerComponent({ player }: PlayerProps) {
         setIsDragging(false);
         setDragging(false);
         dragPointerIdRef.current = null;
-        // Reset movement tracking without creating path
-        movementPoints.current = [];
-        lastRecordedPos.current = null;
         preDragSnapshot.current = null;
         prevDragPos.current = null;
       }
@@ -542,27 +452,29 @@ export function PlayerComponent({ player }: PlayerProps) {
         />
       </mesh>
 
-      {/* Left leg - with pivot for animation */}
-      <group ref={leftThighRef} position={[-0.11, 0.41, 0]}>
-        <mesh castShadow>
-          <boxGeometry args={[0.22, 0.65, 0.22]} />
+      {/* Left leg - pivot group sits at the hip (top of the thigh) so the leg
+          swings from the hip rather than about its own midpoint. Children are
+          offset down by half the thigh height, leaving the rest pose unchanged. */}
+      <group ref={leftThighRef} position={[-0.11, HIP_Y, 0]}>
+        <mesh castShadow position={[0, -THIGH_HEIGHT / 2, 0]}>
+          <boxGeometry args={[0.22, THIGH_HEIGHT, 0.22]} />
           <meshStandardMaterial color={shortsColor} roughness={0.7} />
         </mesh>
         {/* Left shoe */}
-        <mesh position={[0, -0.65, 0.05]}>
+        <mesh position={[0, -0.65 - THIGH_HEIGHT / 2, 0.05]}>
           <boxGeometry args={[0.24, 0.08, 0.28]} />
           <meshStandardMaterial color="#333333" roughness={0.8} />
         </mesh>
       </group>
 
-      {/* Right leg - with pivot for animation */}
-      <group ref={rightThighRef} position={[0.11, 0.41, 0]}>
-        <mesh castShadow>
-          <boxGeometry args={[0.22, 0.65, 0.22]} />
+      {/* Right leg - see the left leg comment for the hip-pivot offset */}
+      <group ref={rightThighRef} position={[0.11, HIP_Y, 0]}>
+        <mesh castShadow position={[0, -THIGH_HEIGHT / 2, 0]}>
+          <boxGeometry args={[0.22, THIGH_HEIGHT, 0.22]} />
           <meshStandardMaterial color={shortsColor} roughness={0.7} />
         </mesh>
         {/* Right shoe */}
-        <mesh position={[0, -0.65, 0.05]}>
+        <mesh position={[0, -0.65 - THIGH_HEIGHT / 2, 0.05]}>
           <boxGeometry args={[0.24, 0.08, 0.28]} />
           <meshStandardMaterial color="#333333" roughness={0.8} />
         </mesh>

@@ -7,12 +7,10 @@ import { usePlayerStore } from '../../store/playerStore';
 import { usePathStore } from '../../store/pathStore';
 import { useHistoryStore } from '../../store/historyStore';
 import { captureAnnotationSnapshots } from '../../store/annotationStore';
+import { usePenStore } from '../../store/penStore';
 import { snapPointerToField } from '../../utils/dragMath';
-import { createPathFromWaypoints, Waypoint } from '../../models/PathModel';
+import { authoringIntent } from '../../utils/inputContract';
 import { heldBallTarget } from '../../utils/ballFollow';
-
-// Minimum distance (in meters) between recorded path points to avoid excessive waypoints
-const MIN_PATH_POINT_DISTANCE = 1.5;
 
 // Ball visual constants for distinct appearance
 const BALL_COLORS = {
@@ -39,15 +37,10 @@ export function BallComponent({ ball }: BallProps) {
   const groupRef = useRef<any>(null);
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  // Track all movement points during drag for curved path recording
-  const movementPoints = useRef<[number, number, number][]>([]);
-  const lastRecordedPos = useRef<[number, number, number] | null>(null);
-  const dragStartTime = useRef<number>(0);
   // Store pre-drag position for undo
   const preDragPosition = useRef<[number, number, number] | null>(null);
   const { isBallSelected, selectBall, updateBallPosition } = useBallStore();
   const { getPlayer, setDragging } = usePlayerStore();
-  const { addPath, removePath } = usePathStore();
   const { pushSnapshot } = useHistoryStore();
   const { camera, raycaster, gl } = useThree();
 
@@ -91,20 +84,6 @@ export function BallComponent({ ball }: BallProps) {
          const [x, z] = field;
          const newPos: [number, number, number] = [x, AFL_BALL.length, z];
          updateBallPosition(newPos);
-
-         // Record movement point if moved far enough from last recorded position
-         if (lastRecordedPos.current) {
-           const lastPos = lastRecordedPos.current;
-           const distance = Math.sqrt(
-             Math.pow(newPos[0] - lastPos[0], 2) +
-             Math.pow(newPos[2] - lastPos[2], 2)
-           );
-
-           if (distance >= MIN_PATH_POINT_DISTANCE) {
-             movementPoints.current.push(newPos);
-             lastRecordedPos.current = newPos;
-           }
-         }
        }
      }
    });
@@ -114,60 +93,24 @@ export function BallComponent({ ball }: BallProps) {
     selectBall(true);
   };
 
-  // Helper to create path from recorded movement points
-  const createPathFromMovement = useCallback(() => {
-    // Add final position if different from last recorded
-    const finalPos = [...ball.position] as [number, number, number];
-    const points = [...movementPoints.current];
+  /**
+   * Finishes a reposition. Dragging the ball only moves it now — under the
+   * input contract a MovementPath comes from a Path-tip Stroke. This was the
+   * one entity that recorded a path on *every* drag.
+   */
+  const finishReposition = useCallback(() => {
+    const startPos = preDragPosition.current;
+    const finalPos = ball.position;
 
-    if (points.length > 0) {
-      const lastPoint = points[points.length - 1];
-      const distToFinal = Math.sqrt(
-        Math.pow(finalPos[0] - lastPoint[0], 2) +
-        Math.pow(finalPos[2] - lastPoint[2], 2)
-      );
-      if (distToFinal > 0.1) {
-        points.push(finalPos);
-      }
+    if (startPos && (startPos[0] !== finalPos[0] || startPos[2] !== finalPos[2])) {
+      pushSnapshot({
+        players: [], // Ball undo doesn't need player state
+        annotations: captureAnnotationSnapshots(),
+      });
     }
 
-    // Only create path if we have at least 2 points and meaningful movement
-    if (points.length >= 2) {
-      const startPos = points[0];
-      const endPos = points[points.length - 1];
-      const totalDistance = Math.sqrt(
-        Math.pow(endPos[0] - startPos[0], 2) +
-        Math.pow(endPos[2] - startPos[2], 2)
-      );
-
-      if (totalDistance > 1) {
-        // Calculate duration based on drag time (minimum 2 seconds)
-        const dragDuration = Math.max(2, (Date.now() - dragStartTime.current) / 1000);
-
-        // Create waypoints with evenly distributed timestamps
-        const waypoints: Waypoint[] = points.map((pos, index) => ({
-          timestamp: (index / (points.length - 1)) * dragDuration,
-          position: pos,
-        }));
-
-        const path = createPathFromWaypoints(ball.id, 'ball', waypoints);
-        addPath(path);
-
-        // Save snapshot for undo (pre-drag state)
-        if (preDragPosition.current) {
-          pushSnapshot({
-            players: [], // Ball undo doesn't need player state
-            annotations: captureAnnotationSnapshots(),
-          });
-        }
-      }
-    }
-
-    // Reset tracking
-    movementPoints.current = [];
-    lastRecordedPos.current = null;
     preDragPosition.current = null;
-  }, [ball.id, ball.position, addPath, pushSnapshot]);
+  }, [ball.position, pushSnapshot]);
 
   // End dragging helper - used by both pointerUp and window events
   const endDragging = useCallback(() => {
@@ -175,8 +118,8 @@ export function BallComponent({ ball }: BallProps) {
 
     setIsDragging(false);
     setDragging(false);
-    createPathFromMovement();
-  }, [isDragging, setDragging, createPathFromMovement]);
+    finishReposition();
+  }, [isDragging, setDragging, finishReposition]);
 
   // Use window-level event listener to reliably end drag even when pointer leaves canvas
   useEffect(() => {
@@ -198,24 +141,22 @@ export function BallComponent({ ball }: BallProps) {
 
   const handlePointerDown = (e: any) => {
     e.stopPropagation();
+
+    // The pen authors, the finger manipulates — the ball is under the same
+    // contract as a player, so an authoring stroke must not drag it.
+    const authoring = authoringIntent({
+      pointerType: e.pointerType,
+      armedTip: usePenStore.getState().armedTip,
+      button: e.button,
+    });
+    if (authoring === 'author') return;
+
     selectBall(true);
     setIsDragging(true);
     setDragging(true);  // Notify store to disable camera controls
 
     // Save pre-drag position for undo
-    const startPos = [...ball.position] as [number, number, number];
-    preDragPosition.current = startPos;
-
-    // Initialize movement tracking for path recording
-    movementPoints.current = [startPos];
-    lastRecordedPos.current = startPos;
-    dragStartTime.current = Date.now();
-
-    // Clear the ball's existing path so a new drag records a fresh one.
-    const allBallPaths = usePathStore.getState().getPathsByEntity(ball.id);
-    for (const path of allBallPaths) {
-      removePath(path.id);
-    }
+    preDragPosition.current = [...ball.position] as [number, number, number];
   };
 
   const handlePointerMove = (e: any) => {

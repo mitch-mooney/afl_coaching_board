@@ -28,7 +28,7 @@ import { useUIStore } from '../../store/uiStore';
 import { usePlayStore } from '../../store/playStore';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useAnnotationInteraction } from '../../hooks/useAnnotationInteraction';
+import { useStrokeAuthoring } from '../../hooks/useStrokeAuthoring';
 import { useCanvasResizeWithWindow } from '../../hooks/useCanvasResize';
 import { useBoardUndo } from '../../hooks/useBoardUndo';
 import { getSharedPlaybook } from '../../services/sharingService';
@@ -312,6 +312,6 @@ export function MainLayout() {
 
 // Component to handle annotation interactions
 function AnnotationInteractionHandler() {
-  useAnnotationInteraction();
+  useStrokeAuthoring();
   return null;
 }

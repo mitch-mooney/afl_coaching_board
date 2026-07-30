@@ -16,7 +16,8 @@ import type {
 } from '../types/shortcuts';
 import { SHORTCUT_CATEGORY_LABELS } from '../types/shortcuts';
 import { useCameraStore } from '../store/cameraStore';
-import { useAnnotationStore, type AnnotationType } from '../store/annotationStore';
+import type { AnnotationType } from '../store/annotationStore';
+import { usePenStore } from '../store/penStore';
 import { useAnimationStore } from '../store/animationStore';
 import { useUIStore } from '../store/uiStore';
 
@@ -538,11 +539,11 @@ const TOOL_SELECTION_MAP: Record<string, { code: string; key: string; tool: Tool
  * - T: Text tool
  *
  * @param registry - The shortcut registry to register shortcuts to
- * @param setSelectedTool - Function to call when switching tools
+ * @param selectTip - Function to call when arming a tip
  */
 export function registerToolSelectionShortcuts(
   registry: ShortcutRegistry,
-  setSelectedTool: (tool: AnnotationType | null) => void
+  selectTip: (tool: AnnotationType | null) => void
 ): void {
   Object.values(TOOL_SELECTION_MAP).forEach(({ code, key, tool, description }) => {
     registry.register({
@@ -552,7 +553,7 @@ export function registerToolSelectionShortcuts(
       modifiers: {},
       description,
       handler: () => {
-        setSelectedTool(tool);
+        selectTip(tool);
       },
       category: 'tools',
     });
@@ -572,7 +573,7 @@ export function unregisterToolSelectionShortcuts(registry: ShortcutRegistry): vo
 
 /**
  * Hook that registers tool selection shortcuts and integrates
- * with the annotation store for switching tools.
+ * with the pen store for arming tips.
  *
  * @param registry - The shortcut registry to use (defaults to global registry)
  *
@@ -586,16 +587,27 @@ export function unregisterToolSelectionShortcuts(registry: ShortcutRegistry): vo
  * ```
  */
 export function useToolSelectionShortcuts(registry?: ShortcutRegistry): void {
-  const setSelectedTool = useAnnotationStore((state) => state.setSelectedTool);
+  const armTip = usePenStore((state) => state.armTip);
+  const disarm = usePenStore((state) => state.disarm);
   const registryToUse = registry ?? getGlobalShortcutRegistry();
 
+  // armTip toggles, but a shortcut should be idempotent: pressing L twice must
+  // leave the Line tip armed, not disarm it.
+  const selectTip = useCallback(
+    (tip: AnnotationType | null) => {
+      if (tip === null) disarm();
+      else if (usePenStore.getState().armedTip !== tip) armTip(tip);
+    },
+    [armTip, disarm]
+  );
+
   useEffect(() => {
-    registerToolSelectionShortcuts(registryToUse, setSelectedTool);
+    registerToolSelectionShortcuts(registryToUse, selectTip);
 
     return () => {
       unregisterToolSelectionShortcuts(registryToUse);
     };
-  }, [registryToUse, setSelectedTool]);
+  }, [registryToUse, selectTip]);
 }
 
 // ============================================================================
