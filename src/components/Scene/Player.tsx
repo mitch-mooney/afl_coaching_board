@@ -21,6 +21,11 @@ const SPEED_THRESHOLD = 0.2;      // Minimum speed to trigger animation
 const DECAY_TIME = 300;           // ms to fade to static after stopping
 const BASE_FREQUENCY = 8;         // Radians per second base frequency
 
+// Leg geometry. The thigh mesh used to be centred on its pivot group at
+// y = 0.41; the hip is half a thigh above that, and the pivot belongs there.
+const THIGH_HEIGHT = 0.65;
+const HIP_Y = 0.41 + THIGH_HEIGHT / 2;  // 0.735
+
 /**
  * Formats a player name for display:
  * - Trims whitespace
@@ -92,12 +97,13 @@ export function PlayerComponent({ player }: PlayerProps) {
       const leftThighAngle = Math.sin(animTimeRef.current) * LEG_AMPITUDE;
       const rightThighAngle = Math.sin(animTimeRef.current + Math.PI) * LEG_AMPITUDE;
 
-      // Apply rotations to leg pivots
+      // Apply rotations to leg pivots. X swings the leg forward/back in the
+      // player's local frame; Y would spin it about its own long axis.
       if (leftThighRef.current) {
-        leftThighRef.current.rotation.y = leftThighAngle;
+        leftThighRef.current.rotation.x = leftThighAngle;
       }
       if (rightThighRef.current) {
-        rightThighRef.current.rotation.y = rightThighAngle;
+        rightThighRef.current.rotation.x = rightThighAngle;
       }
     } else {
       // Decay: reset legs to static position
@@ -105,18 +111,18 @@ export function PlayerComponent({ player }: PlayerProps) {
       if (timeSinceLastMove < DECAY_TIME) {
         const decayFactor = 1 - (timeSinceLastMove / DECAY_TIME);
         if (leftThighRef.current) {
-          leftThighRef.current.rotation.y = leftThighRef.current.rotation.y * decayFactor;
+          leftThighRef.current.rotation.x = leftThighRef.current.rotation.x * decayFactor;
         }
         if (rightThighRef.current) {
-          rightThighRef.current.rotation.y = rightThighRef.current.rotation.y * decayFactor;
+          rightThighRef.current.rotation.x = rightThighRef.current.rotation.x * decayFactor;
         }
       } else {
         // Fully reset to static
         if (leftThighRef.current) {
-          leftThighRef.current.rotation.y = 0;
+          leftThighRef.current.rotation.x = 0;
         }
         if (rightThighRef.current) {
-          rightThighRef.current.rotation.y = 0;
+          rightThighRef.current.rotation.x = 0;
         }
       }
     }
@@ -446,27 +452,29 @@ export function PlayerComponent({ player }: PlayerProps) {
         />
       </mesh>
 
-      {/* Left leg - with pivot for animation */}
-      <group ref={leftThighRef} position={[-0.11, 0.41, 0]}>
-        <mesh castShadow>
-          <boxGeometry args={[0.22, 0.65, 0.22]} />
+      {/* Left leg - pivot group sits at the hip (top of the thigh) so the leg
+          swings from the hip rather than about its own midpoint. Children are
+          offset down by half the thigh height, leaving the rest pose unchanged. */}
+      <group ref={leftThighRef} position={[-0.11, HIP_Y, 0]}>
+        <mesh castShadow position={[0, -THIGH_HEIGHT / 2, 0]}>
+          <boxGeometry args={[0.22, THIGH_HEIGHT, 0.22]} />
           <meshStandardMaterial color={shortsColor} roughness={0.7} />
         </mesh>
         {/* Left shoe */}
-        <mesh position={[0, -0.65, 0.05]}>
+        <mesh position={[0, -0.65 - THIGH_HEIGHT / 2, 0.05]}>
           <boxGeometry args={[0.24, 0.08, 0.28]} />
           <meshStandardMaterial color="#333333" roughness={0.8} />
         </mesh>
       </group>
 
-      {/* Right leg - with pivot for animation */}
-      <group ref={rightThighRef} position={[0.11, 0.41, 0]}>
-        <mesh castShadow>
-          <boxGeometry args={[0.22, 0.65, 0.22]} />
+      {/* Right leg - see the left leg comment for the hip-pivot offset */}
+      <group ref={rightThighRef} position={[0.11, HIP_Y, 0]}>
+        <mesh castShadow position={[0, -THIGH_HEIGHT / 2, 0]}>
+          <boxGeometry args={[0.22, THIGH_HEIGHT, 0.22]} />
           <meshStandardMaterial color={shortsColor} roughness={0.7} />
         </mesh>
         {/* Right shoe */}
-        <mesh position={[0, -0.65, 0.05]}>
+        <mesh position={[0, -0.65 - THIGH_HEIGHT / 2, 0.05]}>
           <boxGeometry args={[0.24, 0.08, 0.28]} />
           <meshStandardMaterial color="#333333" roughness={0.8} />
         </mesh>
