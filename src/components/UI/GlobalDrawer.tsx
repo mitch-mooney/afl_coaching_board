@@ -1,8 +1,6 @@
 import { useVideoStore } from '../../store/videoStore';
-import { useUIStore } from '../../store/uiStore';
 import { useState, useMemo } from 'react';
 import { VideoUploader } from '../VideoImport/VideoUploader';
-import { HamburgerIcon } from './HamburgerIcon';
 import { MobileMenu, createMenuSection, createMenuItem, type MenuSection } from './MobileMenu';
 import { useAuthStore } from '../../store/authStore';
 import { useMatchStore } from '../../store/matchStore';
@@ -18,10 +16,6 @@ export function GlobalDrawer() {
   const isLoaded = useVideoStore((state) => state.isLoaded);
   const isLoading = useVideoStore((state) => state.isLoading);
   const clearVideo = useVideoStore((state) => state.clearVideo);
-
-  // UI store state for responsive menu
-  const isMenuOpen = useUIStore((state) => state.isMenuOpen);
-  const toggleMenu = useUIStore((state) => state.toggleMenu);
 
   const authUser = useAuthStore((state) => state.user);
   const authIsConfigured = useAuthStore((state) => state.isConfigured);
@@ -118,43 +112,36 @@ export function GlobalDrawer() {
     activePlayId,
   ]);
 
+  // No positioned wrapper. The hamburger now lives in `EditorTopBar`, and
+  // everything left here renders its own fixed-position root, so a container
+  // would only do harm: the old `absolute top-14 left-4 right-4 z-10` bar laid
+  // out nothing, spanned the full width, and — being a z-indexed stacking
+  // context — trapped these overlays *below* the Mode rail's z-30.
   return (
-    // pointer-events-none on the bar so the full-width strip does not swallow
-    // drags on the field beneath it; each interactive child opts back in.
-    <div className="absolute top-14 left-4 right-4 z-10 flex gap-2 flex-wrap pointer-events-none">
-      {/* Hamburger menu - visible at all screen sizes */}
-      <div className="pointer-events-auto">
-        <HamburgerIcon isOpen={isMenuOpen} onClick={toggleMenu} />
-      </div>
+    <>
+      {/* Menu dropdown */}
+      <MobileMenu sections={mobileMenuSections} />
 
-      {/* Overlays render their own fixed-position roots, but pointer-events is
-          inherited, so they must opt back in. `contents` generates no box, so
-          this wrapper adds no flex item while still passing the value down. */}
-      <div className="contents pointer-events-auto">
-        {/* Menu dropdown */}
-        <MobileMenu sections={mobileMenuSections} />
+      <SavePlayDialog open={showSaveDialog} onClose={() => setShowSaveDialog(false)} />
 
-        <SavePlayDialog open={showSaveDialog} onClose={() => setShowSaveDialog(false)} />
-
-        {/* Video Uploader Modal */}
-        {showVideoUploader && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            {/* Backdrop */}
-            <div
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-              onClick={() => setShowVideoUploader(false)}
-            />
-            {/* Modal content */}
-            <div className="relative z-10">
-              <VideoUploader onClose={() => setShowVideoUploader(false)} />
-            </div>
+      {/* Video Uploader Modal */}
+      {showVideoUploader && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowVideoUploader(false)}
+          />
+          {/* Modal content */}
+          <div className="relative z-10">
+            <VideoUploader onClose={() => setShowVideoUploader(false)} />
           </div>
-        )}
+        </div>
+      )}
 
-        <MatchSetupModal open={showMatchSetup} onClose={() => setShowMatchSetup(false)} />
+      <MatchSetupModal open={showMatchSetup} onClose={() => setShowMatchSetup(false)} />
 
-        <SharePlayModal open={showShare} onClose={() => setShowShare(false)} />
-      </div>
-    </div>
+      <SharePlayModal open={showShare} onClose={() => setShowShare(false)} />
+    </>
   );
 }

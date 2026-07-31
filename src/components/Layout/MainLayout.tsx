@@ -57,6 +57,8 @@ export function MainLayout() {
   const navigate = useNavigate();
   const editorTab = useUIStore((s) => s.editorTab);
   const setEditorTab = useUIStore((s) => s.setEditorTab);
+  const isMenuOpen = useUIStore((s) => s.isMenuOpen);
+  const toggleMenu = useUIStore((s) => s.toggleMenu);
   const { setActivePlay, activePlayId, updatePlay } = usePlayStore();
   const { mode, switchMode } = useModeStore();
   const { isConePlacementActive, setConePlacementActive } = useConeStore();
@@ -176,6 +178,8 @@ export function MainLayout() {
         editorTab={editorTab}
         mode={mode}
         isConePlacementActive={isConePlacementActive}
+        isMenuOpen={isMenuOpen}
+        onToggleMenu={toggleMenu}
         onBack={() => navigate('/')}
         onSelectTab={(tab) => {
           setEditorTab(tab);

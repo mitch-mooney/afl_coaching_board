@@ -1,19 +1,28 @@
+import { HamburgerIcon } from '../UI/HamburgerIcon';
+
 interface EditorTopBarProps {
   editorTab: 'board' | 'video' | 'training';
   mode: 'match' | 'training';
   isConePlacementActive: boolean;
+  isMenuOpen: boolean;
   onBack: () => void;
   onSelectTab: (tab: 'board' | 'video' | 'training') => void;
   onExitConePlacement: () => void;
+  onToggleMenu: () => void;
 }
 
 export function EditorTopBar({
-  editorTab, mode, isConePlacementActive, onBack, onSelectTab, onExitConePlacement,
+  editorTab, mode, isConePlacementActive, isMenuOpen,
+  onBack, onSelectTab, onExitConePlacement, onToggleMenu,
 }: EditorTopBarProps) {
   return (
     <div className="absolute top-0 left-0 right-0 z-30 flex items-center gap-2 px-4 pt-safe-top pt-3 pb-6 pointer-events-none"
          style={{ background: 'linear-gradient(180deg, rgba(13,13,26,0.85) 0%, transparent 100%)' }}>
       <div className="flex items-center gap-2 pointer-events-auto">
+        {/* The global menu lives here rather than floating below the bar, so the
+            left edge below is free for the Tool rail. See
+            `docs/adr/0003-tool-rail-on-the-left-mode-rail-on-the-right.md`. */}
+        <HamburgerIcon isOpen={isMenuOpen} onClick={onToggleMenu} />
         <button onClick={onBack} className="text-white/60 hover:text-white text-sm">
           ← Plays
         </button>
