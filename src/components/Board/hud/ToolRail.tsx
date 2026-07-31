@@ -1,6 +1,8 @@
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useAnnotationStore } from '../../../store/annotationStore';
 import { usePenStore } from '../../../store/penStore';
-import { glass } from './podStyles';
+import { ColourPopover } from './ColourPopover';
+import { glass, TEAL } from './podStyles';
 import { TOOL_RAIL_TIPS } from './toolRailTips';
 
 /**
@@ -27,6 +29,9 @@ import { TOOL_RAIL_TIPS } from './toolRailTips';
  * The armed tip is amber, matching how `AnnotatePalette` already marks the armed
  * tip; the Mode rail's teal means "this panel is open", which is precisely what
  * a Tool rail button never does.
+ *
+ * The one exception is the current-colour button at the foot of the rail — see
+ * the note on it below.
  */
 
 const TIP_BUTTON: CSSProperties = {
@@ -48,11 +53,41 @@ const TIP_BUTTON: CSSProperties = {
   touchAction: 'manipulation',
 };
 
+/** Separates the seven tips from the colour button, which is not one of them. */
+const DIVIDER: CSSProperties = {
+  height: 1,
+  flexShrink: 0,
+  margin: '2px 4px',
+  background: '#ffffff22',
+};
+
 export function ToolRail() {
   const armedTip = usePenStore((state) => state.armedTip);
   // `armTip` already disarms when the armed tip is re-armed, so one handler
   // covers both taps.
   const armTip = usePenStore((state) => state.armTip);
+  const selectedColour = useAnnotationStore((state) => state.selectedColor);
+
+  // The only state the rail owns. Colour and thickness themselves live in
+  // `annotationStore`, where the Stroke-authoring hook already reads them.
+  const [colourOpen, setColourOpen] = useState(false);
+  const railRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!colourOpen) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      // Anything inside the rail — including the tips — leaves it open, so the
+      // coach can keep arming tips while choosing a colour.
+      if (target && railRef.current?.contains(target)) return;
+      setColourOpen(false);
+    };
+    // pointerdown rather than click: a Stroke on the board never produces a
+    // click, and the popover should be gone the moment the pen lands. Capture,
+    // so a handler that stops propagation cannot strand it open.
+    document.addEventListener('pointerdown', closeOnOutsidePointer, true);
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer, true);
+  }, [colourOpen]);
 
   return (
     // The positioned box spans the full usable height so the group can centre in
@@ -73,39 +108,78 @@ export function ToolRail() {
         pointerEvents: 'none',
       }}
     >
+      {/* The pill and its popover sit in one row so the popover is laid out
+          beside the rail rather than over it, and so a pointer landing anywhere
+          in the pair counts as inside. Bottom-aligned: the popover's foot lines
+          up with the colour button that opened it. */}
       <div
-        style={{
-          ...glass,
-          borderRadius: 16,
-          padding: 6,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 6,
-          maxHeight: '100%',
-          overflowY: 'auto',
-          pointerEvents: 'auto',
-        }}
+        ref={railRef}
+        style={{ display: 'flex', alignItems: 'flex-end', gap: 10, maxHeight: '100%' }}
       >
-        {TOOL_RAIL_TIPS.map(({ tip, label, icon, shortcut }) => {
-          const armed = armedTip === tip;
-          return (
-            <button
-              key={tip}
-              type="button"
-              onClick={() => armTip(tip)}
-              aria-label={label}
-              aria-pressed={armed}
-              title={`${label} (${shortcut})`}
-              style={{
-                ...TIP_BUTTON,
-                background: armed ? '#f59e0b' : 'transparent',
-                color: armed ? '#000' : '#ffffffcc',
-              }}
-            >
-              {icon}
-            </button>
-          );
-        })}
+        <div
+          style={{
+            ...glass,
+            borderRadius: 16,
+            padding: 6,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            maxHeight: '100%',
+            overflowY: 'auto',
+            pointerEvents: 'auto',
+          }}
+        >
+          {TOOL_RAIL_TIPS.map(({ tip, label, icon, shortcut }) => {
+            const armed = armedTip === tip;
+            return (
+              <button
+                key={tip}
+                type="button"
+                onClick={() => armTip(tip)}
+                aria-label={label}
+                aria-pressed={armed}
+                title={`${label} (${shortcut})`}
+                style={{
+                  ...TIP_BUTTON,
+                  background: armed ? '#f59e0b' : 'transparent',
+                  color: armed ? '#000' : '#ffffffcc',
+                }}
+              >
+                {icon}
+              </button>
+            );
+          })}
+
+          <div aria-hidden style={DIVIDER} />
+
+          {/*
+            The current-colour button, rendered in the current colour so the
+            coach can read what the next Stroke will be drawn in without opening
+            anything.
+
+            It is the single exception to "a Tool rail button arms an instrument
+            and never opens a panel", and it is NOT a tip: it sets no tip, clears
+            no tip, and neither opening nor using the popover changes what is
+            armed. Hence the divider above it, and hence teal rather than the
+            tips' amber — amber on this rail means "this tip is armed", and this
+            button never arms anything. Teal is the HUD's "this panel is open".
+          */}
+          <button
+            type="button"
+            onClick={() => setColourOpen((open) => !open)}
+            aria-label="Colour and thickness"
+            aria-expanded={colourOpen}
+            aria-haspopup="dialog"
+            title="Colour and thickness"
+            style={{
+              ...TIP_BUTTON,
+              background: selectedColour,
+              border: colourOpen ? `2px solid ${TEAL}` : '2px solid #ffffff44',
+            }}
+          />
+        </div>
+
+        {colourOpen && <ColourPopover />}
       </div>
     </div>
   );
