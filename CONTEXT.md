@@ -116,6 +116,18 @@ extend this file rather than inventing parallel names.
 
 - **Tool rail** — the always-visible surface presenting the Pen tips and the current
   colour. Always-visible is the point: arming a tip is never a trip through a menu.
+  A Tool rail button *arms an instrument*; it never opens a panel.
+
+- **Mode rail** — a distinct, older surface: the column of Setup / Animate / Camera
+  buttons that opens a contextual panel. Present in the Rail HUD skin only. Named apart
+  from the Tool rail deliberately, because the two are different kinds of thing — a Mode
+  rail button opens a panel, a Tool rail button arms a tip. "Rail" alone is ambiguous and
+  should not be used as a domain noun.
+
+- **HUD skin** — which board chrome is rendered: **Pods** (thumb-reachable pods) or
+  **Rail** (the Mode rail plus a contextual panel). Resolved from device characteristics
+  unless the coach forces one. The Tool rail is common to both skins — it is not part of
+  what a skin varies.
 
 - **Input contract** — **the pen authors, the finger manipulates.** A finger repositions
   players and the ball, moves the camera, and selects; it never authors anything. A pen
