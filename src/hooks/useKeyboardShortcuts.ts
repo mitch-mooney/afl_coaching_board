@@ -16,7 +16,7 @@ import type {
 } from '../types/shortcuts';
 import { SHORTCUT_CATEGORY_LABELS } from '../types/shortcuts';
 import { useCameraStore } from '../store/cameraStore';
-import type { AnnotationType } from '../store/annotationStore';
+import type { PenTip } from '../utils/inputContract';
 import { usePenStore } from '../store/penStore';
 import { useAnimationStore } from '../store/animationStore';
 import { useUIStore } from '../store/uiStore';
@@ -511,39 +511,57 @@ export function useCameraPresetShortcuts(registry?: ShortcutRegistry): void {
 // ============================================================================
 
 /**
- * Tool type for shortcuts - null represents "select" mode (deselect tool)
+ * Tip a shortcut arms - null disarms, leaving the pen behaving as a pointer.
  */
-type ToolShortcutValue = AnnotationType | null;
+type ToolShortcutValue = PenTip | null;
 
 /**
- * Tool selection mapping for single-key shortcuts
- * Maps keyboard codes to annotation tools
+ * Tip selection mapping for single-key shortcuts.
+ * Maps keyboard codes to Pen tips.
+ *
+ * P is the Path tip: free of the Annotation tip keys (S/L/A/C/R/T), of the
+ * camera presets (1-3), of animation playback (Space), of help (?/Esc), of undo
+ * (Ctrl/Cmd+Z), and of the video-mode transport keys (J/K/L/F, Space, arrows).
  */
 const TOOL_SELECTION_MAP: Record<string, { code: string; key: string; tool: ToolShortcutValue; description: string }> = {
-  'KeyS': { code: 'KeyS', key: 'S', tool: null, description: 'Select mode (deselect tool)' },
+  'KeyS': { code: 'KeyS', key: 'S', tool: null, description: 'Select mode (disarm tip)' },
   'KeyL': { code: 'KeyL', key: 'L', tool: 'line', description: 'Line tool' },
   'KeyA': { code: 'KeyA', key: 'A', tool: 'arrow', description: 'Arrow tool' },
   'KeyC': { code: 'KeyC', key: 'C', tool: 'circle', description: 'Circle tool' },
   'KeyR': { code: 'KeyR', key: 'R', tool: 'rectangle', description: 'Rectangle tool' },
   'KeyT': { code: 'KeyT', key: 'T', tool: 'text', description: 'Text tool' },
+  'KeyP': { code: 'KeyP', key: 'P', tool: 'path', description: 'Path tool' },
 };
 
 /**
- * Registers tool selection shortcuts to the given registry.
+ * Arms a tip, or disarms if given null.
  *
- * - S: Select mode (deselect tool)
+ * `penStore.armTip` toggles, but a shortcut must be idempotent: pressing L twice
+ * has to leave the Line tip armed, not disarm it.
+ */
+export function selectTip(tip: PenTip | null): void {
+  const { armedTip, armTip, disarm } = usePenStore.getState();
+  if (tip === null) disarm();
+  else if (armedTip !== tip) armTip(tip);
+}
+
+/**
+ * Registers tip selection shortcuts to the given registry.
+ *
+ * - S: Select mode (disarm tip)
  * - L: Line tool
  * - A: Arrow tool
  * - C: Circle tool
  * - R: Rectangle tool
  * - T: Text tool
+ * - P: Path tool
  *
  * @param registry - The shortcut registry to register shortcuts to
- * @param selectTip - Function to call when arming a tip
+ * @param select - Function to call when arming a tip (see `selectTip`)
  */
 export function registerToolSelectionShortcuts(
   registry: ShortcutRegistry,
-  selectTip: (tool: AnnotationType | null) => void
+  select: (tool: PenTip | null) => void
 ): void {
   Object.values(TOOL_SELECTION_MAP).forEach(({ code, key, tool, description }) => {
     registry.register({
@@ -553,7 +571,7 @@ export function registerToolSelectionShortcuts(
       modifiers: {},
       description,
       handler: () => {
-        selectTip(tool);
+        select(tool);
       },
       category: 'tools',
     });
@@ -587,19 +605,7 @@ export function unregisterToolSelectionShortcuts(registry: ShortcutRegistry): vo
  * ```
  */
 export function useToolSelectionShortcuts(registry?: ShortcutRegistry): void {
-  const armTip = usePenStore((state) => state.armTip);
-  const disarm = usePenStore((state) => state.disarm);
   const registryToUse = registry ?? getGlobalShortcutRegistry();
-
-  // armTip toggles, but a shortcut should be idempotent: pressing L twice must
-  // leave the Line tip armed, not disarm it.
-  const selectTip = useCallback(
-    (tip: AnnotationType | null) => {
-      if (tip === null) disarm();
-      else if (usePenStore.getState().armedTip !== tip) armTip(tip);
-    },
-    [armTip, disarm]
-  );
 
   useEffect(() => {
     registerToolSelectionShortcuts(registryToUse, selectTip);
@@ -607,7 +613,7 @@ export function useToolSelectionShortcuts(registry?: ShortcutRegistry): void {
     return () => {
       unregisterToolSelectionShortcuts(registryToUse);
     };
-  }, [registryToUse, selectTip]);
+  }, [registryToUse]);
 }
 
 // ============================================================================
