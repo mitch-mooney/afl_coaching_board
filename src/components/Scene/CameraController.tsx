@@ -7,6 +7,7 @@ import { usePenStore } from '../../store/penStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useGestures } from '../../hooks/useGestures';
 import { povCameraPose } from '../../utils/cameraMath';
+import { authoringIntent } from '../../utils/inputContract';
 
 export function CameraController() {
   const { camera, gl } = useThree();
@@ -35,9 +36,15 @@ export function CameraController() {
 
   const isPovActive = activePovSlot !== null;
 
-  // Disable orbit controls when annotation tool is active, player is being dragged, POV mode is active, or gesturing
-  const isAnnotating = armedTip !== null;
-  const shouldDisableControls = isAnnotating || isDraggingPlayer || isPovActive || isPinching || isPanning;
+  // Globally disable orbit controls only for the cases that hold for *every*
+  // pointer type: a player is being dragged, POV mode is active, or a
+  // two-finger gesture owns the camera.
+  //
+  // An armed tip is deliberately NOT one of them. A finger manipulates whether
+  // or not a tip is armed (ADR 0001), so arming a tip gates the pen/mouse half
+  // of OrbitControls alone, via `mouseButtons` below. See
+  // `docs/adr/0004-camera-control-is-gated-per-pointer-type.md`.
+  const shouldDisableControls = isDraggingPlayer || isPovActive || isPinching || isPanning;
 
   // Update camera position when store changes (non-POV mode)
   useEffect(() => {
@@ -209,6 +216,22 @@ export function CameraController() {
     <OrbitControls
       ref={controlsRef}
       enabled={!shouldDisableControls}
+      // OrbitControls routes `pointerType === 'touch'` to its touch handlers and
+      // pen/mouse to its mouse handlers, so gating the left button alone leaves a
+      // finger orbiting while the pen authors. Leaving LEFT unmapped falls through
+      // to STATE.NONE, so the pen moves nothing while it draws. (`undefined` rather
+      // than the ADR's `null`: the prop is typed `Partial<{ LEFT: MOUSE }>`, and
+      // both take the same `default:` branch.) Do not collapse this into `enabled`
+      // — ADR 0004 explains why the shorter form silently restores the ADR 0001
+      // violation.
+      mouseButtons={{
+        LEFT:
+          authoringIntent({ pointerType: 'mouse', armedTip }) === 'author'
+            ? undefined
+            : THREE.MOUSE.ROTATE,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.PAN,
+      }}
       enableDamping
       dampingFactor={0.05}
       minDistance={10}

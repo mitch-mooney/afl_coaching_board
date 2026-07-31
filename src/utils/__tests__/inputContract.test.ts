@@ -18,6 +18,17 @@ describe('the input contract', () => {
     expect(authoringIntent({ pointerType: 'mouse', armedTip: 'arrow', button: 0 })).toBe('author');
   });
 
+  // The camera gates its left mouse button on this row: with nothing armed the
+  // button must fall back to orbit. See
+  // `docs/adr/0004-camera-control-is-gated-per-pointer-type.md`.
+  it('has a mouse with no tip armed manipulate, so an unarmed left-drag still orbits', () => {
+    expect(authoringIntent({ pointerType: 'mouse', armedTip: null })).toBe('manipulate');
+  });
+
+  it('authors from any armed tip, including Path, since the contract never asks which', () => {
+    expect(authoringIntent({ pointerType: 'pen', armedTip: 'path' })).toBe('author');
+  });
+
   it('never authors from a non-primary mouse button, so right-drag still rotates', () => {
     expect(authoringIntent({ pointerType: 'mouse', armedTip: 'line', button: 2 })).toBe(
       'manipulate'
