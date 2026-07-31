@@ -78,6 +78,48 @@ describe('tip-selection shortcuts', () => {
     });
   });
 
+  describe('the Measure tip', () => {
+    it('is armed by its key', () => {
+      press(registry, 'KeyM');
+
+      expect(usePenStore.getState().armedTip).toBe('measure');
+    });
+
+    it('stays armed when its key is pressed twice', () => {
+      press(registry, 'KeyM');
+      press(registry, 'KeyM');
+
+      expect(usePenStore.getState().armedTip).toBe('measure');
+    });
+
+    it('is disarmed by the disarm shortcut', () => {
+      press(registry, 'KeyM');
+      press(registry, 'KeyS');
+
+      expect(usePenStore.getState().armedTip).toBeNull();
+    });
+
+    it('replaces another armed tip', () => {
+      press(registry, 'KeyP');
+      press(registry, 'KeyM');
+
+      expect(usePenStore.getState().armedTip).toBe('measure');
+    });
+
+    it('is replaced by another tip', () => {
+      press(registry, 'KeyM');
+      press(registry, 'KeyR');
+
+      expect(usePenStore.getState().armedTip).toBe('rectangle');
+    });
+
+    it('does not collide with any other registered shortcut', () => {
+      const measureShortcuts = registry.shortcuts.filter((s) => s.code === 'KeyM');
+
+      expect(measureShortcuts).toHaveLength(1);
+    });
+  });
+
   describe('the Annotation tips', () => {
     const annotationTips: Array<[code: string, tip: PenTip]> = [
       ['KeyL', 'line'],
@@ -85,6 +127,7 @@ describe('tip-selection shortcuts', () => {
       ['KeyC', 'circle'],
       ['KeyR', 'rectangle'],
       ['KeyT', 'text'],
+      ['KeyM', 'measure'],
     ];
 
     it.each(annotationTips)('%s arms the %s tip', (code, tip) => {
@@ -109,7 +152,20 @@ describe('tip-selection shortcuts', () => {
   });
 
   describe('registration', () => {
-    it('unregisters every tip shortcut, Path included', () => {
+    it('registers a shortcut for every armable tip, plus disarm', () => {
+      expect(registry.shortcuts.map((s) => s.id).sort()).toEqual([
+        'tool-a',
+        'tool-c',
+        'tool-l',
+        'tool-m',
+        'tool-p',
+        'tool-r',
+        'tool-s',
+        'tool-t',
+      ]);
+    });
+
+    it('unregisters every tip shortcut, Path and Measure included', () => {
       unregisterToolSelectionShortcuts(registry);
 
       expect(registry.shortcuts).toHaveLength(0);

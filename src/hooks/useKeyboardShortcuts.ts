@@ -519,9 +519,11 @@ type ToolShortcutValue = PenTip | null;
  * Tip selection mapping for single-key shortcuts.
  * Maps keyboard codes to Pen tips.
  *
- * P is the Path tip: free of the Annotation tip keys (S/L/A/C/R/T), of the
- * camera presets (1-3), of animation playback (Space), of help (?/Esc), of undo
- * (Ctrl/Cmd+Z), and of the video-mode transport keys (J/K/L/F, Space, arrows).
+ * P (Path) and M (Measure) were added last and were checked against everything
+ * else that listens for a bare key: the other tip keys (S/L/A/C/R/T), the camera
+ * presets (1-3), animation playback (Space), help (?/Esc), undo (Ctrl/Cmd+Z),
+ * and the window-level video-mode transport keys (J/K/L/F/Esc in VideoWorkspace,
+ * Space/arrows/Home/End in VideoTimeline).
  */
 const TOOL_SELECTION_MAP: Record<string, { code: string; key: string; tool: ToolShortcutValue; description: string }> = {
   'KeyS': { code: 'KeyS', key: 'S', tool: null, description: 'Select mode (disarm tip)' },
@@ -530,6 +532,7 @@ const TOOL_SELECTION_MAP: Record<string, { code: string; key: string; tool: Tool
   'KeyC': { code: 'KeyC', key: 'C', tool: 'circle', description: 'Circle tool' },
   'KeyR': { code: 'KeyR', key: 'R', tool: 'rectangle', description: 'Rectangle tool' },
   'KeyT': { code: 'KeyT', key: 'T', tool: 'text', description: 'Text tool' },
+  'KeyM': { code: 'KeyM', key: 'M', tool: 'measure', description: 'Measure tool' },
   'KeyP': { code: 'KeyP', key: 'P', tool: 'path', description: 'Path tool' },
 };
 
@@ -554,6 +557,7 @@ export function selectTip(tip: PenTip | null): void {
  * - C: Circle tool
  * - R: Rectangle tool
  * - T: Text tool
+ * - M: Measure tool
  * - P: Path tool
  *
  * @param registry - The shortcut registry to register shortcuts to
