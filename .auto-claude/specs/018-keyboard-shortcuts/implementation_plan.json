@@ -517,5 +517,48 @@
   },
   "last_updated": "2026-01-18T23:16:04.570901+00:00",
   "recoveryNote": "Task recovered from stuck state at 2026-01-18T22:53:33.535Z",
-  "description": "Implement a comprehensive keyboard shortcuts system for the AFL Coaching Board application to enable power users and presenters to access common operations without clicking through menus. This feature will provide quick camera preset switching (keys 1-4), tool selection shortcuts, standard editing operations (save, undo), animation controls (spacebar), and a discoverable help overlay (? key). The system must intelligently handle keyboard events without conflicting with browser defaults and should disable shortcuts when typing in input fields."
+  "description": "Implement a comprehensive keyboard shortcuts system for the AFL Coaching Board application to enable power users and presenters to access common operations without clicking through menus. This feature will provide quick camera preset switching (keys 1-4), tool selection shortcuts, standard editing operations (save, undo), animation controls (spacebar), and a discoverable help overlay (? key). The system must intelligently handle keyboard events without conflicting with browser defaults and should disable shortcuts when typing in input fields.",
+  "qa_iteration_history": [
+    {
+      "iteration": 1,
+      "status": "error",
+      "timestamp": "2026-01-18T23:18:36.221433+00:00",
+      "issues": [
+        {
+          "title": "QA error",
+          "description": "QA agent did not update implementation_plan.json"
+        }
+      ]
+    },
+    {
+      "iteration": 2,
+      "status": "error",
+      "timestamp": "2026-01-18T23:18:42.027028+00:00",
+      "issues": [
+        {
+          "title": "QA error",
+          "description": "QA agent did not update implementation_plan.json (No tools were used by agent)"
+        }
+      ]
+    },
+    {
+      "iteration": 3,
+      "status": "error",
+      "timestamp": "2026-01-18T23:18:47.901895+00:00",
+      "issues": [
+        {
+          "title": "QA error",
+          "description": "QA agent did not update implementation_plan.json (No tools were used by agent)"
+        }
+      ]
+    }
+  ],
+  "qa_stats": {
+    "total_iterations": 3,
+    "last_iteration": 3,
+    "last_status": "error",
+    "issues_by_type": {
+      "unknown": 3
+    }
+  }
 }

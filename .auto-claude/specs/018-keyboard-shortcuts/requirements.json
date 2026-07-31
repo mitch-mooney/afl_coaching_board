@@ -1,0 +1,4 @@
+{
+  "task_description": "Implement a comprehensive keyboard shortcuts system for the AFL Coaching Board application to enable power users and presenters to access common operations without clicking through menus. This feature will provide quick camera preset switching (keys 1-4), tool selection shortcuts, standard editing operations (save, undo), animation controls (spacebar), and a discoverable help overlay (? key). The system must intelligently handle keyboard events without conflicting with browser defaults and should disable shortcuts when typing in input fields.",
+  "workflow_type": "feature"
+}

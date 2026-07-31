@@ -1,0 +1,7 @@
+{
+  "task_description": "# Keyboard Shortcuts\n\nImplement comprehensive keyboard shortcuts for common actions: camera presets (1-4), tool selection, undo/redo, save, play/pause animation.\n\n## Rationale\nPower users want fast access to common operations without clicking through menus. Keyboard shortcuts enable fluid presentation flow during team meetings.\n\n## User Stories\n- As a presenter, I want to quickly switch camera views with number keys during meetings\n- As a power user, I want keyboard shortcuts for faster workflow\n\n## Acceptance Criteria\n- [ ] Camera preset shortcuts (1, 2, 3, 4)\n- [ ] Tool shortcuts (S for select, D for draw, etc.)\n- [ ] Ctrl+S to save, Ctrl+Z to undo\n- [ ] Spacebar for play/pause animation\n- [ ] Keyboard shortcut help overlay (? key)\n- [ ] Shortcuts don't conflict with browser defaults\n",
+  "scoped_services": [],
+  "files_to_modify": [],
+  "files_to_reference": [],
+  "created_at": "2026-01-09T18:48:49.673933"
+}

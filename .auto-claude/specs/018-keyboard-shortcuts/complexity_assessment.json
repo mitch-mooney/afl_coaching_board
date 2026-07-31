@@ -1,0 +1,72 @@
+{
+  "complexity": "standard",
+  "workflow_type": "feature",
+  "confidence": 0.85,
+  "reasoning": "Cross-cutting feature touching multiple systems (camera, tools, animation, editing) across 6-8 files. Single service with no external integrations or infrastructure changes. Standard React/browser patterns with medium integration complexity.",
+
+  "analysis": {
+    "scope": {
+      "estimated_files": 7,
+      "estimated_services": 1,
+      "is_cross_cutting": true,
+      "notes": "Keyboard shortcuts affect multiple systems: camera presets, tool selection, undo/redo, save, animation controls, plus new help overlay UI"
+    },
+    "integrations": {
+      "external_services": [],
+      "new_dependencies": [],
+      "research_needed": false,
+      "notes": "Uses standard browser keyboard event APIs with React hooks. No external libraries needed."
+    },
+    "infrastructure": {
+      "docker_changes": false,
+      "database_changes": false,
+      "config_changes": false,
+      "notes": "Frontend-only feature with no infrastructure impact"
+    },
+    "knowledge": {
+      "patterns_exist": true,
+      "research_required": false,
+      "unfamiliar_tech": [],
+      "notes": "React hooks and Zustand patterns exist in codebase. Standard keyboard event handling with preventDefault() for browser conflict management."
+    },
+    "risk": {
+      "level": "medium",
+      "concerns": [
+        "Input field conflicts - shortcuts must not trigger when typing in text fields",
+        "Browser shortcut conflicts - Ctrl+S, Ctrl+Z may require preventDefault()",
+        "Cross-platform keyboard differences (Ctrl vs Cmd on Mac)",
+        "Event listener cleanup to prevent memory leaks",
+        "Integration with multiple existing systems (camera, tools, animation)",
+        "Accessibility - shortcuts should supplement, not replace mouse navigation"
+      ],
+      "notes": "Main risks are around event handling edge cases and ensuring smooth integration with existing camera preset, tool selection, and animation systems"
+    }
+  },
+
+  "recommended_phases": [
+    "discovery",
+    "requirements",
+    "context",
+    "spec_writing",
+    "planning",
+    "validation"
+  ],
+
+  "flags": {
+    "needs_research": false,
+    "needs_self_critique": false,
+    "needs_infrastructure_setup": false
+  },
+
+  "validation_recommendations": {
+    "risk_level": "medium",
+    "skip_validation": false,
+    "minimal_mode": false,
+    "test_types_required": ["unit", "integration"],
+    "security_scan_required": false,
+    "staging_deployment_required": false,
+    "reasoning": "Multiple integration points with existing systems require unit tests for keyboard event handler logic and integration tests to verify shortcuts correctly trigger camera changes, tool selection, undo/redo, save, and animation controls. No security implications."
+  },
+
+  "created_at": "2026-01-09T00:00:00.000Z"
+}

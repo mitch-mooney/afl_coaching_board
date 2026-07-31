@@ -1,0 +1,15 @@
+{
+  "discovered_files": {
+    "src/components/Layout/MainLayout.tsx": {
+      "description": "KeyboardShortcutsHandler component pattern: All keyboard shortcuts are centralized in a single component placed outside the Canvas in the DOM layer. Uses global registry from getGlobalShortcutRegistry() shared across all hook registrations. Individual category hooks (useCameraPresetShortcuts, useToolSelectionShortcuts, etc.) register shortcuts, while useKeyboardShortcuts processes events. HelpOverlay manages its own shortcuts (? and Esc) separately.",
+      "category": "architecture",
+      "discovered_at": "2026-01-18T22:56:58.744701+00:00"
+    },
+    "src/components/UI/Toolbar.tsx": {
+      "description": "Modal/dialog registration pattern for keyboard shortcut disabling: Use keyboardStore's registerModalOpen() in useEffect when modal opens, with cleanup function calling registerModalClose(). Add role=\"dialog\" and aria-modal=\"true\" for accessibility. Handle Escape key for closing. Use handleBackdropClick pattern for click-outside-to-close.",
+      "category": "pattern",
+      "discovered_at": "2026-01-18T23:01:26.434815+00:00"
+    }
+  },
+  "last_updated": "2026-01-18T23:01:26.434815+00:00"
+}
