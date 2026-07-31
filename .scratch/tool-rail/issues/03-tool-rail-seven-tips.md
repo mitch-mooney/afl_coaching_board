@@ -32,6 +32,11 @@ Spec: `.scratch/tool-rail/spec.md`. Vocabulary: `CONTEXT.md`. Placement rational
 - [ ] The rail does not overlap the editor top bar.
 - [ ] Arming a tip from the rail and arming it from the existing palette produce identical
       behaviour — both drive the same armed-tip state.
+- [ ] **The hamburger is restyled to sit in the editor top bar.** Ticket 02 moved it there but
+      left its original styling — a white pill with a shadow, designed to float over the field.
+      Against the dark top bar it reads as a foreign object. It should match the bar's other
+      controls while keeping its 44px minimum tap target, its open/closed animation, its
+      onboarding pulse ring, and its `aria-label`/`aria-expanded`.
 - [ ] Typecheck and production build clean.
 
 > Buttons sized and placed with the palm case in mind — the coach is right-handed and rests
