@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Player } from '../models/PlayerModel';
 import type { Annotation } from './annotationStore';
+import type { BoardSnapshot } from '../utils/boardSnapshot';
 
 /**
  * Represents a snapshot of the application state at a point in time.
@@ -13,6 +14,14 @@ export interface StateSnapshot {
   annotations: AnnotationSnapshot[];
   /** Timestamp when the snapshot was created */
   timestamp: number;
+  /**
+   * The whole board this edit was made against, recorded only by edits that
+   * reach past players and annotations — today that is Pull inside boundary,
+   * which also moves the ball, cones and path keyframes. Absent on an ordinary
+   * drag or annotation change, which the two fields above already describe in
+   * full. See `useBoardUndo.restoreBoardSnapshot`, which prefers it when present.
+   */
+  board?: BoardSnapshot;
 }
 
 /**

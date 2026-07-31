@@ -33,20 +33,48 @@ Vocabulary: `CONTEXT.md`, "The ground" — **Out of bounds**, **Pull inside boun
 **Boundary**, **Active Venue**; "Board content" — **MovementPath**, **Annotation**. Spec:
 `.scratch/venue/spec.md`. ADR: `docs/adr/0002-venue-is-app-wide-positions-stay-absolute.md`.
 
-- [ ] Two pure functions take `(snapshot, boundary)`: one reporting what falls outside, one
+**Where the count is shown:** the Venue panel, above the ground list — where the coach has
+just switched grounds and is asking whether Saturday's play still fits. The spec's "no board
+chrome in v1" rules out a board-level banner, and the play-list marker (ticket 06) is what
+catches a play that does not fit while the panel is closed.
+
+**One thing had to be fixed underneath.** `snapToField` projected onto the ellipse with
+`cos`/`sin`, which round, so a snapped point could land a few ULPs *outside* the boundary and
+fail `isPointInField`. Harmless while snapping only clamped a drag and nothing asked the
+question afterwards; fatal here, where dragging a player to the wing would report them off the
+ground and Pull inside boundary would leave the notice it had just resolved. Snapping now
+insets by 1e-9 of the semi-axes — about 80 nm — and a 360-point sweep at three grounds pins
+`isPointInField(snapToField(p))`.
+
+**Undo needed widening.** `StateSnapshot` carried players and annotations only, so undoing a
+pull would have returned the players and left the ball, cones and path keyframes pulled in. It
+gains an optional `board: BoardSnapshot`, recorded by edits that reach further, and
+`restoreBoardSnapshot` puts that board back wholesale through the existing snapshot restore
+path. The camera is dropped on the way — it stays outside undo, and a null camera is exactly
+what tells `restore()` to leave the live one alone.
+
+- [x] Two pure functions take `(snapshot, boundary)`: one reporting what falls outside, one
       returning a snapshot with that content pulled inside. Neither reads a store.
-- [ ] Scope is players, the ball, cones and MovementPath keyframes. Annotations are never
+      `outOfBounds` / `pullInsideBoundary`, alongside the point-level pair in `fieldGeometry`.
+- [x] Scope is players, the ball, cones and MovementPath keyframes. Annotations are never
       counted and never moved, including one drawn well outside the boundary.
-- [ ] The out-of-bounds set is **derived, never stored** — it appears the instant the Active
-      Venue changes and clears the instant it is resolved. No dirty flag.
-- [ ] The coach is shown how many entities are outside, so "one winger is a metre out" is
-      distinguishable from "half the structure doesn't fit".
-- [ ] "Pull inside boundary" moves them in one tap and is undoable like any drag.
-- [ ] Nothing is persisted until the coach saves the Play.
-- [ ] Opening a Play that does not fit leaves it **unchanged** — no auto-fit.
-- [ ] Playback runs an out-of-bounds path exactly as authored, unclamped.
-- [ ] Switching back to the wider Venue restores the play exactly, because no data changed.
-- [ ] Pulling inside leaves in-bounds content byte-identical.
-- [ ] Tests cover the report's membership, the Annotation exclusion, and the byte-identical
-      pass-through. `boardPlayback`'s tests are the prior art for the pure half; the IO half
-      follows `boardScrub` and is not unit-tested.
+- [x] The out-of-bounds set is **derived, never stored** — `useOutOfBounds` recomputes from the
+      live stores against `useActiveBoundary`, so it appears the instant the Active Venue
+      changes and clears the instant it is resolved. No dirty flag.
+- [x] The coach is shown how many entities are outside, broken down by kind — "3 players and
+      1 path are outside Jubilee Park" rather than a warning triangle.
+- [x] "Pull inside boundary" moves them in one tap and is undoable like any drag — see the
+      `StateSnapshot.board` note above for what that cost.
+- [x] Nothing is persisted until the coach saves the Play. `pullBoardInsideBoundary` reads and
+      writes the board stores through the snapshot IO path and never touches Dexie.
+- [x] Opening a Play that does not fit leaves it **unchanged** — no auto-fit. Verified by
+      inspection: `snapToField` has exactly two call sites, the drag clamp (`dragMath`) and
+      stroke authoring, neither on the load path.
+- [x] Playback runs an out-of-bounds path exactly as authored, unclamped. Same inspection —
+      every `clamp` in `pathAnimation` is on time or progress, never on position.
+- [x] Switching back to the wider Venue restores the play exactly, because no data changed.
+- [x] Pulling inside leaves in-bounds content byte-identical — asserted by *identity*, not
+      value: an entity that already fits is returned by reference.
+- [x] Tests cover the report's membership, the Annotation exclusion, and the byte-identical
+      pass-through. The IO half is untested as planned, except for undo's new whole-board
+      restore, which is a real behaviour claim and is covered in `useBoardUndo.test.ts`.

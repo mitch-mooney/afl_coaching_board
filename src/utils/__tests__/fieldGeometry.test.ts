@@ -4,9 +4,15 @@ import {
   snapToField,
   positionToZone,
   boundaryOf,
+  outOfBounds,
+  pullInsideBoundary,
   STANDARD_BOUNDARY,
   type Boundary,
 } from '../fieldGeometry';
+import type { BoardSnapshot } from '../boardSnapshot';
+import type { Player } from '../../models/PlayerModel';
+import type { MovementPath } from '../../models/PathModel';
+import type { Annotation } from '../../store/annotationStore';
 
 /**
  * These cases pin the behaviour of the board at **Standard ground** (165 × 135) —
@@ -71,6 +77,24 @@ describe('snapToField', () => {
     // and stays in the quadrant it came from
     expect(x).toBeGreaterThan(0);
     expect(z).toBeGreaterThan(0);
+  });
+
+  it('always lands somewhere the ground agrees is on the ground', () => {
+    // The invariant the out-of-bounds report leans on: a clamped drag must not
+    // report the player it just clamped as outside. Rounding in cos/sin can put
+    // a projected point a few ULPs past the ellipse, so this sweeps the whole
+    // way round at three grounds rather than trusting one lucky angle.
+    for (const ground of [STANDARD, TIGHT, WIDE]) {
+      for (let step = 0; step < 360; step++) {
+        const angle = (step * Math.PI) / 180;
+        const [x, z] = snapToField(
+          200 * Math.cos(angle),
+          200 * Math.sin(angle),
+          ground,
+        );
+        expect(isPointInField(x, z, ground)).toBe(true);
+      }
+    }
   });
 });
 
@@ -193,5 +217,185 @@ describe('positionToZone at Standard ground', () => {
       expect(positionToZone(deepInDefence, 0, ground)).toBe('CHB');
       expect(positionToZone(deepInDefence, 0.5 * ground.semiZ, ground)).toBe('HBF');
     }
+  });
+});
+
+// ── Out of bounds ───────────────────────────────────────────────────────────
+//
+// The claim under test is the football one: a play authored on a wide ground
+// does not fit a tight one, and the app has to say so plainly and be able to
+// adapt it on request — without ever touching an Annotation, which may point
+// off-ground on purpose.
+
+const board = (over: Partial<BoardSnapshot> = {}): BoardSnapshot => ({
+  players: [],
+  paths: [],
+  annotations: [],
+  camera: null,
+  ball: null,
+  cones: [],
+  ...over,
+});
+
+const playerAt = (id: string, x: number, z: number): Player => ({
+  id,
+  teamId: 'team1',
+  position: [x, 0, z],
+  rotation: 0,
+  color: '#0066cc',
+});
+
+/** A MovementPath through the given [x, z] points, one second apart. */
+const pathThrough = (id: string, ...points: Array<[number, number]>): MovementPath => ({
+  id,
+  entityId: 'team1-player-1',
+  entityType: 'player',
+  keyframes: points.map(([x, z], i) => ({
+    timestamp: i,
+    position: [x, 0, z] as [number, number, number],
+  })),
+  duration: points.length - 1,
+  startTimeOffset: 0,
+});
+
+const arrowAt = (id: string, x: number, z: number): Annotation => ({
+  id,
+  type: 'arrow',
+  points: [[x, 0, z], [x + 5, 0, z]],
+  color: '#ffff00',
+  createdAt: new Date(0),
+});
+
+describe('outOfBounds', () => {
+  it('says nothing is outside when the whole play fits', () => {
+    const snap = board({
+      players: [playerAt('p1', 0, 0), playerAt('p2', 40, 30)],
+      ball: { id: 'ball-1', position: [10, 0, 10], color: '#8B4513', size: 0.3 },
+      cones: [{ id: 'c1', position: [-20, 0, 20] }],
+      paths: [pathThrough('path-1', [0, 0], [30, 20])],
+    });
+
+    expect(outOfBounds(snap, TIGHT).count).toBe(0);
+  });
+
+  it('counts a winger who fits the standard ground but not a tighter one', () => {
+    const snap = board({ players: [playerAt('winger', 0, 60)] });
+
+    expect(outOfBounds(snap, STANDARD).count).toBe(0);
+    expect(outOfBounds(snap, TIGHT)).toMatchObject({ players: ['winger'], count: 1 });
+  });
+
+  it('counts the ball and cones alongside the players', () => {
+    const snap = board({
+      players: [playerAt('deep-forward', 80, 0)],
+      ball: { id: 'ball-1', position: [80, 0, 0], color: '#8B4513', size: 0.3 },
+      cones: [{ id: 'c1', position: [0, 0, 62] }],
+    });
+
+    const report = outOfBounds(snap, TIGHT);
+    expect(report.players).toEqual(['deep-forward']);
+    expect(report.ball).toBe(true);
+    expect(report.cones).toEqual(['c1']);
+    expect(report.count).toBe(3);
+  });
+
+  it('counts a path that leaves the ground even though it starts and ends on it', () => {
+    // The case that looks fine standing still and only fails on playback.
+    const snap = board({ paths: [pathThrough('lead', [0, 0], [0, 62], [20, 0])] });
+
+    expect(outOfBounds(snap, TIGHT)).toMatchObject({ paths: ['lead'], count: 1 });
+  });
+
+  it('counts a path once however many of its keyframes leave the ground', () => {
+    // "How much of the structure doesn't fit", not a keyframe tally.
+    const snap = board({ paths: [pathThrough('lap', [0, 60], [20, 61], [40, 60])] });
+
+    expect(outOfBounds(snap, TIGHT).count).toBe(1);
+  });
+
+  it('never counts an Annotation, even one drawn well outside the boundary', () => {
+    const snap = board({ annotations: [arrowAt('a1', 200, 200)] });
+
+    expect(outOfBounds(snap, TIGHT).count).toBe(0);
+  });
+
+  it('reads as "three players and one path do not fit"', () => {
+    const snap = board({
+      players: [playerAt('p1', 0, 60), playerAt('p2', 0, -60), playerAt('p3', 78, 0)],
+      paths: [pathThrough('lead', [0, 0], [0, 62])],
+    });
+
+    expect(outOfBounds(snap, TIGHT).count).toBe(4);
+  });
+});
+
+describe('pullInsideBoundary', () => {
+  it('brings an out-of-bounds player onto the ground', () => {
+    const snap = board({ players: [playerAt('winger', 0, 60)] });
+
+    const pulled = pullInsideBoundary(snap, TIGHT);
+
+    expect(isPointInField(pulled.players[0].position[0], pulled.players[0].position[2], TIGHT))
+      .toBe(true);
+    expect(pulled.players[0].position[2]).toBeCloseTo(TIGHT.semiZ);
+  });
+
+  it('leaves the height alone — a player is pulled sideways, not lifted', () => {
+    const snap = board({ players: [{ ...playerAt('winger', 0, 60), position: [0, 1.2, 60] }] });
+
+    expect(pullInsideBoundary(snap, TIGHT).players[0].position[1]).toBe(1.2);
+  });
+
+  it('resolves the report — nothing is out of bounds afterwards', () => {
+    const snap = board({
+      players: [playerAt('p1', 0, 60), playerAt('p2', 78, 0)],
+      ball: { id: 'ball-1', position: [0, 0, -64], color: '#8B4513', size: 0.3 },
+      cones: [{ id: 'c1', position: [70, 0, 40] }],
+      paths: [pathThrough('lead', [0, 0], [0, 62], [78, 10])],
+    });
+
+    // Every kind was genuinely outside to begin with, or this asserts nothing.
+    expect(outOfBounds(snap, TIGHT).count).toBe(5);
+    expect(outOfBounds(pullInsideBoundary(snap, TIGHT), TIGHT).count).toBe(0);
+  });
+
+  it('leaves in-bounds content byte-identical', () => {
+    const snap = board({
+      players: [playerAt('inside', 10, 10), playerAt('outside', 0, 60)],
+      cones: [{ id: 'c1', position: [-20, 0, 20] }],
+      ball: { id: 'ball-1', position: [0, 0, 0], color: '#8B4513', size: 0.3 },
+      paths: [pathThrough('short', [0, 0], [10, 10])],
+    });
+
+    const pulled = pullInsideBoundary(snap, TIGHT);
+
+    expect(pulled.players[0]).toBe(snap.players[0]);
+    expect(pulled.cones[0]).toBe(snap.cones[0]);
+    expect(pulled.ball).toBe(snap.ball);
+    expect(pulled.paths[0]).toBe(snap.paths[0]);
+  });
+
+  it('leaves the in-bounds keyframes of a path that strays byte-identical', () => {
+    const snap = board({ paths: [pathThrough('lead', [0, 0], [0, 62], [20, 0])] });
+
+    const pulled = pullInsideBoundary(snap, TIGHT);
+
+    expect(pulled.paths[0].keyframes[0]).toBe(snap.paths[0].keyframes[0]);
+    expect(pulled.paths[0].keyframes[2]).toBe(snap.paths[0].keyframes[2]);
+    expect(pulled.paths[0].keyframes[1]).not.toBe(snap.paths[0].keyframes[1]);
+  });
+
+  it('never moves an Annotation, however far outside it is drawn', () => {
+    const snap = board({ annotations: [arrowAt('a1', 200, 200)] });
+
+    expect(pullInsideBoundary(snap, TIGHT).annotations[0]).toBe(snap.annotations[0]);
+  });
+
+  it('does not mutate the snapshot it was given', () => {
+    const snap = board({ players: [playerAt('winger', 0, 60)] });
+
+    pullInsideBoundary(snap, TIGHT);
+
+    expect(snap.players[0].position).toEqual([0, 0, 60]);
   });
 });

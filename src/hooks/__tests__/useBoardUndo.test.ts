@@ -3,6 +3,10 @@ import { undoBoard } from '../useBoardUndo';
 import { useHistoryStore, createStateSnapshot } from '../../store/historyStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useAnnotationStore } from '../../store/annotationStore';
+import { useBallStore } from '../../store/ballStore';
+import { useConeStore } from '../../store/coneStore';
+import { usePathStore } from '../../store/pathStore';
+import { capture } from '../../utils/boardSnapshotIO';
 import type { Player } from '../../models/PlayerModel';
 
 const player = (position: [number, number, number]): Player => ({
@@ -36,6 +40,8 @@ const recordPlayerMove = (to: [number, number, number]) => {
 beforeEach(() => {
   usePlayerStore.getState().setPlayers([player([0, 0, 0])]);
   useAnnotationStore.getState().setAnnotations([]);
+  usePathStore.getState().setPaths([]);
+  useConeStore.getState().setCones([]);
   useHistoryStore.getState().resumeRecording();
   useHistoryStore.getState().clearHistory();
 });
@@ -79,6 +85,49 @@ describe('undo with annotations', () => {
 
     expect(usePlayerStore.getState().players[0].position).toEqual([0, 0, 0]);
     expect(useAnnotationStore.getState().annotations).toHaveLength(0);
+  });
+
+  it('undoes an edit that moved the ball, cones and path keyframes too', () => {
+    // What Pull inside boundary records: the whole board it was made against,
+    // because returning only the players would leave the ball, the cones and the
+    // path keyframes where the pull put them.
+    useBallStore.getState().setBall({ id: 'ball-1', position: [0, 0, 0], color: '#8B4513', size: 0.3 });
+    useConeStore.getState().setCones([{ id: 'c1', position: [0, 0, 60] }]);
+    usePathStore.getState().setPaths([{
+      id: 'lead',
+      entityId: 'team1-player-1',
+      entityType: 'player',
+      keyframes: [
+        { timestamp: 0, position: [0, 0, 0] },
+        { timestamp: 1, position: [0, 0, 62] },
+      ],
+      duration: 1,
+      startTimeOffset: 0,
+    }]);
+
+    useHistoryStore.getState().pushSnapshot({
+      ...createStateSnapshot(
+        usePlayerStore.getState().players,
+        useAnnotationStore.getState().annotations
+      ),
+      board: capture(),
+    });
+
+    // The pull: everything dragged onto a tighter ground.
+    useBallStore.getState().updateBallPosition([1, 0, 1]);
+    useConeStore.getState().setCones([{ id: 'c1', position: [0, 0, 55] }]);
+    usePathStore.getState().updatePath('lead', {
+      keyframes: [
+        { timestamp: 0, position: [0, 0, 0] },
+        { timestamp: 1, position: [0, 0, 55] },
+      ],
+    });
+
+    undoBoard();
+
+    expect(useBallStore.getState().ball?.position).toEqual([0, 0, 0]);
+    expect(useConeStore.getState().cones[0].position).toEqual([0, 0, 60]);
+    expect(usePathStore.getState().paths[0].keyframes[1].position).toEqual([0, 0, 62]);
   });
 
   it('does not record annotation mutations while recording is paused', () => {

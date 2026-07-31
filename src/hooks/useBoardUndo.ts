@@ -6,13 +6,26 @@ import {
 } from '../store/historyStore';
 import { usePlayerStore } from '../store/playerStore';
 import { useAnnotationStore } from '../store/annotationStore';
+import { restore } from '../utils/boardSnapshotIO';
 
 /**
  * Applies a history snapshot back onto the live board — player positions and
  * annotations. Keeps undo's lightweight player+annotation shape (paths/ball/
  * cones/camera are intentionally outside undo for this slice).
+ *
+ * An edit that reached further than that records the whole board it was made
+ * against, and is undone by putting that board back wholesale — otherwise
+ * undoing Pull inside boundary would return the players and leave the ball,
+ * cones and path keyframes where the pull put them.
  */
 export function restoreBoardSnapshot(snapshot: StateSnapshot): void {
+  if (snapshot.board) {
+    // The camera is dropped rather than restored: it stays outside undo, and a
+    // null camera is exactly what tells restore() to leave the live one alone.
+    restore({ ...snapshot.board, camera: null });
+    return;
+  }
+
   const updates = snapshot.players.map((p) => ({
     playerId: p.id,
     position: p.position,
