@@ -1,0 +1,25 @@
+{
+  "active": true,
+  "spec": "022-video-import-overlay",
+  "state": "complete",
+  "subtasks": {
+    "completed": 27,
+    "total": 27,
+    "in_progress": 0,
+    "failed": 0
+  },
+  "phase": {
+    "current": "Testing and Documentation",
+    "id": null,
+    "total": 3
+  },
+  "workers": {
+    "active": 0,
+    "max": 1
+  },
+  "session": {
+    "number": 2,
+    "started_at": "2026-01-30T19:54:43.937939"
+  },
+  "last_update": "2026-01-30T20:00:46.443524"
+}
