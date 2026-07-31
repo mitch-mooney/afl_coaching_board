@@ -12,6 +12,11 @@ interface HamburgerIconProps {
  * Uses Framer Motion for smooth animations.
  * Touch-friendly with minimum 44px tap target.
  * Shows a pulsing ring when the user hasn't opened the menu yet (onboarding).
+ *
+ * Styled as a control *of* the editor top bar rather than a pill floating over
+ * the field: the same dark fill, white hairline border and rounded-lg corners as
+ * the tab switcher beside it. It was a white shadowed pill back when it floated
+ * over the green field; against the dark bar that read as a foreign object.
  */
 export function HamburgerIcon({ isOpen, onClick, className = '' }: HamburgerIconProps) {
   const showMenuPulse = useUIStore((state) => state.showMenuPulse);
@@ -73,13 +78,14 @@ export function HamburgerIcon({ isOpen, onClick, className = '' }: HamburgerIcon
         className={`
           flex items-center justify-center
           min-w-[44px] min-h-[44px] w-11 h-11
-          bg-white/90 backdrop-blur-sm
-          rounded-lg shadow-lg
-          hover:bg-white
-          active:bg-gray-100
+          bg-black/40 border border-white/20
+          rounded-lg
+          text-white/70
+          hover:bg-black/60 hover:text-white
+          active:bg-black/70
           transition-colors
           touch-manipulation
-          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+          focus:outline-none focus:ring-2 focus:ring-white/40
           ${className}
         `}
         aria-label={isOpen ? 'Close menu' : 'Open menu'}
@@ -91,7 +97,6 @@ export function HamburgerIcon({ isOpen, onClick, className = '' }: HamburgerIcon
         viewBox="0 0 24 24"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="text-gray-700"
       >
         {/* Top line */}
         <motion.rect
