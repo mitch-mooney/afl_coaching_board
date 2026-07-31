@@ -682,5 +682,48 @@
   "status": "in_progress",
   "planStatus": "in_progress",
   "updated_at": "2026-01-16T04:47:23.741Z",
-  "recoveryNote": "Task recovered from stuck state at 2026-01-16T04:47:23.741Z"
+  "recoveryNote": "Task recovered from stuck state at 2026-01-16T04:47:23.741Z",
+  "qa_iteration_history": [
+    {
+      "iteration": 1,
+      "status": "error",
+      "timestamp": "2026-01-16T05:17:18.877234+00:00",
+      "issues": [
+        {
+          "title": "QA error",
+          "description": "QA agent did not update implementation_plan.json"
+        }
+      ]
+    },
+    {
+      "iteration": 2,
+      "status": "error",
+      "timestamp": "2026-01-16T05:18:00.535797+00:00",
+      "issues": [
+        {
+          "title": "QA error",
+          "description": "QA agent did not update implementation_plan.json"
+        }
+      ]
+    },
+    {
+      "iteration": 3,
+      "status": "error",
+      "timestamp": "2026-01-16T05:18:09.146725+00:00",
+      "issues": [
+        {
+          "title": "QA error",
+          "description": "QA agent did not update implementation_plan.json (No tools were used by agent)"
+        }
+      ]
+    }
+  ],
+  "qa_stats": {
+    "total_iterations": 3,
+    "last_iteration": 3,
+    "last_status": "error",
+    "issues_by_type": {
+      "unknown": 3
+    }
+  }
 }

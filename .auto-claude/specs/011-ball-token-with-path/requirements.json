@@ -1,0 +1,4 @@
+{
+  "task_description": "# Ball Token with Path\n\nAdd a ball token that can be positioned and given a movement path like players. Show ball movement through passes and kicks in play animations.\n\n## Rationale\nCurrently only players are shown. Tracking the ball's movement is essential for demonstrating complete plays involving kicks and handballs.\n\n## User Stories\n- As a coach, I want to show where the ball moves during a play\n- As a player, I want to understand kick timing and target selection\n\n## Acceptance Criteria\n- [ ] Ball token available on field\n- [ ] Ball can be positioned via drag-and-drop\n- [ ] Ball can have movement paths like players\n- [ ] Ball animates along path during playback\n- [ ] Can assign ball to a player (ball moves with player)\n- [ ] Ball visually distinct from players\n",
+  "workflow_type": "feature"
+}

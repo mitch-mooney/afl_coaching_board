@@ -1,0 +1,71 @@
+{
+  "complexity": "standard",
+  "workflow_type": "feature",
+  "confidence": 0.85,
+  "reasoning": "New feature adding ball token entity following existing player patterns. Multiple files across rendering, animation, and state management layers, but contained to single frontend service with no external integrations or infrastructure changes.",
+
+  "analysis": {
+    "scope": {
+      "estimated_files": 8,
+      "estimated_services": 1,
+      "is_cross_cutting": true,
+      "notes": "Ball token implementation will touch rendering, animation, state management, and UI layers within frontend. Estimated 6-10 files including token component, path system extension, animation playback, drag-and-drop UI, and player-ball association logic."
+    },
+    "integrations": {
+      "external_services": [],
+      "new_dependencies": [],
+      "research_needed": false,
+      "notes": "No external integrations. Requirements explicitly state ball should work 'like players', indicating existing patterns can be reused. No new npm packages anticipated."
+    },
+    "infrastructure": {
+      "docker_changes": false,
+      "database_changes": false,
+      "config_changes": false,
+      "notes": "Frontend-only feature in play designer. No backend, database, or deployment configuration changes needed."
+    },
+    "knowledge": {
+      "patterns_exist": true,
+      "research_required": false,
+      "unfamiliar_tech": [],
+      "notes": "Player token positioning, movement paths, and animation systems already exist. Ball token can follow same architectural patterns with minor adaptations for dual-mode behavior (independent movement vs player-attached)."
+    },
+    "risk": {
+      "level": "medium",
+      "concerns": [
+        "New entity type requires careful integration with existing token system",
+        "Dual-mode behavior (independent vs attached to player) adds state complexity",
+        "Animation timing synchronization between ball and players",
+        "Edge cases in ball transfer logic during playback",
+        "Visual rendering must not conflict with player tokens"
+      ],
+      "notes": "Medium risk due to new entity type and dual-mode behavior, but mitigated by reusing existing player patterns. Main concerns are animation synchronization and ball-player association edge cases."
+    }
+  },
+
+  "recommended_phases": [
+    "discovery",
+    "requirements",
+    "context",
+    "spec_writing",
+    "planning",
+    "validation"
+  ],
+
+  "flags": {
+    "needs_research": false,
+    "needs_self_critique": false,
+    "needs_infrastructure_setup": false
+  },
+
+  "validation_recommendations": {
+    "risk_level": "medium",
+    "skip_validation": false,
+    "minimal_mode": false,
+    "test_types_required": ["unit", "integration"],
+    "security_scan_required": false,
+    "staging_deployment_required": false,
+    "reasoning": "Multiple files across animation and rendering systems with new entity type and dual-mode behavior requires thorough validation. Unit tests for ball token logic and player association, integration tests for animation playback. No security or infrastructure concerns."
+  },
+
+  "created_at": "2026-01-15T00:00:00Z"
+}

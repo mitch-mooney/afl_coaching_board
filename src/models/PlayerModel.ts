@@ -5,6 +5,7 @@ export interface Player {
   rotation: number; // Rotation in radians
   color: string;
   number?: number; // Player number
+  playerName?: string; // Player name for display labels
 }
 
 export interface Team {

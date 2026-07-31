@@ -1,0 +1,25 @@
+{
+  "discovered_files": {
+    "src/components/UI/Toolbar.tsx": {
+      "description": "Animation controls integration: useAnimationStore provides isPlaying, progress, togglePlay, stop for playback control. usePathStore provides createPath, getPathByEntity, removePath for path management. Path creation requires entityId, entityType, start/end positions, and duration.",
+      "category": "integration",
+      "discovered_at": "2026-01-16T05:05:33.144075+00:00"
+    },
+    "src/hooks/usePlaybook.ts": {
+      "description": "Playbook load/restore pattern: usePlaybook hook orchestrates state restoration. loadScenario calls loadPlaybookFromStore (which returns the playbook), then uses Zustand's setState to restore each store (playerStore, cameraStore, annotationStore, ballStore, pathStore). Selection states are reset on load (isBallSelected: false, selectedPathId: null).",
+      "category": "pattern",
+      "discovered_at": "2026-01-16T04:58:33.771492+00:00"
+    },
+    "src/components/Layout/MainLayout.tsx": {
+      "description": "PathManager must be added to MainLayout for path visualization to appear in the 3D scene. PathManager takes paths array and selectedPathId from usePathStore as props.",
+      "category": "integration",
+      "discovered_at": "2026-01-16T05:05:33.004560+00:00"
+    },
+    "src/components/Scene/Player.tsx": {
+      "description": "Player component is the reference pattern for entity rendering in Three.js. Uses useFrame for smooth dragging, raycaster for field intersection, snapToField for boundary constraints. This pattern was successfully followed by Ball.tsx for ball token implementation.",
+      "category": "pattern",
+      "discovered_at": "2026-01-16T05:11:55.698321+00:00"
+    }
+  },
+  "last_updated": "2026-01-16T05:11:55.698321+00:00"
+}
