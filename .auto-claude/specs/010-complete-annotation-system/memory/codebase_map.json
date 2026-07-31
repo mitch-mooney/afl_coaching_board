@@ -1,40 +1,10 @@
 {
   "discovered_files": {
-    "src/types/annotations.ts": {
-      "description": "Annotation type system uses discriminated unions with 'type' field as discriminator. Four annotation types: text (position + text), arrow (startPoint + endPoint), zone (shape + center + size), drawing (points array). Includes serialization for JSON persistence with Date to ISO string conversion.",
-      "category": "type-system",
-      "discovered_at": "2026-01-12T06:22:45.654764+00:00"
-    },
-    "src/components/Annotations/TextAnnotation.tsx": {
-      "description": "TextAnnotation component uses @react-three/drei Text wrapped in Billboard for camera-facing readability. Text positioned at annotation.points[0] with height offset of 0.5 above field. Uses black outline for visibility on green field background.",
-      "category": "component-pattern",
-      "discovered_at": "2026-01-12T06:27:05.508127+00:00"
-    },
-    "src/components/Annotations/ArrowAnnotation.tsx": {
-      "description": "ArrowAnnotation component renders directional arrows using line segment with cone arrowhead. Uses bufferGeometry for line, coneGeometry for arrowhead. Cone rotation calculated via spherical coordinates (phi=acos(direction.y), theta=atan2(direction.x, direction.z)) with 'YXZ' Euler order. Cone positioned with -coneHeight/2 offset so tip is exactly at endpoint.",
-      "category": "component",
-      "discovered_at": "2026-01-12T06:29:38.169097+00:00"
-    },
-    "src/components/Scene/AnnotationLayer.tsx": {
-      "description": "AnnotationLayer now uses 4 dedicated component imports for all annotation types: TextAnnotation (text), ArrowAnnotation (arrow), ZoneAnnotation (circle & rectangle zones), DrawingAnnotation (line/free-hand). The inline rendering functions were removed in favor of these reusable components that provide better rendering (ZoneAnnotation uses filled geometry with transparency, DrawingAnnotation uses memoized bufferGeometry for efficient path rendering).",
-      "category": "architecture",
-      "discovered_at": "2026-01-12T06:41:02.368654+00:00"
-    },
-    "src/components/Annotations/DrawingAnnotation.tsx": {
-      "description": "DrawingAnnotation component renders free-hand drawing paths using bufferGeometry with bufferAttribute. Points array is flattened into Float32Array using useMemo for performance. Requires minimum 2 points to render. Uses lineBasicMaterial with configurable color and linewidth from annotation.thickness.",
-      "category": "component",
-      "discovered_at": "2026-01-12T06:36:43.377501+00:00"
-    },
-    "src/hooks/useAnnotationInteraction.ts": {
-      "description": "useAnnotationInteraction hook handles different drawing behaviors per tool type. For 'line' tool (free-hand drawing), it captures continuous path with multiple intermediate points during pointer move, using a 0.5 unit minimum distance threshold to optimize point density. For 'arrow', 'circle', and 'rectangle' tools, it only keeps start and end points (two-point behavior). Points are stored in currentPointsRef.current array and annotation is created on pointer up.",
-      "category": "interaction",
-      "discovered_at": "2026-01-12T06:38:54.711917+00:00"
-    },
-    "src/components/Annotations/": {
-      "description": "All annotation components (TextAnnotation, ArrowAnnotation, ZoneAnnotation) now implement draggable handles following the Player.tsx pattern. Uses useFrame with raycaster.setFromCamera and ray.intersectPlane for smooth ground-plane dragging. DragHandle component provides reusable sphere handles with hover/active states. Zones can be moved by dragging the fill area, and resized via corner/edge handles.",
-      "category": "component",
-      "discovered_at": "2026-01-12T06:55:42.615058+00:00"
+    "src/hooks/usePlaybook.ts": {
+      "description": "Backward compatibility for legacy playbooks is handled via annotations || [] fallback when loading. The optional annotations field in Playbook interface ensures playbooks without annotations load correctly.",
+      "category": "backward-compatibility",
+      "discovered_at": "2026-01-13T02:28:05.352556+00:00"
     }
   },
-  "last_updated": "2026-01-12T06:55:42.615058+00:00"
+  "last_updated": "2026-01-13T02:28:05.352556+00:00"
 }
