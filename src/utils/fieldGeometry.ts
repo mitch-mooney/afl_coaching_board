@@ -247,49 +247,60 @@ export interface OutOfBoundsReport {
   count: number;
 }
 
-/** Is this entity position on the ground? Only x/z matter; y is height. */
-function isPositionInField(position: [number, number, number], boundary: Boundary): boolean {
-  return isPointInField(position[0], position[2], boundary);
+/** Anything on the board that stands somewhere: a player, a cone, the ball, a keyframe. */
+interface Positioned {
+  position: [number, number, number];
+}
+
+/** Is this entity inside the ground? Only x/z matter; y is height. */
+function isInsideBoundary(entity: Positioned, boundary: Boundary): boolean {
+  return isPointInField(entity.position[0], entity.position[2], boundary);
 }
 
 /**
- * Project a position onto the boundary if it is outside it. Returns the *same*
- * array when it is already inside, which is what lets pullInsideBoundary leave
- * in-bounds content byte-identical rather than rebuilding it.
+ * The same entity with its position projected onto the boundary if it was
+ * outside. Returns the entity *itself* when it already fits, which is what lets
+ * pullInsideBoundary leave in-bounds content byte-identical rather than
+ * rebuilding it — and lets callers spot what moved by identity.
  */
-function pullPositionInside(
-  position: [number, number, number],
-  boundary: Boundary,
-): [number, number, number] {
-  if (isPositionInField(position, boundary)) return position;
-  const [x, z] = snapToField(position[0], position[2], boundary);
+function pulledInside<T extends Positioned>(entity: T, boundary: Boundary): T {
+  if (isInsideBoundary(entity, boundary)) return entity;
+  const [x, z] = snapToField(entity.position[0], entity.position[2], boundary);
   // Height is carried through untouched: content is pulled sideways onto the
   // ground, never lifted.
-  return [x, position[1], z];
+  return { ...entity, position: [x, entity.position[1], z] };
 }
+
+/**
+ * The slices of a board that can be out of bounds. Narrower than a full
+ * BoardSnapshot — which satisfies it structurally — because naming exactly these
+ * four is how the rule "Annotations are never out of bounds" gets stated in the
+ * type rather than in a comment.
+ */
+export type PlaceableContent = Pick<BoardSnapshot, 'players' | 'paths' | 'ball' | 'cones'>;
 
 /**
  * What of this board falls outside the given ground. Derived on demand and never
  * stored: it appears the instant the Active Venue changes and clears the instant
  * it is resolved, so there is no dirty flag to keep in sync.
  */
-export function outOfBounds(snap: BoardSnapshot, boundary: Boundary): OutOfBoundsReport {
+export function outOfBounds(snap: PlaceableContent, boundary: Boundary): OutOfBoundsReport {
   const players = snap.players
-    .filter((player) => !isPositionInField(player.position, boundary))
+    .filter((player) => !isInsideBoundary(player, boundary))
     .map((player) => player.id);
 
   const cones = snap.cones
-    .filter((cone) => !isPositionInField(cone.position, boundary))
+    .filter((cone) => !isInsideBoundary(cone, boundary))
     .map((cone) => cone.id);
 
   // A path matters more than a static position: a play whose leads run off the
   // ground looks perfectly fine standing still and only fails when the coach
   // presses play in front of the team.
   const paths = snap.paths
-    .filter((path) => path.keyframes.some((kf) => !isPositionInField(kf.position, boundary)))
+    .filter((path) => path.keyframes.some((kf) => !isInsideBoundary(kf, boundary)))
     .map((path) => path.id);
 
-  const ball = snap.ball ? !isPositionInField(snap.ball.position, boundary) : false;
+  const ball = snap.ball ? !isInsideBoundary(snap.ball, boundary) : false;
 
   return {
     players,
@@ -313,29 +324,16 @@ export function outOfBounds(snap: BoardSnapshot, boundary: Boundary): OutOfBound
 export function pullInsideBoundary(snap: BoardSnapshot, boundary: Boundary): BoardSnapshot {
   return {
     ...snap,
-    players: snap.players.map((player) => {
-      const position = pullPositionInside(player.position, boundary);
-      return position === player.position ? player : { ...player, position };
-    }),
-    cones: snap.cones.map((cone) => {
-      const position = pullPositionInside(cone.position, boundary);
-      return position === cone.position ? cone : { ...cone, position };
-    }),
+    players: snap.players.map((player) => pulledInside(player, boundary)),
+    cones: snap.cones.map((cone) => pulledInside(cone, boundary)),
     paths: snap.paths.map((path) => {
-      let moved = false;
-      const keyframes = path.keyframes.map((kf) => {
-        const position = pullPositionInside(kf.position, boundary);
-        if (position === kf.position) return kf;
-        moved = true;
-        return { ...kf, position };
-      });
-      return moved ? { ...path, keyframes } : path;
+      const keyframes = path.keyframes.map((kf) => pulledInside(kf, boundary));
+      // A path that strayed is rebuilt; one that never left is handed straight
+      // back, so an unchanged path is the same object it went in as.
+      const strayed = keyframes.some((kf, i) => kf !== path.keyframes[i]);
+      return strayed ? { ...path, keyframes } : path;
     }),
-    ball: (() => {
-      if (!snap.ball) return snap.ball;
-      const position = pullPositionInside(snap.ball.position, boundary);
-      return position === snap.ball.position ? snap.ball : { ...snap.ball, position };
-    })(),
+    ball: snap.ball && pulledInside(snap.ball, boundary),
     // annotations and camera ride through the spread untouched.
   };
 }

@@ -74,17 +74,28 @@ describe('undo with annotations', () => {
     expect(past[past.length - 1].annotations[0].type).toBe('arrow');
   });
 
-  it('reverts interleaved annotation + player edits together', () => {
+  it('walks back through interleaved annotation + player edits one press at a time', () => {
     useAnnotationStore.getState().addAnnotation(arrow()); // edit 1
     recordPlayerMove([5, 0, 5]); // edit 2
 
-    // NOTE: historyStore.undo()'s stack-return logic is intentionally out of
-    // scope (spec Wave 1c). This asserts the fix itself: annotations travel
-    // through undo alongside players instead of being silently ignored.
-    undoBoard();
+    undoBoard(); // takes back the drag
+    undoBoard(); // takes back the annotation
 
     expect(usePlayerStore.getState().players[0].position).toEqual([0, 0, 0]);
     expect(useAnnotationStore.getState().annotations).toHaveLength(0);
+  });
+
+  it('undoes the most recent edit, not the one before it', () => {
+    // undo() used to return past[length - 2], so a second undo's worth of
+    // history came back on the first press: the annotation added before the
+    // drag vanished along with the drag. One press, one edit.
+    useAnnotationStore.getState().addAnnotation(arrow()); // edit 1
+    recordPlayerMove([5, 0, 5]); // edit 2
+
+    undoBoard();
+
+    expect(usePlayerStore.getState().players[0].position).toEqual([0, 0, 0]);
+    expect(useAnnotationStore.getState().annotations).toHaveLength(1);
   });
 
   it('undoes an edit that moved the ball, cones and path keyframes too', () => {
@@ -104,6 +115,11 @@ describe('undo with annotations', () => {
       duration: 1,
       startTimeOffset: 0,
     }]);
+
+    // Preceded by an ordinary drag, because a pull is almost never the first
+    // thing a coach does: the whole-board record has to survive being one entry
+    // deep in the stack, not just being the only one.
+    recordPlayerMove([5, 0, 5]);
 
     useHistoryStore.getState().pushSnapshot({
       ...createStateSnapshot(

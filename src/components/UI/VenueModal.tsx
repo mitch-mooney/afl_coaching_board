@@ -52,7 +52,7 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
   // Derived, never stored: switching the ground above makes this appear and
   // pulling inside makes it vanish, with nothing in between to keep in sync.
   const boundary = useActiveBoundary();
-  const offGround = useOutOfBounds();
+  const outOfBounds = useOutOfBounds();
 
   const [draft, setDraft] = useState<DraftForm>(EMPTY_DRAFT);
   const [showForm, setShowForm] = useState(false);
@@ -135,10 +135,10 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
             looking to find out whether Saturday's play still fits. Deliberately
             phrased as a finding, not an error: a play that does not fit is a
             true thing to look at, and leaving it is a legitimate choice. */}
-        {offGround.count > 0 && (
+        {outOfBounds.count > 0 && (
           <div className="m-3 rounded border border-amber-300 bg-amber-50 p-2">
             <p className="text-xs text-amber-900">
-              {describeOutOfBounds(offGround)} {offGround.count === 1 ? 'is' : 'are'} outside{' '}
+              {describeOutOfBounds(outOfBounds)} {outOfBounds.count === 1 ? 'is' : 'are'} outside{' '}
               {activeVenue?.name ?? 'this ground'}.
             </p>
             <p className="text-[11px] text-amber-700 mt-0.5">

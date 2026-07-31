@@ -36,15 +36,11 @@ export function useOutOfBounds(): OutOfBoundsReport {
   const ball = useBallStore((s) => s.ball);
   const cones = useConeStore((s) => s.cones);
 
+  // Four subscriptions, not six: outOfBounds takes PlaceableContent, so
+  // annotations are not merely ignored — there is nowhere to pass them, and an
+  // arrow the coach redraws cannot re-run the report.
   return useMemo(
-    () =>
-      outOfBounds(
-        // Annotations are never out of bounds, so this deliberately does not
-        // subscribe to them: an arrow the coach redraws must not re-run the
-        // report, and passing an empty list states that rule at the call site.
-        { players, paths, ball, cones, annotations: [], camera: null },
-        boundary,
-      ),
+    () => outOfBounds({ players, paths, ball, cones }, boundary),
     [players, paths, ball, cones, boundary],
   );
 }
@@ -71,5 +67,8 @@ export function pullBoardInsideBoundary(boundary: Boundary): void {
     board: before,
   });
 
-  restore(pullInsideBoundary(before, boundary));
+  // The camera is nulled on the way back in, exactly as undo does it: pulling
+  // content inside must not touch the viewpoint, and holding the view still
+  // while the ground changes underneath is the comparison the coach came for.
+  restore({ ...pullInsideBoundary(before, boundary), camera: null });
 }

@@ -46,12 +46,25 @@ ground and Pull inside boundary would leave the notice it had just resolved. Sna
 insets by 1e-9 of the semi-axes — about 80 nm — and a 360-point sweep at three grounds pins
 `isPointInField(snapToField(p))`.
 
-**Undo needed widening.** `StateSnapshot` carried players and annotations only, so undoing a
-pull would have returned the players and left the ball, cones and path keyframes pulled in. It
-gains an optional `board: BoardSnapshot`, recorded by edits that reach further, and
-`restoreBoardSnapshot` puts that board back wholesale through the existing snapshot restore
+**Undo needed widening, twice.** `StateSnapshot` carried players and annotations only, so
+undoing a pull would have returned the players and left the ball, cones and path keyframes
+pulled in. It gains an optional `board: BoardSnapshot`, recorded by edits that reach further,
+and `restoreBoardSnapshot` puts that board back wholesale through the existing snapshot restore
 path. The camera is dropped on the way — it stays outside undo, and a null camera is exactly
 what tells `restore()` to leave the live one alone.
+
+That was not enough on its own, and code review caught it. `historyStore.undo()` returned
+`past[length - 2]` once the stack was more than one deep — a known off-by-one, pinned by a test
+whose own comment deferred it — so the whole-board record was only ever reachable when the pull
+was the coach's *first* edit of the session. Adding an annotation and then dragging a player
+also meant one undo took both away. Every entry on `past` is the board before one edit, so the
+last entry is what undoing that edit restores; `undo()` now returns it. **This changes undo for
+the whole app, not just this ticket** — one press now takes back one edit — and it is out of
+ticket 05's stated scope. It is here because without it the ticket's undo requirement is not
+deliverable: no local workaround exists when the shared layer hands back the wrong snapshot.
+The test that pinned the old behaviour now asserts the corrected claim, and a second test pins
+the pull-inside record surviving one entry deep. Redo is unwired anywhere in the app, so its
+own (pre-existing, untouched) stack semantics have no consumer to break.
 
 - [x] Two pure functions take `(snapshot, boundary)`: one reporting what falls outside, one
       returning a snapshot with that content pulled inside. Neither reads a store.
@@ -64,7 +77,7 @@ what tells `restore()` to leave the live one alone.
 - [x] The coach is shown how many entities are outside, broken down by kind — "3 players and
       1 path are outside Jubilee Park" rather than a warning triangle.
 - [x] "Pull inside boundary" moves them in one tap and is undoable like any drag — see the
-      `StateSnapshot.board` note above for what that cost.
+      undo note above for what that cost, including the shared off-by-one it had to fix.
 - [x] Nothing is persisted until the coach saves the Play. `pullBoardInsideBoundary` reads and
       writes the board stores through the snapshot IO path and never touches Dexie.
 - [x] Opening a Play that does not fit leaves it **unchanged** — no auto-fit. Verified by
