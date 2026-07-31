@@ -73,6 +73,20 @@ interface VenueState {
 export const selectActiveVenue = (state: Pick<VenueState, 'venues' | 'activeVenueId'>) =>
   state.venues.find((v) => v.id === state.activeVenueId);
 
+/**
+ * The ground a Venue describes — or Standard ground when there is not one yet.
+ *
+ * The only moment there is no Active Venue is before the records have loaded, and
+ * the board has to render something then. Stated once here because both readers
+ * need it: the store answers it imperatively, and useActiveBoundary answers it for
+ * React on every frame of a drag. A second copy of this rule would be a second
+ * place for a fallback to go wrong.
+ */
+export const boundaryDimensionsOf = (venue: Venue | undefined): BoundaryDimensions =>
+  venue
+    ? { boundaryLength: venue.boundaryLength, boundaryWidth: venue.boundaryWidth }
+    : STANDARD_GROUND_DIMENSIONS;
+
 export const useVenueStore = create<VenueState>((set, get) => ({
   venues: [],
   activeVenueId: readStoredActiveId(),
@@ -184,9 +198,5 @@ export const useVenueStore = create<VenueState>((set, get) => ({
 
   activeVenue: () => selectActiveVenue(get()),
 
-  activeBoundaryDimensions: () => {
-    const active = get().activeVenue();
-    if (!active) return STANDARD_GROUND_DIMENSIONS;
-    return { boundaryLength: active.boundaryLength, boundaryWidth: active.boundaryWidth };
-  },
+  activeBoundaryDimensions: () => boundaryDimensionsOf(get().activeVenue()),
 }));

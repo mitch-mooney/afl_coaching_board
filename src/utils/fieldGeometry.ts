@@ -29,9 +29,10 @@ export function boundaryOf(dimensions: BoundaryDimensions): Boundary {
 }
 
 /**
- * The generic ground. Call sites use this until the Active Venue exists (Venue
- * wave, ticket 03) — at which point they resolve a Boundary from the store
- * instead and this stays only as the fallback the seeded Venue carries.
+ * The generic ground. No longer what the board renders on — every call site
+ * resolves the Active Venue through useActiveBoundary — so this remains for two
+ * things only: the dimensions the seeded Standard ground carries, and the
+ * ground tests state their claims against.
  */
 export const STANDARD_BOUNDARY: Boundary = boundaryOf(STANDARD_GROUND_DIMENSIONS);
 

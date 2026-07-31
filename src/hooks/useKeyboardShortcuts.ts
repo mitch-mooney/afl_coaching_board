@@ -16,6 +16,8 @@ import type {
 } from '../types/shortcuts';
 import { SHORTCUT_CATEGORY_LABELS } from '../types/shortcuts';
 import { useCameraStore } from '../store/cameraStore';
+import type { CameraPreset } from '../utils/cameraMath';
+import { useActiveBoundary } from './useActiveBoundary';
 import type { PenTip } from '../utils/inputContract';
 import { usePenStore } from '../store/penStore';
 import { useAnimationStore } from '../store/animationStore';
@@ -430,7 +432,7 @@ export function resetGlobalShortcutRegistry(): void {
 /**
  * Camera preset mapping for number keys 1-3
  */
-const CAMERA_PRESET_MAP: Record<string, { code: string; key: string; preset: 'top' | 'sideline' | 'end-to-end'; description: string }> = {
+const CAMERA_PRESET_MAP: Record<string, { code: string; key: string; preset: CameraPreset; description: string }> = {
   'Digit1': { code: 'Digit1', key: '1', preset: 'top', description: 'Top view (overhead)' },
   'Digit2': { code: 'Digit2', key: '2', preset: 'sideline', description: 'Sideline view' },
   'Digit3': { code: 'Digit3', key: '3', preset: 'end-to-end', description: 'End-to-end view' },
@@ -450,7 +452,7 @@ const CAMERA_PRESET_MAP: Record<string, { code: string; key: string; preset: 'to
  */
 export function registerCameraPresetShortcuts(
   registry: ShortcutRegistry,
-  setPresetView: (preset: 'top' | 'sideline' | 'end-to-end') => void
+  setPresetView: (preset: CameraPreset) => void
 ): void {
   Object.values(CAMERA_PRESET_MAP).forEach(({ code, key, preset, description }) => {
     registry.register({
@@ -495,15 +497,18 @@ export function unregisterCameraPresetShortcuts(registry: ShortcutRegistry): voi
  */
 export function useCameraPresetShortcuts(registry?: ShortcutRegistry): void {
   const setPresetView = useCameraStore((state) => state.setPresetView);
+  // Keys 1–3 frame the Active Venue, same as the HUD buttons. Changing grounds
+  // re-registers the handlers so a keypress never frames last week's ground.
+  const boundary = useActiveBoundary();
   const registryToUse = registry ?? getGlobalShortcutRegistry();
 
   useEffect(() => {
-    registerCameraPresetShortcuts(registryToUse, setPresetView);
+    registerCameraPresetShortcuts(registryToUse, (preset) => setPresetView(preset, boundary));
 
     return () => {
       unregisterCameraPresetShortcuts(registryToUse);
     };
-  }, [registryToUse, setPresetView]);
+  }, [registryToUse, setPresetView, boundary]);
 }
 
 // ============================================================================
