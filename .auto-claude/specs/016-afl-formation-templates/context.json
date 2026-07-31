@@ -1,0 +1,77 @@
+{
+  "task_description": "# AFL Formation Templates\n\nPre-built starting formation templates for common AFL setups (e.g., standard setup, zone defense, press, spread). One click positions all players in a recognized formation.\n\n## Rationale\nSaves time on initial setup and provides starting points for tactical variations. This is an AFL-specific feature that multi-sport tools can't offer, strengthening differentiation.\n\n## User Stories\n- As a coach, I want to quickly set up standard formations without dragging 36 players\n- As a coaching educator, I want to demonstrate common AFL formations easily\n\n## Acceptance Criteria\n- [ ] At least 5 pre-built formation templates\n- [ ] Template selector in toolbar or sidebar\n- [ ] Applying template positions all 36 players\n- [ ] Can modify formation after applying template\n- [ ] Templates include both team formations\n- [ ] Users can save custom templates\n",
+  "scoped_services": ["main"],
+  "files_to_modify": [
+    "src/store/playerStore.ts",
+    "src/components/UI/Toolbar.tsx"
+  ],
+  "files_to_reference": [
+    "src/models/PlayerModel.ts",
+    "src/store/playbookStore.ts",
+    "src/components/UI/Toolbar.tsx",
+    "src/hooks/usePlaybook.ts",
+    "src/components/UI/PlaybookPanel.tsx"
+  ],
+  "patterns": {
+    "player_management": {
+      "description": "Players are managed in Zustand playerStore with 36 players (18 per team: team1, team2)",
+      "file": "src/store/playerStore.ts",
+      "key_methods": ["updatePlayerPosition", "resetPlayers", "getTeamPlayers"],
+      "missing": "Batch update method for updating all 36 players simultaneously"
+    },
+    "player_model": {
+      "description": "Player interface with id, teamId, position [x,y,z], rotation, color, number",
+      "file": "src/models/PlayerModel.ts",
+      "structure": "position is 3D array [x, y, z], teamId is 'team1' | 'team2'"
+    },
+    "dexie_pattern": {
+      "description": "IndexedDB persistence using Dexie with class-based database and Table interface",
+      "file": "src/store/playbookStore.ts",
+      "pattern": "class PlaybookDatabase extends Dexie { playbooks!: Table<Playbook>; constructor() { super('AFLPlaybookDB'); this.version(1).stores({ playbooks: '++id, name, createdAt' }); } }",
+      "usage": "Auto-incrementing IDs with ++id, indexed fields for querying"
+    },
+    "zustand_store": {
+      "description": "Functional Zustand stores with actions using create() function",
+      "file": "src/store/playerStore.ts",
+      "pattern": "export const usePlayerStore = create<PlayerState>((set, get) => ({ /* state and actions */ }))",
+      "immutability": "State updates use immutable patterns with map/spread operators"
+    },
+    "toolbar_ui": {
+      "description": "Toolbar component with Tailwind buttons and modal dialogs",
+      "file": "src/components/UI/Toolbar.tsx",
+      "button_pattern": "className='px-4 py-2 bg-[color]-500 text-white rounded hover:bg-[color]-600 transition'",
+      "dialog_pattern": "Conditional rendering with showDialog state, backdrop-blur-sm, rounded-lg shadow-xl"
+    },
+    "playbook_save": {
+      "description": "Existing playbook save/load pattern for capturing player positions",
+      "file": "src/hooks/usePlaybook.ts",
+      "pattern": "saveCurrentScenario captures players, camera, annotations and saves to Dexie",
+      "relevance": "Similar pattern needed for custom formation saving"
+    }
+  },
+  "existing_implementations": {
+    "description": "Found existing playbook system that saves player positions to IndexedDB",
+    "relevant_files": [
+      "src/store/playbookStore.ts",
+      "src/hooks/usePlaybook.ts",
+      "src/components/UI/PlaybookPanel.tsx"
+    ],
+    "integration_points": [
+      "Toolbar.tsx - where to add formation selector button",
+      "playerStore.ts - where to add batch update method",
+      "playbookStore.ts - pattern to follow for formationStore"
+    ]
+  },
+  "tech_stack": {
+    "frontend": "React 18.2.0",
+    "language": "TypeScript 5.2.2",
+    "build_tool": "Vite 7.3.1",
+    "state_management": "Zustand 4.4.0",
+    "persistence": "Dexie 3.2.4",
+    "3d_rendering": "Three.js 0.158.0 with @react-three/fiber 8.15.0 and @react-three/drei 9.88.0",
+    "styling": "Tailwind CSS 3.3.6",
+    "animations": "Framer Motion 10.16.0"
+  },
+  "created_at": "2026-01-09T18:49:09.149373",
+  "updated_at": "2026-01-09T21:30:00.000000"
+}

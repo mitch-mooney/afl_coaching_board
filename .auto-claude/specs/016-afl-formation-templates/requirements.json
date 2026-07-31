@@ -1,0 +1,4 @@
+{
+  "task_description": "# AFL Formation Templates\n\nPre-built starting formation templates for common AFL setups (e.g., standard setup, zone defense, press, spread). One click positions all players in a recognized formation.\n\n## Rationale\nSaves time on initial setup and provides starting points for tactical variations. This is an AFL-specific feature that multi-sport tools can't offer, strengthening differentiation.\n\n## User Stories\n- As a coach, I want to quickly set up standard formations without dragging 36 players\n- As a coaching educator, I want to demonstrate common AFL formations easily\n\n## Acceptance Criteria\n- [ ] At least 5 pre-built formation templates\n- [ ] Template selector in toolbar or sidebar\n- [ ] Applying template positions all 36 players\n- [ ] Can modify formation after applying template\n- [ ] Templates include both team formations\n- [ ] Users can save custom templates\n",
+  "workflow_type": "feature"
+}

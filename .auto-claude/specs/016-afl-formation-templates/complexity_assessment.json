@@ -1,0 +1,70 @@
+{
+  "complexity": "standard",
+  "workflow_type": "feature",
+  "confidence": 0.85,
+  "reasoning": "New feature adding formation templates that positions 36 players. Will touch multiple files (UI, state, data, persistence) across single service. No external integrations needed, uses existing tech stack (Zustand, Dexie). Well-contained scope with clear acceptance criteria.",
+
+  "analysis": {
+    "scope": {
+      "estimated_files": 8,
+      "estimated_services": 1,
+      "is_cross_cutting": false,
+      "notes": "Estimated files: template data constants (1), template selector UI component (1-2), player positioning logic (1-2), Zustand state management (1), Dexie persistence for custom templates (1), types/interfaces (1). Contained to frontend service."
+    },
+    "integrations": {
+      "external_services": [],
+      "new_dependencies": [],
+      "research_needed": false,
+      "notes": "No external APIs or services. Uses existing stack: Zustand for state, Dexie for local storage of custom templates, React/TypeScript for UI. All technologies already in project."
+    },
+    "infrastructure": {
+      "docker_changes": false,
+      "database_changes": false,
+      "config_changes": false,
+      "notes": "Uses existing Dexie (IndexedDB) for custom template persistence. No infrastructure or configuration changes required."
+    },
+    "knowledge": {
+      "patterns_exist": true,
+      "research_required": false,
+      "unfamiliar_tech": [],
+      "notes": "Will need to understand existing player positioning system, Zustand state structure, and Three.js field rendering. All are existing project technologies. No external documentation research needed."
+    },
+    "risk": {
+      "level": "medium",
+      "concerns": [
+        "Bulk positioning of 36 players could have performance implications",
+        "Undo/redo integration with template application",
+        "Template data format design must be flexible for both pre-built and custom templates",
+        "Ensuring both team formations (18 vs 18) are handled correctly"
+      ],
+      "notes": "Main risks are performance (batch updates) and data model design. Not touching security-sensitive areas. Feature is additive, low risk of breaking existing functionality."
+    }
+  },
+
+  "recommended_phases": [
+    "discovery",
+    "requirements",
+    "context",
+    "spec_writing",
+    "planning",
+    "validation"
+  ],
+
+  "flags": {
+    "needs_research": false,
+    "needs_self_critique": false,
+    "needs_infrastructure_setup": false
+  },
+
+  "validation_recommendations": {
+    "risk_level": "medium",
+    "skip_validation": false,
+    "minimal_mode": false,
+    "test_types_required": ["unit", "integration"],
+    "security_scan_required": false,
+    "staging_deployment_required": false,
+    "reasoning": "Core feature touching player positioning logic and state management. Requires unit tests for template data structures and positioning logic, plus integration tests for UI interactions and bulk state updates. No security concerns (no auth or sensitive data). No staging needed (frontend-only, no infrastructure)."
+  },
+
+  "created_at": "2026-01-09T00:00:00.000Z"
+}

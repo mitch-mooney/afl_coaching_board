@@ -1,0 +1,25 @@
+{
+  "discovered_files": {
+    "src/types/Formation.ts": {
+      "description": "Formation type definitions file created with PlayerPosition, Formation, FormationCategory, CreateFormationInput, StoredFormation, and FormationUpdate interfaces. Uses teamId ('team1'|'team2') and position tuple [number, number, number] to match PlayerModel.ts patterns.",
+      "category": "types",
+      "discovered_at": "2026-01-12T05:15:25.562172+00:00"
+    },
+    "src/components/UI/FormationSelector.tsx": {
+      "description": "Complete formation template flow verified: FormationSelector in Toolbar provides pre-built (7) and custom formations. Apply uses convertFormationToUpdates to map player IDs (`${teamId}-player-${playerNumber}`) and batch update via updateMultiplePlayers. Save captures current positions via convertPlayersToPositions and persists to IndexedDB. Delete with confirmation removes from IndexedDB. All flows validated via code review.",
+      "category": "feature",
+      "discovered_at": "2026-01-12T05:42:01.661181+00:00"
+    },
+    "src/components/UI/Toolbar.tsx": {
+      "description": "FormationSelector integrated into Toolbar after Reset Players button. The component is self-contained with its own isOpen state, making integration simple - just add the component to the button group.",
+      "category": "integration",
+      "discovered_at": "2026-01-12T05:27:56.475780+00:00"
+    },
+    "src/store/playerStore.ts": {
+      "description": "Global drag state tracking added via isDragging flag and setDragging() method. Used to prevent concurrent formation application during active player drag. canApplyFormation() checks both isUpdating and isDragging flags.",
+      "category": "state-management",
+      "discovered_at": "2026-01-12T05:48:55.858000+00:00"
+    }
+  },
+  "last_updated": "2026-01-12T05:48:55.858000+00:00"
+}
