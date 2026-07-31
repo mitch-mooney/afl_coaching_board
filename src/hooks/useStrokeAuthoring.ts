@@ -8,6 +8,7 @@ import { usePlayerStore } from '../store/playerStore';
 import { useBallStore } from '../store/ballStore';
 import { usePathStore } from '../store/pathStore';
 import { snapToField } from '../utils/fieldGeometry';
+import { useActiveBoundary } from './useActiveBoundary';
 import { authoringIntent, tipAvailable } from '../utils/inputContract';
 import {
   entityAtStrokeStart,
@@ -38,6 +39,9 @@ export function useStrokeAuthoring() {
     useAnnotationStore();
   const isStrokingRef = useRef(false);
   const strokeRef = useRef<[number, number, number][]>([]);
+  // Resolved here rather than inside the listener: a Stroke asks for the ground
+  // on every pointer sample, and this must not be recomputed per event.
+  const boundary = useActiveBoundary();
 
   useEffect(() => {
     if (!armedTip) return;
@@ -68,7 +72,7 @@ export function useStrokeAuthoring() {
       );
       if (!intersection) return null;
 
-      const [sx, sz] = snapToField(intersection.x, intersection.z);
+      const [sx, sz] = snapToField(intersection.x, intersection.z, boundary);
       return [sx, 0, sz];
     };
 
@@ -209,6 +213,7 @@ export function useStrokeAuthoring() {
     camera,
     raycaster,
     gl,
+    boundary,
     addAnnotation,
     setLivePreview,
     setPendingTextPoint,

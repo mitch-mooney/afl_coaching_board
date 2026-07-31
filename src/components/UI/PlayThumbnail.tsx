@@ -3,6 +3,7 @@ import type { BoardSnapshot } from '../../utils/boardSnapshot';
 import { fromPhase } from '../../utils/boardSnapshot';
 import { boardAt } from '../../utils/boardPlayback';
 import { projectSnapshot, type ThumbnailViewBox } from '../../utils/thumbnailProjection';
+import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 
 const VIEWBOX: ThumbnailViewBox = { width: 200, height: 164, padding: 12 };
 const EMPTY: BoardSnapshot = { players: [], paths: [], annotations: [], camera: null, ball: null, cones: [] };
@@ -14,7 +15,8 @@ const EMPTY: BoardSnapshot = { players: [], paths: [], annotations: [], camera: 
  */
 export function PlayThumbnail({ play }: { play: Play }) {
   const phase = play.phases[0];
-  const prims = projectSnapshot(phase ? boardAt(fromPhase(phase), 1) : EMPTY, VIEWBOX);
+  const boundary = useActiveBoundary();
+  const prims = projectSnapshot(phase ? boardAt(fromPhase(phase), 1) : EMPTY, VIEWBOX, boundary);
 
   return (
     <svg

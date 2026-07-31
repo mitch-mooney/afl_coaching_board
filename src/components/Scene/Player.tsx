@@ -8,6 +8,7 @@ import { useAnimationStore } from '../../store/animationStore';
 import { captureAnnotationSnapshots } from '../../store/annotationStore';
 import { usePenStore } from '../../store/penStore';
 import { positionToZone } from '../../utils/fieldGeometry';
+import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 import { snapPointerToField, dragRotation, facingRotation } from '../../utils/dragMath';
 import { authoringIntent } from '../../utils/inputContract';
 import { getTeamById } from '../../data/aflTeams';
@@ -70,6 +71,7 @@ export function PlayerComponent({ player }: PlayerProps) {
   const isPlaying = useAnimationStore((state) => state.isPlaying);
   const { camera, raycaster } = useThree();
   const isSelected = selectedPlayerId === player.id;
+  const boundary = useActiveBoundary();
 
   // Disable dragging while an animation is playing (the playback loop owns
   // player positions during play).
@@ -140,7 +142,7 @@ export function PlayerComponent({ player }: PlayerProps) {
 
     // Handle dragging with global pointer events
     if (isDragging && !isRotating) {
-      const field = snapPointerToField(state.pointer, camera, raycaster);
+      const field = snapPointerToField(state.pointer, camera, raycaster, boundary);
 
       if (field) {
         const [x, z] = field;

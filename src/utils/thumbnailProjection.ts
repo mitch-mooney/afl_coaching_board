@@ -1,5 +1,5 @@
 import type { BoardSnapshot } from './boardSnapshot';
-import { FIELD_CONFIG } from '../models/FieldModel';
+import type { Boundary } from './fieldGeometry';
 
 /**
  * thumbnailProjection — pure, store-free projection of a board's world positions
@@ -24,8 +24,13 @@ export interface ThumbnailPrimitives {
 }
 
 /** Project a snapshot's players, ball, and paths into the viewBox as draw primitives. */
-export function projectSnapshot(snap: BoardSnapshot, viewBox: ThumbnailViewBox): ThumbnailPrimitives {
-  const { length: L, width: W } = FIELD_CONFIG;
+export function projectSnapshot(
+  snap: BoardSnapshot,
+  viewBox: ThumbnailViewBox,
+  boundary: Boundary,
+): ThumbnailPrimitives {
+  const L = boundary.semiX * 2;
+  const W = boundary.semiZ * 2;
   const { width, height, padding } = viewBox;
   const drawW = width - 2 * padding;
   const drawH = height - 2 * padding;

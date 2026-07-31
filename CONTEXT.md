@@ -77,12 +77,23 @@ extend this file rather than inventing parallel names.
 
 ## The ground
 
-- **Venue** — a named ground the coach has measured: a name plus its boundary dimensions.
+- **Venue** — a named ground the coach has measured: a name plus its Boundary dimensions.
   Venues are created by the user, not shipped as presets — the grounds that matter are
   community grounds whose dimensions are published nowhere.
 
-- **Boundary dimensions** — the length and width of a Venue's boundary ellipse. The *only*
-  part of the field that varies between grounds.
+- **Boundary dimensions** — `boundaryLength` (goal-to-goal) and `boundaryWidth`
+  (wing-to-wing): the axes of a Venue's boundary ellipse, and the *only* part of the field
+  that varies between grounds. Named in full because they describe the playing surface, not
+  the ground's footprint.
+
+- **Boundary** — the ellipse itself, as geometry consumes it: the semi-axes derived from a
+  Venue's Boundary dimensions. This is what "inside the ground" is measured against — one
+  ellipse, shared by the painted boundary line, clamping, zone lookup, and thumbnails.
+
+- **Standard ground** — the seeded, un-deletable Venue at 165 × 135 m. It is a generic
+  ground, not a measured one, and exists so that **there is always an Active Venue** —
+  the same role `"My Plays"` plays for Playbooks, including as the fallback when the active
+  record is deleted.
 
 - **Absolute markings** — every other field marking: centre square (50×50m), 50m arcs,
   goal square, goal and behind post spacing. These are identical at every ground and are
@@ -100,6 +111,16 @@ extend this file rather than inventing parallel names.
   > markings they sit against are Absolute markings. The cost is that a Play authored on a
   > wide ground can place entities outside a narrower Venue's boundary; that is surfaced to
   > the coach rather than silently corrected.
+
+- **Out of bounds** — board content falling outside the Active Venue's Boundary: players,
+  the ball, cones, and MovementPath keyframes. Annotations are never out of bounds — they
+  are inert markup and may point off-ground deliberately. Out of bounds is *derived, never
+  stored*, and is a legitimate state to leave a board in: it is a true statement about a
+  play that does not fit this ground, not an error to be repaired.
+
+- **Pull inside boundary** — the one-tap affordance that moves out-of-bounds content inside
+  the Active Venue's Boundary. Always the coach's choice, never automatic — no fit on load
+  and no clamp during playback — and an ordinary undoable board edit like any drag.
 
 ## Board input
 

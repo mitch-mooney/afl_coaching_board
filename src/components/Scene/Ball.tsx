@@ -9,6 +9,7 @@ import { useHistoryStore } from '../../store/historyStore';
 import { captureAnnotationSnapshots } from '../../store/annotationStore';
 import { usePenStore } from '../../store/penStore';
 import { snapPointerToField } from '../../utils/dragMath';
+import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 import { authoringIntent } from '../../utils/inputContract';
 import { heldBallTarget } from '../../utils/ballFollow';
 
@@ -43,6 +44,7 @@ export function BallComponent({ ball }: BallProps) {
   const { getPlayer, setDragging } = usePlayerStore();
   const { pushSnapshot } = useHistoryStore();
   const { camera, raycaster, gl } = useThree();
+  const boundary = useActiveBoundary();
 
   // Calculate ring sizes based on ball size
   const ringSize = useMemo(() => ({
@@ -78,7 +80,7 @@ export function BallComponent({ ball }: BallProps) {
 
      // Handle dragging with global pointer events
      if (isDragging) {
-       const field = snapPointerToField(state.pointer, camera, raycaster);
+       const field = snapPointerToField(state.pointer, camera, raycaster, boundary);
 
        if (field) {
          const [x, z] = field;

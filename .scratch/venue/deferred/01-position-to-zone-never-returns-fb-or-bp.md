@@ -1,0 +1,33 @@
+# 01 — `positionToZone` never returns `FB` or `BP`
+
+**What to build:** `positionToZone` (`utils/fieldGeometry.ts:67`) documents nine zones and
+can only ever return seven. Every deep defender reports as `CHB`/`HBF`.
+
+The forward end is written as a two-tier check in the correct order — `x >= 48` (FF/FP)
+first, then `x >= 28` (CHF/HFF). The back end is written in the **wrong** order: `x <= -28`
+at line 98 returns `CHB` or `HBF` for everything behind the half-back line, so the
+`x <= -48` branch at line 105 is unreachable and `FB`/`BP` can never be produced.
+
+The visible effect is in the drop-zone position auto-suggest (`Player.tsx:265`): drag a
+player into the goal square and the app suggests centre half back.
+
+Found while grilling ADR 0002 (Venue). Kept out of that work deliberately so the Venue
+change stays a pure refactor of *which* thresholds are used, not a change to *what they
+return*. Do this one first or last, not tangled in the middle.
+
+**Blocked by:** None — can start immediately.
+
+**Status:** ready-for-agent
+
+Vocabulary: `CONTEXT.md`. Related: `docs/adr/0002-venue-is-app-wide-positions-stay-absolute.md`,
+which changes these same thresholds — forward/back anchored to the goal line, lateral
+relative to half-width. If that work has already landed, the constants below will read as
+distances from goal rather than `x` from centre; the ordering bug is the same either way.
+
+- [ ] A test pins the current wrong behaviour first: a point deep in the defensive goal
+      square returns `CHB` today.
+- [ ] The back-end checks are reordered so the deeper band is tested first, mirroring the
+      forward end.
+- [ ] `FB` is returned for a deep, central defensive position; `BP` for a deep, wide one.
+- [ ] `CHB`/`HBF` still returned for the half-back band — the reorder must not swallow them.
+- [ ] The doc comment's zone table matches what the function actually returns.
