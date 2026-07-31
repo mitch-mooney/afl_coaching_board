@@ -1,6 +1,6 @@
 import { Text } from '@react-three/drei';
 import { useMatchStore, formatAFLScore } from '../../store/matchStore';
-import { FIELD_CONFIG } from '../../models/FieldModel';
+import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 
 export function Scoreboard() {
   const homeTeamName = useMatchStore((s) => s.homeTeamName);
@@ -9,6 +9,7 @@ export function Scoreboard() {
   const awayScore = useMatchStore((s) => s.awayScore);
   const quarter = useMatchStore((s) => s.quarter);
   const showScoreboard = useMatchStore((s) => s.showScoreboard);
+  const boundary = useActiveBoundary();
 
   // Only render when visible and at least one team name is set
   if (!showScoreboard || (!homeTeamName && !awayTeamName)) return null;
@@ -16,7 +17,8 @@ export function Scoreboard() {
   const boardWidth = 24;
   const boardHeight = 8;
   const boardY = 14;
-  const boardZ = -(FIELD_CONFIG.width / 2 + 10);
+  // Ten metres back from the wing boundary.
+  const boardZ = -(boundary.semiZ + 10);
 
   return (
     <group position={[0, 0, boardZ]}>

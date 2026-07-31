@@ -1,7 +1,9 @@
 // @ts-nocheck - Disable TypeScript checks for this file due to Three.js JSX primitive type issues
 import { useRef, useMemo } from 'react';
 import { Mesh, BufferGeometry, LineBasicMaterial, Float32BufferAttribute, Line as ThreeLine, CanvasTexture, RepeatWrapping, Shape, Path, ShapeGeometry } from 'three';
-import { FIELD_CONFIG } from '../../models/FieldModel';
+import { FIELD_MARKINGS } from '../../models/FieldModel';
+import { type Boundary } from '../../utils/fieldGeometry';
+import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 
 // Helper component to avoid TypeScript JSX issues with lowercase 'line'
 interface FieldLineProps {
@@ -26,8 +28,12 @@ function FieldLine({ points, color = '#ffffff', linewidth = 1, position = [0, 0,
  * Elliptical grandstand bowl around the field boundary.
  * Each tier has a wide bright-blue seat surface + a narrow dark riser divider,
  * creating the alternating light/dark band pattern of real stadium seating.
- * Field boundary semi-axes: 82.5m (X) × 67.5m (Z).
+ * Sized off the ground's Boundary, so the bowl hugs whichever Venue is active.
  */
+
+/** Metres of clearance between the boundary and the first row of seats. */
+const STAND_CLEARANCE_X = 7.5;
+const STAND_CLEARANCE_Z = 6.5;
 // Gradient colour stops for seat rows: inner (near riser shadow) → mid → outer (bright highlight)
 const SEAT_GRADIENT: [number, number, number][] = [
   [12,  52, 128],  // darkest — in the shadow of the riser below
@@ -37,16 +43,19 @@ const SEAT_GRADIENT: [number, number, number][] = [
   [85, 165, 235],  // brightest — highlight at top of row
 ];
 
-function StadiumStands() {
+function StadiumStands({ boundary }: { boundary: Boundary }) {
   const items = useMemo(() => {
     const result: { geo: ShapeGeometry; y: number; color: string }[] = [];
 
-    // Large dark floor covering everything outside the field boundary — eliminates green bleed
-    // Inner hole matches the playing field ellipse (82.5 × 67.5); outer covers well beyond the stands
+    // Large dark floor covering everything outside the field boundary — eliminates green bleed.
+    // The inner hole is the boundary ellipse *exactly*: this apron and snapToField are the same
+    // edge, so an entity clamped to the boundary lands on the line rather than half a metre
+    // past the paint. The hole used to be hardcoded 0.5 m tighter, which is what hid
+    // FieldBoundary's white line underneath it.
     const apronShape = new Shape();
     apronShape.absellipse(0, 0, 350, 300, 0, Math.PI * 2, false, 0);
     const apronHole = new Path();
-    apronHole.absellipse(0, 0, 82, 67, 0, Math.PI * 2, true, 0);
+    apronHole.absellipse(0, 0, boundary.semiX, boundary.semiZ, 0, Math.PI * 2, true, 0);
     apronShape.holes.push(apronHole);
     result.push({ geo: new ShapeGeometry(apronShape, 64), y: 0.05, color: '#08111e' });
 
@@ -61,8 +70,8 @@ function StadiumStands() {
     for (let i = 0; i < TIERS; i++) {
       const tY = 0.3 + i * 3.6;
       const tierFade = 1 - i * 0.055; // upper tiers slightly dimmer
-      const seatBaseA = 90 + i * STEP;
-      const seatBaseB = 74 + i * (STEP * 0.82);
+      const seatBaseA = boundary.semiX + STAND_CLEARANCE_X + i * STEP;
+      const seatBaseB = boundary.semiZ + STAND_CLEARANCE_Z + i * (STEP * 0.82);
 
       // Seat area: GRAD sub-rings, each a step in the colour gradient
       for (let g = 0; g < GRAD; g++) {
@@ -95,7 +104,7 @@ function StadiumStands() {
     }
 
     return result;
-  }, []);
+  }, [boundary]);
 
   return (
     <group>
@@ -114,6 +123,8 @@ interface FieldProps {
 
 export function Field({ darkMode = false }: FieldProps) {
   const fieldRef = useRef<Mesh>(null);
+  // The ground everything below is sized against.
+  const boundary = useActiveBoundary();
 
   const stripeTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
@@ -138,7 +149,7 @@ export function Field({ darkMode = false }: FieldProps) {
     <group>
       {/* Main field surface - oval shape */}
       <mesh ref={fieldRef} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[FIELD_CONFIG.length, FIELD_CONFIG.width, 32, 32]} />
+        <planeGeometry args={[boundary.semiX * 2, boundary.semiZ * 2, 32, 32]} />
         <meshStandardMaterial
           map={darkMode ? undefined : stripeTexture}
           color={darkMode ? '#020a02' : '#ffffff'}
@@ -147,36 +158,36 @@ export function Field({ darkMode = false }: FieldProps) {
      
       {/* Center square outline */}
       <CenterSquare />
-     
+
       {/* Center circles - two concentric circles */}
       <CenterCircles />
-     
+
       {/* 50m arcs */}
-      <FiftyMeterArcs />
-     
+      <FiftyMeterArcs boundary={boundary} />
+
       {/* Goal posts and behind posts - Team 1 end (negative X) */}
-      <GoalPosts position={[-FIELD_CONFIG.length / 2, 0, 0]} rotation={[0, -Math.PI / 2, 0]} />
-     
+      <GoalPosts position={[-boundary.semiX, 0, 0]} rotation={[0, -Math.PI / 2, 0]} />
+
       {/* Goal posts and behind posts - Team 2 end (positive X) */}
-      <GoalPosts position={[FIELD_CONFIG.length / 2, 0, 0]} rotation={[0, Math.PI / 2, 0]} />
-     
+      <GoalPosts position={[boundary.semiX, 0, 0]} rotation={[0, Math.PI / 2, 0]} />
+
       {/* Goal lines - 19.2m long at each end */}
-      <GoalLines />
-     
+      <GoalLines boundary={boundary} />
+
       {/* Goal squares - 6.4m x 9m in front of each goal */}
-      <GoalSquares />
-     
+      <GoalSquares boundary={boundary} />
+
       {/* Nine-metre line markers (radial markings outside boundary) */}
-      <NineMetreLineMarkers />
-     
+      <NineMetreLineMarkers boundary={boundary} />
+
       {/* Blue dots - 15m in front of center of kick-off line */}
-      <BlueDots />
-     
+      <BlueDots boundary={boundary} />
+
       {/* Field markings - boundary lines */}
-      <FieldBoundary />
+      <FieldBoundary boundary={boundary} />
 
       {/* Stadium seating bowl — not rendered in cinematic dark mode */}
-      {!darkMode && <StadiumStands />}
+      {!darkMode && <StadiumStands boundary={boundary} />}
 
       {/* Sky blue above, green below — strong ambient base */}
       <hemisphereLight args={['#8ab4d8', '#2d6b14', 1.1]} />
@@ -194,9 +205,9 @@ export function Field({ darkMode = false }: FieldProps) {
 }
 
 function GoalPosts({ position, rotation = [0, 0, 0] }: { position: [number, number, number]; rotation?: [number, number, number] }) {
-  const goalPostSpacing = FIELD_CONFIG.goalPostSpacing;
-  const behindPostSpacing = FIELD_CONFIG.behindPostSpacing;
-  const behindPostHeight = FIELD_CONFIG.behindPostHeight;
+  const goalPostSpacing = FIELD_MARKINGS.goalPostSpacing;
+  const behindPostSpacing = FIELD_MARKINGS.behindPostSpacing;
+  const behindPostHeight = FIELD_MARKINGS.behindPostHeight;
   // Goal posts (middle two) are 1.25x taller than behind posts (outer two)
   const goalPostHeight = behindPostHeight * 1.3;
   const postThickness = 0.15;
@@ -230,10 +241,10 @@ function GoalPosts({ position, rotation = [0, 0, 0] }: { position: [number, numb
   );
 }
 
-function GoalLines() {
-  const goalLineLength = FIELD_CONFIG.goalLineLength;
+function GoalLines({ boundary }: { boundary: Boundary }) {
+  const goalLineLength = FIELD_MARKINGS.goalLineLength;
   const halfLength = goalLineLength / 2;
-  const goalX = FIELD_CONFIG.length / 2;
+  const goalX = boundary.semiX;
  
   return (
     <group>
@@ -266,11 +277,11 @@ function GoalLines() {
   );
 }
 
-function GoalSquares() {
-  const squareWidth = FIELD_CONFIG.goalSquareWidth;
-  const squareDepth = FIELD_CONFIG.goalSquareDepth;
+function GoalSquares({ boundary }: { boundary: Boundary }) {
+  const squareWidth = FIELD_MARKINGS.goalSquareWidth;
+  const squareDepth = FIELD_MARKINGS.goalSquareDepth;
   const halfWidth = squareWidth / 2;
-  const goalX = FIELD_CONFIG.length / 2;
+  const goalX = boundary.semiX;
   const squareX = goalX - squareDepth / 2; // Positioned in front of goal line
  
   return (
@@ -382,11 +393,11 @@ function GoalSquares() {
   );
 }
 
-function NineMetreLineMarkers() {
+function NineMetreLineMarkers({ boundary }: { boundary: Boundary }) {
   // Nine-metre line markers: radial markings outside boundary line
   // indicating where the nine-metre line crosses the boundary
-  const nineMetreDistance = FIELD_CONFIG.nineMetreLineDistance;
-  const goalX = FIELD_CONFIG.length / 2;
+  const nineMetreDistance = FIELD_MARKINGS.nineMetreLineDistance;
+  const goalX = boundary.semiX;
   const markerLength = 2; // Length of radial marker
   const markerOffset = 0.5; // Distance outside boundary
  
@@ -407,15 +418,15 @@ function NineMetreLineMarkers() {
   // Team 1 end markers (negative X)
   const team1NineMetreX = -goalX + nineMetreDistance;
   // Approximate boundary intersection points
-  const team1TopZ = -FIELD_CONFIG.width / 2 * 0.7; // Approximate
-  const team1BottomZ = FIELD_CONFIG.width / 2 * 0.7;
+  const team1TopZ = -boundary.semiZ * 0.7; // Approximate
+  const team1BottomZ = boundary.semiZ * 0.7;
   markers.push(createMarker(team1NineMetreX - markerOffset, team1TopZ, 0));
   markers.push(createMarker(team1NineMetreX - markerOffset, team1BottomZ, 0));
  
   // Team 2 end markers (positive X)
   const team2NineMetreX = goalX - nineMetreDistance;
-  const team2TopZ = -FIELD_CONFIG.width / 2 * 0.7;
-  const team2BottomZ = FIELD_CONFIG.width / 2 * 0.7;
+  const team2TopZ = -boundary.semiZ * 0.7;
+  const team2BottomZ = boundary.semiZ * 0.7;
   markers.push(createMarker(team2NineMetreX + markerOffset, team2TopZ, Math.PI));
   markers.push(createMarker(team2NineMetreX + markerOffset, team2BottomZ, Math.PI));
  
@@ -438,10 +449,10 @@ function NineMetreLineMarkers() {
   );
 }
 
-function BlueDots() {
+function BlueDots({ boundary }: { boundary: Boundary }) {
   // Blue dots: 15 m (16 yd) in front of the centre of each kick-off line
-  const blueDotDistance = FIELD_CONFIG.blueDotDistance;
-  const goalX = FIELD_CONFIG.length / 2;
+  const blueDotDistance = FIELD_MARKINGS.blueDotDistance;
+  const goalX = boundary.semiX;
   const dotRadius = 0.3; // Visual size of dot
   const dotX1 = -goalX + blueDotDistance; // Team 1 end
   const dotX2 = goalX - blueDotDistance; // Team 2 end
@@ -464,7 +475,7 @@ function BlueDots() {
 }
 
 function CenterSquare() {
-  const size = FIELD_CONFIG.centerSquareSize;
+  const size = FIELD_MARKINGS.centerSquareSize;
   const halfSize = size / 2;
  
   return (
@@ -523,8 +534,8 @@ function CenterSquare() {
 
 function CenterCircles() {
   // Two concentric circles: 3m diameter (1.5m radius) and 10m diameter (5m radius)
-  const innerRadius = FIELD_CONFIG.centerCircleInnerRadius;
-  const outerRadius = FIELD_CONFIG.centerCircleOuterRadius;
+  const innerRadius = FIELD_MARKINGS.centerCircleInnerRadius;
+  const outerRadius = FIELD_MARKINGS.centerCircleOuterRadius;
   const lineWidth = 0.05;
  
   return (
@@ -557,11 +568,10 @@ function CenterCircles() {
   );
 }
 
-function FiftyMeterArcs() {
-  const { length, width } = FIELD_CONFIG;
-  const radius = FIELD_CONFIG.fiftyMetreArcRadius; // 50m radius
+function FiftyMeterArcs({ boundary }: { boundary: Boundary }) {
+  const radius = FIELD_MARKINGS.fiftyMetreArcRadius; // 50m radius — the same at every ground
   const segments = 256; // More segments for smoother arc
-  const goalX = length / 2;
+  const goalX = boundary.semiX;
  
   // Create arcs at each end, drawn between boundary lines
   // Arc center is at goal line center (x=±goalX, z=0), radius is 50m
@@ -572,9 +582,10 @@ function FiftyMeterArcs() {
    
     // Check if a point on the arc is within or on the boundary ellipse
     const isWithinBoundary = (x: number, z: number): boolean => {
-      const normalizedX = (2 * x) / length;
-      const normalizedZ = (2 * z) / width;
+      const normalizedX = x / boundary.semiX;
+      const normalizedZ = z / boundary.semiZ;
       const distSquared = normalizedX * normalizedX + normalizedZ * normalizedZ;
+      // Tolerance keeps the arc's endpoint on the boundary rather than a segment short.
       return distSquared <= 1.0001;
     };
    
@@ -649,8 +660,7 @@ function FiftyMeterArcs() {
   );
 }
 
-function FieldBoundary() {
-  const { length, width } = FIELD_CONFIG;
+function FieldBoundary({ boundary }: { boundary: Boundary }) {
   const segments = 64;
  
   return (
@@ -660,10 +670,10 @@ function FieldBoundary() {
         const angle1 = (i / segments) * Math.PI * 2;
         const angle2 = ((i + 1) / segments) * Math.PI * 2;
        
-        const x1 = (length / 2) * Math.cos(angle1);
-        const z1 = (width / 2) * Math.sin(angle1);
-        const x2 = (length / 2) * Math.cos(angle2);
-        const z2 = (width / 2) * Math.sin(angle2);
+        const x1 = boundary.semiX * Math.cos(angle1);
+        const z1 = boundary.semiZ * Math.sin(angle1);
+        const x2 = boundary.semiX * Math.cos(angle2);
+        const z2 = boundary.semiZ * Math.sin(angle2);
        
         return (
           <line key={i} position={[0, 0.02, 0]}>

@@ -1,51 +1,69 @@
-import { FIELD_CONFIG } from '../models/FieldModel';
+import type { BoundaryDimensions } from '../models/VenueModel';
+import { STANDARD_GROUND_DIMENSIONS } from '../models/VenueModel';
 
-// Helper functions for field geometry calculations
+// Helper functions for field geometry calculations.
+//
+// Everything here is pure and store-free: the ground is passed in as a Boundary
+// rather than read from a store, so geometry can be tested at any dimensions and
+// leaf layers can use it without pulling in the store graph. Same split as
+// boardSnapshot / boardSnapshotIO.
 
-export function isPointInField(x: number, z: number): boolean {
-  const { length, width } = FIELD_CONFIG;
-  
-  // Check if point is within oval field bounds
-  const normalizedX = (2 * x) / length;
-  const normalizedZ = (2 * z) / width;
-  
+/**
+ * The boundary ellipse, as geometry consumes it. Semi-axes rather than full
+ * dimensions because that is what the ellipse maths wants at nearly every site.
+ * Deliberately not the whole Venue record — geometry has no business reading a
+ * ground's name or id.
+ */
+export interface Boundary {
+  /** Half the goal-to-goal length, in metres. */
+  semiX: number;
+  /** Half the wing-to-wing width, in metres. */
+  semiZ: number;
+}
+
+export function boundaryOf(dimensions: BoundaryDimensions): Boundary {
+  return {
+    semiX: dimensions.boundaryLength / 2,
+    semiZ: dimensions.boundaryWidth / 2,
+  };
+}
+
+/**
+ * The generic ground. No longer what the board renders on — every call site
+ * resolves the Active Venue through useActiveBoundary — so this remains for two
+ * things only: the dimensions the seeded Standard ground carries, and the
+ * ground tests state their claims against.
+ */
+export const STANDARD_BOUNDARY: Boundary = boundaryOf(STANDARD_GROUND_DIMENSIONS);
+
+export function isPointInField(x: number, z: number, boundary: Boundary): boolean {
   // Ellipse equation: (x/a)^2 + (z/b)^2 <= 1
+  const normalizedX = x / boundary.semiX;
+  const normalizedZ = z / boundary.semiZ;
+
   return (normalizedX * normalizedX + normalizedZ * normalizedZ) <= 1;
 }
 
-export function snapToField(x: number, z: number): [number, number] {
+export function snapToField(x: number, z: number, boundary: Boundary): [number, number] {
   // Snap position to field boundary if outside
-  if (!isPointInField(x, z)) {
-    const { length, width } = FIELD_CONFIG;
-    
-    // Normalize coordinates
-    const normalizedX = (2 * x) / length;
-    const normalizedZ = (2 * z) / width;
-    
+  if (!isPointInField(x, z, boundary)) {
+    const normalizedX = x / boundary.semiX;
+    const normalizedZ = z / boundary.semiZ;
+
     // Calculate distance from center
     const distance = Math.sqrt(normalizedX * normalizedX + normalizedZ * normalizedZ);
-    
+
     if (distance > 1) {
       // Project onto ellipse boundary
       const angle = Math.atan2(normalizedZ, normalizedX);
-      const snappedX = (length / 2) * Math.cos(angle);
-      const snappedZ = (width / 2) * Math.sin(angle);
-      
+      const snappedX = boundary.semiX * Math.cos(angle);
+      const snappedZ = boundary.semiZ * Math.sin(angle);
+
       return [snappedX, snappedZ];
     }
   }
-  
-  return [x, z];
-}
 
-export function getFieldBounds() {
-  const { length, width } = FIELD_CONFIG;
-  return {
-    minX: -length / 2,
-    maxX: length / 2,
-    minZ: -width / 2,
-    maxZ: width / 2,
-  };
+  return [x, z];
 }
 
 /**
@@ -63,6 +81,13 @@ export function getFieldBounds() {
  *   HBF:    x <= -30 && |z| >= 20
  *   CHB:    x <= -30 && |z| < 20
  *   BP/FB:  x <= -48
+ *
+ * NOTE: these thresholds are still calibrated to Standard ground and take no
+ * Boundary. Making them follow the Active Venue — lateral thresholds relative to
+ * half-width, forward/back anchored to the goal line — is the Venue wave's ticket
+ * 04, which changes the signature and the thresholds together. A Boundary accepted
+ * here now and ignored would look venue-aware while silently answering for a
+ * different ground, which is the exact failure this wave exists to remove.
  */
 export function positionToZone(x: number, z: number): string | null {
   const absZ = Math.abs(z);

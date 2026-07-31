@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useCameraStore, MIN_ZOOM, MAX_ZOOM, MIN_POV_DISTANCE, MAX_POV_DISTANCE } from '../cameraStore';
+import { STANDARD_BOUNDARY, boundaryOf } from '../../utils/fieldGeometry';
+import { presetCameraPose } from '../../utils/cameraMath';
 
 beforeEach(() => {
   useCameraStore.setState({ povPlayer1Id: null, povPlayer2Id: null, activePovSlot: null });
@@ -101,28 +103,32 @@ describe('focusOnPlayer', () => {
 });
 
 describe('setPresetView', () => {
-  it('top: overhead position, origin target, zoom 1', () => {
-    useCameraStore.getState().setPresetView('top');
-    const s = useCameraStore.getState();
-    expect(s.position).toEqual([0, 200, 0]);
-    expect(s.target).toEqual([0, 0, 0]);
-    expect(s.zoom).toBe(1);
+  // What the poses *are* is cameraMath's business and is pinned in its own tests.
+  // What matters here is that the store adopts the pose for the ground it was
+  // handed, and resets the view state a preset is expected to reset.
+  it('adopts the pose for the ground it is given', () => {
+    const tight = boundaryOf({ boundaryLength: 150, boundaryWidth: 110 });
+
+    for (const view of ['top', 'sideline', 'end-to-end'] as const) {
+      for (const ground of [STANDARD_BOUNDARY, tight]) {
+        useCameraStore.getState().setPresetView(view, ground);
+        const { position, target } = presetCameraPose(view, ground);
+        expect(useCameraStore.getState().position).toEqual(position);
+        expect(useCameraStore.getState().target).toEqual(target);
+      }
+    }
   });
 
-  it('sideline: position [0,50,150]', () => {
-    useCameraStore.getState().setPresetView('sideline');
-    expect(useCameraStore.getState().position).toEqual([0, 50, 150]);
-  });
-
-  it('end-to-end: position [150,50,0]', () => {
-    useCameraStore.getState().setPresetView('end-to-end');
-    expect(useCameraStore.getState().position).toEqual([150, 50, 0]);
+  it('returns to unzoomed', () => {
+    useCameraStore.getState().setZoom(2.5);
+    useCameraStore.getState().setPresetView('top', STANDARD_BOUNDARY);
+    expect(useCameraStore.getState().zoom).toBe(1);
   });
 
   it('clears an active POV slot', () => {
     useCameraStore.getState().setPovPlayer(1, 'player-1');
     expect(useCameraStore.getState().activePovSlot).toBe(1);
-    useCameraStore.getState().setPresetView('top');
+    useCameraStore.getState().setPresetView('top', STANDARD_BOUNDARY);
     expect(useCameraStore.getState().activePovSlot).toBeNull();
   });
 });

@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { presetCameraPose, type CameraPreset } from '../utils/cameraMath';
+import type { Boundary } from '../utils/fieldGeometry';
 
 interface CameraState {
   position: [number, number, number];
@@ -18,7 +20,13 @@ interface CameraState {
   setZoom: (zoom: number) => void;
   resetCamera: () => void;
   focusOnPlayer: (position: [number, number, number]) => void;
-  setPresetView: (view: 'top' | 'sideline' | 'end-to-end') => void;
+  /**
+   * Frame the ground from one of the three fixed viewpoints. The Boundary is passed
+   * in rather than read here: the camera store has no business resolving which Venue
+   * is active, and an explicit parameter means the compiler names every caller if
+   * that ever changes again.
+   */
+  setPresetView: (view: CameraPreset, boundary: Boundary) => void;
 
   // POV mode actions
   setPovPlayer: (slot: 1 | 2, playerId: string) => void;
@@ -94,33 +102,9 @@ export const useCameraStore = create<CameraState>((set, get) => ({
     });
   },
 
-  setPresetView: (view) => {
-    switch (view) {
-      case 'top':
-        set({
-          position: [0, 200, 0],
-          target: [0, 0, 0],
-          zoom: 1,
-          activePovSlot: null,
-        });
-        break;
-      case 'sideline':
-        set({
-          position: [0, 50, 150],
-          target: [0, 0, 0],
-          zoom: 1,
-          activePovSlot: null,
-        });
-        break;
-      case 'end-to-end':
-        set({
-          position: [150, 50, 0],
-          target: [0, 0, 0],
-          zoom: 1,
-          activePovSlot: null,
-        });
-        break;
-    }
+  setPresetView: (view, boundary) => {
+    const { position, target } = presetCameraPose(view, boundary);
+    set({ position, target, zoom: 1, activePovSlot: null });
   },
 
   // POV mode actions

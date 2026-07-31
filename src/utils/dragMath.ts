@@ -1,5 +1,6 @@
 import { Plane, Ray, Vector2, Vector3, Camera, Raycaster } from 'three';
 import { snapToField } from './fieldGeometry';
+import type { Boundary } from './fieldGeometry';
 
 /** Rotation applied per recentred screen-pixel during right-drag. */
 export const ROTATION_SENSITIVITY = 0.01;
@@ -56,16 +57,20 @@ export function dragRotation(
 
 /**
  * Snap the current pointer onto the field: raycast from the camera, intersect
- * the ground plane, snap to field bounds. Returns [x, z] or null. The caller
- * owns y (players sit at 0, the ball at AFL_BALL.length).
+ * the ground plane, snap to the given ground's boundary. Returns [x, z] or null.
+ * The caller owns y (players sit at 0, the ball at AFL_BALL.length).
+ *
+ * The Boundary is a parameter rather than a store read because this runs on the
+ * drag hot path — callers resolve it once in component scope, not per event.
  */
 export function snapPointerToField(
   pointer: Vector2,
   camera: Camera,
   raycaster: Raycaster,
+  boundary: Boundary,
 ): [number, number] | null {
   raycaster.setFromCamera(pointer, camera);
   const point = intersectGroundPlane(raycaster.ray);
   if (!point) return null;
-  return snapToField(point[0], point[1]);
+  return snapToField(point[0], point[1], boundary);
 }

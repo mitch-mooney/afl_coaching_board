@@ -3,6 +3,7 @@ import type { Player } from '../models/PlayerModel';
 import type { Play, PlayPhase } from '../models/PlayModel';
 import type { Playbook } from '../models/PlaybookModel';
 import type { TeamRoster } from '../models/RosterModel';
+import type { Venue } from '../models/VenueModel';
 import { toPhase } from '../utils/boardSnapshot';
 import type { Annotation } from './annotationStore';
 
@@ -56,6 +57,8 @@ class AppDatabase extends Dexie {
   teamRosters!: Table<TeamRoster, number>;
   // Playbook collections (each Play carries a playbookId → one of these).
   playbookCollections!: Table<Playbook, number>;
+  // Grounds the coach has measured. App-wide match context, not Play content.
+  venues!: Table<Venue, number>;
 
   constructor() {
     super('AFLPlaybookDB');
@@ -109,6 +112,18 @@ class AppDatabase extends Dexie {
       await tx.table('scenarios').toCollection().modify((p) => {
         p.playbookId = myPlaysId;
       });
+    });
+    // v6: Venues. Purely additive — a new table and nothing else. Play content is
+    // untouched and needs no migration: positions were always absolute metres, and
+    // that meaning is unchanged by grounds becoming variable. The seeded "Standard
+    // ground" is created lazily by venueStore rather than here, so the seeding rule
+    // lives in one place instead of being split between a migration and a store.
+    this.version(6).stores({
+      playbooks: '++id, name, createdAt, videoBlobId',
+      playbookCollections: '++id, name, createdAt',
+      scenarios: '++id, name, createdAt, updatedAt, team1RosterId, team2RosterId, playbookId',
+      teamRosters: '++id, teamName, createdAt',
+      venues: '++id, name, createdAt',
     });
   }
 }

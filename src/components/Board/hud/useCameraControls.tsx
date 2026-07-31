@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useCameraStore } from '../../../store/cameraStore';
 import { usePlayerStore } from '../../../store/playerStore';
+import { useActiveBoundary } from '../../../hooks/useActiveBoundary';
 import { PovSelectModal } from './PovSelectModal';
 import type { HudAction, HudControls } from './hudActions';
 
@@ -8,6 +9,8 @@ export function useCameraControls(): HudControls {
   const { povPlayer1Id, povPlayer2Id, switchToBroadcast, setPresetView, resetCamera, setActivePovSlot } =
     useCameraStore();
   const players = usePlayerStore((s) => s.players);
+  // A preset frames the ground the coach is on, not a ground they are not.
+  const boundary = useActiveBoundary();
   const [assignSlot, setAssignSlot] = useState<1 | 2 | null>(null);
 
   const label = (id: string | null) => {
@@ -18,9 +21,9 @@ export function useCameraControls(): HudControls {
 
   const actions: HudAction[] = [
     { key: 'broadcast', label: '📺 Broadcast', onClick: switchToBroadcast },
-    { key: 'top', label: 'Top', onClick: () => setPresetView('top') },
-    { key: 'sideline', label: 'Sideline', onClick: () => setPresetView('sideline') },
-    { key: 'end-to-end', label: 'End-to-end', onClick: () => setPresetView('end-to-end') },
+    { key: 'top', label: 'Top', onClick: () => setPresetView('top', boundary) },
+    { key: 'sideline', label: 'Sideline', onClick: () => setPresetView('sideline', boundary) },
+    { key: 'end-to-end', label: 'End-to-end', onClick: () => setPresetView('end-to-end', boundary) },
     { key: 'reset-camera', label: 'Reset camera', onClick: resetCamera },
     { key: 'pov1', label: `👁 POV ${label(povPlayer1Id)}`, onClick: () => setActivePovSlot(1) },
     { key: 'pov2', label: `👁 POV ${label(povPlayer2Id)}`, onClick: () => setActivePovSlot(2) },
