@@ -264,7 +264,7 @@ export function PlayerComponent({ player }: PlayerProps) {
 
     // F6: Auto-suggest position from drop zone if player has none
     if (!player.positionName) {
-      const suggested = positionToZone(finalPos[0], finalPos[2]);
+      const suggested = positionToZone(finalPos[0], finalPos[2], boundary);
       if (suggested) {
         setPlayerPosition(player.id, suggested);
       }
@@ -272,7 +272,7 @@ export function PlayerComponent({ player }: PlayerProps) {
 
     preDragSnapshot.current = null;
     prevDragPos.current = null;
-  }, [player.id, player.position, player.positionName, pushSnapshot, players, setPlayerPosition]);
+  }, [boundary, player.id, player.position, player.positionName, pushSnapshot, players, setPlayerPosition]);
 
   // End dragging helper - used by both pointerUp and window events
   const endDragging = useCallback(() => {

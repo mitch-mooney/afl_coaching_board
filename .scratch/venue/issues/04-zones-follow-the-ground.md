@@ -30,17 +30,64 @@ same lines. That is precisely why it stays out: this change must be a pure subst
 **Blocked by:** 01 (the `Boundary` parameter must exist). Startable in parallel with 03; until
 03 lands it is verifiable by test rather than by eye.
 
-**Status:** ready-for-agent
+**Status:** done — `feat/venue-04-zones`
+
+**Outcome — the thresholds moved, the branch structure did not.** The rewrite is confined to
+what each `if` compares against: three lateral constants became fractions of `semiZ`, and the
+two forward/back constants became distances out from the goal line, read through a
+`metresFromGoal(x, boundary)` helper. Every branch, in the same order, returning the same code
+as before. That was the point — a change to *which* thresholds are used, never to *what* the
+function returns, so the deferred ordering bug travels through untouched.
+
+Because `metresFromGoal` measures from the **nearer** goal via `|x|`, the two bands
+(`deepInsideFifty`, `insideTheHalfLine`) are end-agnostic and the sign of `x` picks the end.
+The old code carried the same threshold twice, once per end (`x >= 48` and `x <= -48`); it is
+now stated once and mirrored by construction, which is why the back half cannot drift from the
+forward half in a later edit.
+
+**The one zone that is neither relative nor goal-anchored is the centre**, on *both* axes.
+The centre square is a 50 × 50 **Absolute marking** at the middle of the ground, so 15 m from
+the bounce already means the same thing everywhere. The first version of this change scaled the
+centre's lateral edge along with the other three lateral thresholds — they happened to share the
+value 15 at Standard ground, so every test still passed while a tight ground quietly shrank the
+centre square to ±12.2 m and pushed a player standing inside the painted square out of the
+centre. Code review caught it; there is now a `CENTRE_ZONE_METRES_FROM_BOUNCE` constant and a
+test at three widths. It is the same failure normalising positions was rejected for, arrived at
+from the opposite direction, and worth recording because the coincidence hid it.
+
+**Deliberately not done — the short-ground squeeze.** The two treatments meet on a short ground
+and the goal-anchored one wins. The half-forward band starts at `semiX - 54.5` out from centre,
+so under 139 m of length it reaches inside the middle of the ground and the midfield is squeezed
+from both ends: on a 130 m ground `C` survives only within 10.5 m of the bounce, and `W` and `R`
+are pinched to the same sliver. At the bottom of the range `venueStore` accepts without even
+warning — 120 m — that sliver is 5.5 m, and by about 109 m only the centre line itself is left
+(`x === 0` exactly, which neither end branch claims). A coach can reach this without leaving the
+accepted range.
+
+It is not special-cased, for two reasons. It is arguably the honest answer — on a ground that
+short the arcs really do reach the centre circle — and any rule that made the bands yield to the
+midfield would be inventing football this ticket was not asked to decide. Worth a look if a
+junior ground that short is ever recorded for real; a proportional floor on the midfield band is
+the obvious shape.
+
+**Not changed:** the `positionToZone` call site in `Player.tsx` was already holding an
+`useActiveBoundary()` result for drag clamping, so the drop-zone suggestion picked the Active
+Venue up by passing it along — one argument and one dependency.
 
 Vocabulary: `CONTEXT.md`, "The ground" — **Boundary**, **Absolute markings**. Spec:
 `.scratch/venue/spec.md`. ADR: `docs/adr/0002-venue-is-app-wide-positions-stay-absolute.md`,
 whose "Zones" consequence records why the origin moves.
 
-- [ ] Lateral thresholds are fractions of half-width; the same fraction returns the same zone
-      at any width.
-- [ ] Forward/back thresholds are absolute distances measured from the goal line.
-- [ ] A position 34.5 m from goal is full forward at 150 m, 165 m and 175 m alike — the case
-      that fails under the rejected centre-anchored reading.
-- [ ] At Standard ground, every zone return is **identical** to before this ticket.
-- [ ] Tests cover a tight ground, Standard ground and a wide one, written as football claims.
-- [ ] `FB`/`BP` remain unreachable — unchanged, still ticketed separately, not touched here.
+- [x] Lateral thresholds are fractions of half-width; the same fraction returns the same zone
+      at any width. `4/9`, `8/27`, `2/9` — exact rather than the spec's 3-s.f. roundings, so
+      Standard ground reproduces to the metre rather than to within a centimetre.
+- [x] Forward/back thresholds are absolute distances measured from the goal line — 34.5 m and
+      54.5 m out, via `metresFromGoal`.
+- [x] A position 34.5 m from goal is full forward at 150 m, 165 m and 175 m alike. Under the
+      centre-anchored reading the 150 m case returns `CHF`, which is the test that was red.
+- [x] At Standard ground, every zone return is **identical** to before this ticket — the
+      pre-existing Standard-ground cases passed untouched through both slices.
+- [x] Tests cover a tight ground (150 × 110), Standard ground and a wide one (175 × 141),
+      written as football claims.
+- [x] `FB`/`BP` remain unreachable — pinned at Standard ground as before, and now at the tight
+      and wide grounds too, so the deferred fix cannot be made accidentally at one width only.
