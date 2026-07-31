@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useAnimationStore } from '../../../store/animationStore';
 import { useAnnotationStore } from '../../../store/annotationStore';
 import { usePenStore } from '../../../store/penStore';
+import { tipAvailable } from '../../../utils/inputContract';
 import { ColourPopover } from './ColourPopover';
 import { glass, TEAL } from './podStyles';
 import { TOOL_RAIL_TIPS } from './toolRailTips';
@@ -31,7 +33,13 @@ import { TOOL_RAIL_TIPS } from './toolRailTips';
  * a Tool rail button never does.
  *
  * The one exception is the current-colour button at the foot of the rail — see
- * the note on it below.
+ * the note on it below. It is not a tip, so playback never disables it.
+ *
+ * A tip that playback has made unavailable renders faded and refuses the tap.
+ * The rail does not decide that itself: it asks `tipAvailable` in the input
+ * contract, which is the same predicate `useStrokeAuthoring` consults, so the
+ * button's appearance and what a Stroke is actually allowed to do cannot drift
+ * apart.
  */
 
 const TIP_BUTTON: CSSProperties = {
@@ -67,6 +75,9 @@ export function ToolRail() {
   // covers both taps.
   const armTip = usePenStore((state) => state.armTip);
   const selectedColour = useAnnotationStore((state) => state.selectedColor);
+  // Only ever read through `tipAvailable` — the rail knows that playback makes
+  // *some* tip unavailable, never which one.
+  const isPlaying = useAnimationStore((state) => state.isPlaying);
 
   // The only state the rail owns. Colour and thickness themselves live in
   // `annotationStore`, where the Stroke-authoring hook already reads them.
@@ -131,18 +142,38 @@ export function ToolRail() {
         >
           {TOOL_RAIL_TIPS.map(({ tip, label, icon, shortcut }) => {
             const armed = armedTip === tip;
+            // The one predicate. The same value drives the styling, the ARIA
+            // state and the handler, so the button cannot look one way and
+            // behave the other.
+            const available = tipAvailable(tip, { isPlaying });
             return (
               <button
                 key={tip}
                 type="button"
-                onClick={() => armTip(tip)}
+                // `aria-disabled` rather than the `disabled` attribute: this is a
+                // momentary unavailability, and a natively disabled button drops
+                // out of the focus order and loses its tooltip — precisely the
+                // tooltip that explains why it is unavailable. So the handler
+                // does the refusing.
+                onClick={() => available && armTip(tip)}
                 aria-label={label}
                 aria-pressed={armed}
-                title={`${label} (${shortcut})`}
+                aria-disabled={!available}
+                title={
+                  available
+                    ? `${label} (${shortcut})`
+                    : `${label} — unavailable while an animation plays`
+                }
                 style={{
                   ...TIP_BUTTON,
+                  // Armed styling survives playback, because the tip itself does.
                   background: armed ? '#f59e0b' : 'transparent',
                   color: armed ? '#000' : '#ffffffcc',
+                  // Faded, with a not-allowed cursor: a third treatment,
+                  // distinct from armed amber and from an unarmed tip, whichever
+                  // of the two the unavailable tip happens to be.
+                  opacity: available ? 1 : 0.35,
+                  cursor: available ? 'pointer' : 'not-allowed',
                 }}
               >
                 {icon}

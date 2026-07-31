@@ -23,6 +23,42 @@ export interface PointerContext {
   button?: number;
 }
 
+/**
+ * Playback, as much of it as the contract needs to know.
+ *
+ * `isPlaying` only — paused counts as not playing. Playback drives entity
+ * positions solely while playing (`hooks/usePathPlayback.ts`); paused, the
+ * tokens stay put and the coach may already drag them, so nothing about a paused
+ * animation makes authoring a MovementPath wrong.
+ */
+export interface PlaybackContext {
+  isPlaying: boolean;
+}
+
+/**
+ * Whether a Pen tip may author, given playback.
+ *
+ * Annotations are inert markup — drawing a circle over a moving player is a
+ * legitimate coaching gesture and playback makes it no less so. The Path tip is
+ * different in kind: it writes to the very state playback is reading, and it
+ * claims its entity by proximity, so a Path Stroke authored mid-animation would
+ * attach to whatever happened to be near the Stroke's start at that instant.
+ * That is a write during a read of the same state. So the Path tip alone goes
+ * unavailable while an animation plays; every other tip is unaffected.
+ *
+ * The armed tip is deliberately *not* cleared when playback starts — the coach
+ * previews mid-authoring constantly, and losing the tip on every preview would
+ * grate. An armed Path tip simply cannot author until playback ends.
+ *
+ * One predicate, two consumers: the Tool rail's disabled state and the
+ * stroke-authoring guard both ask this. That is the point of it being a single
+ * predicate — a button that looks disabled and a Stroke that is refused cannot
+ * drift apart into disagreeing.
+ */
+export function tipAvailable(tip: PenTip, { isPlaying }: PlaybackContext): boolean {
+  return tip !== 'path' || !isPlaying;
+}
+
 export type AuthoringIntent = 'author' | 'manipulate';
 
 export function authoringIntent({
