@@ -2,10 +2,9 @@ import { useState } from 'react';
 import { usePlayerStore } from '../../../store/playerStore';
 import { useUIStore } from '../../../store/uiStore';
 import { usePathStore } from '../../../store/pathStore';
-import { usePenStore } from '../../../store/penStore';
+import { useAnnotationStore } from '../../../store/annotationStore';
 import { useBallStore } from '../../../store/ballStore';
 import { getFormationById } from '../../../data/formations';
-import { AnnotatePalette } from './AnnotatePalette';
 import { TeamSelectModal } from './TeamSelectModal';
 import { RosterImportModal } from './RosterImportModal';
 import { useBoardUndo } from '../../../hooks/useBoardUndo';
@@ -26,17 +25,16 @@ export function useSetupControls(): HudControls {
   const selectedPlayerId = usePlayerStore((s) => s.selectedPlayerId);
   const players = usePlayerStore((s) => s.players);
   const setActiveFormationId = useUIStore((s) => s.setActiveFormationId);
-  const armedTip = usePenStore((s) => s.armedTip);
-  const armTip = usePenStore((s) => s.armTip);
   const clearPaths = usePathStore((s) => s.clearPaths);
   const paths = usePathStore((s) => s.paths);
+  const clearAnnotations = useAnnotationStore((s) => s.clearAnnotations);
+  const annotations = useAnnotationStore((s) => s.annotations);
   const ball = useBallStore((s) => s.ball);
   const assignBallToPlayer = useBallStore((s) => s.assignBallToPlayer);
   const { handleUndo, canUndo } = useBoardUndo();
 
   const [showTeams, setShowTeams] = useState(false);
   const [showRoster, setShowRoster] = useState(false);
-  const [showAnnotate, setShowAnnotate] = useState(false);
 
   const applyPreset = (id: string) => {
     const f = getFormationById(id);
@@ -54,14 +52,16 @@ export function useSetupControls(): HudControls {
     { key: 'labels', label: `Labels: ${LABELS[labelMode]}`, onClick: cycleLabelMode },
     { key: 'reset', label: 'Reset players', onClick: resetPlayers },
     { key: 'undo', label: '↩ Undo', onClick: handleUndo, disabled: !canUndo() },
-    {
-      key: 'path-tip',
-      label: `✏ Path tip${armedTip === 'path' ? ' (armed)' : ''}`,
-      onClick: () => armTip('path'),
-      active: armedTip === 'path',
-      extraStyle: armedTip === 'path' ? undefined : { background: 'transparent' },
-    },
+    // The two bulk clears sit together: each wipes a category of board content,
+    // and neither is an instrument — arming a Pen tip is the Tool rail's job and
+    // only the Tool rail's, so no tip is armable from here.
     { key: 'clear', label: 'Clear paths', onClick: clearPaths, disabled: paths.length === 0 },
+    {
+      key: 'clear-annotations',
+      label: 'Clear annotations',
+      onClick: clearAnnotations,
+      disabled: annotations.length === 0,
+    },
     {
       key: 'give',
       label: `🏉 Give ball${selectedPlayer ? ` to #${selectedPlayer.number}` : ''}`,
@@ -75,7 +75,6 @@ export function useSetupControls(): HudControls {
       onClick: () => assignBallToPlayer(null),
       hidden: !(ball && assignedPlayer),
     },
-    { key: 'annotate', label: '↗ Annotate…', onClick: () => setShowAnnotate(true) },
     { key: 'roster', label: 'Import roster…', onClick: () => setShowRoster(true) },
   ];
 
@@ -83,7 +82,6 @@ export function useSetupControls(): HudControls {
     <>
       <TeamSelectModal open={showTeams} onClose={() => setShowTeams(false)} />
       <RosterImportModal open={showRoster} onClose={() => setShowRoster(false)} />
-      <AnnotatePalette open={showAnnotate} onClose={() => setShowAnnotate(false)} />
     </>
   );
 

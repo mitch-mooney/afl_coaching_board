@@ -26,8 +26,14 @@ interface AnnotationState {
   selectedColor: string;
   thickness: number;
   livePreview: { type: AnnotationType; points: number[][] } | null;
-  // Pending 3D placement point for text tool — set on click, cleared after input
+  // Pending 3D placement point for the Text tip — set on tap, cleared after input
   pendingTextPoint: [number, number, number] | null;
+  /**
+   * Where on screen that tap landed, in client coordinates, so the text field
+   * can appear beside it instead of across the board. Optional: a pending point
+   * set without one falls back to a centred field.
+   */
+  pendingTextAnchor: { x: number; y: number } | null;
 
   // Actions
   addAnnotation: (annotation: Omit<Annotation, 'id' | 'createdAt'>) => void;
@@ -36,7 +42,10 @@ interface AnnotationState {
   setSelectedColor: (color: string) => void;
   setThickness: (thickness: number) => void;
   setLivePreview: (preview: { type: AnnotationType; points: number[][] } | null) => void;
-  setPendingTextPoint: (point: [number, number, number] | null) => void;
+  setPendingTextPoint: (
+    point: [number, number, number] | null,
+    anchor?: { x: number; y: number } | null
+  ) => void;
   clearLivePreview: () => void;
   setAnnotations: (annotations: Annotation[]) => void;
   exportAnnotations: () => string;
@@ -67,9 +76,12 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   thickness: 2,
   livePreview: null,
   pendingTextPoint: null,
+  pendingTextAnchor: null,
 
-  setPendingTextPoint: (point) => {
-    set({ pendingTextPoint: point });
+  // One setter owns both halves, so the anchor can never outlive or contradict
+  // the placement point it belongs to.
+  setPendingTextPoint: (point, anchor = null) => {
+    set({ pendingTextPoint: point, pendingTextAnchor: point ? anchor : null });
   },
 
   addAnnotation: (annotation) => {

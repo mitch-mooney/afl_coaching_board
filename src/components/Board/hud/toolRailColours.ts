@@ -5,11 +5,11 @@
  * Pure data, deliberately free of React, so the list can be asserted without a
  * component harness — same shape as `toolRailTips.ts`.
  *
- * These are the six values `AnnotatePalette` offers today, copied rather than
- * imported on purpose: the palette is retired in the next ticket and this module
- * is where the list lives afterwards. The default `selectedColor` in
- * `annotationStore` must stay one of these, or the popover would open with no
- * swatch marked selected — asserted in the test beside this file.
+ * The six values the retired `AnnotatePalette` used to offer. This module is now
+ * their only home — the palette that once duplicated them is gone. The default
+ * `selectedColor` in `annotationStore` must stay one of these, or the popover
+ * would open with no swatch marked selected — asserted in the test beside this
+ * file.
  */
 export const TOOL_RAIL_COLOURS: readonly string[] = [
   '#ffff00',
