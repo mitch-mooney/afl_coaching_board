@@ -26,28 +26,40 @@ measured, or a coach will trust dimensions that were never real.
 
 **Blocked by:** None — can start immediately. Independent of ticket 01; the two do not touch.
 
-**Status:** ready-for-agent
+**Status:** done — `feat/venue-01-boundary`
+
+**Outcome — one design decision the ticket did not anticipate:** **Standard ground cannot be
+edited.** Review caught that allowing it broke two things at once: the row is labelled "generic,
+not a measured ground", which an edit makes a lie; and the Active Venue resolved to the
+*constant* while the panel offered Edit on the *record*, so editing it changed the list and not
+the board. Fixed by resolving the Active Venue through the seeded record — `activeVenueId` is
+now always a real id, never null, making "there is always an Active Venue" literally true — and
+by refusing edits on the default. A coach with a real ground records their own Venue, which is
+the point of the feature.
+
+Also: the panel is reachable as `Venue: <name>` in the Match section, so the active ground is
+visible without opening it.
 
 Vocabulary: `CONTEXT.md`, "The ground" — **Venue**, **Boundary dimensions**, **Active Venue**,
 **Standard ground**. Spec: `.scratch/venue/spec.md`. ADR:
 `docs/adr/0002-venue-is-app-wide-positions-stay-absolute.md`.
 
-- [ ] A Venue is a name plus `boundaryLength` and `boundaryWidth` in metres. Named in full —
+- [x] A Venue is a name plus `boundaryLength` and `boundaryWidth` in metres. Named in full —
       they describe the playing surface, not the ground's footprint. No unit conversion.
-- [ ] Venues persist across reloads; the schema change leaves existing Plays and Playbooks
+- [x] Venues persist across reloads; the schema change leaves existing Plays and Playbooks
       readable and untouched. There is no Play migration — stored coordinates are unchanged.
-- [ ] "Standard ground" (165 × 135) is seeded on first load, is not re-seeded on later loads,
+- [x] "Standard ground" (165 × 135) is seeded on first load, is not re-seeded on later loads,
       and cannot be deleted.
-- [ ] The Active Venue survives a reload. An absent or unknown stored id resolves to Standard
+- [x] The Active Venue survives a reload. An absent or unknown stored id resolves to Standard
       ground rather than throwing.
-- [ ] Deleting the Active Venue falls back to Standard ground.
-- [ ] Validation **rejects** dimensions where width is greater than or equal to length, or
+- [x] Deleting the Active Venue falls back to Standard ground.
+- [x] Validation **rejects** dimensions where width is greater than or equal to length, or
       either is non-positive — an AFL ground is always longer than it is wide, and
       transposition is the likely data-entry error.
-- [ ] Validation **warns but accepts** outside 120–200 m long or 90–170 m wide. The coach
+- [x] Validation **warns but accepts** outside 120–200 m long or 90–170 m wide. The coach
       measured the ground; we did not.
-- [ ] Venue create / edit / delete / activate are reachable from the Match section of the
+- [x] Venue create / edit / delete / activate are reachable from the Match section of the
       global drawer, with the active one marked.
-- [ ] Standard ground reads in the UI as generic rather than measured.
-- [ ] Tests cover the seeding, the un-deletability, both fallbacks, and all three validation
+- [x] Standard ground reads in the UI as generic rather than measured.
+- [x] Tests cover the seeding, the un-deletability, both fallbacks, and all three validation
       outcomes. `playbookStore`'s tests are the prior art.
