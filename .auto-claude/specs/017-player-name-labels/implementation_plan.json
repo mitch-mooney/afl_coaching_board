@@ -322,8 +322,9 @@
             "type": "manual",
             "instructions": "Test: 1. Very long names (truncate/wrap) 2. Empty names (hide label) 3. Special characters 4. Many players with names (performance)"
           },
-          "status": "pending",
-          "notes": "Handle edge cases: long names, empty strings, performance with 22+ players."
+          "status": "completed",
+          "notes": "Implemented visual polish and edge case handling: 1) Long name truncation (>12 chars shows ellipsis), 2) Empty/whitespace names hidden, 3) Billboard wrapper for camera-facing labels, 4) useMemo for performance, 5) maxWidth constraint on Text. Committed as ed5a019.",
+          "updated_at": "2026-01-12T05:03:29.794356+00:00"
         }
       ]
     }
@@ -453,10 +454,31 @@
       "notes": "Use browser DevTools \u2192 Application \u2192 IndexedDB \u2192 AFLPlaybookDB"
     }
   },
-  "qa_signoff": null,
-  "last_updated": "2026-01-12T04:59:53.253501+00:00",
+  "qa_signoff": {"status": "approved", "timestamp": "2026-01-12T05:15:00Z", "qa_session": 2, "verified_by": "qa_agent"},
+  "last_updated": "2026-01-12T05:03:29.794356+00:00",
   "status": "in_progress",
   "planStatus": "in_progress",
   "updated_at": "2026-01-12T04:56:40.644Z",
-  "recoveryNote": "Task recovered from stuck state at 2026-01-12T04:56:40.644Z"
+  "recoveryNote": "Task recovered from stuck state at 2026-01-12T04:56:40.644Z",
+  "qa_iteration_history": [
+    {
+      "iteration": 1,
+      "status": "error",
+      "timestamp": "2026-01-12T05:08:30.834370+00:00",
+      "issues": [
+        {
+          "title": "QA error",
+          "description": "QA agent did not update implementation_plan.json"
+        }
+      ]
+    }
+  ],
+  "qa_stats": {
+    "total_iterations": 1,
+    "last_iteration": 1,
+    "last_status": "error",
+    "issues_by_type": {
+      "unknown": 1
+    }
+  }
 }

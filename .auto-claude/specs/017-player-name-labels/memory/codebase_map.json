@@ -1,20 +1,15 @@
 {
   "discovered_files": {
-    "src/store/playerStore.ts": {
-      "description": "Player store now includes showPlayerNames state and setPlayerName/togglePlayerNames actions for the player name labels feature",
-      "category": "state-management",
-      "discovered_at": "2026-01-12T03:34:16.651323+00:00"
+    "E2E Verification": {
+      "description": "Player name labels feature fully integrated: playerName field in Player model, state management in playerStore (showPlayerNames, setPlayerName, togglePlayerNames, importRoster, startEditingPlayerName), 3D rendering using Text from @react-three/drei, UI controls in Toolbar, persistence through usePlaybook/playbookStore. All components connected via MainLayout \u2192 PlayerManager \u2192 PlayerComponent.",
+      "category": "integration",
+      "discovered_at": "2026-01-12T05:00:37.693128+00:00"
     },
     "src/components/Scene/Player.tsx": {
-      "description": "Player component now renders 3D Text labels from @react-three/drei above players. Labels are conditionally rendered based on showPlayerNames state and player.playerName field.",
-      "category": "feature",
-      "discovered_at": "2026-01-12T03:39:55.429933+00:00"
-    },
-    "src/components/UI/Toolbar.tsx": {
-      "description": "Edit Player Name dialog added - appears when clicking an already-selected player. Uses editingPlayerId from playerStore to track which player is being edited. Supports Enter to save and Escape to cancel.",
-      "category": "UI Components",
-      "discovered_at": "2026-01-12T03:49:30.788411+00:00"
+      "description": "Player name labels now use Billboard from @react-three/drei for camera-facing text, formatDisplayName helper for truncation (MAX_NAME_LENGTH=12), and useMemo for performance optimization",
+      "category": "component-pattern",
+      "discovered_at": "2026-01-12T05:03:29.871132+00:00"
     }
   },
-  "last_updated": "2026-01-12T03:49:30.788411+00:00"
+  "last_updated": "2026-01-12T05:03:29.871132+00:00"
 }
