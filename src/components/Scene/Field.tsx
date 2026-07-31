@@ -1,5 +1,5 @@
 // @ts-nocheck - Disable TypeScript checks for this file due to Three.js JSX primitive type issues
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import { Mesh, BufferGeometry, LineBasicMaterial, Float32BufferAttribute, Line as ThreeLine, CanvasTexture, RepeatWrapping, Shape, Path, ShapeGeometry } from 'three';
 import { FIELD_MARKINGS } from '../../models/FieldModel';
 import { type Boundary } from '../../utils/fieldGeometry';
@@ -13,6 +13,24 @@ interface FieldLineProps {
   position?: [number, number, number];
 }
 
+/**
+ * A painted line on the ground, built as a real Three object rather than as a
+ * declarative <line><bufferGeometry><bufferAttribute array={...}/>.
+ *
+ * That distinction is the whole point of this helper, and it is not stylistic.
+ * R3F applies a changed `array` prop by assigning it to the existing
+ * BufferAttribute and never sets `needsUpdate` — so the new coordinates sit in
+ * JS while the GPU keeps rendering the old ones. Markings drawn that way froze
+ * at whatever ground was active when they first mounted, and a line whose
+ * vertex *count* also changed asked the driver for more vertices than its
+ * buffer held, which some drivers tolerate and iOS does not: the marking simply
+ * vanishes.
+ *
+ * Rebuilding the object whenever its points change sidesteps all of it — a new
+ * BufferAttribute is uploaded once, correctly, at its true size. Callers must
+ * therefore hand in a `points` array that is stable across unrelated re-renders
+ * (memoise it on the Boundary), or this rebuilds every frame.
+ */
 function FieldLine({ points, color = '#ffffff', linewidth = 1, position = [0, 0, 0] }: FieldLineProps) {
   const lineObject = useMemo(() => {
     const geo = new BufferGeometry();
@@ -20,6 +38,13 @@ function FieldLine({ points, color = '#ffffff', linewidth = 1, position = [0, 0,
     const mat = new LineBasicMaterial({ color, linewidth });
     return new ThreeLine(geo, mat);
   }, [points, color, linewidth]);
+
+  // A rebuild strands the previous object's GPU buffers, and switching Venue is
+  // something a coach does repeatedly while comparing grounds.
+  useEffect(() => () => {
+    lineObject.geometry.dispose();
+    (lineObject.material as LineBasicMaterial).dispose();
+  }, [lineObject]);
 
   return <primitive object={lineObject} position={position} />;
 }
@@ -395,55 +420,44 @@ function GoalSquares({ boundary }: { boundary: Boundary }) {
 
 function NineMetreLineMarkers({ boundary }: { boundary: Boundary }) {
   // Nine-metre line markers: radial markings outside boundary line
-  // indicating where the nine-metre line crosses the boundary
-  const nineMetreDistance = FIELD_MARKINGS.nineMetreLineDistance;
-  const goalX = boundary.semiX;
-  const markerLength = 2; // Length of radial marker
-  const markerOffset = 0.5; // Distance outside boundary
- 
-  // Calculate where nine-metre line intersects boundary (oval)
-  // The nine-metre line extends from the goal square (9m from goal line)
-  // We need to find intersection points with the oval boundary
- 
-  const createMarker = (x: number, z: number, angle: number) => {
-    const endX = x + markerLength * Math.cos(angle);
-    const endZ = z + markerLength * Math.sin(angle);
-    return { start: [x, 0, z], end: [endX, 0, endZ] };
-  };
- 
-  // For each end, create two markers (one on each side of the field)
-  // Approximate positions where nine-metre line would cross boundary
-  const markers: Array<{ start: number[]; end: number[] }> = [];
- 
-  // Team 1 end markers (negative X)
-  const team1NineMetreX = -goalX + nineMetreDistance;
-  // Approximate boundary intersection points
-  const team1TopZ = -boundary.semiZ * 0.7; // Approximate
-  const team1BottomZ = boundary.semiZ * 0.7;
-  markers.push(createMarker(team1NineMetreX - markerOffset, team1TopZ, 0));
-  markers.push(createMarker(team1NineMetreX - markerOffset, team1BottomZ, 0));
- 
-  // Team 2 end markers (positive X)
-  const team2NineMetreX = goalX - nineMetreDistance;
-  const team2TopZ = -boundary.semiZ * 0.7;
-  const team2BottomZ = boundary.semiZ * 0.7;
-  markers.push(createMarker(team2NineMetreX + markerOffset, team2TopZ, Math.PI));
-  markers.push(createMarker(team2NineMetreX + markerOffset, team2BottomZ, Math.PI));
- 
+  // indicating where the nine-metre line crosses the boundary.
+  //
+  // Every coordinate here is absolute, so the markers have to be rebuilt with
+  // the ground rather than mutated in place — see FieldLine. Built entirely
+  // inside the memo so the ground's two measurements are the only inputs.
+  const markerPoints = useMemo(() => {
+    const nineMetreDistance = FIELD_MARKINGS.nineMetreLineDistance;
+    const goalX = boundary.semiX;
+    const markerLength = 2; // Length of radial marker
+    const markerOffset = 0.5; // Distance outside boundary
+
+    // Calculate where nine-metre line intersects boundary (oval)
+    // The nine-metre line extends from the goal square (9m from goal line)
+    // We need to find intersection points with the oval boundary
+    const createMarker = (x: number, z: number, angle: number) => [
+      x, 0, z,
+      x + markerLength * Math.cos(angle), 0, z + markerLength * Math.sin(angle),
+    ];
+
+    // For each end, create two markers (one on each side of the field)
+    // Approximate positions where nine-metre line would cross boundary
+    const team1NineMetreX = -goalX + nineMetreDistance;
+    const team2NineMetreX = goalX - nineMetreDistance;
+    const topZ = -boundary.semiZ * 0.7; // Approximate
+    const bottomZ = boundary.semiZ * 0.7;
+
+    return [
+      createMarker(team1NineMetreX - markerOffset, topZ, 0),
+      createMarker(team1NineMetreX - markerOffset, bottomZ, 0),
+      createMarker(team2NineMetreX + markerOffset, topZ, Math.PI),
+      createMarker(team2NineMetreX + markerOffset, bottomZ, Math.PI),
+    ];
+  }, [boundary.semiX, boundary.semiZ]);
+
   return (
     <group>
-      {markers.map((marker, i) => (
-        <line key={i} position={[0, 0.02, 0]}>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              count={2}
-              array={new Float32Array([...marker.start, ...marker.end])}
-              itemSize={3}
-            />
-          </bufferGeometry>
-          <lineBasicMaterial color="#ffffff" linewidth={1} />
-        </line>
+      {markerPoints.map((points, i) => (
+        <FieldLine key={i} points={points} position={[0, 0.02, 0]} />
       ))}
     </group>
   );
@@ -569,10 +583,17 @@ function CenterCircles() {
 }
 
 function FiftyMeterArcs({ boundary }: { boundary: Boundary }) {
+  // The arcs are the markings the boundary clips, so their vertex *count*
+  // changes with the ground — not just their coordinates. Mutating the array of
+  // an already-uploaded attribute then asks the driver for more vertices than
+  // the buffer holds, and iOS answers by drawing nothing at all: the arcs
+  // disappear on switching Venue and come back on reload. Rebuilding the line
+  // objects is what makes the new size real. See FieldLine.
+  const [team1ArcPoints, team2ArcPoints] = useMemo(() => {
   const radius = FIELD_MARKINGS.fiftyMetreArcRadius; // 50m radius — the same at every ground
   const segments = 256; // More segments for smoother arc
   const goalX = boundary.semiX;
- 
+
   // Create arcs at each end, drawn between boundary lines
   // Arc center is at goal line center (x=±goalX, z=0), radius is 50m
   // The arc apex is 50m from the goal line center, curving toward center of field
@@ -621,40 +642,21 @@ function FiftyMeterArcs({ boundary }: { boundary: Boundary }) {
     return points;
   };
  
-  // Team 1 end arc (centerX = -goalX) - arc curves toward center (positive X direction)
-  // Apex is at (x=-goalX + 50m, z=0)
-  const team1ArcPoints = createArc(-goalX, 1);
-  // Team 2 end arc (centerX = goalX) - arc curves toward center (negative X direction)
-  // Apex is at (x=goalX - 50m, z=0)
-  const team2ArcPoints = createArc(goalX, -1);
- 
+    return [
+      // Team 1 end arc: apex at (x = -goalX + 50 m, z = 0), curving toward centre.
+      createArc(-goalX, 1),
+      // Team 2 end arc: apex at (x = goalX - 50 m, z = 0), curving toward centre.
+      createArc(goalX, -1),
+    ];
+  }, [boundary.semiX, boundary.semiZ]);
+
   return (
     <group>
       {team1ArcPoints.length > 0 && (
-        <line position={[0, 0.02, 0]}>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              count={team1ArcPoints.length / 3}
-              array={new Float32Array(team1ArcPoints)}
-              itemSize={3}
-            />
-          </bufferGeometry>
-          <lineBasicMaterial color="#ffffff" linewidth={1} />
-        </line>
+        <FieldLine points={team1ArcPoints} position={[0, 0.02, 0]} />
       )}
       {team2ArcPoints.length > 0 && (
-        <line position={[0, 0.02, 0]}>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              count={team2ArcPoints.length / 3}
-              array={new Float32Array(team2ArcPoints)}
-              itemSize={3}
-            />
-          </bufferGeometry>
-          <lineBasicMaterial color="#ffffff" linewidth={1} />
-        </line>
+        <FieldLine points={team2ArcPoints} position={[0, 0.02, 0]} />
       )}
     </group>
   );
@@ -662,33 +664,20 @@ function FiftyMeterArcs({ boundary }: { boundary: Boundary }) {
 
 function FieldBoundary({ boundary }: { boundary: Boundary }) {
   const segments = 64;
- 
-  return (
-    <group>
-      {/* Create boundary line using multiple line segments */}
-      {Array.from({ length: segments }).map((_, i) => {
-        const angle1 = (i / segments) * Math.PI * 2;
-        const angle2 = ((i + 1) / segments) * Math.PI * 2;
-       
-        const x1 = boundary.semiX * Math.cos(angle1);
-        const z1 = boundary.semiZ * Math.sin(angle1);
-        const x2 = boundary.semiX * Math.cos(angle2);
-        const z2 = boundary.semiZ * Math.sin(angle2);
-       
-        return (
-          <line key={i} position={[0, 0.02, 0]}>
-            <bufferGeometry>
-              <bufferAttribute
-                attach="attributes-position"
-                count={2}
-                array={new Float32Array([x1, 0, z1, x2, 0, z2])}
-                itemSize={3}
-              />
-            </bufferGeometry>
-            <lineBasicMaterial color="#ffffff" linewidth={2} />
-          </line>
-        );
-      })}
-    </group>
-  );
+
+  // One closed polyline rather than 64 separate two-point lines. Each of those
+  // carried the ground's coordinates in its own array, so each froze at the
+  // ground it first mounted on — the white line stayed where the old boundary
+  // was while the grass and bowl resized around it, which reads as the grass
+  // being the wrong size rather than as the line being stale.
+  const points = useMemo(() => {
+    const pts: number[] = [];
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2;
+      pts.push(boundary.semiX * Math.cos(angle), 0, boundary.semiZ * Math.sin(angle));
+    }
+    return pts;
+  }, [boundary.semiX, boundary.semiZ]);
+
+  return <FieldLine points={points} linewidth={2} position={[0, 0.02, 0]} />;
 }
