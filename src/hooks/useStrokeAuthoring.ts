@@ -1,13 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { useThree } from '@react-three/fiber';
 import { Vector3, Plane } from 'three';
+import { useAnimationStore } from '../store/animationStore';
 import { useAnnotationStore } from '../store/annotationStore';
 import { usePenStore } from '../store/penStore';
 import { usePlayerStore } from '../store/playerStore';
 import { useBallStore } from '../store/ballStore';
 import { usePathStore } from '../store/pathStore';
 import { snapToField } from '../utils/fieldGeometry';
-import { authoringIntent } from '../utils/inputContract';
+import { authoringIntent, tipAvailable } from '../utils/inputContract';
 import {
   entityAtStrokeStart,
   pathFromStroke,
@@ -25,6 +26,10 @@ const FINAL_SAMPLE_EPSILON = 0.1;
  * Listeners exist only while a tip is armed, and the input contract decides
  * whether a given pointer authors at all — see
  * `docs/adr/0001-pen-authors-finger-manipulates.md`.
+ *
+ * The contract also decides whether the armed tip may author *right now*: the
+ * Path tip cannot while an animation plays. That is `tipAvailable`, the same
+ * predicate the Tool rail asks to decide whether to disable a tip.
  */
 export function useStrokeAuthoring() {
   const { camera, raycaster, gl } = useThree();
@@ -36,6 +41,19 @@ export function useStrokeAuthoring() {
 
   useEffect(() => {
     if (!armedTip) return;
+
+    /**
+     * The Tool rail already shows an unavailable tip as disabled, but chrome
+     * cannot be the enforcement: a tip armed *before* playback started stays
+     * armed by design, and `AnnotatePalette` can still arm one while it exists.
+     * So the same predicate is asked again here, where the Stroke is.
+     *
+     * Read live from the store rather than subscribed to: the answer must be
+     * true of the instant the pen lands, and subscribing would tear down and
+     * rebuild every listener on each play/pause.
+     */
+    const tipCanAuthorNow = () =>
+      tipAvailable(armedTip, { isPlaying: useAnimationStore.getState().isPlaying });
 
     const groundPoint = (event: PointerEvent): [number, number, number] | null => {
       const rect = gl.domElement.getBoundingClientRect();
@@ -64,6 +82,10 @@ export function useStrokeAuthoring() {
      * used to.
      */
     const completePathStroke = (points: [number, number, number][]) => {
+      // Playback can start mid-Stroke. The write is what the rule is about, so
+      // it is checked again at the moment it would happen.
+      if (!tipCanAuthorNow()) return;
+
       const ball = useBallStore.getState().ball;
       const candidates: StrokeCandidate[] = [
         ...usePlayerStore.getState().players.map((p) => ({
@@ -95,6 +117,10 @@ export function useStrokeAuthoring() {
         button: event.button,
       });
       if (intent !== 'author') return;
+
+      // No Stroke at all from a tip playback has made unavailable — not even a
+      // live preview that goes on to produce nothing.
+      if (!tipCanAuthorNow()) return;
 
       const point = groundPoint(event);
       if (!point) return;
