@@ -45,8 +45,9 @@ export function useStrokeAuthoring() {
     /**
      * The Tool rail already shows an unavailable tip as disabled, but chrome
      * cannot be the enforcement: a tip armed *before* playback started stays
-     * armed by design, and `AnnotatePalette` can still arm one while it exists.
-     * So the same predicate is asked again here, where the Stroke is.
+     * armed by design, and a keyboard shortcut arms one without touching the
+     * rail at all. So the same predicate is asked again here, where the Stroke
+     * is.
      *
      * Read live from the store rather than subscribed to: the answer must be
      * true of the instant the pen lands, and subscribing would tear down and
@@ -125,9 +126,11 @@ export function useStrokeAuthoring() {
       const point = groundPoint(event);
       if (!point) return;
 
-      // Text needs a placement point, not a stroke.
+      // Text needs a placement point, not a stroke. The tap's client
+      // coordinates ride along so `TextAnnotationInput` can put the field
+      // beside where the pen landed rather than at a fixed corner.
       if (armedTip === 'text') {
-        setPendingTextPoint(point);
+        setPendingTextPoint(point, { x: event.clientX, y: event.clientY });
         return;
       }
 

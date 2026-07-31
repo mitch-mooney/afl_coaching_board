@@ -5,7 +5,7 @@
  * a component harness. `ToolRail.tsx` is the only consumer.
  *
  * `AnnotationType` also carries `'magnifying-glass'`, which is not a tip a coach
- * can arm: it is referenced nowhere but its own type declaration — no palette
+ * can arm: it is referenced nowhere but its own type declaration — no rail
  * entry, no shortcut, no authoring path. The rail lists the six Annotation kinds
  * that are really authorable plus Path.
  *
@@ -39,8 +39,8 @@ export const TOOL_RAIL_TIPS: readonly ToolRailTip[] = [
  * Whether a Stroke made with this tip carries a thickness the coach can set.
  *
  * Text sizes itself and Measure draws a fixed hairline, so the thickness control
- * is hidden for both — the rule `AnnotatePalette` already applies, lifted here so
- * the colour popover and the palette cannot disagree while both exist.
+ * is hidden for both — the rule the retired `AnnotatePalette` applied, kept here
+ * as the colour popover's single source for it.
  *
  * `null` — no tip armed — is treated as thickness-bearing, because whatever the
  * coach arms next probably is, and hiding a control on an empty selection reads

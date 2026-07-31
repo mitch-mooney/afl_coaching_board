@@ -28,9 +28,9 @@ import { TOOL_RAIL_TIPS } from './toolRailTips';
  * vertically rather than run to the bottom edge where a heel of a hand lands.
  * (Palm rejection itself is out of scope.)
  *
- * The armed tip is amber, matching how `AnnotatePalette` already marks the armed
- * tip; the Mode rail's teal means "this panel is open", which is precisely what
- * a Tool rail button never does.
+ * The armed tip is amber, carried over from the retired `AnnotatePalette`; the
+ * Mode rail's teal means "this panel is open", which is precisely what a Tool
+ * rail button never does.
  *
  * The one exception is the current-colour button at the foot of the rail — see
  * the note on it below. It is not a tip, so playback never disables it.
