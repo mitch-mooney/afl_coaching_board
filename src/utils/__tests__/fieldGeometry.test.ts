@@ -203,20 +203,54 @@ describe('positionToZone at Standard ground', () => {
     expect(positionToZone(-35, 25, STANDARD)).toBe('HBF');
   });
 
-  it('KNOWN BUG: calls a deep defender a centre half back, never FB or BP', () => {
-    // The half-back check catches everything deeper than it, so the FB/BP branch
-    // is unreachable. Ticketed at .scratch/venue/deferred/01 — deliberately NOT
-    // fixed here, and pinned so the Venue work cannot change it by accident.
-    expect(positionToZone(-60, 0, STANDARD)).toBe('CHB');
-    expect(positionToZone(-60, 30, STANDARD)).toBe('HBF');
+  it('calls a deep central defender the full back', () => {
+    expect(positionToZone(-60, 0, STANDARD)).toBe('FB');
   });
 
-  it('KNOWN BUG: FB and BP stay unreachable at a tight ground and a wide one too', () => {
-    for (const ground of [TIGHT, WIDE]) {
-      const deepInDefence = -(ground.semiX - 5);
-      expect(positionToZone(deepInDefence, 0, ground)).toBe('CHB');
-      expect(positionToZone(deepInDefence, 0.5 * ground.semiZ, ground)).toBe('HBF');
+  it('calls a deep wide defender a back pocket', () => {
+    expect(positionToZone(-60, 30, STANDARD)).toBe('BP');
+  });
+});
+
+describe('positionToZone reads each end deep band first, so the two ends mirror', () => {
+  it('names the deepest defensive band FB and BP at every ground', () => {
+    // The back end used to test the half-back band first, so it swallowed
+    // everything deeper and FB/BP could never be produced — a player dragged
+    // into the goal square was suggested centre half back.
+    for (const ground of [TIGHT, STANDARD, WIDE]) {
+      const inTheGoalSquare = -(ground.semiX - 5);
+      expect(positionToZone(inTheGoalSquare, 0, ground)).toBe('FB');
+      expect(positionToZone(inTheGoalSquare, 0.5 * ground.semiZ, ground)).toBe('BP');
     }
+  });
+
+  it('still names the half-back band CHB and HBF — the deep band must not swallow it', () => {
+    for (const ground of [TIGHT, STANDARD, WIDE]) {
+      const onTheHalfBackLine = -(ground.semiX - 45); // between 34.5 and 54.5 out
+      expect(positionToZone(onTheHalfBackLine, 0, ground)).toBe('CHB');
+      expect(positionToZone(onTheHalfBackLine, 0.5 * ground.semiZ, ground)).toBe('HBF');
+    }
+  });
+
+  it('splits FB from CHB at the same distance out from goal that splits FF from CHF', () => {
+    // 34.5 m out is where the deep band stops at both ends, or the two halves of
+    // the ground disagree about how deep a deep forward is.
+    const justInside = STANDARD.semiX - 34.5;
+    const justOutside = STANDARD.semiX - 34.6;
+    expect(positionToZone(-justInside, 0, STANDARD)).toBe('FB');
+    expect(positionToZone(-justOutside, 0, STANDARD)).toBe('CHB');
+    expect(positionToZone(justInside, 0, STANDARD)).toBe('FF');
+    expect(positionToZone(justOutside, 0, STANDARD)).toBe('CHF');
+  });
+
+  it('calls a deep, wide defender a back pocket rather than a winger', () => {
+    // The wing band starts narrower than the pocket split, so a deep player wide
+    // enough to be on the wing line is where the two bands could compete. Pinned
+    // as on the ground, so the case stays a defender rather than a point in the
+    // car park that no drag could ever produce.
+    expect(isPointInField(-55, 45, STANDARD)).toBe(true);
+    expect(positionToZone(-55, 45, STANDARD)).toBe('BP');
+    expect(positionToZone(55, 45, STANDARD)).toBe('FP');
   });
 });
 
