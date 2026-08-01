@@ -143,20 +143,27 @@ function metresFromGoal(x: number, boundary: Boundary): number {
  * The one exception to both is the centre zone, which is measured in metres from
  * the bounce on both axes — see CENTRE_ZONE_METRES_FROM_BOUNCE.
  *
- * Zone layout (from team2 attacking end to team1 attacking end), where dTG is
- * distance to that end's goal line and fZ is |z| as a fraction of half-width:
- *   FF/FP:  dTG <= 34.5, split at fZ 0.222
- *   CHF:    dTG <= 54.5 && fZ < 0.296
- *   HFF:    dTG <= 54.5 && fZ >= 0.296
- *   W:      not forward or back && fZ >= 0.444
- *   C/RK:   |x| < 15 && |z| < 15
- *   RR/R:   general midfield
- *   HBF/CHB, BP/FB: the back half mirrors.
+ * Zone layout, listed in **branch order** rather than end to end, because the
+ * bands overlap and the first match wins: every FF point also satisfies the CHF
+ * row, and every C point also satisfies the R row. Read top to bottom. dTG is
+ * distance to that end's goal line, fZ is |z| as a fraction of half-width, and
+ * the thresholds are the constants above, not literals to keep in step:
+ *   FF:     x > 0 && dTG <= 34.5 && fZ < 0.222
+ *   FP:     x > 0 && dTG <= 34.5
+ *   CHF:    x > 0 && dTG <= 54.5 && fZ < 0.296
+ *   HFF:    x > 0 && dTG <= 54.5
+ *   W:      fZ >= 0.444 && dTG > 54.5
+ *   C:      |x| < 15 && |z| < 15
+ *   R:      dTG > 54.5 && fZ < 0.444 — general midfield
+ *   FB:     x < 0 && dTG <= 34.5 && fZ < 0.222
+ *   BP:     x < 0 && dTG <= 34.5
+ *   CHB:    x < 0 && dTG <= 54.5 && fZ < 0.296
+ *   HBF:    x < 0 && dTG <= 54.5
  *
- * NOTE: the ordering bug that makes FB and BP unreachable is deliberately left
- * alone here — see .scratch/venue/deferred/01. This function's venue-awareness
- * is a pure substitution of *which* thresholds are used, not a change to *what*
- * it returns.
+ * That ordering is why each end is read deep band first. The deep band is a
+ * subset of the half band, so testing the half band first swallows it — which is
+ * exactly what used to make FB and BP unreachable and suggest centre half back
+ * for a player standing in the goal square.
  */
 export function positionToZone(x: number, z: number, boundary: Boundary): string | null {
   const absZ = Math.abs(z);
@@ -198,16 +205,19 @@ export function positionToZone(x: number, z: number, boundary: Boundary): string
     return 'R';
   }
 
+  // Back pocket / full back end. Tested before the half-back band, because the
+  // deep band is a subset of it: every position within full-forward depth is
+  // also within half-forward depth, so whichever is asked first wins outright.
+  // The forward end is ordered the same way.
+  if (x < 0 && withinFullForwardDepth) {
+    if (absZ < pocketSplit) return 'FB';
+    return 'BP';
+  }
+
   // Half back flank / centre half back
   if (x < 0 && withinHalfForwardDepth) {
     if (absZ < flankSplit) return 'CHB';
     return 'HBF';
-  }
-
-  // Back pocket / full back end
-  if (x < 0 && withinFullForwardDepth) {
-    if (absZ < pocketSplit) return 'FB';
-    return 'BP';
   }
 
   return null;

@@ -17,17 +17,18 @@ return*. Do this one first or last, not tangled in the middle.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
 Vocabulary: `CONTEXT.md`. Related: `docs/adr/0002-venue-is-app-wide-positions-stay-absolute.md`,
 which changes these same thresholds — forward/back anchored to the goal line, lateral
 relative to half-width. If that work has already landed, the constants below will read as
 distances from goal rather than `x` from centre; the ordering bug is the same either way.
 
-- [ ] A test pins the current wrong behaviour first: a point deep in the defensive goal
-      square returns `CHB` today.
-- [ ] The back-end checks are reordered so the deeper band is tested first, mirroring the
+- [x] A test pins the current wrong behaviour first: a point deep in the defensive goal
+      square returns `CHB` today. (The Venue wave left these pinned as `KNOWN BUG:` cases;
+      they were flipped to the correct claims and confirmed red before the fix.)
+- [x] The back-end checks are reordered so the deeper band is tested first, mirroring the
       forward end.
-- [ ] `FB` is returned for a deep, central defensive position; `BP` for a deep, wide one.
-- [ ] `CHB`/`HBF` still returned for the half-back band — the reorder must not swallow them.
-- [ ] The doc comment's zone table matches what the function actually returns.
+- [x] `FB` is returned for a deep, central defensive position; `BP` for a deep, wide one.
+- [x] `CHB`/`HBF` still returned for the half-back band — the reorder must not swallow them.
+- [x] The doc comment's zone table matches what the function actually returns.
