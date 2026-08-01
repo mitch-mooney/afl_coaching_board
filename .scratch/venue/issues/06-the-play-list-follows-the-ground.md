@@ -21,18 +21,39 @@ invalidate.
 
 **Blocked by:** 05 (the out-of-bounds predicate).
 
-**Status:** ready-for-agent
+**Status:** done
 
 Vocabulary: `CONTEXT.md` — **Play**, **Playbook**, **Out of bounds**, **Active Venue**. Spec:
 `.scratch/venue/spec.md`. ADR: `docs/adr/0002-venue-is-app-wide-positions-stay-absolute.md`,
 "Rendering", which records the thumbnail normalisation.
 
-- [ ] Plays that do not fit the Active Venue are marked in the play list.
-- [ ] The marker uses the same predicate as the on-board count — one definition of "doesn't
+**The predicate runs over every phase, not the one the thumbnail draws.** `playFitsBoundary`
+is a new pure module — `utils/playFit` — that calls `outOfBounds` per phase, so there is one
+definition of "doesn't fit" and the list can never disagree with the board it opens. Checking
+only phase 0 would leave a play whose second phase pushes the forward line off a tight ground
+unmarked, and an unmarked row reads as "this one's fine".
+
+**The list had to load Venues itself.** Only `MainLayout` did, and the play list is reachable
+without the board ever mounting — a coach going Playbooks → Plays would have triaged Saturday's
+playbook against the generic ground and been told, wrongly, that everything fits.
+
+**The viewBox is 4 units taller: 200 × 168, not 200 × 164.** The projection now uses a single
+scale fitted from both axes, so the padded interior has to *be* a ground's shape or every
+ground letterboxes — including Standard ground against itself, which would have shrunk the
+thumbnail everyone already has. At 176 × 144 the interior is exactly 165 : 135, so Standard
+ground fills it edge to edge with the 12-unit inset it always had. The x axis is byte-identical
+to before; the y axis stretches by 2.9%, which is the old projection's distortion coming out —
+it drew the generic ground at 1.257 : 1 when the ground is 1.222 : 1. That is the only respect
+in which Standard-ground output is not literally unchanged, and correcting it is the point of
+the ticket.
+
+- [x] Plays that do not fit the Active Venue are marked in the play list.
+- [x] The marker uses the same predicate as the on-board count — one definition of "doesn't
       fit", not two.
-- [ ] Changing the Active Venue updates the markers without a reload.
-- [ ] Thumbnails preserve the Active Venue's aspect: content fits within the viewBox with the
+- [x] Changing the Active Venue updates the markers without a reload.
+- [x] Thumbnails preserve the Active Venue's aspect: content fits within the viewBox with the
       remainder letterboxed, centred.
-- [ ] A narrow ground produces a visibly narrower thumbnail than a wide one — the existing
+- [x] A narrow ground produces a visibly narrower thumbnail than a wide one — the existing
       thumbnail tests are extended with that comparison.
-- [ ] At Standard ground, thumbnail output is unchanged from before this ticket.
+- [x] At Standard ground, thumbnail output is unchanged from before this ticket — bar the 2.9%
+      aspect correction above, which the existing tests pin at its new numbers.

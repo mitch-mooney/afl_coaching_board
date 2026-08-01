@@ -1,5 +1,5 @@
 // src/components/UI/PlayLibrary.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import { usePlayStore } from '../../store/playStore';
 import { usePlaybookStore } from '../../store/playbookStore';
@@ -7,6 +7,9 @@ import { useRosterStore } from '../../store/rosterStore';
 import { videoDb } from '../../store/videoStore';
 import type { Play } from '../../models/PlayModel';
 import { PlayThumbnail } from './PlayThumbnail';
+import { playFitsBoundary } from '../../utils/playFit';
+import { useActiveBoundary } from '../../hooks/useActiveBoundary';
+import { selectActiveVenue, useVenueStore } from '../../store/venueStore';
 
 async function videoMetadataExists(videoId: number): Promise<boolean> {
   try {
@@ -172,6 +175,13 @@ function PlayCard({
 }) {
   const lvm = play.linkedVideoMoment;
 
+  // Derived per row against the Active Venue, never stored: switching grounds
+  // remarks the whole list on the spot, and there is no staleness to invalidate.
+  // The predicate is the one the open board uses — see playFit.
+  const boundary = useActiveBoundary();
+  const activeVenue = useVenueStore(selectActiveVenue);
+  const fits = useMemo(() => playFitsBoundary(play, boundary), [play, boundary]);
+
   return (
     <div
       onClick={onOpen}
@@ -188,6 +198,27 @@ function PlayCard({
       <div style={{ height: 100, background: '#0d2a0d', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 60%, #1a4a1a, #0a1a0a)' }} />
         <PlayThumbnail play={play} />
+
+        {/* Doesn't-fit marker — opposite corner to the video badge so a play can
+            carry both. Phrased as a finding rather than an error: a play that
+            does not fit Saturday's ground is a true thing to look at, and the
+            coach fixes it by opening the play, not from here. */}
+        {!fits && (
+          <div
+            title={`Some of this play is outside ${activeVenue?.name ?? 'the active ground'}.`}
+            style={{
+              position: 'absolute', top: 7, left: 7,
+              background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+              border: '1px solid rgba(255,183,77,0.45)', borderRadius: 5,
+              padding: '3px 7px', display: 'flex', alignItems: 'center', gap: 4,
+            }}
+          >
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ffb74d' }} />
+            <span style={{ color: '#ffb74d', fontSize: 9, fontWeight: 600 }}>
+              DOESN'T FIT
+            </span>
+          </div>
+        )}
 
         {/* Video badge / link prompt */}
         {lvm && videoAvailable === true ? (

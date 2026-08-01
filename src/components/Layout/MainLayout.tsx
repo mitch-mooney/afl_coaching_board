@@ -26,7 +26,6 @@ import { useBallStore } from '../../store/ballStore';
 import { usePathStore } from '../../store/pathStore';
 import { useUIStore } from '../../store/uiStore';
 import { usePlayStore } from '../../store/playStore';
-import { useVenueStore } from '../../store/venueStore';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useStrokeAuthoring } from '../../hooks/useStrokeAuthoring';
@@ -127,11 +126,8 @@ export function MainLayout() {
     initializePlayers();
     initializeBall();
     loadSavedVideos();
-    // Seeds Standard ground and resolves the stored Active Venue. Must happen at
-    // startup rather than when the Venue panel opens: until the records are loaded
-    // the board falls back to Standard ground, so a coach who selected their own
-    // ground last week would silently be shown the generic one.
-    useVenueStore.getState().loadVenues();
+    // Venues are seeded and the Active Venue resolved in App, above the router —
+    // the play list draws grounds too, and one bootstrap is one place to forget.
 
     // Check for ?loadShared=<token> query param from shared playbook links
     const params = new URLSearchParams(window.location.search);

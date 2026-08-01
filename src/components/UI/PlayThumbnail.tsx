@@ -2,34 +2,42 @@ import type { Play } from '../../models/PlayModel';
 import type { BoardSnapshot } from '../../utils/boardSnapshot';
 import { fromPhase } from '../../utils/boardSnapshot';
 import { boardAt } from '../../utils/boardPlayback';
-import { projectSnapshot, type ThumbnailViewBox } from '../../utils/thumbnailProjection';
+import { projectSnapshot, THUMBNAIL_VIEWBOX } from '../../utils/thumbnailProjection';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 
-const VIEWBOX: ThumbnailViewBox = { width: 200, height: 164, padding: 12 };
 const EMPTY: BoardSnapshot = { players: [], paths: [], annotations: [], camera: null, ball: null, cones: [] };
 
 /**
- * PlayThumbnail — a store-free top-down schematic of a Play's end state. Computes
- * boardAt(phase, 1) so tokens/ball sit at their path ends, projects to 2D, and draws
- * an oval field with path polylines, player dots (team colour), and a ball dot.
+ * PlayThumbnail — a top-down schematic of a Play's end state on the Active Venue.
+ * Computes boardAt(phase, 1) so tokens/ball sit at their path ends, projects to 2D,
+ * and draws an oval field with path polylines, player dots (team colour), and a
+ * ball dot.
+ *
+ * Rendered live from the stored phase against the Active Venue's Boundary, so
+ * switching grounds redraws every row of the list with nothing cached to
+ * invalidate — and a narrow ground reads narrow at a glance.
  */
 export function PlayThumbnail({ play }: { play: Play }) {
   const phase = play.phases[0];
   const boundary = useActiveBoundary();
-  const prims = projectSnapshot(phase ? boardAt(fromPhase(phase), 1) : EMPTY, VIEWBOX, boundary);
+  const prims = projectSnapshot(phase ? boardAt(fromPhase(phase), 1) : EMPTY, THUMBNAIL_VIEWBOX, boundary);
 
   return (
     <svg
-      viewBox={`0 0 ${VIEWBOX.width} ${VIEWBOX.height}`}
+      viewBox={`0 0 ${THUMBNAIL_VIEWBOX.width} ${THUMBNAIL_VIEWBOX.height}`}
       preserveAspectRatio="xMidYMid meet"
       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
     >
+      {/* Filled, faintly, so the ground is a shape rather than an outline: the
+          card behind is green edge to edge, so without this the letterbox at a
+          narrow ground reads as more grass and the row looks the same size as
+          every other. */}
       <ellipse
         cx={prims.field.cx}
         cy={prims.field.cy}
         rx={prims.field.rx}
         ry={prims.field.ry}
-        fill="none"
+        fill="rgba(160,255,160,0.07)"
         stroke="rgba(255,255,255,0.18)"
         strokeWidth={1.5}
       />
