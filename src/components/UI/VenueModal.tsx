@@ -1,8 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useVenueStore } from '../../store/venueStore';
+import { selectActiveVenue, useVenueStore } from '../../store/venueStore';
 import { validateBoundaryDimensions } from '../../models/VenueModel';
 import type { Venue } from '../../models/VenueModel';
 import { useOverlayOpen } from '../../hooks/useOverlayOpen';
+import { useActiveBoundary } from '../../hooks/useActiveBoundary';
+import { pullBoardInsideBoundary, useOutOfBounds } from '../../hooks/useOutOfBounds';
+import type { OutOfBoundsReport } from '../../utils/fieldGeometry';
+
+const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
+
+/**
+ * "3 players and 1 path" — enough for the coach to tell one winger a metre out
+ * from half the structure not fitting, which is the whole point of showing a
+ * count rather than a warning triangle.
+ */
+function describeOutOfBounds(report: OutOfBoundsReport): string {
+  const parts: string[] = [];
+  if (report.players.length) parts.push(plural(report.players.length, 'player'));
+  if (report.paths.length) parts.push(plural(report.paths.length, 'path'));
+  if (report.cones.length) parts.push(plural(report.cones.length, 'cone'));
+  if (report.ball) parts.push('the ball');
+  if (parts.length <= 1) return parts.join('');
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
 
 interface DraftForm {
   id: number | null; // null = creating
@@ -27,6 +47,12 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
   const updateVenue = useVenueStore((s) => s.updateVenue);
   const deleteVenue = useVenueStore((s) => s.deleteVenue);
   const setActiveVenue = useVenueStore((s) => s.setActiveVenue);
+  const activeVenue = useVenueStore(selectActiveVenue);
+
+  // Derived, never stored: switching the ground above makes this appear and
+  // pulling inside makes it vanish, with nothing in between to keep in sync.
+  const boundary = useActiveBoundary();
+  const outOfBounds = useOutOfBounds();
 
   const [draft, setDraft] = useState<DraftForm>(EMPTY_DRAFT);
   const [showForm, setShowForm] = useState(false);
@@ -104,6 +130,28 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
             The ground every play is drawn on. Measure yours — no two community grounds are the same.
           </p>
         </div>
+
+        {/* Sits above the list, where the coach has just switched grounds and is
+            looking to find out whether Saturday's play still fits. Deliberately
+            phrased as a finding, not an error: a play that does not fit is a
+            true thing to look at, and leaving it is a legitimate choice. */}
+        {outOfBounds.count > 0 && (
+          <div className="m-3 rounded border border-amber-300 bg-amber-50 p-2">
+            <p className="text-xs text-amber-900">
+              {describeOutOfBounds(outOfBounds)} {outOfBounds.count === 1 ? 'is' : 'are'} outside{' '}
+              {activeVenue?.name ?? 'this ground'}.
+            </p>
+            <p className="text-[11px] text-amber-700 mt-0.5">
+              Leaving it is fine — nothing is changed on disk until you save the play.
+            </p>
+            <button
+              onClick={() => pullBoardInsideBoundary(boundary)}
+              className="mt-2 w-full min-h-[40px] px-3 py-2 text-sm rounded border border-amber-400 bg-white text-amber-900 hover:bg-amber-100 touch-manipulation"
+            >
+              Pull inside boundary
+            </button>
+          </div>
+        )}
 
         <div className="p-3 space-y-2">
           {venues.map((venue) => {

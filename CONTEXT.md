@@ -42,6 +42,12 @@ extend this file rather than inventing parallel names.
   `capture()` reads the board stores; `restore(snap)` writes them back through their
   own actions. The single owner of that store access.
 
+  > Undo speaks this type too. A `StateSnapshot` normally carries only players and
+  > annotations, but an edit that reaches further — today, **Pull inside boundary**, which
+  > also moves the ball, cones and path keyframes — records the whole `BoardSnapshot` it was
+  > made against in `StateSnapshot.board`, and is undone by restoring that board wholesale
+  > with the camera nulled. The camera stays outside undo.
+
 - **boardPlayback** (`utils/boardPlayback.ts`) — the pure "where is everything at *t*"
   queries, no store access:
   - `positionsAtProgress(entityPaths, progress)` returns each entity's position at a global

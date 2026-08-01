@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Player } from '../models/PlayerModel';
 import type { Annotation } from './annotationStore';
+import type { BoardSnapshot } from '../utils/boardSnapshot';
 
 /**
  * Represents a snapshot of the application state at a point in time.
@@ -13,6 +14,14 @@ export interface StateSnapshot {
   annotations: AnnotationSnapshot[];
   /** Timestamp when the snapshot was created */
   timestamp: number;
+  /**
+   * The whole board this edit was made against, recorded only by edits that
+   * reach past players and annotations — today that is Pull inside boundary,
+   * which also moves the ball, cones and path keyframes. Absent on an ordinary
+   * drag or annotation change, which the two fields above already describe in
+   * full. See `useBoardUndo.restoreBoardSnapshot`, which prefers it when present.
+   */
+  board?: BoardSnapshot;
 }
 
 /**
@@ -170,24 +179,20 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       return null;
     }
 
-    // Get the most recent past state to restore
+    // Every entry on `past` is the board as it stood *before* one edit, so the
+    // last entry is exactly what undoing that edit restores.
+    //
+    // This used to return past[length - 2] once the stack was more than one
+    // deep, which skipped a step: adding an annotation and then dragging a
+    // player meant one undo took the annotation away too. It only looked right
+    // with a single entry, where the two expressions coincide.
     const previousState = past[past.length - 1];
-
-    // The current state needs to be saved to future for redo
-    // This is handled by the caller - they should push current state to future
 
     set({
       past: past.slice(0, -1),
       future: [previousState, ...future],
     });
 
-    // Return the state BEFORE the previous action (what we're restoring to)
-    // If there's a state before previousState, return it; otherwise return previousState
-    if (past.length > 1) {
-      return past[past.length - 2];
-    }
-
-    // No previous state to restore to - this means we're at the initial state
     return previousState;
   },
 

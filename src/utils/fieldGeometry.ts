@@ -1,5 +1,6 @@
 import type { BoundaryDimensions } from '../models/VenueModel';
 import { STANDARD_GROUND_DIMENSIONS } from '../models/VenueModel';
+import type { BoardSnapshot } from './boardSnapshot';
 
 // Helper functions for field geometry calculations.
 //
@@ -44,6 +45,20 @@ export function isPointInField(x: number, z: number, boundary: Boundary): boolea
   return (normalizedX * normalizedX + normalizedZ * normalizedZ) <= 1;
 }
 
+/**
+ * How far inside the ellipse a snapped point is placed, as a fraction of the
+ * semi-axes — about 80 nanometres at a real ground, and far larger than the
+ * rounding it exists to absorb.
+ *
+ * `cos`/`sin` round, so a point projected onto the ellipse can land a few ULPs
+ * *outside* it and fail isPointInField. Nobody noticed while snapping only ever
+ * clamped a drag, but out-of-bounds asks the two functions to agree:
+ * isPointInField(snapToField(p)) must be true, or dragging a player to the wing
+ * would report them off the ground, and Pull inside boundary would leave a
+ * notice it had just resolved.
+ */
+const SNAP_INSET = 1e-9;
+
 export function snapToField(x: number, z: number, boundary: Boundary): [number, number] {
   // Snap position to field boundary if outside
   if (!isPointInField(x, z, boundary)) {
@@ -56,8 +71,8 @@ export function snapToField(x: number, z: number, boundary: Boundary): [number, 
     if (distance > 1) {
       // Project onto ellipse boundary
       const angle = Math.atan2(normalizedZ, normalizedX);
-      const snappedX = boundary.semiX * Math.cos(angle);
-      const snappedZ = boundary.semiZ * Math.sin(angle);
+      const snappedX = boundary.semiX * Math.cos(angle) * (1 - SNAP_INSET);
+      const snappedZ = boundary.semiZ * Math.sin(angle) * (1 - SNAP_INSET);
 
       return [snappedX, snappedZ];
     }
@@ -196,4 +211,129 @@ export function positionToZone(x: number, z: number, boundary: Boundary): string
   }
 
   return null;
+}
+
+// ── Out of bounds ───────────────────────────────────────────────────────────
+//
+// The snapshot-level form of the two point-level functions above: what of a
+// board's content sits outside a Boundary, and the same board with that content
+// pulled inside. Both stay pure — the live board and the Active Venue are
+// resolved by useOutOfBounds, the same split as useActiveBoundary.
+//
+// Annotations are absent from both, deliberately. They are inert markup and may
+// point off-ground on purpose — an arrow drawn from where the interchange bench
+// would be is not a mistake to count, and moving its endpoint would distort a
+// shape the coach drew.
+
+/**
+ * What of a board's content sits outside a Boundary. Ids rather than a bare
+ * number so a caller can point at the entities as well as count them.
+ */
+export interface OutOfBoundsReport {
+  /** Ids of the players standing outside the boundary. */
+  players: string[];
+  /** Ids of the cones outside the boundary. */
+  cones: string[];
+  /** Ids of the MovementPaths with at least one keyframe outside the boundary. */
+  paths: string[];
+  /** Whether the ball is outside; false when the board has no ball. */
+  ball: boolean;
+  /**
+   * How many entities are outside. A path counts once however many of its
+   * keyframes leave the ground, so this reads as "how much of the structure
+   * doesn't fit" — one winger a metre out versus half the side — rather than as
+   * a keyframe tally.
+   */
+  count: number;
+}
+
+/** Anything on the board that stands somewhere: a player, a cone, the ball, a keyframe. */
+interface Positioned {
+  position: [number, number, number];
+}
+
+/** Is this entity inside the ground? Only x/z matter; y is height. */
+function isInsideBoundary(entity: Positioned, boundary: Boundary): boolean {
+  return isPointInField(entity.position[0], entity.position[2], boundary);
+}
+
+/**
+ * The same entity with its position projected onto the boundary if it was
+ * outside. Returns the entity *itself* when it already fits, which is what lets
+ * pullInsideBoundary leave in-bounds content byte-identical rather than
+ * rebuilding it — and lets callers spot what moved by identity.
+ */
+function pulledInside<T extends Positioned>(entity: T, boundary: Boundary): T {
+  if (isInsideBoundary(entity, boundary)) return entity;
+  const [x, z] = snapToField(entity.position[0], entity.position[2], boundary);
+  // Height is carried through untouched: content is pulled sideways onto the
+  // ground, never lifted.
+  return { ...entity, position: [x, entity.position[1], z] };
+}
+
+/**
+ * The slices of a board that can be out of bounds. Narrower than a full
+ * BoardSnapshot — which satisfies it structurally — because naming exactly these
+ * four is how the rule "Annotations are never out of bounds" gets stated in the
+ * type rather than in a comment.
+ */
+export type PlaceableContent = Pick<BoardSnapshot, 'players' | 'paths' | 'ball' | 'cones'>;
+
+/**
+ * What of this board falls outside the given ground. Derived on demand and never
+ * stored: it appears the instant the Active Venue changes and clears the instant
+ * it is resolved, so there is no dirty flag to keep in sync.
+ */
+export function outOfBounds(snap: PlaceableContent, boundary: Boundary): OutOfBoundsReport {
+  const players = snap.players
+    .filter((player) => !isInsideBoundary(player, boundary))
+    .map((player) => player.id);
+
+  const cones = snap.cones
+    .filter((cone) => !isInsideBoundary(cone, boundary))
+    .map((cone) => cone.id);
+
+  // A path matters more than a static position: a play whose leads run off the
+  // ground looks perfectly fine standing still and only fails when the coach
+  // presses play in front of the team.
+  const paths = snap.paths
+    .filter((path) => path.keyframes.some((kf) => !isInsideBoundary(kf, boundary)))
+    .map((path) => path.id);
+
+  const ball = snap.ball ? !isInsideBoundary(snap.ball, boundary) : false;
+
+  return {
+    players,
+    cones,
+    paths,
+    ball,
+    count: players.length + cones.length + paths.length + (ball ? 1 : 0),
+  };
+}
+
+/**
+ * The same board with every out-of-bounds player, cone, ball and path keyframe
+ * projected onto the boundary. Never called automatically — no fit on load and
+ * no clamp during playback — because reshaping a play the coach designed is
+ * their decision, not the app's. This is the one-tap version of making it.
+ *
+ * Content that already fits is returned by reference, so "pulled inside" and
+ * "untouched" are distinguishable by identity as well as by value; the input
+ * snapshot is never mutated.
+ */
+export function pullInsideBoundary(snap: BoardSnapshot, boundary: Boundary): BoardSnapshot {
+  return {
+    ...snap,
+    players: snap.players.map((player) => pulledInside(player, boundary)),
+    cones: snap.cones.map((cone) => pulledInside(cone, boundary)),
+    paths: snap.paths.map((path) => {
+      const keyframes = path.keyframes.map((kf) => pulledInside(kf, boundary));
+      // A path that strayed is rebuilt; one that never left is handed straight
+      // back, so an unchanged path is the same object it went in as.
+      const strayed = keyframes.some((kf, i) => kf !== path.keyframes[i]);
+      return strayed ? { ...path, keyframes } : path;
+    }),
+    ball: snap.ball && pulledInside(snap.ball, boundary),
+    // annotations and camera ride through the spread untouched.
+  };
 }
