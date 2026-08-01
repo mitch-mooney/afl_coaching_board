@@ -2,16 +2,19 @@ import type { Play } from '../../models/PlayModel';
 import type { BoardSnapshot } from '../../utils/boardSnapshot';
 import { fromPhase } from '../../utils/boardSnapshot';
 import { boardAt } from '../../utils/boardPlayback';
-import { projectSnapshot, type ThumbnailViewBox } from '../../utils/thumbnailProjection';
+import { projectSnapshot, THUMBNAIL_VIEWBOX as VIEWBOX } from '../../utils/thumbnailProjection';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
-
-const VIEWBOX: ThumbnailViewBox = { width: 200, height: 164, padding: 12 };
 const EMPTY: BoardSnapshot = { players: [], paths: [], annotations: [], camera: null, ball: null, cones: [] };
 
 /**
- * PlayThumbnail — a store-free top-down schematic of a Play's end state. Computes
- * boardAt(phase, 1) so tokens/ball sit at their path ends, projects to 2D, and draws
- * an oval field with path polylines, player dots (team colour), and a ball dot.
+ * PlayThumbnail — a top-down schematic of a Play's end state on the Active Venue.
+ * Computes boardAt(phase, 1) so tokens/ball sit at their path ends, projects to 2D,
+ * and draws an oval field with path polylines, player dots (team colour), and a
+ * ball dot.
+ *
+ * Rendered live from the stored phase against the Active Venue's Boundary, so
+ * switching grounds redraws every row of the list with nothing cached to
+ * invalidate — and a narrow ground reads narrow at a glance.
  */
 export function PlayThumbnail({ play }: { play: Play }) {
   const phase = play.phases[0];
