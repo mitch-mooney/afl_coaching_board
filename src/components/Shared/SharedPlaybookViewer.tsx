@@ -1,10 +1,11 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Canvas } from '@react-three/fiber';
 import { getSharedPlaybook } from '../../services/sharingService';
 import type { SharedPlaybook } from '../../services/sharingService';
-import { fromShareData } from '../../utils/boardSnapshot';
+import { fromShareData, designedGroundOf } from '../../utils/boardSnapshot';
 import { boardAt } from '../../utils/boardPlayback';
+import { boundaryOf } from '../../utils/fieldGeometry';
 import { capture, restore } from '../../utils/boardSnapshotIO';
 import { Field } from '../Scene/Field';
 import { PlayerManager } from '../Scene/PlayerManager';
@@ -62,6 +63,14 @@ export function SharedPlaybookViewer() {
 
   useEffect(() => () => { if (countdownRef.current) clearTimeout(countdownRef.current); }, []);
 
+  // This viewer renders on the sender's ground, not on an Active Venue — a
+  // recipient's app may not have one, and the spacing only means what the author
+  // meant against the boundary they drew it on. See `DesignedGround` in
+  // `utils/boardSnapshot`. Named as well as sized, so the recipient can judge
+  // whether the play transfers to their own ground.
+  const ground = useMemo(() => (data ? designedGroundOf(data.playbook_data) : null), [data]);
+  const boundary = useMemo(() => (ground ? boundaryOf(ground) : undefined), [ground]);
+
   if (step === 'loading') {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#050510', color: '#8888aa', fontFamily: 'sans-serif' }}>
@@ -88,6 +97,11 @@ export function SharedPlaybookViewer() {
         <div style={{ width: 22, height: 22, background: 'linear-gradient(135deg, #00d4aa, #0099ff)', borderRadius: 5, flexShrink: 0 }} />
         <div>
           <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{pd.name ?? 'Shared Play'}</div>
+          {ground && (
+            <div style={{ color: '#8888aa', fontSize: 10 }}>
+              Designed at {ground.name} · {ground.boundaryLength} × {ground.boundaryWidth} m
+            </div>
+          )}
           <div style={{ color: '#4444aa', fontSize: 10 }}>AFL Coaching Board</div>
         </div>
         <div style={{ marginLeft: 'auto' }}>
@@ -160,7 +174,7 @@ export function SharedPlaybookViewer() {
                 <color attach="background" args={['#020a02']} />
                 <ambientLight intensity={0.3} />
                 <pointLight position={[0, 80, 0]} intensity={2} color="#00ff88" />
-                <Field darkMode />
+                <Field darkMode boundary={boundary} />
                 <PlayerManager readOnly />
                 <PathManager paths={pd.paths ?? []} />
                 <CameraController />

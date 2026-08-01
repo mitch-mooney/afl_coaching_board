@@ -6,6 +6,7 @@ import {
   validateBoundaryDimensions,
 } from '../models/VenueModel';
 import type { BoundaryDimensions, Venue } from '../models/VenueModel';
+import { STANDARD_DESIGNED_GROUND, type DesignedGround } from '../utils/boardSnapshot';
 
 export const venueTable = playbookDB.venues;
 
@@ -63,6 +64,18 @@ interface VenueState {
    * "no ground" — see ADR 0002.
    */
   activeBoundaryDimensions: () => BoundaryDimensions;
+
+  /**
+   * The ground the board renders on, named — what a shared link records as the
+   * ground its Play was designed on. The name comes along because the recipient
+   * reads it; they are told which ground, not just how big it was.
+   *
+   * Falls back to Standard ground for the same pre-load instant as
+   * `activeBoundaryDimensions`, and for the same reason: a link that said nothing
+   * about its ground would be indistinguishable from one shared before Venues
+   * existed, and both would render plausibly at 165 × 135.
+   */
+  activeDesignedGround: () => DesignedGround;
 }
 
 /**
@@ -199,4 +212,14 @@ export const useVenueStore = create<VenueState>((set, get) => ({
   activeVenue: () => selectActiveVenue(get()),
 
   activeBoundaryDimensions: () => boundaryDimensionsOf(get().activeVenue()),
+
+  activeDesignedGround: () => {
+    const venue = get().activeVenue();
+    if (!venue) return STANDARD_DESIGNED_GROUND;
+    return {
+      name: venue.name,
+      boundaryLength: venue.boundaryLength,
+      boundaryWidth: venue.boundaryWidth,
+    };
+  },
 }));

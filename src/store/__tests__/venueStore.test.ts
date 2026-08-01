@@ -133,6 +133,22 @@ describe('the Active Venue', () => {
     expect(useVenueStore.getState().activeBoundaryDimensions()).toEqual(TIGHT);
   });
 
+  // What a shared link records as the ground its Play was designed on. Named as
+  // well as measured, because the recipient is told which ground it was.
+  it('answers as a named ground, for a link to carry', async () => {
+    const id = await useVenueStore.getState().createVenue({ name: 'Jubilee Park', ...TIGHT });
+    await useVenueStore.getState().loadVenues();
+    useVenueStore.getState().setActiveVenue(id);
+    expect(useVenueStore.getState().activeDesignedGround()).toEqual({ name: 'Jubilee Park', ...TIGHT });
+  });
+
+  it('answers Standard ground as a named ground before anything has loaded', () => {
+    expect(useVenueStore.getState().activeDesignedGround()).toEqual({
+      name: STANDARD_GROUND_NAME,
+      ...STANDARD_GROUND_DIMENSIONS,
+    });
+  });
+
   it('survives a reload', async () => {
     const id = await useVenueStore.getState().createVenue({ name: 'Jubilee Park', ...TIGHT });
     useVenueStore.getState().setActiveVenue(id);
