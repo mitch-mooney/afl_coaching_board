@@ -128,6 +128,12 @@ extend this file rather than inventing parallel names.
   the Active Venue's Boundary. Always the coach's choice, never automatic — no fit on load
   and no clamp during playback — and an ordinary undoable board edit like any drag.
 
+- **playFit** (`utils/playFit.ts`) — the pure "does this *stored* Play fit this ground?"
+  predicate, over every phase of the Play. Delegates to **Out of bounds** rather than
+  restating it, so the marker on a row in the play list and the count on the open board are
+  the same claim; a row is marked when any phase has anything outside. Same pure/IO split as
+  boardSnapshot / boardSnapshotIO — the Play and the Boundary are both passed in.
+
 ## Board input
 
 - **Stroke** — one continuous pen gesture on the board. A Stroke is raw input; what it

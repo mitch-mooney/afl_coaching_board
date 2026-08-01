@@ -39,11 +39,6 @@ export function PlayLibrary() {
     loadPlaybooks();
     loadPlays();
     loadRosters();
-    // The list is reachable without the board ever mounting, and it renders every
-    // row against the Active Venue — thumbnails and the doesn't-fit marker both.
-    // Without this the coach would triage Saturday's playbook against the generic
-    // ground and be told, wrongly, that everything fits.
-    useVenueStore.getState().loadVenues();
   }, [playbookId, setActivePlaybook, loadPlaybooks, loadPlays, loadRosters]);
 
   useEffect(() => {
