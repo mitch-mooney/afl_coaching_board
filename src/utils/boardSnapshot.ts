@@ -4,6 +4,7 @@ import type { Ball } from '../models/BallModel';
 import type { Cone } from '../store/coneStore';
 import type { Annotation } from '../store/annotationStore';
 import type { PlayPhase } from '../models/PlayModel';
+import { STANDARD_GROUND_DIMENSIONS, STANDARD_GROUND_NAME, type BoundaryDimensions } from '../models/VenueModel';
 
 /**
  * boardSnapshot — the canonical shape of a board's content, and the adapters
@@ -80,6 +81,31 @@ export function fromPhase(phase: PlayPhase): BoardSnapshot {
 // lives — previously the flatten was in sharingService and the un-flatten was
 // hand-rolled (and dropped `paths`) at each restore site.
 
+/**
+ * The ground a shared Play was designed on — **render context, not Play content**.
+ *
+ * A Play is positions in absolute metres, and metres mean nothing without the
+ * boundary they were drawn against: rendered on a stranger's wider ground, a play
+ * designed for a tight one reads as everyone standing too narrow, with nothing on
+ * screen to explain why. So the ground rides alongside the board content rather
+ * than inside it. It is deliberately not a Venue — nothing is added to the
+ * recipient's list, and their Active Venue is theirs. See ADR 0002, "Sharing".
+ */
+export interface DesignedGround extends BoundaryDimensions {
+  name: string;
+}
+
+/**
+ * The ground a link means when it says nothing about its ground. Links shared
+ * before Venues existed were authored at 165 × 135, so this is not a default —
+ * it is the truth about those links. Shared with `venueStore`, which resolves the
+ * same ground for the instant before the records have loaded.
+ */
+export const STANDARD_DESIGNED_GROUND: DesignedGround = {
+  name: STANDARD_GROUND_NAME,
+  ...STANDARD_GROUND_DIMENSIONS,
+};
+
 /** Share-link metadata that travels alongside the board content. */
 export interface ShareMeta {
   name: string;
@@ -99,10 +125,31 @@ export interface SharePayload extends ShareMeta {
   ball?: Ball | null;
   /** Present only when the shared board had cones; older links omit it. */
   cones?: Cone[];
+  /**
+   * The sender's ground. Optional for one reason only: links shared before
+   * Venues existed carry none. Every link written from here on carries it, so
+   * absence dates a link rather than describing one.
+   */
+  venueName?: string;
+  boundaryLength?: number;
+  boundaryWidth?: number;
 }
 
-/** Flatten a snapshot into the shared-link wire shape. */
-export function toShareData(snap: BoardSnapshot, meta: ShareMeta): SharePayload {
+/**
+ * Flatten a snapshot into the shared-link wire shape.
+ *
+ * `ground` is a required parameter, not an optional field on `meta`: there is
+ * always an Active Venue, so a share path with nothing to say about the ground is
+ * a share path that forgot to ask. Letting it pass null would make a modern link
+ * indistinguishable from a pre-Venue one, and both would render at Standard
+ * ground looking entirely plausible — the exact failure this feature exists to
+ * remove.
+ */
+export function toShareData(
+  snap: BoardSnapshot,
+  meta: ShareMeta,
+  ground: DesignedGround,
+): SharePayload {
   return {
     name: meta.name,
     playerPositions: snap.players,
@@ -115,7 +162,34 @@ export function toShareData(snap: BoardSnapshot, meta: ShareMeta): SharePayload 
     label: meta.label ?? null,
     ...(snap.ball ? { ball: snap.ball } : {}),
     ...(snap.cones.length ? { cones: snap.cones } : {}),
+    venueName: ground.name,
+    boundaryLength: ground.boundaryLength,
+    boundaryWidth: ground.boundaryWidth,
   };
+}
+
+/**
+ * The ground a shared Play was designed on, as the viewer should render it.
+ *
+ * A link with no ground predates Venues, so Standard ground is what it was
+ * authored at and it renders exactly as it always has. Dimensions that could not
+ * describe a ground fall back the same way — a payload is a row in a remote table
+ * that this app did not necessarily write, and a zero semi-axis renders nothing
+ * at all rather than a ground the recipient can judge.
+ *
+ * Read separately from `fromShareData` on purpose. The ground is not board
+ * content, so it never enters a BoardSnapshot and cannot ride a restore into the
+ * recipient's app-wide state.
+ */
+export function designedGroundOf(data: SharePayload): DesignedGround {
+  const { venueName, boundaryLength, boundaryWidth } = data;
+
+  const measured = (metres: number | undefined): metres is number =>
+    typeof metres === 'number' && Number.isFinite(metres) && metres > 0;
+
+  if (!measured(boundaryLength) || !measured(boundaryWidth)) return STANDARD_DESIGNED_GROUND;
+
+  return { name: venueName || STANDARD_GROUND_NAME, boundaryLength, boundaryWidth };
 }
 
 /**

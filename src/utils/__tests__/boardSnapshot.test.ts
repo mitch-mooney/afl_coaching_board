@@ -10,8 +10,8 @@ import { createBall } from '../../models/BallModel';
 import type { Player } from '../../models/PlayerModel';
 import type { Cone } from '../../store/coneStore';
 import type { Annotation } from '../../store/annotationStore';
-import { toPhase, fromPhase, toShareData, fromShareData } from '../boardSnapshot';
-import type { BoardSnapshot } from '../boardSnapshot';
+import { toPhase, fromPhase, toShareData, fromShareData, designedGroundOf } from '../boardSnapshot';
+import type { BoardSnapshot, DesignedGround } from '../boardSnapshot';
 import { capture, restore } from '../boardSnapshotIO';
 import type { PlayPhase } from '../../models/PlayModel';
 
@@ -32,6 +32,7 @@ const anAnnotation: Annotation = {
 };
 const aBall = createBall([3, 0.5, 4], { assignedPlayerId: 'team1-player-1' });
 const aCone: Cone = { id: 'cone-1', position: [8, 0, 8] };
+const standardGround: DesignedGround = { name: 'Standard ground', boundaryLength: 165, boundaryWidth: 135 };
 
 beforeEach(() => {
   usePlayerStore.setState({ players: [] });
@@ -212,7 +213,7 @@ describe('boardSnapshot phase adapter', () => {
 
 describe('boardSnapshot share adapter', () => {
   it('toShareData flattens the camera and carries ball + cones plus share metadata', () => {
-    const data = toShareData(sampleSnapshot, { name: 'My Play', quarter: 'Q3', label: 'goal' });
+    const data = toShareData(sampleSnapshot, { name: 'My Play', quarter: 'Q3', label: 'goal' }, standardGround);
 
     expect(data).toEqual({
       name: 'My Play',
@@ -226,18 +227,21 @@ describe('boardSnapshot share adapter', () => {
       label: 'goal',
       ball: aBall,
       cones: [aCone],
+      venueName: 'Standard ground',
+      boundaryLength: 165,
+      boundaryWidth: 135,
     });
   });
 
   it('toShareData omits ball and cones keys when the snapshot has none', () => {
-    const data = toShareData({ ...sampleSnapshot, ball: null, cones: [] }, { name: 'x', quarter: null, label: null });
+    const data = toShareData({ ...sampleSnapshot, ball: null, cones: [] }, { name: 'x', quarter: null, label: null }, standardGround);
 
     expect('ball' in data).toBe(false);
     expect('cones' in data).toBe(false);
   });
 
   it('fromShareData restores paths — regression guard for the shared-restore path drop', () => {
-    const data = toShareData(sampleSnapshot, { name: 'x', quarter: null, label: null });
+    const data = toShareData(sampleSnapshot, { name: 'x', quarter: null, label: null }, standardGround);
 
     expect(fromShareData(data).paths).toEqual([aPath]);
   });
@@ -275,8 +279,66 @@ describe('boardSnapshot share adapter', () => {
   });
 
   it('share round-trips through toShareData → fromShareData', () => {
-    const data = toShareData(sampleSnapshot, { name: 'x', quarter: null, label: null });
+    const data = toShareData(sampleSnapshot, { name: 'x', quarter: null, label: null }, standardGround);
 
+    expect(fromShareData(data)).toEqual(sampleSnapshot);
+  });
+});
+
+// The ground a Play was designed on rides along as render context, so the coach
+// who opens the link sees the spacing the author intended rather than a
+// reinterpretation of it on their own ground. See ADR 0002, "Sharing".
+describe('boardSnapshot share adapter — the designed ground', () => {
+  const kardinia: DesignedGround = { name: 'Kardinia Park', boundaryLength: 152, boundaryWidth: 118 };
+  const meta = { name: 'x', quarter: null, label: null };
+
+  it('carries the ground name and its boundary dimensions', () => {
+    const data = toShareData(sampleSnapshot, meta, kardinia);
+
+    expect(data.venueName).toBe('Kardinia Park');
+    expect(data.boundaryLength).toBe(152);
+    expect(data.boundaryWidth).toBe(118);
+  });
+
+  it('round-trips the designed ground', () => {
+    const data = toShareData(sampleSnapshot, meta, kardinia);
+
+    expect(designedGroundOf(data)).toEqual(kardinia);
+  });
+
+  it('reads a link shared before this feature existed as Standard ground', () => {
+    const legacy = {
+      name: 'x',
+      playerPositions: [aPlayer],
+      paths: [aPath],
+      annotations: [anAnnotation],
+      cameraPosition: [1, 2, 3] as [number, number, number],
+      cameraTarget: [4, 5, 6] as [number, number, number],
+      cameraZoom: 2,
+      quarter: null,
+      label: null,
+    };
+
+    // 165 × 135 is exactly what those links were authored at, so they render as
+    // they always have.
+    expect(designedGroundOf(legacy)).toEqual(standardGround);
+  });
+
+  it('falls back to Standard ground when the dimensions are unusable', () => {
+    const halfWritten = {
+      ...toShareData(sampleSnapshot, meta, kardinia),
+      boundaryWidth: 0,
+    };
+
+    expect(designedGroundOf(halfWritten)).toEqual(standardGround);
+  });
+
+  it('keeps the sender ground out of the board content — restoring cannot change your Active Venue', () => {
+    const data = toShareData(sampleSnapshot, meta, kardinia);
+
+    // A restored snapshot is board content and nothing else, which is what makes
+    // "a link never reconfigures app-wide state" true by construction rather
+    // than by every restore site remembering to be careful.
     expect(fromShareData(data)).toEqual(sampleSnapshot);
   });
 });

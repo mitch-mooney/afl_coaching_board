@@ -144,12 +144,23 @@ function StadiumStands({ boundary }: { boundary: Boundary }) {
 
 interface FieldProps {
   darkMode?: boolean;
+  /**
+   * Render a ground other than the Active Venue. The one caller is the
+   * shared-link viewer, which renders on the sender's ground — see
+   * `DesignedGround` in `utils/boardSnapshot`.
+   *
+   * An override rather than a required prop: everywhere else follows the Active
+   * Venue, and a board that had to be told its own ground is a board that can be
+   * told the wrong one.
+   */
+  boundary?: Boundary;
 }
 
-export function Field({ darkMode = false }: FieldProps) {
+export function Field({ darkMode = false, boundary: boundaryOverride }: FieldProps) {
   const fieldRef = useRef<Mesh>(null);
   // The ground everything below is sized against.
-  const boundary = useActiveBoundary();
+  const activeBoundary = useActiveBoundary();
+  const boundary = boundaryOverride ?? activeBoundary;
 
   const stripeTexture = useMemo(() => {
     const canvas = document.createElement('canvas');

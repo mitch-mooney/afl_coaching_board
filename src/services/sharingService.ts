@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { usePlayStore } from '../store/playStore';
+import { useVenueStore } from '../store/venueStore';
 import { trimAndConvertVideo } from '../utils/ffmpegConverter';
 import { toShareData, fromPhase } from '../utils/boardSnapshot';
 import type { SharePayload } from '../utils/boardSnapshot';
@@ -133,11 +134,21 @@ export async function sharePlay(
 
   onProgress?.('Saving share link…', 0.95);
 
-  const playbookData: SharePayload = toShareData(fromPhase(phase), {
-    name: play.name,
-    quarter: lvm?.quarter ?? null,
-    label: lvm?.label ?? null,
-  });
+  // The ground the coach designed against, read straight from the store — this is
+  // one of the few non-React callers, so there is no hook to ask. It travels as
+  // render context so the recipient sees the spacing the author intended; it does
+  // not become a Venue in their app. See ADR 0002, "Sharing".
+  const ground = useVenueStore.getState().activeDesignedGround();
+
+  const playbookData: SharePayload = toShareData(
+    fromPhase(phase),
+    {
+      name: play.name,
+      quarter: lvm?.quarter ?? null,
+      label: lvm?.label ?? null,
+    },
+    ground,
+  );
 
   const { error } = await supabase.from('shared_playbooks').insert({
     token,

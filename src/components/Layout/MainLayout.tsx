@@ -137,6 +137,12 @@ export function MainLayout() {
       window.history.replaceState({}, '', window.location.pathname);
       getSharedPlaybook(shareToken).then((shared) => {
         if (!shared) return;
+        // Board content only. The link's own ground is deliberately not read
+        // here: *viewing* a shared play renders on the sender's ground, but
+        // *restoring* one into your board keeps your Active Venue, because a
+        // link must never reconfigure app-wide state. If it then doesn't fit,
+        // the Venue panel says so — the same thing the coach learns about their
+        // own plays. See ADR 0002, "Sharing".
         restore(fromShareData(shared.playbook_data));
       });
     }

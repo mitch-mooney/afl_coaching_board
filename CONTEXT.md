@@ -34,7 +34,9 @@ extend this file rather than inventing parallel names.
   - `toPhase` / `fromPhase` — bridge to the persisted `PlayPhase` (renames to/from
     `playerPositions`/`cameraState`; the stored format is unchanged so old Plays load as-is).
   - `toShareData` / `fromShareData` — bridge to the flat `SharePayload` used in shared
-    links. `fromShareData` reads `paths` (the hand-rolled restore sites used to drop them).
+    links. `fromShareData` reads `paths` (the hand-rolled restore sites used to drop them),
+    and reads *only* board content; the sender's ground comes back through
+    `designedGroundOf` instead — see **Designed ground**.
   Being store-free, leaf layers (the Dexie migration, `sharingService`) can depend on it
   without pulling in the UI store graph.
 
@@ -68,7 +70,18 @@ extend this file rather than inventing parallel names.
 
 - **SharePayload** — the flat wire shape stored in a shared-link record
   (`shared_playbooks.playbook_data`): board content with the camera split into
-  `cameraPosition`/`cameraTarget`/`cameraZoom`, plus share metadata (`name`, `quarter`, `label`).
+  `cameraPosition`/`cameraTarget`/`cameraZoom`, plus share metadata (`name`, `quarter`, `label`)
+  and the **Designed ground** (`venueName`, `boundaryLength`, `boundaryWidth`).
+
+- **Designed ground** — the ground a shared Play was designed on, carried on a SharePayload
+  as **render context, not Play content**: positions are absolute metres, which mean nothing
+  without the boundary they were drawn against. Read with `designedGroundOf(payload)`, never
+  through `fromShareData` — it is not board content and must not ride a restore into app-wide
+  state. It is **not** a Venue: viewing a link renders on it, but restoring one into your own
+  board keeps **your** Active Venue and adds nothing to your Venue list. Every link written
+  from here on carries one, so absent venue fields date a link rather than describe one: it
+  was shared before Venues existed, at 165 × 135, and falls back to Standard ground — which
+  is exactly what it was authored at.
 
 ## Board content
 

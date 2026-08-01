@@ -24,6 +24,7 @@ vi.mock('../../store/appDatabase', () => ({
     scenarios: {
       get: scenariosGetMock,
     },
+    venues: {},
   },
 }));
 
@@ -33,6 +34,16 @@ vi.mock('../../utils/ffmpegConverter', () => ({
 
 // Import after mocks are registered.
 const { sharePlay } = await import('../sharingService');
+const { useVenueStore } = await import('../../store/venueStore');
+
+const aPhase = {
+  id: 'phase-1',
+  label: 'Phase 1',
+  playerPositions: [],
+  paths: [],
+  annotations: [],
+  cameraState: null,
+};
 
 describe('sharePlay — board-only branch', () => {
   beforeEach(() => {
@@ -127,5 +138,61 @@ describe('sharePlay — board-only branch', () => {
     expect(trimAndConvertVideoMock).not.toHaveBeenCalled();
     const insertArg = insertMock.mock.calls[0][0];
     expect(insertArg.video_url).toBeNull();
+  });
+});
+
+describe('sharePlay — the ground the play was designed on', () => {
+  beforeEach(() => {
+    insertMock.mockClear();
+    scenariosGetMock.mockReset();
+    useVenueStore.setState({ venues: [], activeVenueId: null });
+  });
+
+  const play: Play = {
+    id: 4,
+    name: 'Wing overlap',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    team1RosterId: null,
+    team2RosterId: null,
+    phases: [aPhase],
+  };
+
+  it('sends the Active Venue alongside the board, so the recipient sees the author’s spacing', async () => {
+    useVenueStore.setState({
+      venues: [
+        {
+          id: 7,
+          name: 'Kardinia Park',
+          boundaryLength: 152,
+          boundaryWidth: 118,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+      activeVenueId: 7,
+    });
+    scenariosGetMock.mockResolvedValue(play);
+
+    await sharePlay(4, null);
+
+    const { playbook_data } = insertMock.mock.calls[0][0];
+    expect(playbook_data.venueName).toBe('Kardinia Park');
+    expect(playbook_data.boundaryLength).toBe(152);
+    expect(playbook_data.boundaryWidth).toBe(118);
+  });
+
+  it('names Standard ground when no Venue has resolved, rather than leaving the link silent', async () => {
+    scenariosGetMock.mockResolvedValue(play);
+
+    await sharePlay(4, null);
+
+    // Absent venue fields have exactly one meaning — a link shared before Venues
+    // existed. A link written today always says which ground, even when that
+    // ground is the generic one the board was rendering.
+    const { playbook_data } = insertMock.mock.calls[0][0];
+    expect(playbook_data.venueName).toBe('Standard ground');
+    expect(playbook_data.boundaryLength).toBe(165);
+    expect(playbook_data.boundaryWidth).toBe(135);
   });
 });
