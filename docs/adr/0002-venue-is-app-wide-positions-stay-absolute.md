@@ -115,9 +115,18 @@ ground, which is the failure mode this decision exists to remove. The IO half is
 
 > The only ways board content can be out of bounds are a Venue change or a shared link.
 
-This holds because the board seeds 18 per team and places nothing outside the Boundary, and
-because both the drag clamp and the stroke clamp are unconditional. **Relaxing either retires
-the invariant.**
+This holds for **players, the ball, and MovementPath keyframes**, because the board seeds 18
+per team and places nothing outside the Boundary, and because both the drag clamp and the
+stroke clamp are unconditional. **Relaxing either retires the invariant.**
+
+It does **not** yet hold for cones. `TrainingSessionEditor.handleSetUpOnBoard` seeds drill
+cones at fixed absolute metres through `coneStore.addCone`, which is unclamped — an
+`attack`/`defence` drill places them at x ≈ ±70.4, inside Standard ground but outside a
+ground shorter than ~141 m. So setting up a drill on a narrow Active Venue can put content
+out of bounds with no Venue change and no shared link. This is stated rather than fixed here
+because it is a live TrainingMode defect, not a Venue decision; it is the same class of
+mistake as the interchange bench, found the same way, and closing it is what would make the
+invariant unconditional.
 
 It has not always held. This ADR originally asserted it as a consequence of the clamps alone,
 which was wrong: the seed formations were a third way in, staging four players per team at

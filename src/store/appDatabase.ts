@@ -4,7 +4,7 @@ import type { Play, PlayPhase } from '../models/PlayModel';
 import type { Playbook } from '../models/PlaybookModel';
 import type { TeamRoster } from '../models/RosterModel';
 import type { Venue } from '../models/VenueModel';
-import { toPhase, isInterchangeBench } from '../utils/boardSnapshot';
+import { toPhase, withoutInterchangeBench } from '../utils/boardSnapshot';
 import type { Annotation } from './annotationStore';
 import type { Transaction } from 'dexie';
 
@@ -67,14 +67,13 @@ export function legacyRowToPhase(p: LegacyPlaybook): PlayPhase {
  */
 export async function stripInterchangeBench(tx: Transaction): Promise<void> {
   await tx.table('scenarios').toCollection().modify((play: Play) => {
-    // Reassigning `phases` wholesale would rewrite every play including those
-    // with no bench; only touch a phase whose roster actually changes, so a play
-    // already at 18 a side comes through byte-identical.
     for (const phase of play.phases ?? []) {
       const players = phase.playerPositions ?? [];
-      if (players.some(isInterchangeBench)) {
-        phase.playerPositions = players.filter((p) => !isInterchangeBench(p));
-      }
+      const kept = withoutInterchangeBench(players);
+      // Same list back means no bench to strip. Only assign when it actually
+      // changed, so a play already at 18 a side comes through byte-identical
+      // rather than being rewritten to an equal-but-new array.
+      if (kept !== players) phase.playerPositions = kept;
     }
   });
 }

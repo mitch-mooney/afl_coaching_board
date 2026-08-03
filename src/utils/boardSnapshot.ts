@@ -47,9 +47,13 @@ export interface BoardSnapshot {
  * them from the out-of-bounds readout, so that out of bounds could stay pure
  * geometry — no exemption list to explain, and a count that reaches 0.
  *
- * `number` is the handle. It is set once, in `createTeamPlayers` as `i + 1`, no
- * UI anywhere in `src/` edits it, and it matches the id suffix
- * (`team1-player-19` … `team2-player-22`).
+ * `number` is the handle. Every player who can reach a stored Play gets theirs
+ * from `createTeamPlayers` as `i + 1`, no UI in `src/` edits it, and it matches
+ * the id suffix (`team1-player-19` … `team2-player-22`).
+ *
+ * `drillBoardLayout` also numbers the players it builds, but those are drill
+ * *preview* ghosts held in `previewPositions` and never captured into a
+ * snapshot, so they never reach this filter.
  */
 const BENCH_NUMBERS = { first: 19, last: 22 } as const;
 

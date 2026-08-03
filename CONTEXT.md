@@ -139,7 +139,9 @@ extend this file rather than inventing parallel names.
   with no exemption list**, which rests on an invariant: *the only ways board content can be
   out of bounds are a Venue change or a shared link* — the board seeds 18 per team and
   places nothing outside the Boundary, and both clamps are unconditional. There is no
-  interchange bench and so nothing here to name; see ADR 0002 and issue #29.
+  interchange bench and so nothing here to name. The invariant holds for players, the ball
+  and paths; drill cones are a known exception, since `addCone` is unclamped. See ADR 0002
+  and issue #29.
 
 - **Pull inside boundary** — the one-tap affordance that moves out-of-bounds content inside
   the Active Venue's Boundary. Always the coach's choice, never automatic — no fit on load

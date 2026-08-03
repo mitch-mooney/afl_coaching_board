@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { usePlayerStore } from '../../../store/playerStore';
 import { useOverlayOpen } from '../../../hooks/useOverlayOpen';
-import { describeRosterFit } from './rosterImportFit';
+import { describeRosterFit, type RosterTarget } from './rosterImportFit';
 
 export function RosterImportModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   useOverlayOpen(open);
@@ -17,10 +17,10 @@ export function RosterImportModal({ open, onClose }: { open: boolean; onClose: (
   // Counted off the same players importRoster fills by index, rather than
   // assumed from the roster size — if the two ever disagree, the confirmation
   // should be telling the truth about what the import will do.
-  const capacity =
+  const target: RosterTarget =
     selectedTeam === 'all'
-      ? players.length
-      : players.filter((p) => p.teamId === selectedTeam).length;
+      ? { capacity: players.length, scope: 'board' }
+      : { capacity: players.filter((p) => p.teamId === selectedTeam).length, scope: 'team' };
 
   const closeImportDialog = () => {
     setRosterText('');
@@ -116,7 +116,7 @@ export function RosterImportModal({ open, onClose }: { open: boolean; onClose: (
           <>
             <h3 className="text-lg font-bold mb-1">Assign Positions</h3>
             <p className="text-xs text-gray-500 mb-3">
-              {describeRosterFit(pendingNames.length, capacity)} How should positions be assigned?
+              {describeRosterFit(pendingNames.length, target)} How should positions be assigned?
             </p>
             <div className="space-y-3">
               <button

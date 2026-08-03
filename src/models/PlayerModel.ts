@@ -39,8 +39,8 @@ export const PLAYERS_PER_TEAM = 18;
  * Create initial players for a team: 18, all of whom stand on the ground.
  *
  * `number` is the migration handle for plays saved before the bench was deleted
- * — 19 to 22 are exactly the players who no longer exist. It is assigned here
- * and nowhere else, and no UI in `src/` edits it.
+ * — 19 to 22 are exactly the players who no longer exist. Every player who can
+ * reach a stored Play is numbered here, and no UI in `src/` edits it.
  */
 export function createTeamPlayers(
   teamId: 'team1' | 'team2',
