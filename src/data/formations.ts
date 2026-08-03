@@ -76,12 +76,6 @@ const STANDARD_TEAM1_POSITIONS = [
   { x: 0, z: 60, role: 'FF', rotation: Math.PI },      // Full Forward
   { x: -25, z: 55, role: 'FP', rotation: Math.PI },    // Forward Pocket Left
   { x: 25, z: 55, role: 'FP', rotation: Math.PI },     // Forward Pocket Right
-
-  // Interchange (off the field - positioned on team bench area with offset for visibility)
-  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
-  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
-  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
-  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 /**
@@ -129,12 +123,6 @@ const ZONE_DEFENSE_TEAM1_POSITIONS = [
   { x: 0, z: 55, role: 'FF', rotation: Math.PI },
   { x: -20, z: 50, role: 'FP', rotation: Math.PI },
   { x: 20, z: 50, role: 'FP', rotation: Math.PI },
-
-  // Interchange (off the field - positioned on team bench area with offset for visibility)
-  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
-  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
-  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
-  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 const ZONE_DEFENSE: Formation = {
@@ -177,12 +165,6 @@ const PRESS_TEAM1_POSITIONS = [
   { x: 0, z: 62, role: 'FF', rotation: Math.PI },
   { x: -18, z: 58, role: 'FP', rotation: Math.PI },
   { x: 18, z: 58, role: 'FP', rotation: Math.PI },
-
-  // Interchange (off the field - positioned on team bench area with offset for visibility)
-  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
-  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
-  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
-  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 const PRESS: Formation = {
@@ -225,12 +207,6 @@ const SPREAD_TEAM1_POSITIONS = [
   { x: 0, z: 58, role: 'FF', rotation: Math.PI },
   { x: -35, z: 55, role: 'FP', rotation: Math.PI },
   { x: 35, z: 55, role: 'FP', rotation: Math.PI },
-
-  // Interchange (off the field - positioned on team bench area with offset for visibility)
-  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
-  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
-  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
-  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 const SPREAD: Formation = {
@@ -273,12 +249,6 @@ const FLOOD_TEAM1_POSITIONS = [
   { x: 0, z: 45, role: 'FF', rotation: Math.PI },
   { x: -20, z: 40, role: 'FP', rotation: Math.PI },
   { x: 20, z: 40, role: 'FP', rotation: Math.PI },
-
-  // Interchange (off the field - positioned on team bench area with offset for visibility)
-  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
-  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
-  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
-  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 const FLOOD: Formation = {
@@ -321,12 +291,6 @@ const MAN_ON_MAN_TEAM1_POSITIONS = [
   { x: 0, z: 55, role: 'FF', rotation: Math.PI },
   { x: -22, z: 50, role: 'FP', rotation: Math.PI },
   { x: 22, z: 50, role: 'FP', rotation: Math.PI },
-
-  // Interchange (off the field - positioned on team bench area with offset for visibility)
-  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
-  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
-  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
-  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 const MAN_ON_MAN: Formation = {
@@ -369,12 +333,6 @@ const CENTRE_BOUNCE_TEAM1_POSITIONS = [
   { x: 0, z: 77, role: 'FF', rotation: Math.PI },
   { x: -25, z: 55, role: 'FP', rotation: Math.PI },
   { x: 25, z: 55, role: 'FP', rotation: Math.PI },
-
-  // Interchange (off the field - positioned on team bench area with offset for visibility)
-  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
-  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
-  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
-  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 const CENTRE_BOUNCE: Formation = {
@@ -416,11 +374,6 @@ const KICK_IN_PRESSING_TEAM1_POSITIONS = [
   { x: -18, z:  20,   role: 'BP',  rotation: 0 },
   { x:   0, z:  22,   role: 'FB',  rotation: 0 },
   { x:  18, z:  20,   role: 'BP',  rotation: 0 },
-  // Interchange
-  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
-  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
-  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
-  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 const KICK_IN_PRESSING: Formation = {
@@ -464,11 +417,6 @@ const KICK_IN_KICKING_TEAM1_POSITIONS = [
   { x:   0, z:  60,    role: 'FF',  rotation: Math.PI },
   // Rover near mid-field
   { x:   0, z: -15,    role: 'RO',  rotation: 0 },
-  // Interchange
-  { x: 73, z: -25, role: 'INT', rotation: 0 },          // Interchange 1 → centre sideline
-  { x: 73, z: -18, role: 'INT', rotation: 0 },          // Interchange 2
-  { x: 73, z: -12, role: 'INT', rotation: 0 },          // Interchange 3
-  { x: 73, z:  -6, role: 'INT', rotation: 0 },          // Interchange 4
 ];
 
 const KICK_IN_KICKING: Formation = {
@@ -505,17 +453,24 @@ export function getFormationById(id: string): Formation | undefined {
 }
 
 /**
- * Validate that a formation has the required 44 positions (22 per team: 18 on-field + 4 interchange)
+ * Validate that a formation has the required 36 positions — 18 per team, all of
+ * them on the ground.
+ *
+ * There is no interchange bench. Formations used to seed four per team beyond
+ * the boundary, which made every play report eight players out of bounds
+ * forever; issue #29 deleted the bench rather than exempting it, so that out of
+ * bounds could stay pure geometry. A formation carrying 22 a side is one that
+ * has grown the bench back, and this returns false for it.
  */
 export function validateFormation(formation: Formation): boolean {
-  if (formation.positions.length !== 44) {
+  if (formation.positions.length !== 36) {
     return false;
   }
 
   const team1Count = formation.positions.filter(p => p.teamId === 'team1').length;
   const team2Count = formation.positions.filter(p => p.teamId === 'team2').length;
 
-  return team1Count === 22 && team2Count === 22;
+  return team1Count === 18 && team2Count === 18;
 }
 
 /**

@@ -25,11 +25,27 @@ export const DEFAULT_TEAM_COLORS = {
 
 const SKIN_TONES: Array<'fair' | 'medium' | 'dark'> = ['fair', 'fair', 'medium', 'medium', 'dark'];
 
-// Create initial players for a team (18 on-field + 4 interchange = 22 total)
+/**
+ * How many players a team puts on the board.
+ *
+ * 18 — the side that takes the field, and no more. There is no interchange
+ * bench: it used to be four more per team parked outside the boundary, which is
+ * why every play reported eight players out of bounds, and issue #29 deleted it
+ * rather than exempting it from the readout.
+ */
+export const PLAYERS_PER_TEAM = 18;
+
+/**
+ * Create initial players for a team: 18, all of whom stand on the ground.
+ *
+ * `number` is the migration handle for plays saved before the bench was deleted
+ * — 19 to 22 are exactly the players who no longer exist. Every player who can
+ * reach a stored Play is numbered here, and no UI in `src/` edits it.
+ */
 export function createTeamPlayers(
   teamId: 'team1' | 'team2',
   color: string,
-  count: number = 22
+  count: number = PLAYERS_PER_TEAM
 ): Player[] {
   const players: Player[] = [];
 

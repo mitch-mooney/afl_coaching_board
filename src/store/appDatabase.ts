@@ -4,8 +4,9 @@ import type { Play, PlayPhase } from '../models/PlayModel';
 import type { Playbook } from '../models/PlaybookModel';
 import type { TeamRoster } from '../models/RosterModel';
 import type { Venue } from '../models/VenueModel';
-import { toPhase } from '../utils/boardSnapshot';
+import { toPhase, withoutInterchangeBench } from '../utils/boardSnapshot';
 import type { Annotation } from './annotationStore';
+import type { Transaction } from 'dexie';
 
 /**
  * Legacy flat-"Playbook" row shape. The `playbooks` table is dead storage now —
@@ -47,6 +48,34 @@ export function legacyRowToPhase(p: LegacyPlaybook): PlayPhase {
     },
     { id: 'phase-1', label: 'Phase 1' },
   );
+}
+
+/**
+ * The v7 upgrade: strip the deleted interchange bench (#29) from every stored Play.
+ *
+ * Changing what a *new* board seeds does nothing for a play already on disk —
+ * every play saved to date carries 22 a side with eight at z ≈ 73.5, and a play
+ * that is only ever opened would never heal. So the rewrite happens once, here,
+ * over every phase of every play.
+ *
+ * The players are **dropped, not pulled inside the boundary**. Pulling them in
+ * would only defer the clutter: eight players nobody asked for, now standing in
+ * the way of every drag on every old play.
+ *
+ * Exported so the migration test can drive it against a scratch database rather
+ * than the app's own.
+ */
+export async function stripInterchangeBench(tx: Transaction): Promise<void> {
+  await tx.table('scenarios').toCollection().modify((play: Play) => {
+    for (const phase of play.phases ?? []) {
+      const players = phase.playerPositions ?? [];
+      const kept = withoutInterchangeBench(players);
+      // Same list back means no bench to strip. Only assign when it actually
+      // changed, so a play already at 18 a side comes through byte-identical
+      // rather than being rewritten to an equal-but-new array.
+      if (kept !== players) phase.playerPositions = kept;
+    }
+  });
 }
 
 class AppDatabase extends Dexie {
@@ -125,6 +154,18 @@ class AppDatabase extends Dexie {
       teamRosters: '++id, teamName, createdAt',
       venues: '++id, name, createdAt',
     });
+    // v7: delete the interchange bench. The schema is unchanged — this bump
+    // exists only to rewrite Play content, stripping the four players per team
+    // that stood outside the Boundary and made out of bounds report 8 forever.
+    // See stripInterchangeBench above, and issue #29 for why they are deleted
+    // rather than exempted.
+    this.version(7).stores({
+      playbooks: '++id, name, createdAt, videoBlobId',
+      playbookCollections: '++id, name, createdAt',
+      scenarios: '++id, name, createdAt, updatedAt, team1RosterId, team2RosterId, playbookId',
+      teamRosters: '++id, teamName, createdAt',
+      venues: '++id, name, createdAt',
+    }).upgrade(stripInterchangeBench);
   }
 }
 

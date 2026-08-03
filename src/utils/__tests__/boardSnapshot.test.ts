@@ -43,6 +43,90 @@ beforeEach(() => {
   useConeStore.setState({ cones: [] });
 });
 
+/**
+ * The read-side backstop for the deleted interchange bench (#29).
+ *
+ * The Dexie migration rewrites plays stored in *this* browser. It cannot reach a
+ * shared link authored on a client that never ran it, so both read adapters have
+ * to drop the bench on the way in — otherwise an old link restores 44 players
+ * and puts eight of them back outside the boundary, which is the exact readout
+ * the deletion exists to make true.
+ */
+describe('the bench never survives a read', () => {
+  const bench = (number: number): Player => ({
+    id: `team1-player-${number}`,
+    teamId: 'team1',
+    position: [-25, 0, 73.5],
+    rotation: 0,
+    color: '#ffffff',
+    number,
+  });
+  const onField: Player = { ...aPlayer, number: 7 };
+  const stored = [onField, bench(19), bench(20), bench(21), bench(22)];
+
+  it('fromPhase drops players numbered 19 to 22', () => {
+    const phase = {
+      id: 'phase-1',
+      label: 'Phase 1',
+      playerPositions: stored,
+      paths: [],
+      annotations: [],
+      cameraState: null,
+    } as PlayPhase;
+
+    expect(fromPhase(phase).players).toEqual([onField]);
+  });
+
+  it('fromShareData drops them too — a link can predate the migration', () => {
+    const payload = {
+      name: 'Shared Play',
+      quarter: null,
+      label: null,
+      playerPositions: stored,
+      paths: [],
+      annotations: [],
+      cameraPosition: null,
+      cameraTarget: null,
+      cameraZoom: 1,
+    };
+
+    expect(fromShareData(payload).players).toEqual([onField]);
+  });
+
+  it('keeps a player with no number — legacy rows predate numbering', () => {
+    const unnumbered: Player = { ...aPlayer, id: 'team1-player-x', number: undefined };
+    const phase = {
+      id: 'phase-1',
+      label: 'Phase 1',
+      playerPositions: [unnumbered],
+      paths: [],
+      annotations: [],
+      cameraState: null,
+    } as PlayPhase;
+
+    expect(fromPhase(phase).players).toEqual([unnumbered]);
+  });
+
+  it('keeps 18 and leaves a 36-player play untouched', () => {
+    const full = Array.from({ length: 36 }, (_, i) => ({
+      ...aPlayer,
+      id: `p-${i}`,
+      teamId: (i < 18 ? 'team1' : 'team2') as Player['teamId'],
+      number: (i % 18) + 1,
+    }));
+    const phase = {
+      id: 'phase-1',
+      label: 'Phase 1',
+      playerPositions: full,
+      paths: [],
+      annotations: [],
+      cameraState: null,
+    } as PlayPhase;
+
+    expect(fromPhase(phase).players).toEqual(full);
+  });
+});
+
 describe('boardSnapshot.capture', () => {
   it('reads the board slices, including the ball and cones, from their stores', () => {
     usePlayerStore.setState({ players: [aPlayer] });

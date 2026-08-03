@@ -91,12 +91,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const centreBounce = getFormationById('centre-bounce');
 
     // Helper function to get fallback position for a player
-    // Spreads 22 players across the field in a realistic formation-like pattern
+    // Spreads 18 players across the field in a realistic formation-like pattern
     const getFallbackPosition = (teamId: 'team1' | 'team2', index: number): [number, number, number] => {
       // Team1 on negative X side (defending), Team2 on positive X side
       const teamMultiplier = teamId === 'team1' ? -1 : 1;
 
-      // Define positions for 22 players (18 on-field + 4 interchange)
+      // Define positions for the 18 on the ground. Every one of them is inside
+      // the boundary — the four bench slots that used to follow sat outside it,
+      // which is what made the out-of-bounds readout permanently non-empty (#29).
       const positions: [number, number, number][] = [
         // Defence line (6 players)
         [55, 0, 0],    // Full Back
@@ -119,11 +121,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         [-55, 0, 0],   // Full Forward
         [-50, 0, -25], // Forward Pocket Left
         [-50, 0, 25],  // Forward Pocket Right
-        // Interchange (4 players - centre sideline bench)
-        [25, 0, 73],  // Int 1 — team1: [-25,0,73]  team2: [25,0,73]
-        [18, 0, 73],  // Int 2
-        [12, 0, 73],  // Int 3
-        [ 6, 0, 73],  // Int 4
       ];
 
       const pos = positions[index] || [0, 0, index * 3];
@@ -133,7 +130,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     // Offset for team1 (blue) to make them visible next to team2 (red)
     const TEAM1_Z_OFFSET = 0.5;
 
-    if (centreBounce && centreBounce.positions.length >= 44) {
+    if (centreBounce && centreBounce.positions.length >= 36) {
       // Position players using the Centre Bounce formation
       const positionedTeam1 = team1Players.map((player, index) => {
         const formationPos = centreBounce.positions.find(

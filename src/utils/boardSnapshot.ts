@@ -39,6 +39,45 @@ export interface BoardSnapshot {
   cones: Cone[];
 }
 
+// ── The deleted interchange bench ───────────────────────────────────────────
+
+/**
+ * The board used to seed 22 a side, the last four of whom stood outside the
+ * Boundary as an interchange bench. Issue #29 deleted them rather than exempting
+ * them from the out-of-bounds readout, so that out of bounds could stay pure
+ * geometry — no exemption list to explain, and a count that reaches 0.
+ *
+ * `number` is the handle. Every player who can reach a stored Play gets theirs
+ * from `createTeamPlayers` as `i + 1`, no UI in `src/` edits it, and it matches
+ * the id suffix (`team1-player-19` … `team2-player-22`).
+ *
+ * `drillBoardLayout` also numbers the players it builds, but those are drill
+ * *preview* ghosts held in `previewPositions` and never captured into a
+ * snapshot, so they never reach this filter.
+ */
+const BENCH_NUMBERS = { first: 19, last: 22 } as const;
+
+/** Whether a stored player is one of the four per team that no longer exist. */
+export function isInterchangeBench(player: Pick<Player, 'number'>): boolean {
+  const { number } = player;
+  // A player with no number predates numbering, and is kept: absence of a number
+  // is not evidence of a bench place.
+  if (typeof number !== 'number') return false;
+  return number >= BENCH_NUMBERS.first && number <= BENCH_NUMBERS.last;
+}
+
+/**
+ * Drop the bench from a stored roster.
+ *
+ * Applied on every read rather than only in the Dexie migration, because the
+ * migration rewrites *this* browser's plays and cannot reach a shared link
+ * authored on a client that never ran it. Without this, an old link restores 44
+ * players and stands eight of them back outside the Boundary.
+ */
+export function withoutInterchangeBench(players: Player[]): Player[] {
+  return players.some(isInterchangeBench) ? players.filter((p) => !isInterchangeBench(p)) : players;
+}
+
 // ── Persistence adapter: BoardSnapshot ↔ PlayPhase ──────────────────────────
 // A PlayPhase is the persisted shape (field names `playerPositions`/`cameraState`
 // plus phase identity). The stored format is unchanged, so old Plays load as-is;
@@ -63,10 +102,13 @@ export function toPhase(snap: BoardSnapshot, identity: { id: string; label: stri
   };
 }
 
-/** Read a persisted PlayPhase back into a snapshot (tolerates legacy gaps). */
+/**
+ * Read a persisted PlayPhase back into a snapshot (tolerates legacy gaps, and
+ * drops the deleted interchange bench — see `withoutInterchangeBench`).
+ */
 export function fromPhase(phase: PlayPhase): BoardSnapshot {
   return {
-    players: phase.playerPositions ?? [],
+    players: withoutInterchangeBench(phase.playerPositions ?? []),
     paths: phase.paths ?? [],
     annotations: (phase.annotations ?? []) as Annotation[],
     camera: phase.cameraState ?? null,
@@ -196,10 +238,15 @@ export function designedGroundOf(data: SharePayload): DesignedGround {
  * Read a shared-link payload back into a snapshot. Reads `paths` (the legacy
  * restore sites forgot to, silently dropping movement paths from shared plays),
  * re-nests the flat camera fields, and tolerates links that predate the ball/cones.
+ *
+ * Drops the deleted interchange bench for a reason that does not apply to
+ * `fromPhase`: this is the *only* place an old link can be caught. The sender's
+ * client may never have run the migration, so the bench arrives over the wire
+ * however thoroughly the local database has been rewritten.
  */
 export function fromShareData(data: SharePayload): BoardSnapshot {
   return {
-    players: data.playerPositions ?? [],
+    players: withoutInterchangeBench(data.playerPositions ?? []),
     paths: data.paths ?? [],
     annotations: (data.annotations ?? []) as Annotation[],
     camera:
