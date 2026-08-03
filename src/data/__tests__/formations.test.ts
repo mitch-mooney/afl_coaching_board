@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   getFormationById,
   PRE_BUILT_FORMATIONS,
+  validateFormation,
 } from '../formations';
 import type { PlayerPosition } from '../../types/Formation';
+import { STANDARD_BOUNDARY, isPointInField } from '../../utils/fieldGeometry';
 
 // Helper: get Team 1 3D position by role
 function getTeam1Pos(formationId: string, role: string): PlayerPosition {
@@ -17,6 +19,70 @@ function getTeam1Pos(formationId: string, role: string): PlayerPosition {
 // 3D position = [pos.z, 0, pos.x], so:
 function rawZ(p: PlayerPosition) { return p.position[0]; }  // formation z = goal axis
 function rawX(p: PlayerPosition) { return p.position[2]; }  // formation x = wing axis
+
+/**
+ * 18 a side, and every seeded player on the ground.
+ *
+ * The board used to seed 22 per team, four of whom sat at formation x = 73 as an
+ * interchange bench — outside every realistic Boundary, which made the
+ * out-of-bounds readout report 8 on every play forever. Issue #29 deleted the
+ * bench rather than exempting it, so that out of bounds stays pure geometry and
+ * becomes *true*. These tests are what stops it growing back.
+ */
+describe('every pre-built formation is 18 a side, entirely inside the Boundary', () => {
+  it.each(PRE_BUILT_FORMATIONS.map((f) => [f.id, f] as const))(
+    '%s holds 18 per team and validates',
+    (_id, formation) => {
+      expect(formation.positions.filter((p) => p.teamId === 'team1')).toHaveLength(18);
+      expect(formation.positions.filter((p) => p.teamId === 'team2')).toHaveLength(18);
+      expect(validateFormation(formation)).toBe(true);
+    },
+  );
+
+  it.each(PRE_BUILT_FORMATIONS.map((f) => [f.id, f] as const))(
+    '%s seeds nobody outside Standard ground',
+    (_id, formation) => {
+      const outside = formation.positions.filter(
+        (p) => !isPointInField(p.position[0], p.position[2], STANDARD_BOUNDARY),
+      );
+      expect(outside).toEqual([]);
+    },
+  );
+
+  it.each(PRE_BUILT_FORMATIONS.map((f) => [f.id, f] as const))(
+    '%s numbers each team 1..18 with no interchange role left behind',
+    (_id, formation) => {
+      expect(formation.positions.filter((p) => p.role === 'INT')).toEqual([]);
+      for (const teamId of ['team1', 'team2'] as const) {
+        const numbers = formation.positions
+          .filter((p) => p.teamId === teamId)
+          .map((p) => p.playerNumber)
+          .sort((a, b) => a - b);
+        expect(numbers).toEqual(Array.from({ length: 18 }, (_, i) => i + 1));
+      }
+    },
+  );
+});
+
+describe('validateFormation', () => {
+  it('rejects a formation still carrying a 22-man team', () => {
+    const centreBounce = getFormationById('centre-bounce')!;
+    const withBench = {
+      ...centreBounce,
+      positions: [
+        ...centreBounce.positions,
+        ...Array.from({ length: 4 }, (_, i) => ({
+          playerNumber: 19 + i,
+          teamId: 'team1' as const,
+          position: [-25 + i * 6, 0, 73] as [number, number, number],
+          rotation: 0,
+          role: 'INT',
+        })),
+      ],
+    };
+    expect(validateFormation(withBench)).toBe(false);
+  });
+});
 
 describe('CENTRE_BOUNCE formation', () => {
   it('Ruck (R) is at centre (both axes ≈ 0)', () => {

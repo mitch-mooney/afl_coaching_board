@@ -7,6 +7,12 @@ substantive changes: forward/back zone thresholds are anchored to the **goal lin
 than to field centre; a shared Play **carries the ground it was designed on**; and
 `thumbnailProjection` was found to already implement the rejected normalisation.
 
+Amended again 2026-08-03: the out-of-bounds invariant below was **false when this ADR was
+written** — the seed formations staged an interchange bench outside the boundary, so every
+play reported eight players out of bounds forever. The bench has been deleted rather than
+exempted (issue #29), which makes the invariant true for the first time. See "The invariant"
+under Out of bounds.
+
 ## Context
 
 `FIELD_CONFIG` (`models/FieldModel.ts`) was a frozen `as const` at 165 × 135 m — dimensions
@@ -101,11 +107,29 @@ ground, which is the failure mode this decision exists to remove. The IO half is
   and a player visibly running off the ground is honest, self-explanatory feedback. Switching
   back to the wide venue restores it perfectly, because no data changed.
 - Live input **keeps** clamping via `snapToField`, now against the Active Venue. That is
-  direct manipulation with immediate visual feedback, not a silent reshape, and it yields the
-  invariant: *the only ways board content can be out of bounds are a Venue change or a Play
-  arriving from a shared link.* The cost is that entities still cannot be staged outside the
-  boundary — a boundary throw-in is taken from outside the line — which is today's behaviour
-  and is ticketed separately.
+  direct manipulation with immediate visual feedback, not a silent reshape. The cost is that
+  entities still cannot be staged outside the boundary — a boundary throw-in is taken from
+  outside the line — which is today's behaviour and is ticketed separately.
+
+#### The invariant
+
+> The only ways board content can be out of bounds are a Venue change or a shared link.
+
+This holds because the board seeds 18 per team and places nothing outside the Boundary, and
+because both the drag clamp and the stroke clamp are unconditional. **Relaxing either retires
+the invariant.**
+
+It has not always held. This ADR originally asserted it as a consequence of the clamps alone,
+which was wrong: the seed formations were a third way in, staging four players per team at
+formation `x = 73` as an interchange bench — outside every realistic ground, and predating
+the Venue work entirely. So the fit readout reported eight out of bounds on every play from
+the day it shipped, and `Pull inside boundary` dragged that bench onto the field.
+
+Issue #29 settled it by **deleting the bench rather than exempting it**: the board is 18 a
+side, a one-off Dexie migration strips players 19–22 from every stored play, and both read
+adapters drop them as a backstop for shared links authored on old clients. Out of bounds
+therefore stays **pure geometry with no exemption list** — a fit report that said "8 outside,
+but 8 of those don't count" would not be a fit report — and its count genuinely reaches zero.
 - The same predicate marks **"doesn't fit"** on Plays in the playbook list. A coach preparing
   for Saturday has a playbook, not one play; without the marker the feature answers the
   motivating question one play at a time.

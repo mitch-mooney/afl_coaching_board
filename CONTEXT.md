@@ -135,7 +135,11 @@ extend this file rather than inventing parallel names.
   the ball, cones, and MovementPath keyframes. Annotations are never out of bounds — they
   are inert markup and may point off-ground deliberately. Out of bounds is *derived, never
   stored*, and is a legitimate state to leave a board in: it is a true statement about a
-  play that does not fit this ground, not an error to be repaired.
+  play that does not fit this ground, not an error to be repaired. It is **pure geometry
+  with no exemption list**, which rests on an invariant: *the only ways board content can be
+  out of bounds are a Venue change or a shared link* — the board seeds 18 per team and
+  places nothing outside the Boundary, and both clamps are unconditional. There is no
+  interchange bench and so nothing here to name; see ADR 0002 and issue #29.
 
 - **Pull inside boundary** — the one-tap affordance that moves out-of-bounds content inside
   the Active Venue's Boundary. Always the coach's choice, never automatic — no fit on load
