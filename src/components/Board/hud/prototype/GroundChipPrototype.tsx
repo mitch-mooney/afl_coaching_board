@@ -40,6 +40,30 @@ export function useVariant(): VariantKey | null {
   return raw === 'A' || raw === 'B' || raw === 'C' ? raw : null;
 }
 
+/**
+ * A won the placement question on the device, so the live question is now what
+ * A *does* at count > 0 — and specifically whether the change lands in
+ * peripheral vision while the coach is watching the boundary move.
+ *
+ * Three treatments, loud to quiet, all in the same place:
+ *   segment — amber segment appears inside the pill's existing border (as built)
+ *   swap    — the whole pill goes amber; the name stays, the count joins it
+ *   dot     — one amber dot, nothing else moves
+ */
+export type AlertKey = 'segment' | 'swap' | 'dot';
+
+export const ALERTS: { key: AlertKey; name: string }[] = [
+  { key: 'segment', name: 'amber segment' },
+  { key: 'swap', name: 'whole pill ambers' },
+  { key: 'dot', name: 'one dot' },
+];
+
+export function useAlert(): AlertKey {
+  const [params] = useSearchParams();
+  const raw = params.get('alert');
+  return raw === 'swap' || raw === 'dot' ? raw : 'segment';
+}
+
 /** Everything a variant is allowed to read. Real values, faked count optional. */
 function useChipData() {
   const [params] = useSearchParams();
@@ -100,11 +124,16 @@ export function GroundChipBoardSlot() {
  * ------------------------------------------------------------------ */
 function VariantA() {
   const { name, count } = useChipData();
+  const alert = useAlert();
   const { pressed, handlers } = usePress();
+  const loud = count > 0;
+  // Only `swap` repaints the pill itself; the other two leave it alone and put
+  // the change inside.
+  const ambered = loud && alert === 'swap';
   return (
     <button
       type="button"
-      aria-label={`Ground: ${name}${count > 0 ? `, ${count} outside the boundary` : ''}`}
+      aria-label={`Ground: ${name}${loud ? `, ${count} outside the boundary` : ''}`}
       {...handlers}
       style={{
         marginLeft: 8,
@@ -112,8 +141,8 @@ function VariantA() {
         alignItems: 'stretch',
         borderRadius: 8,
         overflow: 'hidden',
-        border: '1px solid rgba(255,255,255,0.2)',
-        background: 'rgba(0,0,0,0.4)',
+        border: ambered ? `1px solid ${AMBER}` : '1px solid rgba(255,255,255,0.2)',
+        background: ambered ? 'rgba(245,158,11,0.22)' : 'rgba(0,0,0,0.4)',
         cursor: 'pointer',
         minHeight: 34,
         opacity: pressed ? 0.7 : 1,
@@ -125,16 +154,27 @@ function VariantA() {
           display: 'flex', alignItems: 'center', gap: 6,
           padding: '0 12px',
           fontSize: 13, fontWeight: 500,
-          color: 'rgba(255,255,255,0.7)',
+          color: ambered ? AMBER : 'rgba(255,255,255,0.7)',
           whiteSpace: 'nowrap',
         }}
       >
-        <svg width="13" height="10" viewBox="0 0 13 10" aria-hidden style={{ flexShrink: 0 }}>
-          <ellipse cx="6.5" cy="5" rx="6" ry="4.5" fill="none" stroke="currentColor" strokeWidth="1" />
-        </svg>
+        {/* `dot` replaces the hairline oval rather than adding to it, so nothing
+            in the pill shifts sideways when the count arrives. */}
+        {loud && alert === 'dot' ? (
+          // Boxed to the oval's 13px so the name does not shift when the dot
+          // arrives — a chip that jogs sideways is not the quiet option.
+          <span aria-hidden style={{ width: 13, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ width: 9, height: 9, borderRadius: 999, background: AMBER }} />
+          </span>
+        ) : (
+          <svg width="13" height="10" viewBox="0 0 13 10" aria-hidden style={{ flexShrink: 0 }}>
+            <ellipse cx="6.5" cy="5" rx="6" ry="4.5" fill="none" stroke="currentColor" strokeWidth="1" />
+          </svg>
+        )}
         {name}
+        {ambered && <span style={{ fontWeight: 700 }}>· {count} out</span>}
       </span>
-      {count > 0 && (
+      {loud && alert === 'segment' && (
         <span
           style={{
             display: 'flex', alignItems: 'center',
