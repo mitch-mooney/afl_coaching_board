@@ -11,6 +11,9 @@ import { Scoreboard } from '../Scene/Scoreboard';
 import { SkyDome } from '../Scene/SkyDome';
 import { GlobalDrawer } from '../UI/GlobalDrawer';
 import { BoardHud } from '../Board/hud/BoardHud';
+// PROTOTYPE — THROWAWAY. Render nothing without `?variant=`. Delete with the branch.
+import { GroundChipBoardSlot } from '../Board/hud/prototype/GroundChipPrototype';
+import { GroundChipSwitcher } from '../Board/hud/prototype/GroundChipSwitcher';
 import { FeatureNotification } from '../UI/FeatureNotification';
 import { HelpScreen } from '../UI/HelpScreen';
 import { OnboardingTour } from '../UI/OnboardingTour';
@@ -309,6 +312,10 @@ export function MainLayout() {
       {/* All DOM-layer UI stays outside */}
       <GlobalDrawer />
       {editorTab === 'board' && <BoardHud />}
+      {/* PROTOTYPE — THROWAWAY. Ground-chip variants B and C, plus the variant
+          switcher. Render nothing without `?variant=`. Delete with the branch. */}
+      {editorTab === 'board' && <GroundChipBoardSlot />}
+      {editorTab === 'board' && <GroundChipSwitcher />}
       <OnboardingTour />
       {helpOpen && <HelpScreen onClose={() => setHelpOpen(false)} />}
 

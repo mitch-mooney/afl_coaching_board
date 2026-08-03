@@ -1,4 +1,6 @@
 import { HamburgerIcon } from '../UI/HamburgerIcon';
+// PROTOTYPE — THROWAWAY. Renders nothing without `?variant=A`. Delete with the branch.
+import { GroundChipTopBarSlot } from '../Board/hud/prototype/GroundChipPrototype';
 
 interface EditorTopBarProps {
   editorTab: 'board' | 'video' | 'training';
@@ -56,6 +58,8 @@ export function EditorTopBar({
             Training
           </button>
         </div>
+        {/* PROTOTYPE — THROWAWAY. Variant A of the ground chip sits here. */}
+        {editorTab === 'board' && <GroundChipTopBarSlot />}
       </div>
 
       {/* Training-mode board controls (cone placement) */}
