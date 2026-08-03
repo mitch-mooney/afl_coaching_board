@@ -119,14 +119,18 @@ This holds for **players, the ball, and MovementPath keyframes**, because the bo
 per team and places nothing outside the Boundary, and because both the drag clamp and the
 stroke clamp are unconditional. **Relaxing either retires the invariant.**
 
-It does **not** yet hold for cones. `TrainingSessionEditor.handleSetUpOnBoard` seeds drill
-cones at fixed absolute metres through `coneStore.addCone`, which is unclamped — an
-`attack`/`defence` drill places them at x ≈ ±70.4, inside Standard ground but outside a
-ground shorter than ~141 m. So setting up a drill on a narrow Active Venue can put content
-out of bounds with no Venue change and no shared link. This is stated rather than fixed here
-because it is a live TrainingMode defect, not a Venue decision; it is the same class of
-mistake as the interchange bench, found the same way, and closing it is what would make the
-invariant unconditional.
+It does **not** yet hold for cones — see issue #34. `TrainingSessionEditor.handleSetUpOnBoard`
+seeds drill cones at fixed absolute metres through `coneStore.addCone`, which is unclamped. An
+`attack`/`goal-kicking`/`defence` drill puts its outermost cone at (x, z) ≈ (±70.4, ±12.6):
+inside Standard ground, but outside the ellipse once the ground is shorter than **≈ 143.3 m**
+at a standard 135 m width — a length the app accepts without even warning. So setting up a
+drill on a narrow Active Venue can put content out of bounds with no Venue change and no shared
+link.
+
+Stated rather than fixed here because it is a live TrainingMode defect, not a Venue decision.
+It is the same class of mistake as the interchange bench — content seeded at fixed absolute
+metres by a subsystem that predates variable grounds — found the same way, and closing it is
+what would let this caveat be deleted and the invariant stated unconditionally.
 
 It has not always held. This ADR originally asserted it as a consequence of the clamps alone,
 which was wrong: the seed formations were a third way in, staging four players per team at
