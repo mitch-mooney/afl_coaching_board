@@ -150,12 +150,18 @@ extend this file rather than inventing parallel names.
   thing it remedies.
 
 - **Fit readout** — the surfaced answer to *does the open board fit the Active Venue?*: the
-  Out of bounds count, its sentence (`describeOutOfBounds`), and **Pull inside boundary**,
-  together as one thing. The open board has exactly one Fit readout and it lives **on the
-  board**; a surface that merely sets the Active Venue makes no claim about the board's fit.
-  Distinct from **playFit**'s row marker, which is the same predicate on a different
-  *subject* — a Play on disk rather than the board — and so is not a second readout. See
-  ADR 0005.
+  Out of bounds count, its sentence (`describeOutOfBounds`), **Pull inside boundary**, and
+  whether the board **has been pulled inside**, together as one thing. The open board has
+  exactly one Fit readout and it lives **on the board**; a surface that merely sets the Active
+  Venue makes no claim about the board's fit. Distinct from **playFit**'s row marker, which is
+  the same predicate on a different *subject* — a Play on disk rather than the board — and so
+  is not a second readout. See ADR 0005.
+
+  The readout explains its own answer: a count of 0 the coach **created**, by pulling inside at
+  the ground they are standing on, is not the finding a count of 0 they **inherited** is. Both
+  say the board fits; only one says the board is still the play they opened. This is the same
+  claim at a higher resolution, not a second subject — the readout reports fit, never *the board
+  has been edited*, which would be a dirty flag and is deliberately not a thing this app has.
 
 - **playFit** (`utils/playFit.ts`) — the pure "does this *stored* Play fit this ground?"
   predicate, over every phase of the Play. Delegates to **Out of bounds** rather than
