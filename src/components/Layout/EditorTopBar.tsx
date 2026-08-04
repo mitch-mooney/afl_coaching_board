@@ -1,4 +1,6 @@
 import { HamburgerIcon } from '../UI/HamburgerIcon';
+// PROTOTYPE — THROWAWAY, wayfinder #27. Renders nothing without `?pop=`.
+import { GroundChipSlot } from '../Board/hud/prototype/GroundPopoverPrototype';
 
 interface EditorTopBarProps {
   editorTab: 'board' | 'video' | 'training';
@@ -56,6 +58,11 @@ export function EditorTopBar({
             Training
           </button>
         </div>
+
+        {/* PROTOTYPE — THROWAWAY, wayfinder #27. Right of the tab switcher, which
+            is where issue #25 settled the chip. Board tab only: only the board tab
+            renders a board. */}
+        {editorTab === 'board' && <GroundChipSlot />}
       </div>
 
       {/* Training-mode board controls (cone placement) */}

@@ -11,6 +11,8 @@ import { Scoreboard } from '../Scene/Scoreboard';
 import { SkyDome } from '../Scene/SkyDome';
 import { GlobalDrawer } from '../UI/GlobalDrawer';
 import { BoardHud } from '../Board/hud/BoardHud';
+// PROTOTYPE — THROWAWAY, wayfinder #27. Renders nothing without `?pop=`.
+import { GroundPopoverSwitcher } from '../Board/hud/prototype/GroundPopoverSwitcher';
 import { FeatureNotification } from '../UI/FeatureNotification';
 import { HelpScreen } from '../UI/HelpScreen';
 import { OnboardingTour } from '../UI/OnboardingTour';
@@ -309,6 +311,8 @@ export function MainLayout() {
       {/* All DOM-layer UI stays outside */}
       <GlobalDrawer />
       {editorTab === 'board' && <BoardHud />}
+      {/* PROTOTYPE — THROWAWAY, wayfinder #27. Renders nothing without `?pop=`. */}
+      {editorTab === 'board' && <GroundPopoverSwitcher />}
       <OnboardingTour />
       {helpOpen && <HelpScreen onClose={() => setHelpOpen(false)} />}
 
