@@ -13,6 +13,12 @@ play reported eight players out of bounds forever. The bench has been deleted ra
 exempted (issue #29), which makes the invariant true for the first time. See "The invariant"
 under Out of bounds.
 
+Amended again 2026-08-04: **"No board chrome in v1" is retired.** ADR 0005 puts a ground chip
+and its Fit readout on the board, and names the rule governing which surface may claim fit.
+This ADR's model is unchanged and 0005 depends on it — the always-an-Active-Venue invariant,
+absolute positions, and the derived-never-stored out-of-bounds set are all load-bearing there.
+Only the final Data bullet changed.
+
 ## Context
 
 `FIELD_CONFIG` (`models/FieldModel.ts`) was a frozen `as const` at 165 × 135 m — dimensions
@@ -191,5 +197,10 @@ but 8 of those don't count" would not be a fit report — and its count genuinel
   AFL ground is always longer than it is wide and transposition is the likely data-entry
   error; anything outside 120–200 m long or 90–170 m wide is **warned about but accepted**,
   because the coach measured the ground and we did not.
-- Venue management lives in the existing **Match** section of `GlobalDrawer` — the same
-  section as the scoreboard, stating this decision's claim in the UI. No board chrome in v1.
+- Ground management lives in the existing **Match** section of `GlobalDrawer`, presented as
+  **"Grounds"** — a library of grounds: add, edit, delete, and set which one is active. It
+  stays in Match because Match holds the fixture's *fixed facts* — teams, score, ground — not
+  where they are watched (issue #26). Originally this bullet also said *"no board chrome in
+  v1"*, on the reasoning that the drawer's placement states this decision's claim in the UI.
+  That is retired: **ADR 0005** puts a ground chip and the Fit readout on the board, and the
+  panel carries no fit claim at all once its banner goes.

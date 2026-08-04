@@ -145,7 +145,17 @@ extend this file rather than inventing parallel names.
 
 - **Pull inside boundary** — the one-tap affordance that moves out-of-bounds content inside
   the Active Venue's Boundary. Always the coach's choice, never automatic — no fit on load
-  and no clamp during playback — and an ordinary undoable board edit like any drag.
+  and no clamp during playback — and an ordinary undoable board edit like any drag. Part of
+  the **Fit readout**, and so lives wherever that does: a remedy belongs under the eye of the
+  thing it remedies.
+
+- **Fit readout** — the surfaced answer to *does the open board fit the Active Venue?*: the
+  Out of bounds count, its sentence (`describeOutOfBounds`), and **Pull inside boundary**,
+  together as one thing. The open board has exactly one Fit readout and it lives **on the
+  board**; a surface that merely sets the Active Venue makes no claim about the board's fit.
+  Distinct from **playFit**'s row marker, which is the same predicate on a different
+  *subject* — a Play on disk rather than the board — and so is not a second readout. See
+  ADR 0005.
 
 - **playFit** (`utils/playFit.ts`) — the pure "does this *stored* Play fit this ground?"
   predicate, over every phase of the Play. Delegates to **Out of bounds** rather than
