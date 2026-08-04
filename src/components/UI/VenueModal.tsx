@@ -34,9 +34,20 @@ interface DraftForm {
 const EMPTY_DRAFT: DraftForm = { id: null, name: '', boundaryLength: '', boundaryWidth: '' };
 
 /**
- * Venue management. Lives in the Match section of the global drawer rather than
- * Display, because the ground is match context — the same reason the scoreboard is
- * there. See docs/adr/0002-venue-is-app-wide-positions-stay-absolute.md.
+ * The coach's library of grounds: add, edit, delete, and set which one the board
+ * renders on. Lives in the Match section of the global drawer because Match is
+ * where the fixture's fixed facts are configured — teams, score, ground. Not
+ * where they are watched: the ground chip in the top bar reports the Active
+ * Venue live, without opening anything.
+ *
+ * The fit banner below is on its way out — it moves to the chip's popover on the
+ * board, where the coach is actually looking (issue #24). Once it goes the panel
+ * carries no fit claim at all: no count, no Pull inside boundary. That exclusion
+ * is the thing that stops the panel and the popover becoming two versions of the
+ * same screen — they both set the Active Venue, and that is the only overlap
+ * either is allowed.
+ *
+ * See docs/adr/0002-venue-is-app-wide-positions-stay-absolute.md.
  */
 export function VenueModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   useOverlayOpen(open);
@@ -125,7 +136,7 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 bg-white rounded-lg shadow-xl border border-gray-200 w-[420px] max-h-[80vh] overflow-y-auto">
         <div className="p-3 border-b border-gray-100">
-          <span className="text-sm font-medium text-gray-700">Venue</span>
+          <span className="text-sm font-medium text-gray-700">Grounds</span>
           <p className="text-xs text-gray-500 mt-0.5">
             The ground every play is drawn on. Measure yours — no two community grounds are the same.
           </p>
