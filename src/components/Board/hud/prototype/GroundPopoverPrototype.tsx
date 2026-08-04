@@ -172,7 +172,10 @@ export function GroundChipSlot() {
     return () => document.removeEventListener('pointerdown', closeOnOutsidePointer, true);
   }, [open]);
 
-  if (!pop) return null;
+  // The `?pop=` gate alone is not enough: it lives in a URL, and a URL travels.
+  // A stray merge of this branch would otherwise put the prototype in front of a
+  // coach who happened to be sent a link with the param still on it.
+  if (!pop || !import.meta.env.DEV) return null;
 
   const loud = count > 0;
 
