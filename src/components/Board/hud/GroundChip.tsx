@@ -32,6 +32,12 @@ import { TEAL } from './podStyles';
  * stays open across picks especially needs the chip to say it owns it.
  */
 
+/**
+ * Deliberately local rather than shared with `podStyles`, which holds the same
+ * hex twice over: on the Tool rail amber means *this tip is armed*, and here it
+ * means *this board does not fit* (ADR 0005). One constant for two meanings
+ * would make either one impossible to change without changing the other.
+ */
 const AMBER = '#f59e0b';
 
 export function GroundChip() {
@@ -72,6 +78,11 @@ export function GroundChip() {
         // on the row's bottom edge — the line `LinkedVideoBar` is placed against
         // — rather than on the chip's, which sits 3px above it and leaves a lip
         // of bar showing over the column's rounded corner.
+        //
+        // What it stretches to is the control group's height, which is the
+        // hamburger's 44px tap target (`HamburgerIcon.tsx`) — the same 44 the
+        // bar's own 56 was derived from. So the two agree by both reading the
+        // row rather than by sharing a number, which is the point.
         alignSelf: 'stretch',
         // Not optional, and silent when missing: without it the 34px chip
         // stretches to the row's 44 and nothing throws. See ADR 0003's

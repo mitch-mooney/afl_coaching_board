@@ -46,6 +46,10 @@ export function GroundPopover() {
   return (
     <div
       role="dialog"
+      // Singular, and pairing with the chip's own "Ground: <name>": a screen
+      // reader hears the same noun for the control and the surface it opens.
+      // **Grounds** is not a synonym going spare — issue #26 reserved it for the
+      // panel that manages the collection, and this one only ever selects.
       aria-label="Ground"
       style={{
         ...glass,
@@ -64,24 +68,30 @@ export function GroundPopover() {
         flexDirection: 'column',
         gap: 4,
         boxShadow: '0 8px 28px rgba(0,0,0,0.55)',
-        // The top bar's container is pointer-events: none so it cannot swallow
-        // camera drags across the top of the field. Opt back in — the same
-        // arrangement `ToolRail` uses on the left edge.
+        // Inherited today — the chip's anchor sits inside the top bar's
+        // pointer-events-auto control group, while the bar's outer container is
+        // pointer-events: none so it cannot swallow camera drags across the top
+        // of the field. Stated anyway, so the column keeps taking its own taps
+        // wherever in that tree it is later hung. Same arrangement `ToolRail`
+        // uses on the left edge, where it is doing real work.
         pointerEvents: 'auto',
         zIndex: 40,
       }}
     >
-      {venues.map((venue) => (
-        <GroundRow
-          key={venue.id}
-          venue={venue}
-          active={venue.id === activeVenueId}
-          onTap={() => {
-            if (venue.id == null || venue.id === activeVenueId) return;
-            setActiveVenue(venue.id);
-          }}
-        />
-      ))}
+      {venues.map((venue) => {
+        const active = venue.id === activeVenueId;
+        return (
+          <GroundRow
+            key={venue.id}
+            venue={venue}
+            active={active}
+            onTap={() => {
+              if (active || venue.id == null) return;
+              setActiveVenue(venue.id);
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -118,8 +128,11 @@ function GroundRow({ venue, active, onTap }: { venue: Venue; active: boolean; on
       <span style={{ fontSize: 13, fontWeight: 600, color: active ? TEAL : '#fff' }}>
         {venue.name}
       </span>
+      {/* Metres spelled out, as the Grounds panel spells them
+          (`VenueModal.tsx:172`): the coach reads the same pair on both surfaces
+          and should not have to work out that they are the same number. */}
       <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>
-        {venue.boundaryLength} × {venue.boundaryWidth}
+        {venue.boundaryLength} × {venue.boundaryWidth} m
       </span>
     </button>
   );
