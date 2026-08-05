@@ -1,6 +1,7 @@
 /**
- * What the **Fit readout** says out loud: the prose half of the answer to *does
- * the open board fit the Active Venue?*
+ * What the board's ground chrome says out loud: the **Fit readout**'s prose —
+ * the answer to *does the open board fit the Active Venue?* — and the **Ground
+ * chip**'s name-and-dot beside it.
  *
  * Pure text, deliberately free of React, so the copy and its rules can be
  * asserted without a component harness — same shape as `toolRailTips.ts` and
@@ -16,8 +17,15 @@
  * The sentence is stated as a finding, not an error. A play that does not fit is
  * a true thing to look at, and leaving it is a legitimate choice — which is why
  * this names kinds and counts rather than raising a warning.
+ *
+ * The chip's state is here rather than in a module of its own for two reasons:
+ * splitting it out would be a second seam for one decision, and the dot and the
+ * sentence are the same finding at two resolutions, so keeping them side by side
+ * is what stops *the pull memory reaches the column and never the chip* (ADR
+ * 0005) drifting apart into two files that no longer read as one ladder.
  */
 
+import { STANDARD_GROUND_NAME } from '../../../models/VenueModel';
 import type { OutOfBoundsReport } from '../../../utils/fieldGeometry';
 
 const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
@@ -60,4 +68,43 @@ export function outOfBoundsSentence(report: OutOfBoundsReport, groundName?: stri
   if (!subject) return '';
   const verb = report.count === 1 ? 'is' : 'are';
   return `${subject} ${verb} outside ${groundName ?? 'this ground'}.`;
+}
+
+/** Everything the **Ground chip** shows: which ground, and whether to speak up. */
+export interface GroundChipState {
+  /** The Active Venue's name — the chip's whole content at rest. */
+  name: string;
+  /** Whether the amber dot is lit: one bit, meaning *something is outside*. */
+  dotLit: boolean;
+  /** The accessible name, since a dot is nothing to a screen reader. */
+  label: string;
+}
+
+/**
+ * The chip's state, from the board's out-of-bounds report and whatever the
+ * Active Venue is called.
+ *
+ * **The name never empties and is never a prompt.** ADR 0002 seeds Standard
+ * ground so there is always an Active Venue, and ADR 0005 draws the UI half of
+ * that: no surface may imply there is no ground. `Set a ground` would be a
+ * falsehood, and the only moment nothing resolves — before the Venue records
+ * load — is one the chip is already on screen for.
+ *
+ * **The dot is one bit and carries no number.** A count on the chip is a second
+ * thing to read, and it changes width as it changes value, so the control beside
+ * it moves while the coach is reaching for it. The count and the sentence live
+ * one rung down, in the popover's Fit readout, which has room to explain.
+ *
+ * The label is the one place the count belongs: it is read aloud rather than
+ * laid out, so it costs no width and a lit dot alone would tell a screen-reader
+ * user nothing at all.
+ */
+export function groundChipState(report: OutOfBoundsReport, groundName?: string): GroundChipState {
+  const name = groundName ?? STANDARD_GROUND_NAME;
+  const dotLit = report.count > 0;
+  return {
+    name,
+    dotLit,
+    label: dotLit ? `Ground: ${name}, ${report.count} outside the boundary` : `Ground: ${name}`,
+  };
 }

@@ -140,6 +140,18 @@ extend this file rather than inventing parallel names.
   > wide ground can place entities outside a narrower Venue's boundary; that is surfaced to
   > the coach rather than silently corrected.
 
+- **Ground chip** — the board's own name for its ground, in the editor top bar right of the
+  tab switcher: the Active Venue's name, a hairline oval at rest, and a single amber dot —
+  no number — when anything is Out of bounds. Tapping it drops the **ground popover**, a
+  264px column of every Venue that stays open across picks, so a repeated compare costs one
+  tap per switch rather than a round trip through the drawer. Both are board chrome and
+  render on the board tab only, from the top bar rather than either HUD skin, so they land
+  identically in both. What the chip *says* is decided in
+  `components/Board/hud/fitReadout.ts` beside the **Fit readout**'s words, because the dot
+  and the sentence are the same finding at two resolutions. Components:
+  `components/Board/hud/GroundChip.tsx`, `GroundPopover.tsx`. See ADR 0003 for where the
+  column sits and ADR 0005 for what it may claim.
+
 - **Out of bounds** — board content falling outside the Active Venue's Boundary: players,
   the ball, cones, and MovementPath keyframes. Annotations are never out of bounds — they
   are inert markup and may point off-ground deliberately. Out of bounds is *derived, never

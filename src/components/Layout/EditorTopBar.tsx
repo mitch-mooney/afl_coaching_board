@@ -1,3 +1,4 @@
+import { GroundChip } from '../Board/hud/GroundChip';
 import { HamburgerIcon } from '../UI/HamburgerIcon';
 
 interface EditorTopBarProps {
@@ -56,6 +57,12 @@ export function EditorTopBar({
             Training
           </button>
         </div>
+
+        {/* The Ground chip, right of the tab switcher. It renders from here
+            rather than from either HUD skin so it lands identically in both —
+            the same reason the Tool rail does. Board tab only: only the board
+            tab renders a board. Both modes, deliberately. */}
+        {editorTab === 'board' && <GroundChip />}
       </div>
 
       {/* Training-mode board controls (cone placement) */}

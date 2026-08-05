@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { describeOutOfBounds, outOfBoundsSentence } from '../fitReadout';
+import { describeOutOfBounds, groundChipState, outOfBoundsSentence } from '../fitReadout';
 import { boundaryOf, outOfBounds } from '../../../../utils/fieldGeometry';
 import type { OutOfBoundsReport } from '../../../../utils/fieldGeometry';
 
@@ -122,6 +122,56 @@ describe('outOfBoundsSentence', () => {
 
     expect(outOfBoundsSentence(found, 'Jubilee Park')).toBe(
       '1 player and 1 path are outside Jubilee Park.',
+    );
+  });
+});
+
+describe('groundChipState', () => {
+  // The football claim: standing at the ground, the coach reads the board's own
+  // chrome and learns which ground it is drawing and whether the play fits it —
+  // one glance, no panel.
+
+  it('names the Active Venue', () => {
+    expect(groundChipState(report(), 'Jubilee Park').name).toBe('Jubilee Park');
+  });
+
+  it('falls back to Standard ground rather than implying there is no ground', () => {
+    // ADR 0005: no surface may imply there is no ground. The only moment nothing
+    // resolves is before the Venue records load, and the chip is on screen then.
+    expect(groundChipState(report(), undefined).name).toBe('Standard ground');
+  });
+
+  it('keeps quiet at rest, so a board that fits wears no warning', () => {
+    expect(groundChipState(report(), 'Jubilee Park').dotLit).toBe(false);
+  });
+
+  it('lights the dot as soon as anything is outside', () => {
+    expect(groundChipState(report({ players: ['p1'] }), 'Jubilee Park').dotLit).toBe(true);
+  });
+
+  it('lights the dot for the ball alone, which is one thing and not a player', () => {
+    expect(groundChipState(report({ ball: true }), 'Jubilee Park').dotLit).toBe(true);
+  });
+
+  it('lights the same one dot however much is outside — the dot is one bit', () => {
+    const few = groundChipState(report({ players: ['p1'] }), 'Jubilee Park');
+    const many = groundChipState(
+      report({ players: ['p1', 'p2', 'p3'], cones: ['c1'], ball: true }),
+      'Jubilee Park',
+    );
+    expect(many.dotLit).toBe(few.dotLit);
+  });
+
+  it('names the ground to a screen reader, which cannot see the dot', () => {
+    expect(groundChipState(report(), 'Jubilee Park').label).toBe('Ground: Jubilee Park');
+  });
+
+  it('tells a screen reader how much is outside, since the dot says only that some is', () => {
+    // The visible chip deliberately carries no number — it would be a second
+    // thing to read and it would move. A label is read aloud rather than laid
+    // out, so the count costs nothing there and is the whole of the finding.
+    expect(groundChipState(report({ players: ['p1', 'p2', 'p3', 'p4'] }), 'Jubilee Park').label).toBe(
+      'Ground: Jubilee Park, 4 outside the boundary',
     );
   });
 });
