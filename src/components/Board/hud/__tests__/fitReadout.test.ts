@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { describeOutOfBounds, outOfBoundsSentence } from '../fitReadout';
+import { boundaryOf, outOfBounds } from '../../../../utils/fieldGeometry';
 import type { OutOfBoundsReport } from '../../../../utils/fieldGeometry';
 
 // What the Fit readout says out loud. The football claim: with Saturday's ground
@@ -83,6 +84,44 @@ describe('outOfBoundsSentence', () => {
     // sentence still has to read as English if a caller hands it nothing.
     expect(outOfBoundsSentence(report({ players: ['p1', 'p2'] }), undefined)).toBe(
       '2 players are outside this ground.',
+    );
+  });
+
+  it('says nothing about a board that fits, rather than a sentence with no subject', () => {
+    expect(outOfBoundsSentence(report(), 'Jubilee Park')).toBe('');
+  });
+
+  it('speaks for a real board measured against a real ground', () => {
+    // Anchored to the geometry rather than a hand-built report, so the sentence
+    // can never disagree with what is actually off the ground — a path counts
+    // once however many of its keyframes stray, and that is what it says.
+    const tight = boundaryOf({ boundaryLength: 150, boundaryWidth: 110 });
+    const found = outOfBounds(
+      {
+        players: [
+          { id: 'winger', teamId: 'team1', position: [0, 0, 60], rotation: 0, color: '#0066cc' },
+        ],
+        paths: [
+          {
+            id: 'lead',
+            entityId: 'winger',
+            entityType: 'player',
+            keyframes: [
+              { timestamp: 0, position: [0, 0, 60] },
+              { timestamp: 1, position: [0, 0, 70] },
+            ],
+            duration: 1,
+            startTimeOffset: 0,
+          },
+        ],
+        ball: null,
+        cones: [],
+      },
+      tight,
+    );
+
+    expect(outOfBoundsSentence(found, 'Jubilee Park')).toBe(
+      '1 player and 1 path are outside Jubilee Park.',
     );
   });
 });

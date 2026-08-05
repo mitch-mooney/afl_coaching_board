@@ -46,11 +46,18 @@ export function describeOutOfBounds(report: OutOfBoundsReport): string {
  * `count` carries the agreement rather than the phrase, so two kinds of one
  * thing each — "1 player and 1 path" — correctly read as *are*.
  *
+ * Empty for a board that fits, like the phrase it is built from. Every caller so
+ * far asks the count first and renders nothing at 0, but a sentence with no
+ * subject — "are outside Jubilee Park." — is not a thing this module should be
+ * able to hand anyone.
+ *
  * The ground falls back to "this ground" only so the sentence stays English if a
  * caller has nothing to hand: ADR 0002 seeds Standard ground precisely so there
  * is always an Active Venue, and no surface may imply there is no ground.
  */
-export function outOfBoundsSentence(report: OutOfBoundsReport, groundName?: string | null): string {
+export function outOfBoundsSentence(report: OutOfBoundsReport, groundName?: string): string {
+  const subject = describeOutOfBounds(report);
+  if (!subject) return '';
   const verb = report.count === 1 ? 'is' : 'are';
-  return `${describeOutOfBounds(report)} ${verb} outside ${groundName ?? 'this ground'}.`;
+  return `${subject} ${verb} outside ${groundName ?? 'this ground'}.`;
 }
