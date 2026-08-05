@@ -165,6 +165,12 @@ export const useVenueStore = create<VenueState>((set, get) => ({
       createdAt: now,
       updatedAt: now,
     })) as number;
+    // A coach who records a ground is standing on it. Selecting here rather than at
+    // the call site means every door into creating one — the Grounds panel today,
+    // the ground popover's "Add a ground" later — lands the coach on the same board.
+    // Before the reload, so loadVenues resolves the candidate to the new record
+    // instead of leaving the previous ground selected for an instant.
+    get().setActiveVenue(id);
     await get().loadVenues();
     return id;
   },
