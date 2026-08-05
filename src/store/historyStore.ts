@@ -64,7 +64,17 @@ interface HistoryState {
   undo: () => StateSnapshot | null;
   /** Redo to the next state, returns the state to restore or null if no future states */
   redo: () => StateSnapshot | null;
-  /** Clear all history (e.g., when loading a new playbook) */
+  /**
+   * Clear all history. Undo is scoped to the board currently open, so anything
+   * that replaces the whole board must call this — `playStore.loadPlayBoard` and
+   * the shared-link load in `MainLayout`. Without it, undo restores the previous
+   * Play's players and annotations onto the one now open.
+   *
+   * Deliberately NOT called on save: a coach who saves and then mis-drags still
+   * needs their way back. And not (yet) on `modeStore.switchMode`, which
+   * round-trips the board rather than replacing it — same class of bug, open
+   * question, tracked separately.
+   */
   clearHistory: () => void;
   /** Check if undo is available */
   canUndo: () => boolean;

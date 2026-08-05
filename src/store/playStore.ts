@@ -3,6 +3,7 @@ import { playbookDB } from './appDatabase';
 import type { Play, PlayPhase } from '../models/PlayModel';
 import { toPhase, fromPhase } from '../utils/boardSnapshot';
 import { capture, restore } from '../utils/boardSnapshotIO';
+import { useHistoryStore } from './historyStore';
 
 // Export the table reference so tests can clear it directly.
 // (The IndexedDB table keeps its legacy name `scenarios`; a Play is what it stores.)
@@ -105,6 +106,13 @@ export const usePlayStore = create<PlayState>((set, get) => ({
     const phase = play?.phases[0];
     if (!phase) return; // nothing saved yet — leave the live board alone
     restore(fromPhase(phase));
+    // Undo history is scoped to the board currently open. Replacing the whole
+    // board without clearing it let one undo paste the *previous* Play's players
+    // and annotations onto this one, and left anything derived from the stack —
+    // the Fit readout's "has been pulled inside" marker (ADR 0005) — describing a
+    // Play the coach never touched. Cleared after the restore, so a failed load
+    // (the early return above) leaves both board and history alone.
+    useHistoryStore.getState().clearHistory();
   },
 
   getPlay: async (id) => {

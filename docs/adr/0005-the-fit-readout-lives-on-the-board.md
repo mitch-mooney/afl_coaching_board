@@ -6,6 +6,16 @@ accepted — decided 2026-08-04 by a design grilling (issue #38, on wayfinding m
 before implementation. It records the rule the map's five resolutions kept reaching for; the
 board chrome it constrains does not exist yet.
 
+Amended 2026-08-05 by a design grilling (issue #39): **the Fit readout remembers that the
+board was pulled inside.** Two of this map's own resolutions put a real board edit inside the
+compare loop — #27 keeps the popover open across picks, and #38 moved Pull inside boundary
+onto the board beneath the ground list — so for the first time Pull inside is one tap away
+*while the coach is switching grounds*. Pull at a tight ground, tap back to a wide one, and the
+count returns to 0: the readout goes quiet about a play it no longer describes. Nothing was
+lying, but silence was being read as reassurance. See "The readout remembers the pull" under
+Consequences. ADR 0002's claim that switching back "restores it perfectly" is corrected in the
+same pass.
+
 ## Context
 
 ADR 0002 established the Active Venue as app-wide match context and closed by declining to
@@ -49,7 +59,8 @@ from here"* (`PlayLibrary.tsx:202-205`). The rule below was being obeyed before 
 ## Decision
 
 **Fit readout** names the surfaced answer to *does the open board fit the Active Venue?* — the
-count, `describeOutOfBounds`'s sentence, and **Pull inside boundary**, together.
+count, `describeOutOfBounds`'s sentence, **Pull inside boundary**, and — since the 2026-08-05
+amendment — whether the board **has been pulled inside**, together.
 
 > The open board has exactly one Fit readout, and it lives on the board. A surface that sets
 > the Active Venue makes no claim about the open board's fit.
@@ -94,6 +105,103 @@ board while the board is answering for itself.
   banner out.
 - `describeOutOfBounds` moves **unchanged**. The chosen popover geometry (issue #27, variant
   A) has room for the sentence as written; it is carried, not rewritten.
+
+### The readout remembers the pull
+
+*Added by the 2026-08-05 amendment (issue #39).*
+
+The readout reports **whether the open board has been pulled inside**, alongside the count and
+the sentence. Without it, a coach who pulls inside at a tight ground and taps back to a wide one
+meets an empty fit slot — and an empty slot is how this readout says *your play fits this
+ground*. It does fit. It is also no longer the play they opened, and the readout was the only
+surface in a position to say so.
+
+**It is a fit claim, not provenance.** *0 out of bounds* and *0 out of bounds, because you
+pulled them in* answer the same question — *does the open board fit the Active Venue?* — at
+different resolutions. That framing is what keeps the scope closed. The alternative reading,
+*this board has been edited since you opened it*, is a claim about the board's history rather
+than its fit, and its honest form has to fire for a dragged player too — an app-wide dirty flag,
+bought to solve a Venue-shaped problem. `useOutOfBounds.ts` and `fieldGeometry.ts` both stake
+the current design on not having one: *"there is no dirty flag and nothing to keep in sync,
+which is what makes leaving a play out of bounds a legitimate state to sit in rather than an
+error the app has to remember."* That sentence survives this amendment intact, and the mechanism
+below is why.
+
+**A boolean. The ground is not named.** *Pulled inside to fit Jubilee Park* was considered and
+declined: it is more to record, it needs a rule for what to name after pulls at two grounds, and
+the coach's decision — undo, or keep — turns only on whether it happened.
+
+**Held as a marker on the pull's history entry, not as state.** The signal is a predicate over
+the undo stack: the readout speaks while any pull entry remains on `past`. Undo moves that entry
+to `future` and the signal clears **on its own**; redo brings both back. There is no listener,
+no clearing code, and nothing to keep in step — the memory is not new state, it is a reading of
+state that already exists for exactly this purpose, so the signal is precisely as honest as undo
+is. A flag in a store would have needed setting in `pullBoardInsideBoundary` and clearing in
+`undoBoard`, `redoBoard`, the play-load path and the mode-switch path: four places to keep in
+sync, which is the failure the comments above were written to avoid.
+
+The marker is **explicit rather than inferred**. `StateSnapshot.board` is populated only by Pull
+inside today, so `past.some(e => e.board)` would work — but that field's own doc says *"edits
+that reach past players and annotations — **today** that is Pull inside boundary"*, and building
+on *today* is how this map's two previous false assertions were made. The pull tags its own
+entry.
+
+**History is scoped to the open board.** `clearHistory()` existed with a doc-comment saying
+*"e.g., when loading a new playbook"* and was never wired to anything; `playStore.loadPlayBoard`
+and the shared-load path in `MainLayout` both replaced the whole board while leaving the previous
+Play's undo stack standing. That was already a defect — undo could paste one Play's board onto
+another — and it would additionally have let this marker claim a Play had been pulled inside when
+it never was. Both sites now clear. `modeStore.switchMode` is the same class of bug and is
+deliberately **not** changed here: a mode switch round-trips the board rather than replacing it,
+so whether its history should survive is a real question rather than an obvious yes. Filed
+separately.
+
+**Pulls are not coalesced.** Three pulls across three grounds are three entries and three undos.
+`historyStore` has no merge concept anywhere, and growing one for a single edit type is the
+Venue-aware undo semantics that would be worse than the problem. Coalescing is only sound across
+*contiguous* pulls — a drag between two of them must break the merge — so it is not cheap either.
+It also buys the marker nothing: the signal already stays true while any pull entry remains, and
+clears exactly when the last is reversed.
+
+**The marker reaches the column and never the chip.** The dot is the one-bit answer to the same
+question, and after a pull the honest value of that bit is *fits*. Lighting it anyway would make
+it mean *doesn't fit **or** was pulled* — two claims on one pixel — and would leave a fitting
+board wearing a permanent warning, which is what issue #25's quiet-at-rest was written to
+prevent. Explanation belongs where there is room to explain, one rung down the ladder the design
+already has: dot, count, sentence, remedy.
+
+**Stated, not offered.** No Undo control joins the column. Pull inside boundary is in the readout
+because it exists nowhere else; undo already exists globally, with a keyboard shortcut and a home
+in the Setup pod. The principle is *a remedy belongs under the eye of the thing it remedies*, not
+*every remedy is duplicated wherever its finding appears*. And because pulls are not coalesced, a
+button there would reverse one pull while reading as *put my play back* — a control whose label
+implies more than it does is worse than no control. The accepted cost: reaching undo dismisses the
+popover on `pointerdown` capture (issue #27), so the coach loses the column. That is affordable
+because a coach undoing a pull has finished comparing.
+
+**When the board neither fits nor is unpulled, both speak.** The doesn't-fit block and the marker
+appear together — a state reached by pulling at one ground and switching to a narrower one. The
+Fit readout is never suppressed for being unsurprising, and standing at a tight ground with Pull
+inside under your thumb, *you have already pulled this board once* is the most decision-relevant
+thing on screen.
+
+**Presentation.** Quiet, not amber — amber is this design's *doesn't fit* colour, on the block's
+border and the chip's dot, and a fitting board wearing it would break that association everywhere
+else. Placed beneath the Pull inside button, so the reading order is *what is wrong now → how to
+fix it → and you have already done this once*, and so the ground rows never move (issue #27). The
+copy:
+
+> This board has been pulled inside a boundary. Undo restores it.
+
+No clause about disk. *"The saved play is unchanged either way"* was drafted and cut: it is false
+the moment the coach saves, and the fixes for that are worse than the loss — clearing history on
+save would strand a coach who saves and then mis-drags, and a save point on the history stack
+re-imports the sync burden this mechanism was chosen to avoid. The reassurance survives where it
+is true, in the existing block's *"Leaving it is fine — nothing is changed on disk until you save
+the play."* A line whose job is to prevent false reassurance is also the wrong place to add one.
+
+**The shared viewer needs nothing.** It is read-only and carries no Pull inside, so the marker can
+never fire there. No exception, no work.
 
 ### What the Grounds panel may never carry
 

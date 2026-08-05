@@ -13,6 +13,17 @@ play reported eight players out of bounds forever. The bench has been deleted ra
 exempted (issue #29), which makes the invariant true for the first time. See "The invariant"
 under Out of bounds.
 
+Amended again 2026-08-05: **the lossless claim below was over-broad and is reframed.** "Switching
+back to the wide venue restores it perfectly, because no data changed" was true of the case its
+own bullet describes — an *ignored* out-of-bounds, where the coach changed nothing — but it read
+as a general guarantee about switching, and ADR 0005 has since put Pull inside boundary one tap
+away mid-compare. A round trip with a pull in the middle does not restore anything. This is the
+same species of error as the 2026-08-03 amendment and was found the same way: by checking the
+claim against the code rather than against the prose. The sentence now says what the switch
+*does* — `setActiveVenue` writes the selection and nothing else — rather than what it results in,
+so a future edit reachable from the Venue surfaces falls under it instead of falsifying it. See
+Out of bounds.
+
 Amended again 2026-08-04: **"No board chrome in v1" is retired.** ADR 0005 puts a ground chip
 and its Fit readout on the board, and names the rule governing which surface may claim fit.
 This ADR's model is unchanged and 0005 depends on it — the always-an-Active-Venue invariant,
@@ -111,7 +122,12 @@ ground, which is the failure mode this decision exists to remove. The IO half is
   Nothing reaches Dexie until the coach saves the Play. There is **no auto-fit on load** and
   **no clamping during playback**: an ignored out-of-bounds path plays exactly as authored,
   and a player visibly running off the ground is honest, self-explanatory feedback. Switching
-  back to the wide venue restores it perfectly, because no data changed.
+  back to the wide venue restores it perfectly, because the switch itself changes no board data
+  — `setActiveVenue` writes the selection and nothing else. What a round trip cannot restore is
+  an edit made *between* the switches, and Pull inside boundary is exactly that: a real board
+  edit, so a coach who pulls inside at a tight ground and switches back finds the play as the
+  pull left it. Undo reverses it like any other edit, and the Fit readout says so on the board
+  (ADR 0005).
 - Live input **keeps** clamping via `snapToField`, now against the Active Venue. That is
   direct manipulation with immediate visual feedback, not a silent reshape. The cost is that
   entities still cannot be staged outside the boundary — a boundary throw-in is taken from

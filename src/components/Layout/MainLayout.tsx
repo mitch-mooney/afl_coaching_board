@@ -31,6 +31,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useStrokeAuthoring } from '../../hooks/useStrokeAuthoring';
 import { useCanvasResizeWithWindow } from '../../hooks/useCanvasResize';
 import { useBoardUndo } from '../../hooks/useBoardUndo';
+import { useHistoryStore } from '../../store/historyStore';
 import { getSharedPlaybook } from '../../services/sharingService';
 import { fromShareData } from '../../utils/boardSnapshot';
 import { restore } from '../../utils/boardSnapshotIO';
@@ -144,6 +145,11 @@ export function MainLayout() {
         // the Venue panel says so — the same thing the coach learns about their
         // own plays. See ADR 0002, "Sharing".
         restore(fromShareData(shared.playbook_data));
+        // Same rule as playStore.loadPlayBoard: undo history is scoped to the
+        // board currently open, and this replaced the whole of it. Without the
+        // clear, one undo would drop whatever the coach had on the board before
+        // the link opened back on top of the sender's play.
+        useHistoryStore.getState().clearHistory();
       });
     }
   }, [initializePlayers, initializeBall, loadSavedVideos]);
