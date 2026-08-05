@@ -36,17 +36,18 @@ const EMPTY_DRAFT: DraftForm = { id: null, name: '', boundaryLength: '', boundar
 /**
  * The coach's library of grounds: add, edit, delete, and set which one the board
  * renders on. Lives in the Match section of the global drawer because Match is
- * where the fixture's fixed facts are configured — teams, score, ground. Not
- * where they are watched: the ground chip in the top bar reports the Active
- * Venue live, without opening anything.
+ * where the fixture's fixed facts are configured — teams, score, ground. The
+ * drawer item names none of them: it is a route to this panel, not a surface
+ * that asserts match context. Which ground is current will be reported live by
+ * the ground chip the board is getting (issue #47) — not by the door to here.
  *
- * The out-of-bounds banner below is on its way out — the Fit readout moves to the
- * chip's popover on the board, where the coach is actually looking (spec #47). It
- * stays until then because neither half may ship alone. Once it goes the panel
- * makes no claim about the board's fit at all: no count, no Pull inside boundary.
- * That exclusion is the thing that stops the panel and the popover becoming two
- * versions of the same screen — they both set the Active Venue, and that is the
- * only overlap either is allowed.
+ * The banner below is on its way out: the Fit readout moves to that chip's
+ * popover, where the coach is actually looking. It stays until then because
+ * neither half may ship alone — remove it first and the app has no Fit readout
+ * at all. Once it goes the panel makes no claim about the board's fit, in any
+ * part. That exclusion is the thing that stops the panel and the popover
+ * becoming two versions of the same screen: they both set the Active Venue, and
+ * that is the only overlap either is allowed.
  *
  * See docs/adr/0002-venue-is-app-wide-positions-stay-absolute.md and
  * docs/adr/0005-the-fit-readout-lives-on-the-board.md.

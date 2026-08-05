@@ -72,7 +72,7 @@ export function GlobalDrawer() {
         }),
         createMenuItem('venue', 'Grounds', () => setShowVenue(true), {
           variant: 'indigo',
-          description: 'Add and measure the grounds your plays are drawn on',
+          description: 'Choose, add and measure the grounds your plays are drawn on',
         }),
       ])
     );
