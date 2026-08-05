@@ -168,10 +168,14 @@ export const useVenueStore = create<VenueState>((set, get) => ({
     // A coach who records a ground is standing on it. Selecting here rather than at
     // the call site means every door into creating one — the Grounds panel today,
     // the ground popover's "Add a ground" later — lands the coach on the same board.
-    // Before the reload, so loadVenues resolves the candidate to the new record
-    // instead of leaving the previous ground selected for an instant.
-    get().setActiveVenue(id);
+    //
+    // After the reload, never before: selecting an id the loaded records do not hold
+    // yet resolves to no Venue, and the board's fallback for that is Standard ground
+    // — for the whole round trip below. The coach would see the boundary jump to
+    // 165 × 135 and back. This way the previous ground holds until the new one is
+    // there to replace it, in one step.
     await get().loadVenues();
+    get().setActiveVenue(id);
     return id;
   },
 

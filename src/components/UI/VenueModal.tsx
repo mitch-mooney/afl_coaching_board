@@ -35,7 +35,9 @@ const EMPTY_DRAFT: DraftForm = { id: null, name: '', boundaryLength: '', boundar
 
 /**
  * The coach's library of grounds: add, edit, delete, and set which one the board
- * renders on. Lives in the Match section of the global drawer because Match is
+ * renders on — adding one also sets it, in `venueStore`, so a coach who records
+ * Saturday's ground need not then hunt for the row they just made (issue #49).
+ * Lives in the Match section of the global drawer because Match is
  * where the fixture's fixed facts are configured — teams, score, ground. The
  * drawer item names none of them: it is a route to this panel, not a surface
  * that asserts match context. Which ground is current will be reported live by

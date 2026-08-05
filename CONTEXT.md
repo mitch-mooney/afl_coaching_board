@@ -130,7 +130,9 @@ extend this file rather than inventing parallel names.
   context, **not** per-Play board content — the same exclusion that applies to the
   scoreboard, and for the same reason. Setting the Active Venue re-renders every Play on
   that ground, which is the point: a coach asks "what does this play look like at
-  Saturday's ground?"
+  Saturday's ground?" **Recording a ground sets it** — that is a second way the Active
+  Venue changes, and it lives in `venueStore` so every door into creating one behaves
+  alike (issue #49).
 
   > Entity positions are stored in absolute metres, never as fractions of the field.
   > Fractions would slide centre-square players outside the centre square, because the
