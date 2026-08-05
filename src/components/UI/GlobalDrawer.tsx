@@ -10,8 +10,6 @@ import { isSupabaseConfigured } from '../../lib/supabase';
 import { SavePlayDialog } from './SavePlayDialog';
 import { MatchSetupModal } from './MatchSetupModal';
 import { VenueModal } from './VenueModal';
-import { useVenueStore, selectActiveVenue } from '../../store/venueStore';
-import { STANDARD_GROUND_NAME } from '../../models/VenueModel';
 import { SharePlayModal } from './SharePlayModal';
 
 export function GlobalDrawer() {
@@ -35,11 +33,6 @@ export function GlobalDrawer() {
   // Match store state (only what the menu sections need directly)
   const matchShowScoreboard = useMatchStore((s) => s.showScoreboard);
   const toggleScoreboard = useMatchStore((s) => s.toggleScoreboard);
-
-  // Active Venue — the ground every Play is rendered on. Named in the menu item so
-  // the coach can see which ground is current without opening the panel. Subscribed
-  // to both slices the selector reads, so the label re-renders when either changes.
-  const activeVenueName = useVenueStore(selectActiveVenue)?.name ?? STANDARD_GROUND_NAME;
 
   // HUD skin override (Auto/Rail/Pods)
   const skinOverride = useHudPreferenceStore((s) => s.skinOverride);
@@ -77,9 +70,9 @@ export function GlobalDrawer() {
           active: matchShowScoreboard,
           description: 'Show or hide the 3D scoreboard on the field',
         }),
-        createMenuItem('venue', `Venue: ${activeVenueName}`, () => setShowVenue(true), {
+        createMenuItem('venue', 'Grounds', () => setShowVenue(true), {
           variant: 'indigo',
-          description: 'Choose or measure the ground your plays are drawn on',
+          description: 'Choose, add and measure the grounds your plays are drawn on',
         }),
       ])
     );
@@ -122,7 +115,7 @@ export function GlobalDrawer() {
     authUser, authIsConfigured, authSignOut,
     matchShowScoreboard, toggleScoreboard,
     skinLabel, cycleSkinOverride,
-    activePlayId, activeVenueName,
+    activePlayId,
   ]);
 
   // No positioned wrapper. The hamburger now lives in `EditorTopBar`, and

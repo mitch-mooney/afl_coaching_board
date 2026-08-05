@@ -34,9 +34,23 @@ interface DraftForm {
 const EMPTY_DRAFT: DraftForm = { id: null, name: '', boundaryLength: '', boundaryWidth: '' };
 
 /**
- * Venue management. Lives in the Match section of the global drawer rather than
- * Display, because the ground is match context — the same reason the scoreboard is
- * there. See docs/adr/0002-venue-is-app-wide-positions-stay-absolute.md.
+ * The coach's library of grounds: add, edit, delete, and set which one the board
+ * renders on. Lives in the Match section of the global drawer because Match is
+ * where the fixture's fixed facts are configured — teams, score, ground. The
+ * drawer item names none of them: it is a route to this panel, not a surface
+ * that asserts match context. Which ground is current will be reported live by
+ * the ground chip the board is getting (issue #47) — not by the door to here.
+ *
+ * The banner below is on its way out: the Fit readout moves to that chip's
+ * popover, where the coach is actually looking. It stays until then because
+ * neither half may ship alone — remove it first and the app has no Fit readout
+ * at all. Once it goes the panel makes no claim about the board's fit, in any
+ * part. That exclusion is the thing that stops the panel and the popover
+ * becoming two versions of the same screen: they both set the Active Venue, and
+ * that is the only overlap either is allowed.
+ *
+ * See docs/adr/0002-venue-is-app-wide-positions-stay-absolute.md and
+ * docs/adr/0005-the-fit-readout-lives-on-the-board.md.
  */
 export function VenueModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   useOverlayOpen(open);
@@ -125,7 +139,7 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 bg-white rounded-lg shadow-xl border border-gray-200 w-[420px] max-h-[80vh] overflow-y-auto">
         <div className="p-3 border-b border-gray-100">
-          <span className="text-sm font-medium text-gray-700">Venue</span>
+          <span className="text-sm font-medium text-gray-700">Grounds</span>
           <p className="text-xs text-gray-500 mt-0.5">
             The ground every play is drawn on. Measure yours — no two community grounds are the same.
           </p>
