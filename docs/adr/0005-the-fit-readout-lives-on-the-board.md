@@ -104,13 +104,16 @@ board while the board is answering for itself.
 
 ### What moves, and when
 
-- The fit banner leaves `VenueModal` (`VenueModal.tsx:138-154`) and `describeOutOfBounds`
-  moves to the board **in the same build**. Neither half may ship alone: removing the banner
-  first leaves the app with no Fit readout at all, and adding the board's first leaves two.
-  Issue #26 split its own build on exactly this and told #37 in as many words not to take the
-  banner out.
+- The fit banner leaves `VenueModal` and the readout appears on the board **in the same
+  build**. Neither half may ship alone: removing the banner first leaves the app with no Fit
+  readout at all, and adding the board's first leaves two. Issue #26 split its own build on
+  exactly this and told #37 in as many words not to take the banner out.
 - `describeOutOfBounds` moves **unchanged**. The chosen popover geometry (issue #27, variant
-  A) has room for the sentence as written; it is carried, not rewritten.
+  A) has room for the sentence as written; it is carried, not rewritten. Its *words* have
+  already made the trip, ahead of the markup: issue #50 lifted them out of `VenueModal` into
+  `components/Board/hud/fitReadout.ts`, beside the other pure HUD modules, where the banner
+  now reads them from. That is not the readout shipping twice — there is still exactly one,
+  and the banner still renders it — it only leaves the banner's removal a plain delete.
 
 ### The readout remembers the pull
 
