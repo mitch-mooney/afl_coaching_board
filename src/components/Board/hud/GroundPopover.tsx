@@ -1,5 +1,8 @@
-import { useVenueStore } from '../../../store/venueStore';
+import { selectActiveVenue, useVenueStore } from '../../../store/venueStore';
 import type { Venue } from '../../../models/VenueModel';
+import { useActiveBoundary } from '../../../hooks/useActiveBoundary';
+import { pullBoardInsideBoundary, useOutOfBounds } from '../../../hooks/useOutOfBounds';
+import { fitReadoutState, OUT_OF_BOUNDS_AMBER, type FitReadoutState } from './fitReadout';
 import { glass, TEAL } from './podStyles';
 
 /**
@@ -30,13 +33,23 @@ import { glass, TEAL } from './podStyles';
  * anchored chrome and has to read as attached to its chip. The licence has a
  * limit — it may cover that bar's readout, never its controls.
  *
- * The Fit readout and the **Add a ground** footer land below the list, in that
- * order, in the two tickets after this one. Below the list rather than above it:
- * a finding appearing mid-compare must not move the rows being tapped.
+ * Below the list hangs the **Fit readout**'s block — what is outside and the one
+ * tap that pulls it in. Below rather than above, and this is the load-bearing
+ * part: with the block above, every row moves ~92px the moment a finding appears
+ * and back when it clears, under the finger, on every switch of the compare this
+ * surface exists for. Below costs nothing — the column grows downward and the
+ * list never moves. Nothing throws if this is got wrong; the rows just move.
+ * The **Add a ground** footer lands beneath the block in the next ticket.
  */
 export function GroundPopover() {
   const venues = useVenueStore((s) => s.venues);
   const activeVenueId = useVenueStore((s) => s.activeVenueId);
+  const activeVenue = useVenueStore(selectActiveVenue);
+  // Derived, never stored: switching the ground above makes the block appear and
+  // pulling inside makes it vanish, with nothing in between to keep in sync.
+  const boundary = useActiveBoundary();
+  const outOfBounds = useOutOfBounds();
+  const fit = fitReadoutState(outOfBounds, activeVenue?.name);
   // The one mutation this surface makes. `setActiveVenue` writes the selection
   // and nothing else: positions stay in absolute metres, the camera holds still
   // and nothing reaches Dexie, which is what makes looking at a play on another
@@ -92,6 +105,60 @@ export function GroundPopover() {
           />
         );
       })}
+
+      {fit.shown && <FitBlock state={fit} onPullInside={() => pullBoardInsideBoundary(boundary)} />}
+    </div>
+  );
+}
+
+/**
+ * The Fit readout's block: the finding, that leaving it is fine, and the remedy
+ * — one block, arriving and leaving together, because a count with no way to act
+ * on it is a warning and a button with no finding above it is a trap.
+ *
+ * Amber on the border and the sentence, matching the chip's dot: the same
+ * finding one rung further down the ladder the design already has — dot, count,
+ * sentence, remedy. Its words all come from `fitReadout`; there is no copy here.
+ */
+function FitBlock({ state, onPullInside }: { state: FitReadoutState; onPullInside: () => void }) {
+  return (
+    <div
+      style={{
+        marginTop: 4,
+        padding: 8,
+        borderRadius: 8,
+        border: `1px solid ${OUT_OF_BOUNDS_AMBER}66`,
+        background: 'rgba(245,158,11,0.10)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+      }}
+    >
+      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.35, color: '#fcd9a0' }}>
+        {state.sentence}
+      </p>
+      <p style={{ margin: 0, fontSize: 11, lineHeight: 1.35, color: 'rgba(255,255,255,0.5)' }}>
+        {state.note}
+      </p>
+      <button
+        type="button"
+        onClick={onPullInside}
+        style={{
+          // 44 like the ground rows: this is a tap made mid-compare, with the
+          // coach's other hand on the field.
+          minHeight: 44,
+          borderRadius: 8,
+          border: `1px solid ${OUT_OF_BOUNDS_AMBER}`,
+          background: 'rgba(245,158,11,0.16)',
+          color: '#fde3b4',
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: 'pointer',
+          touchAction: 'manipulation',
+        }}
+      >
+        {state.action}
+      </button>
     </div>
   );
 }

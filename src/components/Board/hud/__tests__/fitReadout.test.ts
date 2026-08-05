@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { describeOutOfBounds, groundChipState, outOfBoundsSentence } from '../fitReadout';
+import {
+  describeOutOfBounds,
+  fitReadoutState,
+  groundChipState,
+  outOfBoundsSentence,
+} from '../fitReadout';
 import { boundaryOf, outOfBounds } from '../../../../utils/fieldGeometry';
 import type { OutOfBoundsReport } from '../../../../utils/fieldGeometry';
 
@@ -123,6 +128,58 @@ describe('outOfBoundsSentence', () => {
     expect(outOfBoundsSentence(found, 'Jubilee Park')).toBe(
       '1 player and 1 path are outside Jubilee Park.',
     );
+  });
+});
+
+describe('fitReadoutState', () => {
+  // The football claim: the coach switches to Saturday's ground and, without
+  // leaving the board, reads how much of the play is off it and taps the one
+  // control that fixes it — the finding and its remedy as one block.
+
+  it('says nothing at all about a board that fits', () => {
+    expect(fitReadoutState(report(), 'Jubilee Park').shown).toBe(false);
+  });
+
+  it('speaks as soon as anything is outside', () => {
+    expect(fitReadoutState(report({ players: ['p1'] }), 'Jubilee Park').shown).toBe(true);
+  });
+
+  it('speaks for the ball alone, which is one thing and not a player', () => {
+    expect(fitReadoutState(report({ ball: true }), 'Jubilee Park').shown).toBe(true);
+  });
+
+  it('carries the whole sentence, ground and all', () => {
+    expect(fitReadoutState(report({ players: ['p1', 'p2', 'p3', 'p4'] }), 'Jubilee Park').sentence).toBe(
+      '4 players are outside Jubilee Park.',
+    );
+  });
+
+  it('names the remedy the coach taps', () => {
+    expect(fitReadoutState(report({ players: ['p1'] }), 'Jubilee Park').action).toBe(
+      'Pull inside boundary',
+    );
+  });
+
+  it('says leaving it is fine, because it is', () => {
+    // Out of bounds is a legitimate state to sit in, and nothing reaches disk
+    // until the coach saves. The finding is stated, never raised as an error.
+    expect(fitReadoutState(report({ players: ['p1'] }), 'Jubilee Park').note).toBe(
+      'Leaving it is fine — nothing is changed on disk until you save the play.',
+    );
+  });
+
+  it('falls back to "this ground" rather than implying there is no ground', () => {
+    expect(fitReadoutState(report({ players: ['p1', 'p2'] }), undefined).sentence).toBe(
+      '2 players are outside this ground.',
+    );
+  });
+
+  it('is never suppressed for being unsurprising', () => {
+    // ADR 0005: a coach who has just switched to a ground they know is tight
+    // still gets the readout. Nothing here keys on how the board got this way.
+    const justSwitched = fitReadoutState(report({ players: ['p1'] }), 'Standard ground');
+    const alwaysWas = fitReadoutState(report({ players: ['p1'] }), 'Jubilee Park');
+    expect(justSwitched.shown).toBe(alwaysWas.shown);
   });
 });
 

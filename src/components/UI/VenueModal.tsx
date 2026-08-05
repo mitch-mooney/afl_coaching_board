@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { selectActiveVenue, useVenueStore } from '../../store/venueStore';
+import { useVenueStore } from '../../store/venueStore';
 import { validateBoundaryDimensions } from '../../models/VenueModel';
 import type { Venue } from '../../models/VenueModel';
 import { useOverlayOpen } from '../../hooks/useOverlayOpen';
-import { useActiveBoundary } from '../../hooks/useActiveBoundary';
-import { pullBoardInsideBoundary, useOutOfBounds } from '../../hooks/useOutOfBounds';
-import { outOfBoundsSentence } from '../Board/hud/fitReadout';
 
 interface DraftForm {
   id: number | null; // null = creating
@@ -23,16 +20,17 @@ const EMPTY_DRAFT: DraftForm = { id: null, name: '', boundaryLength: '', boundar
  * Lives in the Match section of the global drawer because Match is
  * where the fixture's fixed facts are configured — teams, score, ground. The
  * drawer item names none of them: it is a route to this panel, not a surface
- * that asserts match context. Which ground is current will be reported live by
- * the ground chip the board is getting (issue #47) — not by the door to here.
+ * that asserts match context. Which ground is current is reported live by the
+ * board's ground chip — not by the door to here.
  *
- * The banner below is on its way out: the Fit readout moves to that chip's
- * popover, where the coach is actually looking. It stays until then because
- * neither half may ship alone — remove it first and the app has no Fit readout
- * at all. Once it goes the panel makes no claim about the board's fit, in any
- * part. That exclusion is the thing that stops the panel and the popover
- * becoming two versions of the same screen: they both set the Active Venue, and
- * that is the only overlap either is allowed.
+ * **This panel makes no claim about the open board's fit, in any part** — no
+ * count, no sentence, no Pull inside boundary. Its fit banner left in issue #52,
+ * in the same change that put the Fit readout in the chip's popover, where the
+ * coach is actually looking; neither half could ship alone, because removing the
+ * banner first would leave the app with no Fit readout at all. That exclusion is
+ * the thing that stops the panel and the popover becoming two versions of the
+ * same screen: they both set the Active Venue, and that is the only overlap
+ * either is allowed.
  *
  * See docs/adr/0002-venue-is-app-wide-positions-stay-absolute.md and
  * docs/adr/0005-the-fit-readout-lives-on-the-board.md.
@@ -46,12 +44,6 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
   const updateVenue = useVenueStore((s) => s.updateVenue);
   const deleteVenue = useVenueStore((s) => s.deleteVenue);
   const setActiveVenue = useVenueStore((s) => s.setActiveVenue);
-  const activeVenue = useVenueStore(selectActiveVenue);
-
-  // Derived, never stored: switching the ground above makes this appear and
-  // pulling inside makes it vanish, with nothing in between to keep in sync.
-  const boundary = useActiveBoundary();
-  const outOfBounds = useOutOfBounds();
 
   const [draft, setDraft] = useState<DraftForm>(EMPTY_DRAFT);
   const [showForm, setShowForm] = useState(false);
@@ -129,27 +121,6 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
             The ground every play is drawn on. Measure yours — no two community grounds are the same.
           </p>
         </div>
-
-        {/* Sits above the list, where the coach has just switched grounds and is
-            looking to find out whether Saturday's play still fits. Deliberately
-            phrased as a finding, not an error: a play that does not fit is a
-            true thing to look at, and leaving it is a legitimate choice. */}
-        {outOfBounds.count > 0 && (
-          <div className="m-3 rounded border border-amber-300 bg-amber-50 p-2">
-            <p className="text-xs text-amber-900">
-              {outOfBoundsSentence(outOfBounds, activeVenue?.name)}
-            </p>
-            <p className="text-[11px] text-amber-700 mt-0.5">
-              Leaving it is fine — nothing is changed on disk until you save the play.
-            </p>
-            <button
-              onClick={() => pullBoardInsideBoundary(boundary)}
-              className="mt-2 w-full min-h-[40px] px-3 py-2 text-sm rounded border border-amber-400 bg-white text-amber-900 hover:bg-amber-100 touch-manipulation"
-            >
-              Pull inside boundary
-            </button>
-          </div>
-        )}
 
         <div className="p-3 space-y-2">
           {venues.map((venue) => {

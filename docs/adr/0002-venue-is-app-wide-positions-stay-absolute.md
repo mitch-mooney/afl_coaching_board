@@ -222,4 +222,5 @@ but 8 of those don't count" would not be a fit report — and its count genuinel
   where they are watched (issue #26). Originally this bullet also said *"no board chrome in
   v1"*, on the reasoning that the drawer's placement states this decision's claim in the UI.
   That is retired: **ADR 0005** puts a ground chip and the Fit readout on the board, and the
-  panel carries no fit claim at all once its banner goes.
+  panel carries no fit claim at all — its banner left in issue #52, in the same change that
+  put the readout in the chip's popover.
