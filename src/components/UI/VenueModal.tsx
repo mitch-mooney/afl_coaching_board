@@ -40,14 +40,16 @@ const EMPTY_DRAFT: DraftForm = { id: null, name: '', boundaryLength: '', boundar
  * where they are watched: the ground chip in the top bar reports the Active
  * Venue live, without opening anything.
  *
- * The fit banner below is on its way out — it moves to the chip's popover on the
- * board, where the coach is actually looking (issue #24). Once it goes the panel
- * carries no fit claim at all: no count, no Pull inside boundary. That exclusion
- * is the thing that stops the panel and the popover becoming two versions of the
- * same screen — they both set the Active Venue, and that is the only overlap
- * either is allowed.
+ * The out-of-bounds banner below is on its way out — the Fit readout moves to the
+ * chip's popover on the board, where the coach is actually looking (spec #47). It
+ * stays until then because neither half may ship alone. Once it goes the panel
+ * makes no claim about the board's fit at all: no count, no Pull inside boundary.
+ * That exclusion is the thing that stops the panel and the popover becoming two
+ * versions of the same screen — they both set the Active Venue, and that is the
+ * only overlap either is allowed.
  *
- * See docs/adr/0002-venue-is-app-wide-positions-stay-absolute.md.
+ * See docs/adr/0002-venue-is-app-wide-positions-stay-absolute.md and
+ * docs/adr/0005-the-fit-readout-lives-on-the-board.md.
  */
 export function VenueModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   useOverlayOpen(open);
