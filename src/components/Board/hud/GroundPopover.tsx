@@ -112,6 +112,14 @@ export function GroundPopover() {
 }
 
 /**
+ * The amber lightened until it reads as body text on the column's dark glass.
+ * The one value here not derived from `OUT_OF_BOUNDS_AMBER`: every fill and
+ * border below is that hex at an alpha, so the *doesn't fit* colour can be
+ * changed in one place, and nothing in this block spells it a second way.
+ */
+const AMBER_INK = '#fcd9a0';
+
+/**
  * The Fit readout's block: the finding, that leaving it is fine, and the remedy
  * — one block, arriving and leaving together, because a count with no way to act
  * on it is a warning and a button with no finding above it is a trap.
@@ -128,17 +136,17 @@ function FitBlock({ state, onPullInside }: { state: FitReadoutState; onPullInsid
         padding: 8,
         borderRadius: 8,
         border: `1px solid ${OUT_OF_BOUNDS_AMBER}66`,
-        background: 'rgba(245,158,11,0.10)',
+        background: `${OUT_OF_BOUNDS_AMBER}1a`,
         display: 'flex',
         flexDirection: 'column',
         gap: 6,
       }}
     >
-      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.35, color: '#fcd9a0' }}>
+      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.35, color: AMBER_INK }}>
         {state.sentence}
       </p>
       <p style={{ margin: 0, fontSize: 11, lineHeight: 1.35, color: 'rgba(255,255,255,0.5)' }}>
-        {state.note}
+        {state.reassurance}
       </p>
       <button
         type="button"
@@ -149,15 +157,15 @@ function FitBlock({ state, onPullInside }: { state: FitReadoutState; onPullInsid
           minHeight: 44,
           borderRadius: 8,
           border: `1px solid ${OUT_OF_BOUNDS_AMBER}`,
-          background: 'rgba(245,158,11,0.16)',
-          color: '#fde3b4',
+          background: `${OUT_OF_BOUNDS_AMBER}29`,
+          color: AMBER_INK,
           fontSize: 13,
           fontWeight: 600,
           cursor: 'pointer',
           touchAction: 'manipulation',
         }}
       >
-        {state.action}
+        {state.remedy}
       </button>
     </div>
   );

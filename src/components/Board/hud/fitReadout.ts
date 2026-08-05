@@ -3,9 +3,10 @@
  * the answer to *does the open board fit the Active Venue?* — and the **Ground
  * chip**'s name-and-dot beside it.
  *
- * Pure text, deliberately free of React, so the copy and its rules can be
- * asserted without a component harness — same shape as `toolRailTips.ts` and
- * `toolRailColours.ts`.
+ * Pure text — and the one colour that text is said in — deliberately free of
+ * React, so the copy and its rules can be asserted without a component harness:
+ * same shape as `toolRailTips.ts` and `toolRailColours.ts`, which pairs its tip
+ * names with its tip colours for the same reason.
  *
  * The readout itself is the count, this sentence, **Pull inside boundary** and
  * whether the board has been pulled inside, together; it lives on the board and
@@ -89,10 +90,10 @@ export interface FitReadoutState {
   shown: boolean;
   /** "4 players are outside Jubilee Park." — empty when nothing is outside. */
   sentence: string;
-  /** The standing reassurance beneath it: out of bounds is a state, not an error. */
-  note: string;
-  /** The remedy's label, the one control in the block. */
-  action: string;
+  /** Why the finding is not an error: out of bounds is a state, and disk is untouched. */
+  reassurance: string;
+  /** **Pull inside boundary**'s label — the remedy, named as the domain names it. */
+  remedy: string;
 }
 
 /**
@@ -113,8 +114,8 @@ export function fitReadoutState(report: OutOfBoundsReport, groundName?: string):
   return {
     shown: report.count > 0,
     sentence: outOfBoundsSentence(report, groundName),
-    note: 'Leaving it is fine — nothing is changed on disk until you save the play.',
-    action: 'Pull inside boundary',
+    reassurance: 'Leaving it is fine — nothing is changed on disk until you save the play.',
+    remedy: 'Pull inside boundary',
   };
 }
 

@@ -137,7 +137,11 @@ describe('fitReadoutState', () => {
   // control that fixes it — the finding and its remedy as one block.
 
   it('says nothing at all about a board that fits', () => {
-    expect(fitReadoutState(report(), 'Jubilee Park').shown).toBe(false);
+    const quiet = fitReadoutState(report(), 'Jubilee Park');
+    // Both, not just `shown`: a caller that rendered the block anyway must find
+    // no sentence in it rather than one with no subject.
+    expect(quiet.shown).toBe(false);
+    expect(quiet.sentence).toBe('');
   });
 
   it('speaks as soon as anything is outside', () => {
@@ -154,8 +158,8 @@ describe('fitReadoutState', () => {
     );
   });
 
-  it('names the remedy the coach taps', () => {
-    expect(fitReadoutState(report({ players: ['p1'] }), 'Jubilee Park').action).toBe(
+  it('names the remedy the coach taps, as the domain names it', () => {
+    expect(fitReadoutState(report({ players: ['p1'] }), 'Jubilee Park').remedy).toBe(
       'Pull inside boundary',
     );
   });
@@ -163,7 +167,7 @@ describe('fitReadoutState', () => {
   it('says leaving it is fine, because it is', () => {
     // Out of bounds is a legitimate state to sit in, and nothing reaches disk
     // until the coach saves. The finding is stated, never raised as an error.
-    expect(fitReadoutState(report({ players: ['p1'] }), 'Jubilee Park').note).toBe(
+    expect(fitReadoutState(report({ players: ['p1'] }), 'Jubilee Park').reassurance).toBe(
       'Leaving it is fine — nothing is changed on disk until you save the play.',
     );
   });
