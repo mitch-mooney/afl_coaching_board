@@ -100,6 +100,13 @@ extend this file rather than inventing parallel names.
   Venues are created by the user, not shipped as presets — the grounds that matter are
   community grounds whose dimensions are published nowhere.
 
+- **Grounds** — the user-facing name for the coach's collection of Venues, and for the panel
+  that manages it: the drawer item, the panel header. The one deliberate place where the UI's
+  word and the code's differ, because *Venue* is the precise noun for one measured ground and
+  *Grounds* is what a coach calls the several of them. Not a parallel name for the concept —
+  a Venue is still a Venue everywhere in code, tests and commits, and there is no `Ground`
+  type. Panel: `components/UI/VenueModal.tsx`. See ADR 0002 and issue #26.
+
 - **Boundary dimensions** — `boundaryLength` (goal-to-goal) and `boundaryWidth`
   (wing-to-wing): the axes of a Venue's boundary ellipse, and the *only* part of the field
   that varies between grounds. Named in full because they describe the playing surface, not
