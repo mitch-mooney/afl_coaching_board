@@ -78,6 +78,40 @@ describe('recording a ground', () => {
     expect(created?.boundaryWidth).toBe(118);
   });
 
+  // A coach who has just recorded Saturday's ground is already standing on it: the
+  // board renders it without them hunting for the row they just made. Done in the
+  // store, so every door into creating a ground behaves the same way.
+  it('makes the new ground the Active Venue', async () => {
+    await useVenueStore.getState().loadVenues();
+    const id = await useVenueStore.getState().createVenue({ name: 'Jubilee Park', ...TIGHT });
+    expect(useVenueStore.getState().activeVenueId).toBe(id);
+    expect(useVenueStore.getState().activeBoundaryDimensions()).toEqual(TIGHT);
+    // Through the ordinary selection path, not a bare set — so the ground the coach
+    // just measured is still the one they return to.
+    expect(localStorage.getItem(ACTIVE_VENUE_KEY)).toBe(String(id));
+  });
+
+  it('does not flash Standard ground on the way to the new one', async () => {
+    // Selecting an id the loaded records do not contain yet resolves to no Venue,
+    // and the board's fallback for that is Standard ground — for the whole database
+    // round trip, which is long enough to paint. The coach would watch the boundary
+    // jump to 165 × 135 and back.
+    await useVenueStore.getState().createVenue({ name: 'Jubilee Park', ...TIGHT });
+    const seen: unknown[] = [];
+    const unsubscribe = useVenueStore.subscribe(() =>
+      seen.push(useVenueStore.getState().activeBoundaryDimensions()),
+    );
+
+    await useVenueStore.getState().createVenue({
+      name: 'Wider Ground',
+      boundaryLength: 170,
+      boundaryWidth: 140,
+    });
+    unsubscribe();
+
+    expect(seen).not.toContainEqual(STANDARD_GROUND_DIMENSIONS);
+  });
+
   it('refuses to create a Venue with transposed dimensions', async () => {
     await expect(
       useVenueStore.getState().createVenue({ name: 'Wrong Way', boundaryLength: 118, boundaryWidth: 152 }),
@@ -174,11 +208,13 @@ describe('the Active Venue', () => {
   });
 
   it('keeps a selection made when localStorage is unavailable', async () => {
-    // Private browsing: the write throws, so the choice lives in memory only. A
-    // later create/update/delete must not quietly revert the coach to Standard
-    // ground by re-reading the key that was never written.
+    // Private browsing: the write throws, so the choice lives in memory only, and
+    // loadVenues — which every mutation ends with — must not quietly revert the coach
+    // by re-reading a key that no longer says what they picked.
     const id = await useVenueStore.getState().createVenue({ name: 'Jubilee Park', ...TIGHT });
-    await useVenueStore.getState().loadVenues();
+    // Load-bearing: this second ground is what the stored key names, so a re-read
+    // would resolve to it rather than to the in-memory choice made below.
+    await useVenueStore.getState().createVenue({ name: 'Another Ground', boundaryLength: 160, boundaryWidth: 130 });
     const setItem = localStorage.setItem;
     localStorage.setItem = () => { throw new Error('private mode'); };
     try {
@@ -188,7 +224,7 @@ describe('the Active Venue', () => {
     }
     expect(useVenueStore.getState().activeBoundaryDimensions()).toEqual(TIGHT);
 
-    await useVenueStore.getState().createVenue({ name: 'Another Ground', boundaryLength: 160, boundaryWidth: 130 });
+    await useVenueStore.getState().loadVenues();
 
     expect(useVenueStore.getState().activeBoundaryDimensions()).toEqual(TIGHT);
   });

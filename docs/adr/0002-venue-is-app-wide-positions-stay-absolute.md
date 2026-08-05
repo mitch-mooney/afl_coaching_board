@@ -214,7 +214,10 @@ but 8 of those don't count" would not be a fit report — and its count genuinel
   error; anything outside 120–200 m long or 90–170 m wide is **warned about but accepted**,
   because the coach measured the ground and we did not.
 - Ground management lives in the existing **Match** section of `GlobalDrawer`, presented as
-  **"Grounds"** — a library of grounds: add, edit, delete, and set which one is active. It
+  **"Grounds"** — a library of grounds: add, edit, delete, and set which one is active.
+  **Adding one sets it**, in `venueStore` rather than at any call site, so every door into
+  recording a ground lands the coach on it (issue #49); the selection is made after the
+  reload, so the board never resolves an id its records do not hold yet. It
   stays in Match because Match holds the fixture's *fixed facts* — teams, score, ground — not
   where they are watched (issue #26). Originally this bullet also said *"no board chrome in
   v1"*, on the reasoning that the drawer's placement states this decision's claim in the UI.
