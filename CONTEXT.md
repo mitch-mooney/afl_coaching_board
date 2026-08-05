@@ -159,7 +159,8 @@ extend this file rather than inventing parallel names.
   thing it remedies.
 
 - **Fit readout** — the surfaced answer to *does the open board fit the Active Venue?*: the
-  Out of bounds count, its sentence (`describeOutOfBounds`), **Pull inside boundary**, and
+  Out of bounds count, its sentence (`describeOutOfBounds`, in
+  `components/Board/hud/fitReadout.ts`), **Pull inside boundary**, and
   whether the board **has been pulled inside**, together as one thing. The open board has
   exactly one Fit readout and it lives **on the board**; a surface that merely sets the Active
   Venue makes no claim about the board's fit. Distinct from **playFit**'s row marker, which is
