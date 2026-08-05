@@ -16,6 +16,12 @@ lying, but silence was being read as reassurance. See "The readout remembers the
 Consequences. ADR 0002's claim that switching back "restores it perfectly" is corrected in the
 same pass.
 
+Touched again 2026-08-05 (issue #40): the one item this ADR listed as **not settled here** — the
+popover column's collision with `LinkedVideoBar` — has been settled, in **ADR 0003** rather than
+here, exactly as the scoping predicted. Nothing this ADR decides changed; the section is now
+"Settled elsewhere" and carries the one part of that resolution which bears on this ADR's
+subject.
+
 ## Context
 
 ADR 0002 established the Active Venue as app-wide match context and closed by declining to
@@ -248,8 +254,13 @@ no claim about the pattern elsewhere.
   switching remarks the list on the spot. It may **not** carry Pull inside boundary, because it
   is not the board of any of those Plays. This ADR binds that surface without designing it.
 
-### Not settled here
+### Settled elsewhere
 
-- Where the popover column goes when a Play has a linked video. `LinkedVideoBar` sits at
-  `safe-top + 56px` (`LinkedVideoBar.tsx:16`) and the column starts at 59. A layout collision,
-  not a question about who owns the readout.
+- Where the popover column goes when a Play has a linked video — the layout collision this ADR
+  scoped out as *"not a question about who owns the readout."* Resolved by issue #40 and
+  recorded in **ADR 0003**, which owns where HUD surfaces sit: the column **overlays**
+  `LinkedVideoBar` rather than clearing it, because it is anchored chrome and must read as
+  attached to the chip, and its top edge moves to the bottom of the top-bar row so the two
+  edges coincide. The one thing that touches this ADR's subject is the limit on the licence —
+  the column may cover the bar's readout, never its controls — which keeps **Pull inside
+  boundary** and the fit sentence from ever being the reason a control goes unreachable.
