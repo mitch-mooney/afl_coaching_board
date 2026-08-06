@@ -40,6 +40,22 @@ interface UIState {
   // Training Mode: which drill is shown in the detail panel
   activeDrillId: string | null;
   setActiveDrillId: (id: string | null) => void;
+
+  /**
+   * Whether the **Grounds** panel is open — the coach's library of Venues, rendered
+   * by `GlobalDrawer` (`components/UI/VenueModal.tsx`).
+   *
+   * It was the drawer's own local state while the drawer was the only door into it.
+   * The ground popover's **Add a ground** row is a second door, on the board and
+   * nowhere near that component, so the open state has to be somewhere both can
+   * reach. Here rather than in `venueStore`: which panel is on screen is UI, not a
+   * fact about the coach's grounds.
+   *
+   * `showVenue`, not `showGrounds` — **Grounds** is what the coach is shown and
+   * **Venue** is what the code calls one, all the way down (see CONTEXT.md).
+   */
+  showVenue: boolean;
+  setShowVenue: (open: boolean) => void;
 }
 
 /**
@@ -132,6 +148,10 @@ export const useUIStore = create<UIState>((set) => {
     // Active formation preset
     activeFormationId: null,
     setActiveFormationId: (id) => set({ activeFormationId: id }),
+
+    // The Grounds panel, reachable from the drawer and from the board's ground popover
+    showVenue: false,
+    setShowVenue: (open) => set({ showVenue: open }),
   };
 });
 

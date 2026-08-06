@@ -37,6 +37,25 @@ export const STANDARD_GROUND_DIMENSIONS: BoundaryDimensions = {
 };
 
 /**
+ * The two things about grounds that more than one surface says out loud — the
+ * **Grounds** panel and the board's ground popover both say them, and a coach
+ * routing from one to the other has to meet the same words on both sides.
+ *
+ * Here rather than in either component, and for the reason `OUT_OF_BOUNDS_AMBER`
+ * is stated once in `fitReadout.ts`: a string duplicated across two files that
+ * must agree is exactly how they stop agreeing. Beside the name they describe,
+ * in the one module both surfaces already import.
+ *
+ * `STANDARD_GROUND_IS_GENERIC` carries the words only. The `·` in front of it is
+ * layout — the panel separates it from the measurements on one line, the popover
+ * gives it a line of its own — and stays with whoever is laying it out.
+ */
+export const STANDARD_GROUND_IS_GENERIC = 'generic, not a measured ground';
+
+/** What recording a ground is called, wherever it is offered. */
+export const ADD_GROUND_LABEL = 'Add a ground';
+
+/**
  * The range a community ground plausibly falls in. Outside it we warn; we never
  * refuse, because the coach paced the ground out and we did not.
  */

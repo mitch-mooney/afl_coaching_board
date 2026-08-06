@@ -5,6 +5,7 @@ import { MobileMenu, createMenuSection, createMenuItem, type MenuSection } from 
 import { useAuthStore } from '../../store/authStore';
 import { useMatchStore } from '../../store/matchStore';
 import { useHudPreferenceStore } from '../../store/hudPreferenceStore';
+import { useUIStore } from '../../store/uiStore';
 import { usePlayStore } from '../../store/playStore';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { SavePlayDialog } from './SavePlayDialog';
@@ -26,7 +27,11 @@ export function GlobalDrawer() {
   const [showVideoUploader, setShowVideoUploader] = useState(false);
   const [showMatchSetup, setShowMatchSetup] = useState(false);
   const [showShare, setShowShare] = useState(false);
-  const [showVenue, setShowVenue] = useState(false);
+  // The one overlay here whose open state is not local: the board's ground popover
+  // routes to the Grounds panel from its **Add a ground** row, and it has no way to
+  // reach this component's state. Store-held so both doors open the same panel.
+  const showVenue = useUIStore((s) => s.showVenue);
+  const setShowVenue = useUIStore((s) => s.setShowVenue);
 
   const activePlayId = usePlayStore((s) => s.activePlayId);
 
@@ -116,6 +121,9 @@ export function GlobalDrawer() {
     matchShowScoreboard, toggleScoreboard,
     skinLabel, cycleSkinOverride,
     activePlayId,
+    // Listed where the `useState` setters above are not: a store action is stable
+    // in fact but not by a rule the linter knows.
+    setShowVenue,
   ]);
 
   // No positioned wrapper. The hamburger now lives in `EditorTopBar`, and
