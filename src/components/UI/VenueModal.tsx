@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useVenueStore } from '../../store/venueStore';
-import { validateBoundaryDimensions } from '../../models/VenueModel';
+import {
+  ADD_GROUND_LABEL,
+  STANDARD_GROUND_IS_GENERIC,
+  validateBoundaryDimensions,
+} from '../../models/VenueModel';
 import type { Venue } from '../../models/VenueModel';
 import { useOverlayOpen } from '../../hooks/useOverlayOpen';
 
@@ -141,7 +145,9 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
                     </div>
                     <div className="text-xs text-gray-500">
                       {venue.boundaryLength} × {venue.boundaryWidth} m
-                      {venue.isDefault && ' · generic, not a measured ground'}
+                      {/* Shared with the board's ground popover, which says the
+                          same of the same row — see `VenueModel`. */}
+                      {venue.isDefault && ` · ${STANDARD_GROUND_IS_GENERIC}`}
                     </div>
                   </button>
                   {/* Standard ground is the generic fallback, not a measured ground.
@@ -185,7 +191,9 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
               onClick={beginCreate}
               className="w-full min-h-[40px] px-3 py-2 text-sm rounded border border-teal-300 text-teal-700 bg-teal-50 hover:bg-teal-100 touch-manipulation"
             >
-              Add a ground
+              {/* The popover's footer routes here saying this; one name for the
+                  action, stated in `VenueModel`. */}
+              {ADD_GROUND_LABEL}
             </button>
           )}
 

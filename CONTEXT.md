@@ -105,7 +105,9 @@ extend this file rather than inventing parallel names.
   word and the code's differ, because *Venue* is the precise noun for one measured ground and
   *Grounds* is what a coach calls the several of them. Not a parallel name for the concept —
   a Venue is still a Venue everywhere in code, tests and commits, and there is no `Ground`
-  type. Panel: `components/UI/VenueModal.tsx`. See ADR 0002 and issue #26.
+  type. Two doors lead to the panel — the drawer item, and the **ground popover**'s *Add a
+  ground* footer — so its open state is held in `uiStore` (`showVenue`) rather than by either
+  of them. Panel: `components/UI/VenueModal.tsx`. See ADR 0002 and issue #26.
 
 - **Boundary dimensions** — `boundaryLength` (goal-to-goal) and `boundaryWidth`
   (wing-to-wing): the axes of a Venue's boundary ellipse, and the *only* part of the field
@@ -145,7 +147,9 @@ extend this file rather than inventing parallel names.
   no number — when anything is Out of bounds. Tapping it drops the **ground popover**, a
   264px column of every Venue that stays open across picks, so a repeated compare costs one
   tap per switch rather than a round trip through the drawer, with the **Fit readout**'s block
-  hanging beneath the list. Both are board chrome and
+  hanging beneath the list and an *Add a ground* footer beneath that — which routes to the
+  **Grounds** panel and never creates, so grounds are managed in one place. Both are board
+  chrome and
   render on the board tab only, from the top bar rather than either HUD skin, so they land
   identically in both. What the chip *says* is decided in
   `components/Board/hud/fitReadout.ts` beside the **Fit readout**'s words, because the dot
