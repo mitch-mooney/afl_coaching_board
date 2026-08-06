@@ -144,7 +144,8 @@ extend this file rather than inventing parallel names.
   tab switcher: the Active Venue's name, a hairline oval at rest, and a single amber dot —
   no number — when anything is Out of bounds. Tapping it drops the **ground popover**, a
   264px column of every Venue that stays open across picks, so a repeated compare costs one
-  tap per switch rather than a round trip through the drawer. Both are board chrome and
+  tap per switch rather than a round trip through the drawer, with the **Fit readout**'s block
+  hanging beneath the list. Both are board chrome and
   render on the board tab only, from the top bar rather than either HUD skin, so they land
   identically in both. What the chip *says* is decided in
   `components/Board/hud/fitReadout.ts` beside the **Fit readout**'s words, because the dot
@@ -167,8 +168,9 @@ extend this file rather than inventing parallel names.
 - **Pull inside boundary** — the one-tap affordance that moves out-of-bounds content inside
   the Active Venue's Boundary. Always the coach's choice, never automatic — no fit on load
   and no clamp during playback — and an ordinary undoable board edit like any drag. Part of
-  the **Fit readout**, and so lives wherever that does: a remedy belongs under the eye of the
-  thing it remedies.
+  the **Fit readout**, and so lives wherever that does — since issue #52, in the ground
+  popover's block, under the sentence that reports the finding: a remedy belongs under the eye
+  of the thing it remedies.
 
 - **Fit readout** — the surfaced answer to *does the open board fit the Active Venue?*: the
   Out of bounds count, its sentence (`describeOutOfBounds`, in
@@ -178,6 +180,11 @@ extend this file rather than inventing parallel names.
   Venue makes no claim about the board's fit. Distinct from **playFit**'s row marker, which is
   the same predicate on a different *subject* — a Play on disk rather than the board — and so
   is not a second readout. See ADR 0005.
+
+  It renders as one block in the **ground popover**, **below** the ground list — `fitReadoutState`
+  decides its words, `GroundPopover`'s `FitBlock` draws them. Below the list and not above it,
+  because a finding appearing mid-compare must not move the rows the coach is tapping. The
+  Grounds panel's fit banner, which was the readout until issue #52, is gone.
 
   The readout explains its own answer: a count of 0 the coach **created**, by pulling inside at
   the ground they are standing on, is not the finding a count of 0 they **inherited** is. Both

@@ -16,6 +16,11 @@ lying, but silence was being read as reassurance. See "The readout remembers the
 Consequences. ADR 0002's claim that switching back "restores it perfectly" is corrected in the
 same pass.
 
+Carried out 2026-08-06 (issue #52): the readout now renders in the ground popover's column,
+below the ground list, and `VenueModal`'s fit banner is deleted — one change, as the "What
+moves, and when" section below required. Nothing this ADR decides changed; that section is
+now a record of a move that has happened rather than one that is coming.
+
 Touched again 2026-08-05 (issue #40): the one item this ADR listed as **not settled here** — the
 popover column's collision with `LinkedVideoBar` — has been settled, in **ADR 0003** rather than
 here, exactly as the scoping predicted. Nothing this ADR decides changed; the section is now
@@ -107,13 +112,19 @@ board while the board is answering for itself.
 - The fit banner leaves `VenueModal` and the readout appears on the board **in the same
   build**. Neither half may ship alone: removing the banner first leaves the app with no Fit
   readout at all, and adding the board's first leaves two. Issue #26 split its own build on
-  exactly this and told #37 in as many words not to take the banner out.
+  exactly this and told #37 in as many words not to take the banner out. Done in issue #52,
+  as one commit.
 - `describeOutOfBounds` moves **unchanged**. The chosen popover geometry (issue #27, variant
-  A) has room for the sentence as written; it is carried, not rewritten. Its *words* have
-  already made the trip, ahead of the markup: issue #50 lifted them out of `VenueModal` into
-  `components/Board/hud/fitReadout.ts`, beside the other pure HUD modules, where the banner
-  now reads them from. That is not the readout shipping twice — there is still exactly one,
-  and the banner still renders it — it only leaves the banner's removal a plain delete.
+  A) has room for the sentence as written; it is carried, not rewritten. Its *words* made the
+  trip ahead of the markup: issue #50 lifted them out of `VenueModal` into
+  `components/Board/hud/fitReadout.ts`, beside the other pure HUD modules, so that when the
+  block arrived the banner's removal was a plain delete. It was. The block's copy is decided
+  there too — `fitReadoutState` returns the sentence, the disk reassurance and the remedy's
+  label whole, so the markup in `GroundPopover` holds no words of its own.
+- **Below the ground list, never above it.** The rows must not move when a finding appears or
+  clears: the compare loop is a repeated tap on the same row, and a block above it would
+  shift every row ~92px under the coach's finger on each switch. The column grows downward
+  instead. This fails silently — nothing throws, the rows just move.
 
 ### The readout remembers the pull
 

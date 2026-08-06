@@ -6,6 +6,9 @@ import { useAnnotationStore } from '../../store/annotationStore';
 import { useBallStore } from '../../store/ballStore';
 import { useConeStore } from '../../store/coneStore';
 import { usePathStore } from '../../store/pathStore';
+import { useCameraStore } from '../../store/cameraStore';
+import { pullBoardInsideBoundary } from '../useOutOfBounds';
+import { boundaryOf, outOfBounds } from '../../utils/fieldGeometry';
 import { capture } from '../../utils/boardSnapshotIO';
 import type { Player } from '../../models/PlayerModel';
 
@@ -144,6 +147,48 @@ describe('undo with annotations', () => {
     expect(useBallStore.getState().ball?.position).toEqual([0, 0, 0]);
     expect(useConeStore.getState().cones[0].position).toEqual([0, 0, 60]);
     expect(usePathStore.getState().paths[0].keyframes[1].position).toEqual([0, 0, 62]);
+  });
+
+  it('makes Pull inside boundary one undoable edit that leaves the camera where it was', () => {
+    // The whole of what the readout's remedy promises: everything comes inside,
+    // one press of undo puts it all back, and the viewpoint never moves — the
+    // coach is watching the Boundary change under a play that holds still, so a
+    // camera that jumped would cost them the comparison they came for.
+    const tight = boundaryOf({ boundaryLength: 150, boundaryWidth: 110 });
+    usePlayerStore.getState().setPlayers([player([0, 0, 60])]);
+    useConeStore.getState().setCones([{ id: 'c1', position: [0, 0, 62] }]);
+    useBallStore
+      .getState()
+      .setBall({ id: 'ball-1', position: [0, 0, 58], color: '#8B4513', size: 0.3 });
+    usePathStore.getState().setPaths([{
+      id: 'lead',
+      entityId: 'team1-player-1',
+      entityType: 'player',
+      keyframes: [
+        { timestamp: 0, position: [0, 0, 0] },
+        { timestamp: 1, position: [0, 0, 61] },
+      ],
+      duration: 1,
+      startTimeOffset: 0,
+    }]);
+    useCameraStore.getState().setCameraPosition([12, 30, 40]);
+    useCameraStore.getState().setCameraTarget([3, 0, 4]);
+
+    pullBoardInsideBoundary(tight);
+
+    expect(outOfBounds(capture(), tight).count).toBe(0);
+    expect(useCameraStore.getState().position).toEqual([12, 30, 40]);
+    expect(useCameraStore.getState().target).toEqual([3, 0, 4]);
+
+    undoBoard();
+
+    expect(usePlayerStore.getState().players[0].position).toEqual([0, 0, 60]);
+    expect(useConeStore.getState().cones[0].position).toEqual([0, 0, 62]);
+    expect(useBallStore.getState().ball?.position).toEqual([0, 0, 58]);
+    expect(usePathStore.getState().paths[0].keyframes[1].position).toEqual([0, 0, 61]);
+    // One edit, one undo: the stack is empty again rather than holding a second
+    // entry for the same tap.
+    expect(useHistoryStore.getState().past).toHaveLength(0);
   });
 
   it('does not record annotation mutations while recording is paused', () => {

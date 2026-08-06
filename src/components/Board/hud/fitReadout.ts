@@ -3,16 +3,17 @@
  * the answer to *does the open board fit the Active Venue?* — and the **Ground
  * chip**'s name-and-dot beside it.
  *
- * Pure text, deliberately free of React, so the copy and its rules can be
- * asserted without a component harness — same shape as `toolRailTips.ts` and
- * `toolRailColours.ts`.
+ * Pure text — and the one colour that text is said in — deliberately free of
+ * React, so the copy and its rules can be asserted without a component harness:
+ * same shape as `toolRailTips.ts` and `toolRailColours.ts`, which pairs its tip
+ * names with its tip colours for the same reason.
  *
  * The readout itself is the count, this sentence, **Pull inside boundary** and
  * whether the board has been pulled inside, together; it lives on the board and
- * nowhere else (docs/adr/0005-the-fit-readout-lives-on-the-board.md). This
- * module is where its words live, so that when the readout moves from the
- * Grounds panel to the ground chip's popover the copy is already at its
- * destination and only the markup changes.
+ * nowhere else (docs/adr/0005-the-fit-readout-lives-on-the-board.md) — since
+ * issue #52 that is literally true, the popover column carrying the block and
+ * the Grounds panel carrying no fit claim at all. This module is where its words
+ * live, so the block's markup holds none of its own.
  *
  * The sentence is stated as a finding, not an error. A play that does not fit is
  * a true thing to look at, and leaving it is a legitimate choice — which is why
@@ -68,6 +69,54 @@ export function outOfBoundsSentence(report: OutOfBoundsReport, groundName?: stri
   if (!subject) return '';
   const verb = report.count === 1 ? 'is' : 'are';
   return `${subject} ${verb} outside ${groundName ?? 'this ground'}.`;
+}
+
+/**
+ * The colour of *this board does not fit*: the chip's dot and the readout
+ * block's border, which are the same finding at two resolutions (ADR 0005).
+ *
+ * Deliberately here rather than in `podStyles`, which holds the same hex for a
+ * different meaning — on the Tool rail amber means *this tip is armed*. One
+ * constant for two meanings would make either impossible to change without
+ * changing the other. Shared between the chip and the block because there it is
+ * one meaning, and a hex duplicated across two files that must agree is exactly
+ * the drift this module exists to prevent.
+ */
+export const OUT_OF_BOUNDS_AMBER = '#f59e0b';
+
+/** Everything the **Fit readout**'s block shows, on a board that has something outside. */
+export interface FitReadoutState {
+  /** Whether the block appears at all — the whole of *is there anything to say?* */
+  shown: boolean;
+  /** "4 players are outside Jubilee Park." — empty when nothing is outside. */
+  sentence: string;
+  /** Why the finding is not an error: out of bounds is a state, and disk is untouched. */
+  reassurance: string;
+  /** **Pull inside boundary**'s label — the remedy, named as the domain names it. */
+  remedy: string;
+}
+
+/**
+ * The block that hangs under the ground list: what is outside, that leaving it
+ * is fine, and the one tap that fixes it — the finding and its remedy together,
+ * which is what makes it one thing rather than a warning and a button.
+ *
+ * `shown` is the count and nothing else. It is **never** softened by how the
+ * board came to be this way (ADR 0005): a coach who has just switched to a
+ * ground they know is tight is exactly who is about to decide whether to pull
+ * inside, and a readout that went quiet for being unsurprising would take the
+ * decision off the screen at the moment it is being made.
+ *
+ * The copy comes back whole rather than as parts to assemble, so the block's
+ * markup holds no words of its own and the wording can be asserted here.
+ */
+export function fitReadoutState(report: OutOfBoundsReport, groundName?: string): FitReadoutState {
+  return {
+    shown: report.count > 0,
+    sentence: outOfBoundsSentence(report, groundName),
+    reassurance: 'Leaving it is fine — nothing is changed on disk until you save the play.',
+    remedy: 'Pull inside boundary',
+  };
 }
 
 /** Everything the **Ground chip** shows: which ground, and whether to speak up. */

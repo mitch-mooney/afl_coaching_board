@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useOutOfBounds } from '../../../hooks/useOutOfBounds';
 import { selectActiveVenue, useVenueStore } from '../../../store/venueStore';
-import { groundChipState } from './fitReadout';
+import { groundChipState, OUT_OF_BOUNDS_AMBER } from './fitReadout';
 import { GroundPopover } from './GroundPopover';
 import { TEAL } from './podStyles';
 
@@ -31,14 +31,6 @@ import { TEAL } from './podStyles';
  * open* — the Mode rail's, and the Tool rail's colour button. A popover that
  * stays open across picks especially needs the chip to say it owns it.
  */
-
-/**
- * Deliberately local rather than shared with `podStyles`, which holds the same
- * hex twice over: on the Tool rail amber means *this tip is armed*, and here it
- * means *this board does not fit* (ADR 0005). One constant for two meanings
- * would make either one impossible to change without changing the other.
- */
-const AMBER = '#f59e0b';
 
 export function GroundChip() {
   const activeVenue = useVenueStore(selectActiveVenue);
@@ -121,7 +113,9 @@ export function GroundChip() {
             aria-hidden
             style={{ width: 13, display: 'flex', justifyContent: 'center', flexShrink: 0 }}
           >
-            <span style={{ width: 9, height: 9, borderRadius: 999, background: AMBER }} />
+            <span
+              style={{ width: 9, height: 9, borderRadius: 999, background: OUT_OF_BOUNDS_AMBER }}
+            />
           </span>
         ) : (
           <svg width="13" height="10" viewBox="0 0 13 10" aria-hidden style={{ flexShrink: 0 }}>
