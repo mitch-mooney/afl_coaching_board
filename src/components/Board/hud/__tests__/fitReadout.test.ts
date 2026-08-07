@@ -325,9 +325,9 @@ describe('groundChipState', () => {
     // after a pull the honest value of that bit is *fits*. The chip takes no
     // pull argument at all — a lit dot would mean *doesn't fit **or** was
     // pulled*, two claims on one pixel, and a fitting board would wear a
-    // permanent warning. The memory stops one rung down, in the column.
+    // permanent warning. The memory stops one rung down, in the column — and
+    // the enforcement is the signature: there is no argument here to pass it.
     expect(groundChipState(report(), 'Jubilee Park').dotLit).toBe(false);
-    expect(groundChipState(report(), 'Jubilee Park').label).toBe('Ground: Jubilee Park');
   });
 
   it('names the ground to a screen reader, which cannot see the dot', () => {

@@ -237,6 +237,10 @@ function FitBlock({ state, onPullInside }: { state: FitReadoutState; onPullInsid
         marginTop: 4,
         padding: 8,
         borderRadius: 8,
+        // Amber only while something is actually outside. With the memory
+        // speaking alone the block wears the ground rows' own hairline and fill
+        // instead — the board fits, and a fitting board must not carry the
+        // colour that means it doesn't.
         border: state.outOfBounds
           ? `1px solid ${OUT_OF_BOUNDS_AMBER}66`
           : '1px solid rgba(255,255,255,0.1)',
@@ -275,6 +279,9 @@ function FitBlock({ state, onPullInside }: { state: FitReadoutState; onPullInsid
           </button>
         </>
       )}
+      {/* A shade up from the reassurance above it (0.5), which is a footnote to
+          a finding the coach can already see; this one is the finding. Still
+          below the sentence's ink, because it reports a board that fits. */}
       {state.pullMemory && (
         <p style={{ margin: 0, fontSize: 11, lineHeight: 1.35, color: 'rgba(255,255,255,0.55)' }}>
           {state.pullMemory}

@@ -27,6 +27,7 @@
  */
 
 import { STANDARD_GROUND_NAME } from '../../../models/VenueModel';
+import type { StateSnapshot } from '../../../store/historyStore';
 import type { OutOfBoundsReport } from '../../../utils/fieldGeometry';
 
 const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
@@ -85,14 +86,17 @@ export function outOfBoundsSentence(report: OutOfBoundsReport, groundName?: stri
 export const OUT_OF_BOUNDS_AMBER = '#f59e0b';
 
 /**
- * The one entry the memory reads: whether this history entry was recorded by
- * **Pull inside boundary**. Structural rather than `StateSnapshot`, so the
- * predicate below can be exercised on two-character objects and this module
- * keeps knowing nothing about the history store.
+ * The one field of a history entry the memory reads: whether that entry was
+ * recorded by **Pull inside boundary**.
+ *
+ * A `Pick` of the real thing rather than a lookalike interface — same move as
+ * `fieldGeometry.PlaceableContent`, and for the same reason: a structural copy
+ * would be satisfied by `StateSnapshot` whatever that type later did, so
+ * renaming the field over there would leave this predicate compiling and
+ * silently answering *no* forever. The import is type-only, so this module still
+ * pulls in nothing of the store at runtime.
  */
-export interface PullMarkedEntry {
-  pulledInside?: boolean;
-}
+export type PullMarkedEntry = Pick<StateSnapshot, 'pulledInside'>;
 
 /**
  * Has the open board been pulled inside a Boundary — a predicate over the undo

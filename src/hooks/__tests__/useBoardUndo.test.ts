@@ -212,6 +212,11 @@ describe('undo with annotations', () => {
     expect(hasBeenPulledInside(useHistoryStore.getState().past)).toBe(false);
     expect(useHistoryStore.getState().future[0].pulledInside).toBe(true);
 
+    // The store's redo and nothing more: redo has no affordance in the app —
+    // no shortcut, no control, no `redoBoard` — so this covers the marker
+    // travelling with the entry, which is all the marker is asked to do. Redo
+    // putting the *board* back is a separate, pre-existing gap: `future` holds
+    // the pre-edit board, so there is nothing recorded for it to re-apply.
     useHistoryStore.getState().redo();
     expect(hasBeenPulledInside(useHistoryStore.getState().past)).toBe(true);
   });

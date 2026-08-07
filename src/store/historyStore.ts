@@ -32,6 +32,10 @@ export interface StateSnapshot {
    * set explicitly rather than inferred from `board` above: that field says
    * *today* only the pull populates it, and a memory built on *today* would
    * start lying the moment a second whole-board edit arrives.
+   *
+   * Not `fieldGeometry`'s private `pulledInside(entity, boundary)`, which is a
+   * verb: that one returns the entity clamped onto the ground. This says the
+   * edit recorded here was the pull.
    */
   pulledInside?: boolean;
 }
