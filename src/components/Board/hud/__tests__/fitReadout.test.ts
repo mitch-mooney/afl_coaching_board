@@ -3,6 +3,7 @@ import {
   describeOutOfBounds,
   fitReadoutState,
   groundChipState,
+  hasBeenPulledInside,
   outOfBoundsSentence,
 } from '../fitReadout';
 import { boundaryOf, outOfBounds } from '../../../../utils/fieldGeometry';
@@ -131,6 +132,40 @@ describe('outOfBoundsSentence', () => {
   });
 });
 
+describe('hasBeenPulledInside', () => {
+  // The football claim: a coach who pulled the play inside at a tight ground and
+  // tapped back to a wide one is told so, rather than meeting an empty fit slot
+  // that reads as *your play fits this ground*. Pure over the undo stack's
+  // entries — no store, no listener, nothing to keep in step (ADR 0005).
+
+  it('says nothing about a board that has never been pulled', () => {
+    expect(hasBeenPulledInside([])).toBe(false);
+  });
+
+  it('ignores the ordinary edits that make up most of the stack', () => {
+    // A dragged player is not a pull. The marker is a fit claim at higher
+    // resolution, never *this board has been edited* — that would be the dirty
+    // flag this app deliberately does not have.
+    expect(hasBeenPulledInside([{}, {}])).toBe(false);
+  });
+
+  it('speaks while a pull entry is still on the stack', () => {
+    expect(hasBeenPulledInside([{ pulledInside: true }])).toBe(true);
+  });
+
+  it('reads the whole stack, not just the newest entry', () => {
+    // A pull followed by three drags is still a pulled board: the coach can
+    // reach it with four presses of undo, and until they do it is true.
+    expect(hasBeenPulledInside([{ pulledInside: true }, {}, {}, {}])).toBe(true);
+  });
+
+  it('goes quiet once the last pull entry has left the stack', () => {
+    // Undo moves the entry to `future`; the predicate is over `past` alone, so
+    // the signal clears on its own with no clearing code anywhere.
+    expect(hasBeenPulledInside([{}])).toBe(false);
+  });
+});
+
 describe('fitReadoutState', () => {
   // The football claim: the coach switches to Saturday's ground and, without
   // leaving the board, reads how much of the play is off it and taps the one
@@ -187,6 +222,68 @@ describe('fitReadoutState', () => {
   });
 });
 
+describe('fitReadoutState — the readout remembers the pull', () => {
+  // The football claim: pull inside at Saturday's tight ground, tap back to the
+  // wide one, and the column says the board was pulled — the count is honestly 0,
+  // and 0 the coach *created* is not the finding 0 they *inherited* (ADR 0005).
+
+  it('says nothing about a board that has not been pulled', () => {
+    expect(fitReadoutState(report(), 'Jubilee Park', false).pullMemory).toBe('');
+  });
+
+  it('remembers the pull in the copy the coach reads, word for word', () => {
+    // No clause about disk: "the saved play is unchanged either way" was drafted
+    // and cut, because it is false the moment the coach saves.
+    expect(fitReadoutState(report(), 'Jubilee Park', true).pullMemory).toBe(
+      'This board has been pulled inside a boundary. Undo restores it.',
+    );
+  });
+
+  it('does not name the ground it was pulled to fit — the memory is one bit', () => {
+    expect(fitReadoutState(report(), 'Jubilee Park', true).pullMemory).toBe(
+      fitReadoutState(report(), 'Windy Hill', true).pullMemory,
+    );
+  });
+
+  it('shows the block for a fitting board that has been pulled', () => {
+    // The one state that would otherwise be silent, and the whole reason for the
+    // ticket: nothing is outside, so without this the column says nothing at all.
+    const pulled = fitReadoutState(report(), 'Jubilee Park', true);
+    expect(pulled.shown).toBe(true);
+    expect(pulled.outOfBounds).toBe(false);
+    expect(pulled.sentence).toBe('');
+  });
+
+  it('says both when the board neither fits nor is unpulled', () => {
+    // Pulled at one ground, then switched to a narrower one. Neither finding
+    // hides the other — standing at a tight ground with Pull inside under your
+    // thumb, having already pulled once is the decision-relevant thing on screen.
+    const both = fitReadoutState(report({ players: ['p1'] }), 'Jubilee Park', true);
+    expect(both.shown).toBe(true);
+    expect(both.outOfBounds).toBe(true);
+    expect(both.sentence).toBe('1 player is outside Jubilee Park.');
+    expect(both.pullMemory).not.toBe('');
+  });
+
+  it('leaves the finding and its remedy to the count alone', () => {
+    // The pull never softens what is outside now: same sentence, same remedy,
+    // pulled or not. Only the extra line differs.
+    const outside = report({ players: ['p1', 'p2'] });
+    const pulled = fitReadoutState(outside, 'Jubilee Park', true);
+    const unpulled = fitReadoutState(outside, 'Jubilee Park', false);
+    expect(pulled.sentence).toBe(unpulled.sentence);
+    expect(pulled.remedy).toBe(unpulled.remedy);
+    expect(pulled.reassurance).toBe(unpulled.reassurance);
+  });
+
+  it('reads an unpulled board the same as one that was never asked', () => {
+    // The argument is optional, so every existing caller keeps its meaning.
+    expect(fitReadoutState(report({ players: ['p1'] }), 'Jubilee Park')).toEqual(
+      fitReadoutState(report({ players: ['p1'] }), 'Jubilee Park', false),
+    );
+  });
+});
+
 describe('groundChipState', () => {
   // The football claim: standing at the ground, the coach reads the board's own
   // chrome and learns which ground it is drawing and whether the play fits it —
@@ -221,6 +318,16 @@ describe('groundChipState', () => {
       'Jubilee Park',
     );
     expect(many.dotLit).toBe(few.dotLit);
+  });
+
+  it('stays quiet for a board that was pulled inside, because it now fits', () => {
+    // ADR 0005: the dot is the one-bit answer to *does this board fit?*, and
+    // after a pull the honest value of that bit is *fits*. The chip takes no
+    // pull argument at all — a lit dot would mean *doesn't fit **or** was
+    // pulled*, two claims on one pixel, and a fitting board would wear a
+    // permanent warning. The memory stops one rung down, in the column.
+    expect(groundChipState(report(), 'Jubilee Park').dotLit).toBe(false);
+    expect(groundChipState(report(), 'Jubilee Park').label).toBe('Ground: Jubilee Park');
   });
 
   it('names the ground to a screen reader, which cannot see the dot', () => {

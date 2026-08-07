@@ -62,9 +62,15 @@ export function pullBoardInsideBoundary(boundary: Boundary): void {
   // Recorded before the edit, exactly as a drag records its pre-drag board. The
   // full board rides along because this moves more than players — see
   // StateSnapshot.board.
+  //
+  // The entry is also tagged as a pull, which is the whole of the Fit readout's
+  // memory: while this entry is on `past` the readout says the board has been
+  // pulled inside, and undo takes the claim away with the edit. Still no dirty
+  // flag — nothing is set here that anything else has to clear.
   useHistoryStore.getState().pushSnapshot({
     ...createStateSnapshot(before.players, before.annotations),
     board: before,
+    pulledInside: true,
   });
 
   // The camera is nulled on the way back in, exactly as undo does it: pulling
