@@ -27,6 +27,7 @@
  */
 
 import { STANDARD_GROUND_NAME } from '../../../models/VenueModel';
+import type { StateSnapshot } from '../../../store/historyStore';
 import type { OutOfBoundsReport } from '../../../utils/fieldGeometry';
 
 const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
@@ -84,16 +85,67 @@ export function outOfBoundsSentence(report: OutOfBoundsReport, groundName?: stri
  */
 export const OUT_OF_BOUNDS_AMBER = '#f59e0b';
 
-/** Everything the **Fit readout**'s block shows, on a board that has something outside. */
+/**
+ * The one field of a history entry the memory reads: whether that entry was
+ * recorded by **Pull inside boundary**.
+ *
+ * A `Pick` of the real thing rather than a lookalike interface — same move as
+ * `fieldGeometry.PlaceableContent`, and for the same reason: a structural copy
+ * would be satisfied by `StateSnapshot` whatever that type later did, so
+ * renaming the field over there would leave this predicate compiling and
+ * silently answering *no* forever. The import is type-only, so this module still
+ * pulls in nothing of the store at runtime.
+ */
+export type PullMarkedEntry = Pick<StateSnapshot, 'pulledInside'>;
+
+/**
+ * Has the open board been pulled inside a Boundary — a predicate over the undo
+ * stack's entries, nothing else (ADR 0005).
+ *
+ * The memory is not new state. Pull inside boundary marks the entry it records,
+ * so this reads true while that entry is on `past`; undo moves it to `future`
+ * and this goes false **on its own**, redo brings both back. There is nothing to
+ * clear and nowhere for the claim to drift from what undo will actually do.
+ *
+ * Emphatically not *this board has been edited*: a dragged player leaves an
+ * unmarked entry and says nothing here. That reading would be an app-wide dirty
+ * flag, which `useOutOfBounds.ts` and `fieldGeometry.ts` both stake the
+ * out-of-bounds design on not having.
+ *
+ * The whole stack, not the newest entry: a pull followed by three drags is still
+ * a pulled board, and the coach can still reach it with undo.
+ */
+export function hasBeenPulledInside(past: readonly PullMarkedEntry[]): boolean {
+  return past.some((entry) => entry.pulledInside === true);
+}
+
+/**
+ * *"This board has been pulled inside a boundary. Undo restores it."*
+ *
+ * A boolean's worth of copy: the ground is deliberately unnamed, because the
+ * coach's decision — undo, or keep — turns only on whether it happened, and
+ * naming it would need a rule for pulls at two grounds.
+ *
+ * No clause about disk. An earlier draft ended *"the saved play is unchanged
+ * either way"*; it was cut because it is false the moment the coach saves, and a
+ * line whose job is to prevent false reassurance is the wrong place to add one.
+ */
+const PULLED_INSIDE_MEMORY = 'This board has been pulled inside a boundary. Undo restores it.';
+
+/** Everything the **Fit readout**'s block shows, on a board with something to say. */
 export interface FitReadoutState {
   /** Whether the block appears at all — the whole of *is there anything to say?* */
   shown: boolean;
+  /** Whether anything is outside *now*: the sentence, the reassurance and the remedy. */
+  outOfBounds: boolean;
   /** "4 players are outside Jubilee Park." — empty when nothing is outside. */
   sentence: string;
   /** Why the finding is not an error: out of bounds is a state, and disk is untouched. */
   reassurance: string;
   /** **Pull inside boundary**'s label — the remedy, named as the domain names it. */
   remedy: string;
+  /** The memory of the pull — empty unless the open board has been pulled inside. */
+  pullMemory: string;
 }
 
 /**
@@ -101,21 +153,34 @@ export interface FitReadoutState {
  * is fine, and the one tap that fixes it — the finding and its remedy together,
  * which is what makes it one thing rather than a warning and a button.
  *
- * `shown` is the count and nothing else. It is **never** softened by how the
- * board came to be this way (ADR 0005): a coach who has just switched to a
+ * `outOfBounds` is the count and nothing else. It is **never** softened by how
+ * the board came to be this way (ADR 0005): a coach who has just switched to a
  * ground they know is tight is exactly who is about to decide whether to pull
  * inside, and a readout that went quiet for being unsurprising would take the
- * decision off the screen at the moment it is being made.
+ * decision off the screen at the moment it is being made. `pulled` only ever
+ * *adds* a line — the finding and its remedy read the same either way.
+ *
+ * `shown` is the two together, because the state this whole memory exists for is
+ * a board that fits: a count of 0 the coach **created** by pulling inside is not
+ * the finding a count of 0 they **inherited** is, and with `shown` on the count
+ * alone the column would say nothing at exactly that moment.
  *
  * The copy comes back whole rather than as parts to assemble, so the block's
  * markup holds no words of its own and the wording can be asserted here.
  */
-export function fitReadoutState(report: OutOfBoundsReport, groundName?: string): FitReadoutState {
+export function fitReadoutState(
+  report: OutOfBoundsReport,
+  groundName?: string,
+  pulled = false,
+): FitReadoutState {
+  const outOfBounds = report.count > 0;
   return {
-    shown: report.count > 0,
+    shown: outOfBounds || pulled,
+    outOfBounds,
     sentence: outOfBoundsSentence(report, groundName),
     reassurance: 'Leaving it is fine — nothing is changed on disk until you save the play.',
     remedy: 'Pull inside boundary',
+    pullMemory: pulled ? PULLED_INSIDE_MEMORY : '',
   };
 }
 

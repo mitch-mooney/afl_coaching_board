@@ -22,6 +22,22 @@ export interface StateSnapshot {
    * full. See `useBoardUndo.restoreBoardSnapshot`, which prefers it when present.
    */
   board?: BoardSnapshot;
+  /**
+   * Set only by **Pull inside boundary**, which tags the entry it records so the
+   * **Fit readout** can say *this board has been pulled inside* while that entry
+   * is still on `past` — see `fitReadout.hasBeenPulledInside` and ADR 0005.
+   *
+   * The marker rides on the entry rather than living in a store, so undo moves
+   * it to `future` and redo brings it back with no clearing code anywhere. It is
+   * set explicitly rather than inferred from `board` above: that field says
+   * *today* only the pull populates it, and a memory built on *today* would
+   * start lying the moment a second whole-board edit arrives.
+   *
+   * Not `fieldGeometry`'s private `pulledInside(entity, boundary)`, which is a
+   * verb: that one returns the entity clamped onto the ground. This says the
+   * edit recorded here was the pull.
+   */
+  pulledInside?: boolean;
 }
 
 /**

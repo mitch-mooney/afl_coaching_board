@@ -9,6 +9,7 @@ import { usePathStore } from '../../store/pathStore';
 import { useCameraStore } from '../../store/cameraStore';
 import { pullBoardInsideBoundary } from '../useOutOfBounds';
 import { boundaryOf, outOfBounds } from '../../utils/fieldGeometry';
+import { hasBeenPulledInside } from '../../components/Board/hud/fitReadout';
 import { capture } from '../../utils/boardSnapshotIO';
 import type { Player } from '../../models/PlayerModel';
 
@@ -189,6 +190,54 @@ describe('undo with annotations', () => {
     // One edit, one undo: the stack is empty again rather than holding a second
     // entry for the same tap.
     expect(useHistoryStore.getState().past).toHaveLength(0);
+  });
+
+  it('marks the pull it records, and the marker travels with undo and redo', () => {
+    // What the Fit readout's memory is read from (ADR 0005). The pull tags its
+    // own history entry, so the signal is a predicate over `past` — undo moves
+    // the entry to `future` and the memory clears on its own, redo brings both
+    // back. No flag in a store, no listener, and nothing to keep in step.
+    const tight = boundaryOf({ boundaryLength: 150, boundaryWidth: 110 });
+    usePlayerStore.getState().setPlayers([player([0, 0, 60])]);
+
+    // An ordinary drag first: it is the same entry shape and must not be
+    // mistaken for a pull, or the memory would be a dirty flag.
+    recordPlayerMove([0, 0, 60]);
+    expect(hasBeenPulledInside(useHistoryStore.getState().past)).toBe(false);
+
+    pullBoardInsideBoundary(tight);
+    expect(hasBeenPulledInside(useHistoryStore.getState().past)).toBe(true);
+
+    undoBoard();
+    expect(hasBeenPulledInside(useHistoryStore.getState().past)).toBe(false);
+    expect(useHistoryStore.getState().future[0].pulledInside).toBe(true);
+
+    // The store's redo and nothing more: redo has no affordance in the app —
+    // no shortcut, no control, no `redoBoard` — so this covers the marker
+    // travelling with the entry, which is all the marker is asked to do. Redo
+    // putting the *board* back is a separate, pre-existing gap: `future` holds
+    // the pre-edit board, so there is nothing recorded for it to re-apply.
+    useHistoryStore.getState().redo();
+    expect(hasBeenPulledInside(useHistoryStore.getState().past)).toBe(true);
+  });
+
+  it('needs three undos after three pulls, because pulls are not coalesced', () => {
+    // Three grounds, each tighter than the last, each pull its own entry. The
+    // memory stays true while any of them remains and clears exactly when the
+    // last is reversed.
+    usePlayerStore.getState().setPlayers([player([0, 0, 60])]);
+    for (const width of [110, 100, 90]) {
+      pullBoardInsideBoundary(boundaryOf({ boundaryLength: 150, boundaryWidth: width }));
+    }
+    expect(useHistoryStore.getState().past).toHaveLength(3);
+
+    undoBoard();
+    expect(hasBeenPulledInside(useHistoryStore.getState().past)).toBe(true);
+    undoBoard();
+    expect(hasBeenPulledInside(useHistoryStore.getState().past)).toBe(true);
+    undoBoard();
+    expect(hasBeenPulledInside(useHistoryStore.getState().past)).toBe(false);
+    expect(usePlayerStore.getState().players[0].position).toEqual([0, 0, 60]);
   });
 
   it('does not record annotation mutations while recording is paused', () => {

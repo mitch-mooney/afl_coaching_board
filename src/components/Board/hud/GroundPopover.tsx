@@ -7,7 +7,13 @@ import {
 import { useUIStore } from '../../../store/uiStore';
 import { useActiveBoundary } from '../../../hooks/useActiveBoundary';
 import { pullBoardInsideBoundary, useOutOfBounds } from '../../../hooks/useOutOfBounds';
-import { fitReadoutState, OUT_OF_BOUNDS_AMBER, type FitReadoutState } from './fitReadout';
+import { useHistoryStore } from '../../../store/historyStore';
+import {
+  fitReadoutState,
+  hasBeenPulledInside,
+  OUT_OF_BOUNDS_AMBER,
+  type FitReadoutState,
+} from './fitReadout';
 import { glass, TEAL } from './podStyles';
 
 /**
@@ -38,8 +44,9 @@ import { glass, TEAL } from './podStyles';
  * anchored chrome and has to read as attached to its chip. The licence has a
  * limit — it may cover that bar's readout, never its controls.
  *
- * Below the list hangs the **Fit readout**'s block — what is outside and the one
- * tap that pulls it in. Below rather than above, and this is the load-bearing
+ * Below the list hangs the **Fit readout**'s block — what is outside, the one
+ * tap that pulls it in, and whether this board has already been pulled once.
+ * Below rather than above, and this is the load-bearing
  * part: with the block above, every row moves ~92px the moment a finding appears
  * and back when it clears, under the finger, on every switch of the compare this
  * surface exists for. Below costs nothing — the column grows downward and the
@@ -67,7 +74,12 @@ export function GroundPopover() {
   // pulling inside makes it vanish, with nothing in between to keep in sync.
   const boundary = useActiveBoundary();
   const outOfBounds = useOutOfBounds();
-  const fit = fitReadoutState(outOfBounds, activeVenue?.name);
+  // The pull memory, read straight off the undo stack rather than held anywhere:
+  // the selector returns one boolean, so the column re-renders when the answer
+  // changes and not every time an entry is pushed. Undo takes the line away with
+  // the edit, redo brings both back, and there is nothing here to keep in step.
+  const pulled = useHistoryStore((s) => hasBeenPulledInside(s.past));
+  const fit = fitReadoutState(outOfBounds, activeVenue?.name, pulled);
   // The one mutation this surface makes. `setActiveVenue` writes the selection
   // and nothing else: positions stay in absolute metres, the camera holds still
   // and nothing reaches Dexie, which is what makes looking at a play on another
@@ -198,13 +210,25 @@ function AddGroundFooter({ onTap }: { onTap: () => void }) {
 const AMBER_INK = '#fcd9a0';
 
 /**
- * The Fit readout's block: the finding, that leaving it is fine, and the remedy
- * — one block, arriving and leaving together, because a count with no way to act
- * on it is a warning and a button with no finding above it is a trap.
+ * The Fit readout's block: the finding, that leaving it is fine, the remedy —
+ * and, beneath them, whether this board has already been pulled inside once. One
+ * block, arriving and leaving together, because a count with no way to act on it
+ * is a warning and a button with no finding above it is a trap.
  *
  * Amber on the border and the sentence, matching the chip's dot: the same
  * finding one rung further down the ladder the design already has — dot, count,
  * sentence, remedy. Its words all come from `fitReadout`; there is no copy here.
+ *
+ * The two halves are independent. A board that fits but has been pulled shows
+ * the memory alone, and wears **no amber at all** — amber is this design's
+ * *doesn't fit* colour, and a fitting board carrying it would break that
+ * association everywhere else (ADR 0005). A board that neither fits nor is
+ * unpulled shows both: neither finding hides the other.
+ *
+ * The memory goes last, so the reading order is *what is wrong now → how to fix
+ * it → and you have already done this once*. It carries no Undo control of its
+ * own: undo is board-wide, with a shortcut and a home in the Setup pod, and a
+ * second button mid-compare would sit in the way of the rows above it.
  */
 function FitBlock({ state, onPullInside }: { state: FitReadoutState; onPullInside: () => void }) {
   return (
@@ -213,38 +237,56 @@ function FitBlock({ state, onPullInside }: { state: FitReadoutState; onPullInsid
         marginTop: 4,
         padding: 8,
         borderRadius: 8,
-        border: `1px solid ${OUT_OF_BOUNDS_AMBER}66`,
-        background: `${OUT_OF_BOUNDS_AMBER}1a`,
+        // Amber only while something is actually outside. With the memory
+        // speaking alone the block wears the ground rows' own hairline and fill
+        // instead — the board fits, and a fitting board must not carry the
+        // colour that means it doesn't.
+        border: state.outOfBounds
+          ? `1px solid ${OUT_OF_BOUNDS_AMBER}66`
+          : '1px solid rgba(255,255,255,0.1)',
+        background: state.outOfBounds ? `${OUT_OF_BOUNDS_AMBER}1a` : 'rgba(255,255,255,0.04)',
         display: 'flex',
         flexDirection: 'column',
         gap: 6,
       }}
     >
-      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.35, color: AMBER_INK }}>
-        {state.sentence}
-      </p>
-      <p style={{ margin: 0, fontSize: 11, lineHeight: 1.35, color: 'rgba(255,255,255,0.5)' }}>
-        {state.reassurance}
-      </p>
-      <button
-        type="button"
-        onClick={onPullInside}
-        style={{
-          // 44 like the ground rows: this is a tap made mid-compare, with the
-          // coach's other hand on the field.
-          minHeight: 44,
-          borderRadius: 8,
-          border: `1px solid ${OUT_OF_BOUNDS_AMBER}`,
-          background: `${OUT_OF_BOUNDS_AMBER}29`,
-          color: AMBER_INK,
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: 'pointer',
-          touchAction: 'manipulation',
-        }}
-      >
-        {state.remedy}
-      </button>
+      {state.outOfBounds && (
+        <>
+          <p style={{ margin: 0, fontSize: 12, lineHeight: 1.35, color: AMBER_INK }}>
+            {state.sentence}
+          </p>
+          <p style={{ margin: 0, fontSize: 11, lineHeight: 1.35, color: 'rgba(255,255,255,0.5)' }}>
+            {state.reassurance}
+          </p>
+          <button
+            type="button"
+            onClick={onPullInside}
+            style={{
+              // 44 like the ground rows: this is a tap made mid-compare, with the
+              // coach's other hand on the field.
+              minHeight: 44,
+              borderRadius: 8,
+              border: `1px solid ${OUT_OF_BOUNDS_AMBER}`,
+              background: `${OUT_OF_BOUNDS_AMBER}29`,
+              color: AMBER_INK,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              touchAction: 'manipulation',
+            }}
+          >
+            {state.remedy}
+          </button>
+        </>
+      )}
+      {/* A shade up from the reassurance above it (0.5), which is a footnote to
+          a finding the coach can already see; this one is the finding. Still
+          below the sentence's ink, because it reports a board that fits. */}
+      {state.pullMemory && (
+        <p style={{ margin: 0, fontSize: 11, lineHeight: 1.35, color: 'rgba(255,255,255,0.55)' }}>
+          {state.pullMemory}
+        </p>
+      )}
     </div>
   );
 }
