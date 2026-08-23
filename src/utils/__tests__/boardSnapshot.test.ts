@@ -453,16 +453,6 @@ const emptyBoard: BoardSnapshot = {
   cones: [],
 };
 
-/** A board with something in every slice, so a case can vary exactly one. */
-const fullBoard: BoardSnapshot = {
-  players: [aPlayer],
-  paths: [aPath],
-  annotations: [anAnnotation],
-  camera: { position: [0, 40, 60], target: [0, 0, 0], zoom: 1 },
-  ball: aBall,
-  cones: [aCone],
-};
-
 /**
  * Wrap a slice so that reading anything off it is recorded. Used to prove the
  * reference short-circuit: an untouched slice is settled without its contents
@@ -479,7 +469,7 @@ function tripwire<T extends object>(value: T, reads: string[]): T {
 
 describe('boardChanged — did this edit change anything?', () => {
   it('reports unchanged for a board compared with itself', () => {
-    expect(boardChanged(fullBoard, fullBoard)).toBe(false);
+    expect(boardChanged(sampleSnapshot, sampleSnapshot)).toBe(false);
   });
 
   it('reports unchanged for two captures of an untouched board', () => {
@@ -496,37 +486,37 @@ describe('boardChanged — did this edit change anything?', () => {
     // A formation re-applied writes fresh player objects holding the same
     // numbers. The coach changed nothing, so the edit records nothing.
     const rebuilt: BoardSnapshot = {
-      ...fullBoard,
+      ...sampleSnapshot,
       players: [{ ...aPlayer, position: [...aPlayer.position] }],
     };
 
-    expect(boardChanged(fullBoard, rebuilt)).toBe(false);
+    expect(boardChanged(sampleSnapshot, rebuilt)).toBe(false);
   });
 
   it('reports changed when a player moved', () => {
-    const moved = { ...fullBoard, players: [{ ...aPlayer, position: [11, 0, 5] as [number, number, number] }] };
+    const moved = { ...sampleSnapshot, players: [{ ...aPlayer, position: [11, 0, 5] as [number, number, number] }] };
 
-    expect(boardChanged(fullBoard, moved)).toBe(true);
+    expect(boardChanged(sampleSnapshot, moved)).toBe(true);
   });
 
   it('reports changed when a player only turned', () => {
     // The defect this guards: undo restored the position and left the drag's
     // auto-facing standing. Rotation is board content like any other field.
-    const turned = { ...fullBoard, players: [{ ...aPlayer, rotation: Math.PI / 2 }] };
+    const turned = { ...sampleSnapshot, players: [{ ...aPlayer, rotation: Math.PI / 2 }] };
 
-    expect(boardChanged(fullBoard, turned)).toBe(true);
+    expect(boardChanged(sampleSnapshot, turned)).toBe(true);
   });
 
   it('reports changed when a player joined or left', () => {
-    expect(boardChanged(fullBoard, { ...fullBoard, players: [] })).toBe(true);
-    expect(boardChanged(fullBoard, { ...fullBoard, players: [aPlayer, { ...aPlayer, id: 'team2-player-1' }] })).toBe(
+    expect(boardChanged(sampleSnapshot, { ...sampleSnapshot, players: [] })).toBe(true);
+    expect(boardChanged(sampleSnapshot, { ...sampleSnapshot, players: [aPlayer, { ...aPlayer, id: 'team2-player-1' }] })).toBe(
       true,
     );
   });
 
   it('reports changed when one keyframe of one path moved', () => {
     const nudged = {
-      ...fullBoard,
+      ...sampleSnapshot,
       paths: [
         {
           ...aPath,
@@ -535,51 +525,54 @@ describe('boardChanged — did this edit change anything?', () => {
       ],
     };
 
-    expect(boardChanged(fullBoard, nudged)).toBe(true);
+    expect(boardChanged(sampleSnapshot, nudged)).toBe(true);
   });
 
   it('reports changed when the ball moved, on its own', () => {
-    expect(boardChanged(fullBoard, { ...fullBoard, ball: { ...aBall, position: [4, 0.5, 4] } })).toBe(true);
+    expect(boardChanged(sampleSnapshot, { ...sampleSnapshot, ball: { ...aBall, position: [4, 0.5, 4] } })).toBe(true);
   });
 
   it('reports changed when the ball was assigned or released, on its own', () => {
-    const released = { ...fullBoard, ball: { ...aBall, assignedPlayerId: undefined } };
+    const released = { ...sampleSnapshot, ball: { ...aBall, assignedPlayerId: undefined } };
 
-    expect(boardChanged(fullBoard, released)).toBe(true);
+    expect(boardChanged(sampleSnapshot, released)).toBe(true);
     expect(boardChanged({ ...emptyBoard, ball: aBall }, emptyBoard)).toBe(true);
   });
 
   it('reports changed when a cone was placed or removed, on its own', () => {
-    expect(boardChanged(fullBoard, { ...fullBoard, cones: [] })).toBe(true);
+    expect(boardChanged(sampleSnapshot, { ...sampleSnapshot, cones: [] })).toBe(true);
     expect(boardChanged(emptyBoard, { ...emptyBoard, cones: [aCone] })).toBe(true);
   });
 
   it('reports changed when an annotation was drawn or cleared, on its own', () => {
-    expect(boardChanged(fullBoard, { ...fullBoard, annotations: [] })).toBe(true);
+    expect(boardChanged(sampleSnapshot, { ...sampleSnapshot, annotations: [] })).toBe(true);
     expect(boardChanged(emptyBoard, { ...emptyBoard, annotations: [anAnnotation] })).toBe(true);
   });
 
   it('reports changed when an annotation was only resized — magnify size and zoom are content', () => {
-    const magnified = { ...fullBoard, annotations: [{ ...anAnnotation, magnifySize: 3, magnifyZoom: 2 }] };
+    const magnified = { ...sampleSnapshot, annotations: [{ ...anAnnotation, magnifySize: 3, magnifyZoom: 2 }] };
 
-    expect(boardChanged(fullBoard, magnified)).toBe(true);
+    expect(boardChanged(sampleSnapshot, magnified)).toBe(true);
   });
 
   it('compares an annotation by when it was created, not by which Date object holds it', () => {
-    const recreated = { ...fullBoard, annotations: [{ ...anAnnotation, createdAt: new Date(anAnnotation.createdAt) }] };
+    const recreated = { ...sampleSnapshot, annotations: [{ ...anAnnotation, createdAt: new Date(anAnnotation.createdAt) }] };
 
-    expect(boardChanged(fullBoard, recreated)).toBe(false);
+    expect(boardChanged(sampleSnapshot, recreated)).toBe(false);
     expect(
-      boardChanged(fullBoard, { ...fullBoard, annotations: [{ ...anAnnotation, createdAt: new Date(0) }] }),
+      boardChanged(sampleSnapshot, { ...sampleSnapshot, annotations: [{ ...anAnnotation, createdAt: new Date(0) }] }),
     ).toBe(true);
   });
 
-  it('reports changed when the camera moved — a snapshot holds six slices, and this is one', () => {
-    // What a *recorder* does about the camera is the recorder's business: undo
-    // restores an entry with a null camera, which is what leaves the live view
-    // alone. This function only answers whether two boards are the same board.
-    expect(boardChanged(fullBoard, { ...fullBoard, camera: { ...fullBoard.camera!, zoom: 2 } })).toBe(true);
-    expect(boardChanged(fullBoard, { ...fullBoard, camera: null })).toBe(true);
+  it('reports unchanged when only the camera moved — the camera is not board content', () => {
+    // Undo never moves the camera, so a camera-only difference is a change the
+    // undo stack cannot represent: recording it would spend the coach an undo
+    // press on something the press cannot undo. A coach who orbits mid-drag and
+    // drops the player back where they found them has still changed nothing.
+    expect(
+      boardChanged(sampleSnapshot, { ...sampleSnapshot, camera: { ...sampleSnapshot.camera!, zoom: 9 } }),
+    ).toBe(false);
+    expect(boardChanged(sampleSnapshot, { ...sampleSnapshot, camera: null })).toBe(false);
   });
 
   it('settles an untouched slice by reference, without walking its contents', () => {
@@ -587,7 +580,20 @@ describe('boardChanged — did this edit change anything?', () => {
     const players = tripwire([aPlayer], reads);
 
     // Same array on both sides, and a different slice carries the change.
-    expect(boardChanged({ ...fullBoard, players }, { ...fullBoard, players, cones: [] })).toBe(true);
+    expect(boardChanged({ ...sampleSnapshot, players }, { ...sampleSnapshot, players, cones: [] })).toBe(true);
+    expect(reads).toEqual([]);
+  });
+
+  it('settles an untouched entry inside a rebuilt slice by reference too', () => {
+    // A rebuilt array is walked, but the objects it carries over are not read:
+    // an edit that adds one cone leaves the others settled by reference.
+    const reads: string[] = [];
+    const untouched = tripwire({ ...aCone }, reads);
+    const second: Cone = { id: 'cone-2', position: [9, 0, 9] };
+
+    expect(
+      boardChanged({ ...sampleSnapshot, cones: [untouched] }, { ...sampleSnapshot, cones: [untouched, second] }),
+    ).toBe(true);
     expect(reads).toEqual([]);
   });
 
@@ -595,7 +601,7 @@ describe('boardChanged — did this edit change anything?', () => {
     const reads: string[] = [];
     const players = tripwire([aPlayer], reads);
 
-    expect(boardChanged({ ...fullBoard, players }, { ...fullBoard, players: [aPlayer] })).toBe(false);
+    expect(boardChanged({ ...sampleSnapshot, players }, { ...sampleSnapshot, players: [aPlayer] })).toBe(false);
     expect(reads.length).toBeGreaterThan(0);
   });
 });

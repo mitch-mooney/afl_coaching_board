@@ -8,8 +8,9 @@ import { STANDARD_GROUND_DIMENSIONS, STANDARD_GROUND_NAME, type BoundaryDimensio
 
 /**
  * boardSnapshot — the canonical shape of a board's content, and the adapters
- * that serialize it. This module is PURE: it owns the `BoardSnapshot` type and
- * the mappings to/from the two persisted formats, and imports no stores, so
+ * that serialize it. This module is PURE: it owns the `BoardSnapshot` type, the mappings
+ * to/from the two persisted formats, and the comparison that answers whether two boards
+ * differ; it imports no stores, so
  * store-free layers (the Dexie migration, sharingService) can depend on it
  * without pulling the UI store graph in. The store-touching capture()/restore()
  * live in `boardSnapshotIO`. See CONTEXT.md — "Board snapshot".
@@ -261,21 +262,33 @@ export function fromShareData(data: SharePayload): BoardSnapshot {
 // ── Comparison: did this edit change anything? ──────────────────────────────
 
 /**
- * Every slice a board holds. Typed as a record over `BoardSnapshot`'s keys so
- * that adding a seventh slice to the snapshot fails to compile until it is
- * listed here — a slice the comparison forgets is an edit the coach cannot undo,
- * and that failure is silent everywhere else.
+ * Whether each slice a board holds counts as a change to the board.
+ *
+ * Typed as a record over `BoardSnapshot`'s keys, so that adding a seventh slice
+ * to the snapshot fails to compile until this answers for it. A slice the
+ * comparison silently forgot would be an edit the coach cannot undo, and that
+ * failure is invisible everywhere else.
+ *
+ * The camera answers no. Undo never moves the camera — restoring an entry nulls
+ * it, which is what leaves the coach's framing alone — so a difference in the
+ * camera alone is a change the undo stack cannot represent, and recording it
+ * would spend an undo press on something the press cannot undo. It is also the
+ * one slice the reference short-circuit could never settle: `capture()` builds
+ * a fresh camera object every call, so two captures of a board nobody touched
+ * never share one.
  */
-const BOARD_SLICES: Record<keyof BoardSnapshot, true> = {
+const COMPARED_SLICES: Record<keyof BoardSnapshot, boolean> = {
   players: true,
   paths: true,
   annotations: true,
-  camera: true,
   ball: true,
   cones: true,
+  camera: false,
 };
 
-const SLICE_KEYS = Object.keys(BOARD_SLICES) as (keyof BoardSnapshot)[];
+const CONTENT_SLICES = (Object.keys(COMPARED_SLICES) as (keyof BoardSnapshot)[]).filter(
+  (slice) => COMPARED_SLICES[slice],
+);
 
 /**
  * Structural equality over board content: the same values, however many objects
@@ -326,12 +339,10 @@ function sameValue(a: unknown, b: unknown): boolean {
  * asks on commit, so that a drag ending where it started, or a formation
  * re-applied, costs the coach nothing on the undo stack.
  *
- * Pure, and total over the six slices: any difference in board content counts,
- * including a player who only turned. The camera is one of the six. This
- * function answers whether two boards are the same board; what a recorder does
- * about the camera is the recorder's business (undo restores a null camera,
- * which is what leaves the live view alone).
+ * Pure, and total over the snapshot's slices: any difference in board content
+ * counts, including a player who only turned. Which slices are content, and why
+ * the camera is not, is stated once in `COMPARED_SLICES`.
  */
 export function boardChanged(before: BoardSnapshot, after: BoardSnapshot): boolean {
-  return SLICE_KEYS.some((slice) => !sameValue(before[slice], after[slice]));
+  return CONTENT_SLICES.some((slice) => !sameValue(before[slice], after[slice]));
 }
