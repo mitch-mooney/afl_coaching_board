@@ -257,3 +257,81 @@ export function fromShareData(data: SharePayload): BoardSnapshot {
     cones: data.cones ?? [],
   };
 }
+
+// ── Comparison: did this edit change anything? ──────────────────────────────
+
+/**
+ * Every slice a board holds. Typed as a record over `BoardSnapshot`'s keys so
+ * that adding a seventh slice to the snapshot fails to compile until it is
+ * listed here — a slice the comparison forgets is an edit the coach cannot undo,
+ * and that failure is silent everywhere else.
+ */
+const BOARD_SLICES: Record<keyof BoardSnapshot, true> = {
+  players: true,
+  paths: true,
+  annotations: true,
+  camera: true,
+  ball: true,
+  cones: true,
+};
+
+const SLICE_KEYS = Object.keys(BOARD_SLICES) as (keyof BoardSnapshot)[];
+
+/**
+ * Structural equality over board content: the same values, however many objects
+ * are holding them.
+ *
+ * Reference equality is the first question asked at every level, not just the
+ * top, because that is what makes the walk cheap — the board stores update
+ * immutably, so everything an edit did not touch is literally the same object
+ * and settles without being read.
+ *
+ * `Date` is handled because an Annotation carries its creation time, and two
+ * Dates for the same instant are two objects. Everything else in a board is a
+ * primitive, an array, or a plain object.
+ */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+
+  // NaN never equals itself under `===`. No board field should hold one, but a
+  // comparison that called a board different from itself would record an edit
+  // the coach never made.
+  if (typeof a === 'number' && typeof b === 'number') return Number.isNaN(a) && Number.isNaN(b);
+
+  if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return false;
+
+  if (a instanceof Date || b instanceof Date) {
+    return a instanceof Date && b instanceof Date && a.getTime() === b.getTime();
+  }
+
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((item, i) => sameValue(item, b[i]));
+  }
+
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  // An explicit `undefined` and an absent key describe the same board — releasing
+  // the ball may write `assignedPlayerId: undefined` where a fresh ball has no
+  // such key — so compare the union of both sides' keys rather than their counts.
+  for (const key of Object.keys(right)) {
+    if (!(key in left)) keys.push(key);
+  }
+  return keys.every((key) => sameValue(left[key], right[key]));
+}
+
+/**
+ * Whether the board changed between two snapshots — the question a Board edit
+ * asks on commit, so that a drag ending where it started, or a formation
+ * re-applied, costs the coach nothing on the undo stack.
+ *
+ * Pure, and total over the six slices: any difference in board content counts,
+ * including a player who only turned. The camera is one of the six. This
+ * function answers whether two boards are the same board; what a recorder does
+ * about the camera is the recorder's business (undo restores a null camera,
+ * which is what leaves the live view alone).
+ */
+export function boardChanged(before: BoardSnapshot, after: BoardSnapshot): boolean {
+  return SLICE_KEYS.some((slice) => !sameValue(before[slice], after[slice]));
+}
