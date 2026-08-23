@@ -7,6 +7,7 @@ import { usePenStore } from '../store/penStore';
 import { usePlayerStore } from '../store/playerStore';
 import { useBallStore } from '../store/ballStore';
 import { usePathStore } from '../store/pathStore';
+import { recordPreEditSnapshot } from '../store/historyStore';
 import { snapToField } from '../utils/fieldGeometry';
 import { useActiveBoundary } from './useActiveBoundary';
 import { authoringIntent, tipAvailable } from '../utils/inputContract';
@@ -176,6 +177,9 @@ export function useStrokeAuthoring() {
         }
         completePathStroke(strokeRef.current);
       } else if (strokeRef.current.length >= 2) {
+        // The coach drew this, so it is undoable — the store no longer records
+        // on a caller's behalf.
+        recordPreEditSnapshot();
         addAnnotation({
           type: armedTip,
           points: strokeRef.current,

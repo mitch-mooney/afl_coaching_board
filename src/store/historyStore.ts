@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Player } from '../models/PlayerModel';
-import type { Annotation } from './annotationStore';
+import { useAnnotationStore, type Annotation } from './annotationStore';
+import { usePlayerStore } from './playerStore';
 import type { BoardSnapshot } from '../utils/boardSnapshot';
 
 /**
@@ -70,8 +71,6 @@ interface HistoryState {
   future: StateSnapshot[];
   /** Maximum number of history entries to keep */
   maxHistorySize: number;
-  /** Whether history recording is currently paused (e.g., during undo/redo operations) */
-  isPaused: boolean;
 
   // Actions
   /** Push a new snapshot onto the history stack */
@@ -96,10 +95,6 @@ interface HistoryState {
   canUndo: () => boolean;
   /** Check if redo is available */
   canRedo: () => boolean;
-  /** Pause history recording temporarily */
-  pauseRecording: () => void;
-  /** Resume history recording */
-  resumeRecording: () => void;
   /** Get the current history size */
   getHistorySize: () => { past: number; future: number };
 }
@@ -163,19 +158,48 @@ export function createStateSnapshot(
   };
 }
 
+/**
+ * Snapshots the live annotations for a history record — the single owner of
+ * that shape, shared by the player/ball drag-end push sites.
+ *
+ * Lives here rather than beside the annotations it reads: an `AnnotationSnapshot`
+ * is a history shape, and the Annotation store records nothing, so it has no
+ * reason to know this module exists.
+ */
+export function captureAnnotationSnapshots(): AnnotationSnapshot[] {
+  return useAnnotationStore.getState().annotations.map(createAnnotationSnapshot);
+}
+
+/**
+ * Records the live board as the state one edit is about to change, making that
+ * edit undoable.
+ *
+ * Called by the surface performing the edit, never by the store it mutates.
+ * Only a caller knows whether the coach did it: the same `clearAnnotations`
+ * serves a coach's *Clear annotations* and a mode reset putting the board back,
+ * and the same `setAnnotations` serves undo's own restore. When the store
+ * recorded on its callers' behalf it could not tell those apart, which is why
+ * recording used to need a paused flag and the mode reset a bracket around its
+ * clear. With the record here, the app's own board writes simply never reach it.
+ */
+export function recordPreEditSnapshot(): void {
+  useHistoryStore
+    .getState()
+    .pushSnapshot(
+      createStateSnapshot(
+        usePlayerStore.getState().players,
+        useAnnotationStore.getState().annotations
+      )
+    );
+}
+
 export const useHistoryStore = create<HistoryState>((set, get) => ({
   past: [],
   future: [],
   maxHistorySize: DEFAULT_MAX_HISTORY_SIZE,
-  isPaused: false,
 
   pushSnapshot: (snapshot) => {
-    const { isPaused, maxHistorySize } = get();
-
-    // Don't record history if paused (e.g., during undo/redo operations)
-    if (isPaused) {
-      return;
-    }
+    const { maxHistorySize } = get();
 
     const timestampedSnapshot: StateSnapshot = {
       ...snapshot,
@@ -253,14 +277,6 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 
   canRedo: () => {
     return get().future.length > 0;
-  },
-
-  pauseRecording: () => {
-    set({ isPaused: true });
-  },
-
-  resumeRecording: () => {
-    set({ isPaused: false });
   },
 
   getHistorySize: () => {
