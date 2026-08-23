@@ -10,7 +10,7 @@ import {
   boundaryPoints,
   fiftyMetreArcPoints,
   type Boundary,
-  type GroundPoint,
+  type FieldPoint,
 } from '../fieldGeometry';
 import type { BoardSnapshot } from '../boardSnapshot';
 import type { Player } from '../../models/PlayerModel';
@@ -444,11 +444,18 @@ describe('pullInsideBoundary', () => {
  * 0 on the line, negative inside, positive outside. Stated once so the claims
  * below read as "this point is on the boundary" rather than as arithmetic.
  */
-const offEllipse = (point: GroundPoint, boundary: Boundary): number =>
+const offEllipse = (point: FieldPoint, boundary: Boundary): number =>
   (point[0] / boundary.semiX) ** 2 + (point[1] / boundary.semiZ) ** 2 - 1;
 
-const distanceBetween = (a: GroundPoint, b: GroundPoint): number =>
+const distanceBetween = (a: FieldPoint, b: FieldPoint): number =>
   Math.hypot(a[0] - b[0], a[1] - b[1]);
+
+/** Every claim about the curve is made at all three, never at Standard alone. */
+const GROUNDS: [string, Boundary][] = [
+  ['Standard ground', STANDARD],
+  ['a tight ground', TIGHT],
+  ['a wide ground', WIDE],
+];
 
 describe('boundaryPoints', () => {
   it('samples at the count the caller asked for', () => {
@@ -463,11 +470,7 @@ describe('boundaryPoints', () => {
     expect(distanceBetween(points[0], points[points.length - 1])).toBeLessThan(1e-9);
   });
 
-  it.each([
-    ['Standard ground', STANDARD],
-    ['a tight ground', TIGHT],
-    ['a wide ground', WIDE],
-  ])('puts every sample on the ellipse at %s', (_name, boundary) => {
+  it.each(GROUNDS)('puts every sample on the ellipse at %s', (_name, boundary) => {
     for (const point of boundaryPoints(boundary, 64)) {
       // Not exactly 0: the samples carry the snap inset, tens of nanometres at
       // a real ground, so that a drawn point is never off the ground it draws.
@@ -476,11 +479,7 @@ describe('boundaryPoints', () => {
     }
   });
 
-  it.each([
-    ['Standard ground', STANDARD],
-    ['a tight ground', TIGHT],
-    ['a wide ground', WIDE],
-  ])('agrees with the membership predicate at %s — no drawn point is off the ground it draws', (
+  it.each(GROUNDS)('agrees with the membership predicate at %s — no drawn point is off the ground it draws', (
     _name,
     boundary,
   ) => {
@@ -510,16 +509,12 @@ describe('boundaryPoints', () => {
 
 describe('fiftyMetreArcPoints', () => {
   /** The centre of the goal line an arc is struck from. */
-  const goalCentre = (end: 'team1' | 'team2', boundary: Boundary): GroundPoint => [
+  const goalCentre = (end: 'team1' | 'team2', boundary: Boundary): FieldPoint => [
     end === 'team1' ? -boundary.semiX : boundary.semiX,
     0,
   ];
 
-  it.each([
-    ['Standard ground', STANDARD],
-    ['a narrow ground', TIGHT],
-    ['a wide ground', WIDE],
-  ])('ends exactly on the boundary at %s', (_name, boundary) => {
+  it.each(GROUNDS)('ends exactly on the boundary at %s', (_name, boundary) => {
     for (const end of ['team1', 'team2'] as const) {
       const points = fiftyMetreArcPoints(boundary, end, 256);
 
@@ -528,11 +523,7 @@ describe('fiftyMetreArcPoints', () => {
     }
   });
 
-  it.each([
-    ['Standard ground', STANDARD],
-    ['a narrow ground', TIGHT],
-    ['a wide ground', WIDE],
-  ])('stays 50 m from the centre of the goal line at %s', (_name, boundary) => {
+  it.each(GROUNDS)('stays 50 m from the centre of the goal line at %s', (_name, boundary) => {
     for (const end of ['team1', 'team2'] as const) {
       const centre = goalCentre(end, boundary);
 
@@ -607,16 +598,32 @@ describe('fiftyMetreArcPoints', () => {
     expect(coarse[coarse.length - 1][1]).toBeCloseTo(fine[fine.length - 1][1], 6);
   });
 
-  it.each([
-    ['Standard ground', STANDARD],
-    ['a narrow ground', TIGHT],
-    ['a wide ground', WIDE],
-  ])('agrees with the membership predicate at %s — every drawn point is on the ground', (
+  it.each(GROUNDS)('agrees with the membership predicate at %s — every drawn point is on the ground', (
     _name,
     boundary,
   ) => {
     for (const [x, z] of fiftyMetreArcPoints(boundary, 'team1', 256)) {
       expect(isPointInField(x, z, boundary)).toBe(true);
+    }
+  });
+
+  it('draws nothing on a ground too small for a 50 m arc to reach', () => {
+    const pocketSized = boundaryOf({ boundaryLength: 20, boundaryWidth: 20 });
+
+    expect(fiftyMetreArcPoints(pocketSized, 'team1', 256)).toEqual([]);
+  });
+
+  it('still ends on the boundary where the ground is a sliver and barely any arc survives', () => {
+    // Absurd dimensions on purpose: the clip leaves a handful of samples, which
+    // is where an off-by-one in finding them would show up as an empty arc.
+    const sliver = boundaryOf({ boundaryLength: 100, boundaryWidth: 0.7 });
+    const points = fiftyMetreArcPoints(sliver, 'team1', 64);
+
+    expect(points.length).toBeGreaterThan(1);
+    expect(offEllipse(points[0], sliver)).toBeCloseTo(0, 9);
+    expect(offEllipse(points[points.length - 1], sliver)).toBeCloseTo(0, 9);
+    for (const [x, z] of points) {
+      expect(isPointInField(x, z, sliver)).toBe(true);
     }
   });
 

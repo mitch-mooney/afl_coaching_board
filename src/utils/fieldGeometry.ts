@@ -358,8 +358,12 @@ export function pullInsideBoundary(snap: BoardSnapshot, boundary: Boundary): Boa
 // migration and the sharing service depend on it — a consumer wanting triples
 // flattens in one expression.
 
-/** A point on the ground plane, in metres: [x, z]. Height is the caller's business. */
-export type GroundPoint = [x: number, z: number];
+/**
+ * A point on the playing surface, in metres: [x, z]. Height is the caller's
+ * business. Named for the surface the way isPointInField and snapToField are —
+ * *Grounds* is the UI's word for the collection, and there is no Ground type.
+ */
+export type FieldPoint = [x: number, z: number];
 
 /** Which end of the ground a marking belongs to. Positive x is the team2 end. */
 export type GoalEnd = 'team1' | 'team2';
@@ -376,8 +380,8 @@ export type GoalEnd = 'team1' | 'team2';
  * isPointInField calls off the ground is exactly the disagreement this module
  * exists to prevent.
  */
-export function boundaryPoints(boundary: Boundary, segments: number): GroundPoint[] {
-  const points: GroundPoint[] = [];
+export function boundaryPoints(boundary: Boundary, segments: number): FieldPoint[] {
+  const points: FieldPoint[] = [];
 
   for (let i = 0; i <= segments; i++) {
     const angle = (i / segments) * Math.PI * 2;
@@ -398,14 +402,18 @@ export function boundaryPoints(boundary: Boundary, segments: number): GroundPoin
 const CROSSING_BISECTIONS = 60;
 
 /**
- * Where the arc crosses the boundary, as the parameter value there. Bisects the
- * bracket between a sample off the ground and one on it, and returns the inside
- * side of it — a hair short of the true crossing rather than a hair past, so
- * the point it yields still satisfies the predicate that found it.
+ * The angle at which the arc crosses the boundary. Bisects the bracket between
+ * a sample off the ground and one on it, and returns the inside side of it — a
+ * hair short of the true crossing rather than a hair past, so the point it
+ * yields still satisfies the predicate that found it.
  */
-function crossing(outside: number, inside: number, isInside: (angle: number) => boolean): number {
-  let off = outside;
-  let on = inside;
+function crossingAngle(
+  outsideAngle: number,
+  insideAngle: number,
+  isInside: (angle: number) => boolean,
+): number {
+  let off = outsideAngle;
+  let on = insideAngle;
 
   for (let i = 0; i < CROSSING_BISECTIONS; i++) {
     const middle = (off + on) / 2;
@@ -436,14 +444,14 @@ export function fiftyMetreArcPoints(
   boundary: Boundary,
   end: GoalEnd,
   segments: number,
-): GroundPoint[] {
+): FieldPoint[] {
   const radius = FIELD_MARKINGS.fiftyMetreArcRadius;
   // Struck from the centre of the goal line, bulging toward the middle of the
   // ground. The parameter runs from one goal-line end of the arc to the other.
   const centreX = end === 'team1' ? -boundary.semiX : boundary.semiX;
   const towardCentre = end === 'team1' ? 1 : -1;
 
-  const pointAt = (angle: number): GroundPoint => [
+  const pointAt = (angle: number): FieldPoint => [
     centreX + towardCentre * radius * Math.sin(angle),
     radius * Math.cos(angle),
   ];
@@ -453,36 +461,26 @@ export function fiftyMetreArcPoints(
     return isPointInField(x, z, boundary);
   };
 
-  // The longest unbroken run of samples on the ground. A circle can leave an
-  // ellipse and return, so which run to draw has to be decided rather than
-  // assumed; at any real ground there is exactly one.
-  let runStart = -1;
-  let runEnd = -1;
-  let candidateStart = -1;
-  for (let i = 0; i <= segments; i++) {
-    if (isInside(angleAt(i))) {
-      if (candidateStart < 0) candidateStart = i;
-      if (i - candidateStart > runEnd - runStart) {
-        runStart = candidateStart;
-        runEnd = i;
-      }
-    } else {
-      candidateStart = -1;
-    }
-  }
+  // The unbroken run of samples on the ground, from the first sample inside the
+  // ellipse to the last before it leaves again. A ground too small for a 50 m
+  // arc to reach has no run at all and draws nothing.
+  let runStart = 0;
+  while (runStart <= segments && !isInside(angleAt(runStart))) runStart++;
+  if (runStart > segments) return [];
 
-  if (runStart < 0) return [];
+  let runEnd = runStart;
+  while (runEnd < segments && isInside(angleAt(runEnd + 1))) runEnd++;
 
-  const points: GroundPoint[] = [];
+  const points: FieldPoint[] = [];
 
   if (runStart > 0) {
-    points.push(pointAt(crossing(angleAt(runStart - 1), angleAt(runStart), isInside)));
+    points.push(pointAt(crossingAngle(angleAt(runStart - 1), angleAt(runStart), isInside)));
   }
   for (let i = runStart; i <= runEnd; i++) {
     points.push(pointAt(angleAt(i)));
   }
   if (runEnd < segments) {
-    points.push(pointAt(crossing(angleAt(runEnd + 1), angleAt(runEnd), isInside)));
+    points.push(pointAt(crossingAngle(angleAt(runEnd + 1), angleAt(runEnd), isInside)));
   }
 
   return points;
