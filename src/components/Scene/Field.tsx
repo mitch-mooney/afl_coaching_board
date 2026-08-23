@@ -2,7 +2,7 @@
 import { useRef, useMemo, useEffect } from 'react';
 import { Mesh, BufferGeometry, LineBasicMaterial, Float32BufferAttribute, Line as ThreeLine, CanvasTexture, RepeatWrapping, Shape, Path, ShapeGeometry } from 'three';
 import { FIELD_MARKINGS } from '../../models/FieldModel';
-import { type Boundary } from '../../utils/fieldGeometry';
+import { type Boundary, type FieldPoint, boundaryPoints, fiftyMetreArcPoints } from '../../utils/fieldGeometry';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 
 // Helper component to avoid TypeScript JSX issues with lowercase 'line'
@@ -600,64 +600,18 @@ function FiftyMeterArcs({ boundary }: { boundary: Boundary }) {
   // the buffer holds, and iOS answers by drawing nothing at all: the arcs
   // disappear on switching Venue and come back on reload. Rebuilding the line
   // objects is what makes the new size real. See FieldLine.
+  //
+  // The clipped curve itself comes from fieldGeometry — the module that owns
+  // the Boundary — rather than being sampled again here, so this scene cannot
+  // disagree with clamping or Out of bounds about where the ground ends.
   const [team1ArcPoints, team2ArcPoints] = useMemo(() => {
-  const radius = FIELD_MARKINGS.fiftyMetreArcRadius; // 50m radius — the same at every ground
-  const segments = 256; // More segments for smoother arc
-  const goalX = boundary.semiX;
+    const segments = 256; // More segments for smoother arc
+    const toTriples = (points: FieldPoint[]): number[] =>
+      points.flatMap(([x, z]) => [x, 0, z]);
 
-  // Create arcs at each end, drawn between boundary lines
-  // Arc center is at goal line center (x=±goalX, z=0), radius is 50m
-  // The arc apex is 50m from the goal line center, curving toward center of field
-  // The arc stops where it intersects with the boundary ellipse
-  const createArc = (centerX: number, directionTowardCenter: number) => {
-    const points: number[] = [];
-   
-    // Check if a point on the arc is within or on the boundary ellipse
-    const isWithinBoundary = (x: number, z: number): boolean => {
-      const normalizedX = x / boundary.semiX;
-      const normalizedZ = z / boundary.semiZ;
-      const distSquared = normalizedX * normalizedX + normalizedZ * normalizedZ;
-      // Tolerance keeps the arc's endpoint on the boundary rather than a segment short.
-      return distSquared <= 1.0001;
-    };
-   
-    // Generate points on the half-circle and only include those within boundary
-    // The arc is parameterized from angle π (top) to 0 (bottom) in the rotated coordinate system
-    // At angle π/2, we have the apex which is 50m from goal line center
-   
-    for (let i = 0; i <= segments; i++) {
-      // Angle from π (top) to 0 (bottom) - this creates a half-circle
-      const angle = Math.PI - (Math.PI * i) / segments;
-     
-      // Calculate point on arc (rotated 90 degrees - Z becomes X, X becomes -Z)
-      const z = radius * Math.cos(angle);  // Vertical component in rotated space
-      const x = centerX + directionTowardCenter * radius * Math.sin(angle);  // Horizontal component curving toward center
-     
-      // Only include points that are within or on the boundary
-      // This naturally clips the arc at the boundary intersections
-      if (isWithinBoundary(x, z)) {
-        points.push(x, 0, z);
-      } else if (points.length > 0) {
-        // If we encounter a point outside boundary after having points inside,
-        // we've crossed the boundary - stop adding points for this segment
-        // (We'll continue in case there are disconnected segments, but typically
-        // there shouldn't be for a 50m arc)
-      }
-    }
-   
-    // Filter to ensure we only keep the continuous segment within boundary
-    // Find first and last valid points
-    if (points.length === 0) return [];
-   
-    // Return all points as they should form a continuous arc within boundary
-    return points;
-  };
- 
     return [
-      // Team 1 end arc: apex at (x = -goalX + 50 m, z = 0), curving toward centre.
-      createArc(-goalX, 1),
-      // Team 2 end arc: apex at (x = goalX - 50 m, z = 0), curving toward centre.
-      createArc(goalX, -1),
+      toTriples(fiftyMetreArcPoints(boundary, 'team1', segments)),
+      toTriples(fiftyMetreArcPoints(boundary, 'team2', segments)),
     ];
   }, [boundary.semiX, boundary.semiZ]);
 
@@ -681,14 +635,13 @@ function FieldBoundary({ boundary }: { boundary: Boundary }) {
   // ground it first mounted on — the white line stayed where the old boundary
   // was while the grass and bowl resized around it, which reads as the grass
   // being the wrong size rather than as the line being stale.
-  const points = useMemo(() => {
-    const pts: number[] = [];
-    for (let i = 0; i <= segments; i++) {
-      const angle = (i / segments) * Math.PI * 2;
-      pts.push(boundary.semiX * Math.cos(angle), 0, boundary.semiZ * Math.sin(angle));
-    }
-    return pts;
-  }, [boundary.semiX, boundary.semiZ]);
+  //
+  // Sampled by fieldGeometry rather than a second time here, so the painted
+  // line and the edge players clamp to are the same edge.
+  const points = useMemo(
+    () => boundaryPoints(boundary, segments).flatMap(([x, z]) => [x, 0, z]),
+    [boundary.semiX, boundary.semiZ],
+  );
 
   return <FieldLine points={points} linewidth={2} position={[0, 0.02, 0]} />;
 }
