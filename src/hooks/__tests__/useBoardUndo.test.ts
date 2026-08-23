@@ -1,27 +1,24 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { undoBoard } from '../useBoardUndo';
-import {
-  useHistoryStore,
-  createStateSnapshot,
-  recordPreEditSnapshot,
-} from '../../store/historyStore';
+import { undoBoard, redoBoard } from '../useBoardUndo';
+import { useHistoryStore } from '../../store/historyStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useAnnotationStore } from '../../store/annotationStore';
 import { useBallStore } from '../../store/ballStore';
 import { useConeStore } from '../../store/coneStore';
 import { usePathStore } from '../../store/pathStore';
 import { useCameraStore } from '../../store/cameraStore';
+import { editBoard, beginEdit } from '../../utils/boardEdit';
 import { pullBoardInsideBoundary } from '../useOutOfBounds';
 import { boundaryOf, outOfBounds } from '../../utils/fieldGeometry';
-import { hasBeenPulledInside } from '../../components/Board/hud/fitReadout';
+import { hasBeenPulledInside, PULL_INSIDE_BOUNDARY_LABEL } from '../../components/Board/hud/fitReadout';
 import { capture } from '../../utils/boardSnapshotIO';
 import type { Player } from '../../models/PlayerModel';
 
-const player = (position: [number, number, number]): Player => ({
+const player = (position: [number, number, number], rotation = 0): Player => ({
   id: 'team1-player-1',
   teamId: 'team1',
   position,
-  rotation: 0,
+  rotation,
   color: '#0066cc',
 });
 
@@ -31,20 +28,24 @@ const arrow = () => ({
   color: '#ff0000',
 });
 
-// Mimic what a surface does when the coach edits the board: record the board as
-// it stood, then mutate. Only the order is mimicked — the record itself is the
-// function the real surfaces call.
-const recordPlayerMove = (to: [number, number, number]) => {
-  recordPreEditSnapshot();
-  usePlayerStore.getState().setPlayers([player(to)]);
+// What every Annotation surface does — the Pen tip's stroke, the Text field's
+// commit and the Setup controls' Clear annotations — through the module every
+// coach edit goes through.
+const addAnnotationEdit = () => {
+  editBoard('Add annotation', () => {
+    useAnnotationStore.getState().addAnnotation(arrow());
+  });
 };
 
-// What every Annotation surface now does — the Pen tip's stroke, the Text
-// field's commit and the Setup controls' Clear annotations — since the store
-// stopped recording on their behalf.
-const addAnnotationEdit = () => {
-  recordPreEditSnapshot();
-  useAnnotationStore.getState().addAnnotation(arrow());
+// What Player.tsx's drag-end site does: begin the edit when the drag starts,
+// mutate through the plain store setter, commit when it ends. Exercising the
+// same module the real site calls — not a hand-rolled mimic of it — is what
+// lets this catch a defect like the rotation one below, where a snapshot
+// built by hand at the call site quietly used the wrong value.
+const dragPlayerTo = (to: [number, number, number]) => {
+  const edit = beginEdit('Move player');
+  usePlayerStore.getState().setPlayers([player(to)]);
+  edit.commit();
 };
 
 beforeEach(() => {
@@ -66,7 +67,7 @@ describe('undo with annotations', () => {
   });
 
   it('restores a moved player on undo (regression)', () => {
-    recordPlayerMove([5, 0, 5]);
+    dragPlayerTo([5, 0, 5]);
 
     undoBoard();
 
@@ -75,17 +76,17 @@ describe('undo with annotations', () => {
 
   it('records the live annotations at the player-move push site', () => {
     addAnnotationEdit();
-    recordPlayerMove([5, 0, 5]);
+    dragPlayerTo([5, 0, 5]);
 
     const past = useHistoryStore.getState().past;
-    // The move snapshot carried the annotation, not a hardcoded empty array.
-    expect(past[past.length - 1].annotations).toHaveLength(1);
-    expect(past[past.length - 1].annotations[0].type).toBe('arrow');
+    // The move entry's before-board carried the annotation, not an empty board.
+    expect(past[past.length - 1].before.annotations).toHaveLength(1);
+    expect(past[past.length - 1].before.annotations[0].type).toBe('arrow');
   });
 
   it('walks back through interleaved annotation + player edits one press at a time', () => {
     addAnnotationEdit(); // edit 1
-    recordPlayerMove([5, 0, 5]); // edit 2
+    dragPlayerTo([5, 0, 5]); // edit 2
 
     undoBoard(); // takes back the drag
     undoBoard(); // takes back the annotation
@@ -99,7 +100,7 @@ describe('undo with annotations', () => {
     // history came back on the first press: the annotation added before the
     // drag vanished along with the drag. One press, one edit.
     addAnnotationEdit(); // edit 1
-    recordPlayerMove([5, 0, 5]); // edit 2
+    dragPlayerTo([5, 0, 5]); // edit 2
 
     undoBoard();
 
@@ -125,27 +126,20 @@ describe('undo with annotations', () => {
       startTimeOffset: 0,
     }]);
 
-    // Preceded by an ordinary drag, because a pull is almost never the first
-    // thing a coach does: the whole-board record has to survive being one entry
-    // deep in the stack, not just being the only one.
-    recordPlayerMove([5, 0, 5]);
+    // Preceded by an ordinary drag, because a whole-board edit is almost never
+    // the first thing a coach does: it has to survive being one entry deep in
+    // the stack, not just being the only one.
+    dragPlayerTo([5, 0, 5]);
 
-    useHistoryStore.getState().pushSnapshot({
-      ...createStateSnapshot(
-        usePlayerStore.getState().players,
-        useAnnotationStore.getState().annotations
-      ),
-      board: capture(),
-    });
-
-    // The pull: everything dragged onto a tighter ground.
-    useBallStore.getState().updateBallPosition([1, 0, 1]);
-    useConeStore.getState().setCones([{ id: 'c1', position: [0, 0, 55] }]);
-    usePathStore.getState().updatePath('lead', {
-      keyframes: [
-        { timestamp: 0, position: [0, 0, 0] },
-        { timestamp: 1, position: [0, 0, 55] },
-      ],
+    editBoard('Pull inside boundary', () => {
+      useBallStore.getState().updateBallPosition([1, 0, 1]);
+      useConeStore.getState().setCones([{ id: 'c1', position: [0, 0, 55] }]);
+      usePathStore.getState().updatePath('lead', {
+        keyframes: [
+          { timestamp: 0, position: [0, 0, 0] },
+          { timestamp: 1, position: [0, 0, 55] },
+        ],
+      });
     });
 
     undoBoard();
@@ -198,16 +192,17 @@ describe('undo with annotations', () => {
   });
 
   it('marks the pull it records, and the marker travels with undo and redo', () => {
-    // What the Fit readout's memory is read from (ADR 0005). The pull tags its
-    // own history entry, so the signal is a predicate over `past` — undo moves
-    // the entry to `future` and the memory clears on its own, redo brings both
-    // back. No flag in a store, no listener, and nothing to keep in step.
+    // What the Fit readout's memory is read from (ADR 0005). The pull's entry
+    // carries the label every entry carries, so the signal is a predicate over
+    // `past` — undo moves the entry to `future` and the memory clears on its
+    // own, redo brings both back. No flag in a store, no listener, and nothing
+    // to keep in step.
     const tight = boundaryOf({ boundaryLength: 150, boundaryWidth: 110 });
     usePlayerStore.getState().setPlayers([player([0, 0, 60])]);
 
     // An ordinary drag first: it is the same entry shape and must not be
     // mistaken for a pull, or the memory would be a dirty flag.
-    recordPlayerMove([0, 0, 60]);
+    dragPlayerTo([0, 0, 60]);
     expect(hasBeenPulledInside(useHistoryStore.getState().past)).toBe(false);
 
     pullBoardInsideBoundary(tight);
@@ -215,13 +210,11 @@ describe('undo with annotations', () => {
 
     undoBoard();
     expect(hasBeenPulledInside(useHistoryStore.getState().past)).toBe(false);
-    expect(useHistoryStore.getState().future[0].pulledInside).toBe(true);
+    expect(useHistoryStore.getState().future[0].label).toBe(PULL_INSIDE_BOUNDARY_LABEL);
 
     // The store's redo and nothing more: redo has no affordance in the app —
-    // no shortcut, no control, no `redoBoard` — so this covers the marker
-    // travelling with the entry, which is all the marker is asked to do. Redo
-    // putting the *board* back is a separate, pre-existing gap: `future` holds
-    // the pre-edit board, so there is nothing recorded for it to re-apply.
+    // no shortcut, no control — so this covers the marker travelling with the
+    // entry, which is all the marker is asked to do.
     useHistoryStore.getState().redo();
     expect(hasBeenPulledInside(useHistoryStore.getState().past)).toBe(true);
   });
@@ -265,5 +258,188 @@ describe('undo with annotations', () => {
 
     expect(useHistoryStore.getState().past).toHaveLength(0);
     expect(useHistoryStore.getState().future).toHaveLength(1);
+  });
+});
+
+describe('the rotation-facing bug (regression)', () => {
+  it('restores which way a dragged player was facing, not just where they stood', () => {
+    usePlayerStore.getState().setPlayers([player([0, 0, 0], 0)]);
+
+    const edit = beginEdit('Move player');
+    // A drag auto-rotates the player to face the direction of travel — the
+    // move and the facing happen inside the same gesture.
+    usePlayerStore.getState().updatePlayerPosition('team1-player-1', [5, 0, 5]);
+    usePlayerStore.getState().updatePlayerRotation('team1-player-1', 2.4);
+    edit.commit();
+
+    undoBoard();
+
+    const restored = usePlayerStore.getState().players[0];
+    expect(restored.position).toEqual([0, 0, 0]);
+    expect(restored.rotation).toBe(0);
+  });
+});
+
+describe('the ball-drag bug (regression)', () => {
+  it('returns the ball to where it was dragged from', () => {
+    useBallStore.getState().setBall({ id: 'ball-1', position: [0, 0.5, 0], color: '#8B4513', size: 0.3 });
+
+    const edit = beginEdit('Move ball');
+    useBallStore.getState().updateBallPosition([10, 0.5, 10]);
+    edit.commit();
+
+    expect(useBallStore.getState().ball?.position).toEqual([10, 0.5, 10]);
+
+    undoBoard();
+
+    expect(useBallStore.getState().ball?.position).toEqual([0, 0.5, 0]);
+  });
+});
+
+describe('a drag that ends where it started', () => {
+  it('leaves no entry, so undo takes back the edit before it', () => {
+    addAnnotationEdit();
+
+    const edit = beginEdit('Move player');
+    usePlayerStore.getState().updatePlayerPosition('team1-player-1', [9, 0, 9]);
+    usePlayerStore.getState().updatePlayerPosition('team1-player-1', [0, 0, 0]);
+    edit.commit();
+
+    expect(useHistoryStore.getState().past).toHaveLength(1);
+
+    undoBoard();
+
+    expect(useAnnotationStore.getState().annotations).toHaveLength(0);
+  });
+});
+
+describe('newly-undoable edits swept in by this ticket', () => {
+  it('undoes a drawn movement path', () => {
+    editBoard('Draw movement path', () => {
+      usePathStore.getState().addPath({
+        id: 'lead',
+        entityId: 'team1-player-1',
+        entityType: 'player',
+        keyframes: [
+          { timestamp: 0, position: [0, 0, 0] },
+          { timestamp: 1, position: [0, 0, 10] },
+        ],
+        duration: 1,
+        startTimeOffset: 0,
+      });
+    });
+
+    expect(usePathStore.getState().paths).toHaveLength(1);
+
+    undoBoard();
+
+    expect(usePathStore.getState().paths).toHaveLength(0);
+  });
+
+  it('undoes a placed cone', () => {
+    editBoard('Place cone', () => {
+      useConeStore.getState().addCone([1, 0, 1]);
+    });
+
+    expect(useConeStore.getState().cones).toHaveLength(1);
+
+    undoBoard();
+
+    expect(useConeStore.getState().cones).toHaveLength(0);
+  });
+
+  it('undoes a removed cone', () => {
+    useConeStore.getState().setCones([{ id: 'c1', position: [1, 0, 1] }]);
+    useHistoryStore.getState().clearHistory();
+
+    editBoard('Remove cone', () => {
+      useConeStore.getState().removeCone('c1');
+    });
+
+    expect(useConeStore.getState().cones).toHaveLength(0);
+
+    undoBoard();
+
+    expect(useConeStore.getState().cones).toHaveLength(1);
+  });
+
+  it('undoes Clear paths, the same as Clear annotations beside it', () => {
+    usePathStore.getState().setPaths([{
+      id: 'lead',
+      entityId: 'team1-player-1',
+      entityType: 'player',
+      keyframes: [
+        { timestamp: 0, position: [0, 0, 0] },
+        { timestamp: 1, position: [0, 0, 10] },
+      ],
+      duration: 1,
+      startTimeOffset: 0,
+    }]);
+    useHistoryStore.getState().clearHistory();
+
+    editBoard('Clear paths', () => usePathStore.getState().clearPaths());
+
+    expect(usePathStore.getState().paths).toHaveLength(0);
+
+    undoBoard();
+
+    expect(usePathStore.getState().paths).toHaveLength(1);
+  });
+
+  it('leaves no entry for an edit that changes nothing, like a formation re-applied', () => {
+    editBoard('Apply formation', () => {
+      usePlayerStore.getState().updatePlayerPosition('team1-player-1', [0, 0, 0]);
+    });
+
+    expect(useHistoryStore.getState().past).toHaveLength(0);
+  });
+});
+
+describe('undone Annotations come back as themselves', () => {
+  it('keeps creation identity and magnify size/zoom, rather than dropping them', () => {
+    const before = useAnnotationStore.getState().annotations;
+    editBoard('Add annotation', () => {
+      useAnnotationStore.getState().setAnnotations([
+        ...before,
+        {
+          id: 'mag-1',
+          type: 'magnifying-glass',
+          points: [[1, 1]],
+          color: '#ffffff',
+          magnifySize: 3,
+          magnifyZoom: 2,
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+    });
+
+    editBoard('Remove annotation', () => {
+      useAnnotationStore.getState().setAnnotations([]);
+    });
+
+    undoBoard();
+
+    const [restored] = useAnnotationStore.getState().annotations;
+    expect(restored.id).toBe('mag-1');
+    expect(restored.magnifySize).toBe(3);
+    expect(restored.magnifyZoom).toBe(2);
+    expect(restored.createdAt).toEqual(new Date('2026-01-01T00:00:00.000Z'));
+  });
+});
+
+describe('redoBoard', () => {
+  it('restores the after-board of the most recently undone edit', () => {
+    dragPlayerTo([5, 0, 5]);
+    undoBoard();
+    expect(usePlayerStore.getState().players[0].position).toEqual([0, 0, 0]);
+
+    redoBoard();
+
+    expect(usePlayerStore.getState().players[0].position).toEqual([5, 0, 5]);
+  });
+
+  it('does nothing when there is nothing to redo', () => {
+    redoBoard();
+    expect(usePlayerStore.getState().players[0].position).toEqual([0, 0, 0]);
   });
 });

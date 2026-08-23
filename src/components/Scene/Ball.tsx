@@ -5,7 +5,7 @@ import { Ball } from '../../models/BallModel';
 import { useBallStore } from '../../store/ballStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { usePathStore } from '../../store/pathStore';
-import { useHistoryStore, captureAnnotationSnapshots } from '../../store/historyStore';
+import { beginEdit, type EditHandle } from '../../utils/boardEdit';
 import { usePenStore } from '../../store/penStore';
 import { snapPointerToField } from '../../utils/dragMath';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
@@ -37,11 +37,11 @@ export function BallComponent({ ball }: BallProps) {
   const groupRef = useRef<any>(null);
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  // Store pre-drag position for undo
-  const preDragPosition = useRef<[number, number, number] | null>(null);
+  // The open Board edit for the drag in progress, begun on pointer-down and
+  // committed when the drag ends.
+  const dragEditRef = useRef<EditHandle | null>(null);
   const { isBallSelected, selectBall, updateBallPosition } = useBallStore();
   const { getPlayer, setDragging } = usePlayerStore();
-  const { pushSnapshot } = useHistoryStore();
   const { camera, raycaster, gl } = useThree();
   const boundary = useActiveBoundary();
 
@@ -100,18 +100,9 @@ export function BallComponent({ ball }: BallProps) {
    * one entity that recorded a path on *every* drag.
    */
   const finishReposition = useCallback(() => {
-    const startPos = preDragPosition.current;
-    const finalPos = ball.position;
-
-    if (startPos && (startPos[0] !== finalPos[0] || startPos[2] !== finalPos[2])) {
-      pushSnapshot({
-        players: [], // Ball undo doesn't need player state
-        annotations: captureAnnotationSnapshots(),
-      });
-    }
-
-    preDragPosition.current = null;
-  }, [ball.position, pushSnapshot]);
+    dragEditRef.current?.commit();
+    dragEditRef.current = null;
+  }, []);
 
   // End dragging helper - used by both pointerUp and window events
   const endDragging = useCallback(() => {
@@ -156,8 +147,12 @@ export function BallComponent({ ball }: BallProps) {
     setIsDragging(true);
     setDragging(true);  // Notify store to disable camera controls
 
-    // Save pre-drag position for undo
-    preDragPosition.current = [...ball.position] as [number, number, number];
+    // Begin the Board edit the drag is about to make, so it can be undone.
+    // Closes a stray edit left open by a pointerdown that never reached its
+    // matching pointerup, rather than losing the handle to it — boardEdit has
+    // one open-edit slot, and losing that handle would strand it open.
+    dragEditRef.current?.commit();
+    dragEditRef.current = beginEdit('Move ball');
   };
 
   const handlePointerMove = (e: any) => {

@@ -5,6 +5,7 @@ import {
   groundChipState,
   hasBeenPulledInside,
   outOfBoundsSentence,
+  PULL_INSIDE_BOUNDARY_LABEL,
 } from '../fitReadout';
 import { boundaryOf, outOfBounds } from '../../../../utils/fieldGeometry';
 import type { OutOfBoundsReport } from '../../../../utils/fieldGeometry';
@@ -146,23 +147,32 @@ describe('hasBeenPulledInside', () => {
     // A dragged player is not a pull. The marker is a fit claim at higher
     // resolution, never *this board has been edited* — that would be the dirty
     // flag this app deliberately does not have.
-    expect(hasBeenPulledInside([{}, {}])).toBe(false);
+    expect(hasBeenPulledInside([{ label: 'Move player' }, { label: 'Add annotation' }])).toBe(
+      false,
+    );
   });
 
   it('speaks while a pull entry is still on the stack', () => {
-    expect(hasBeenPulledInside([{ pulledInside: true }])).toBe(true);
+    expect(hasBeenPulledInside([{ label: PULL_INSIDE_BOUNDARY_LABEL }])).toBe(true);
   });
 
   it('reads the whole stack, not just the newest entry', () => {
     // A pull followed by three drags is still a pulled board: the coach can
     // reach it with four presses of undo, and until they do it is true.
-    expect(hasBeenPulledInside([{ pulledInside: true }, {}, {}, {}])).toBe(true);
+    expect(
+      hasBeenPulledInside([
+        { label: PULL_INSIDE_BOUNDARY_LABEL },
+        { label: 'Move player' },
+        { label: 'Move player' },
+        { label: 'Add annotation' },
+      ]),
+    ).toBe(true);
   });
 
   it('goes quiet once the last pull entry has left the stack', () => {
     // Undo moves the entry to `future`; the predicate is over `past` alone, so
     // the signal clears on its own with no clearing code anywhere.
-    expect(hasBeenPulledInside([{}])).toBe(false);
+    expect(hasBeenPulledInside([{ label: 'Move player' }])).toBe(false);
   });
 });
 

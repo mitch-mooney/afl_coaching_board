@@ -8,6 +8,7 @@ import { RotationExerciseEditor } from './RotationExerciseEditor';
 import { drillLibrary, getDrillById } from '../../data/drillLibrary';
 import { DRILL_CATEGORIES, type DrillCategory, type Drill, type SessionDrill } from '../../models/TrainingSession';
 import { getDrillBoardLayout } from '../../utils/drillBoardLayout';
+import { editBoard } from '../../utils/boardEdit';
 
 const CATEGORY_COLORS: Record<string, string> = {
   marking: '#4fc3f7',
@@ -69,10 +70,15 @@ export const TrainingSessionEditor: React.FC = () => {
   const handleSetUpOnBoard = () => {
     if (!activeDrill) return;
     const { playerPositions, conePositions } = getDrillBoardLayout(activeDrill);
+    // Player positions are preview ghosts (`previewPositions`), never board
+    // content, so they sit outside the edit — see boardSnapshot.ts. Only the
+    // cones this drops onto the board are undoable.
     setPreviewPositions(playerPositions);
     if (conePositions.length > 0) {
-      clearCones();
-      conePositions.forEach((pos) => addCone(pos));
+      editBoard('Set up drill on board', () => {
+        clearCones();
+        conePositions.forEach((pos) => addCone(pos));
+      });
     }
     setEditorTab('board');
   };

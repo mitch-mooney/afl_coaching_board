@@ -2,6 +2,7 @@ import { usePlayerStore } from '../../../store/playerStore';
 import { useMatchStore } from '../../../store/matchStore';
 import { AFL_TEAMS } from '../../../data/aflTeams';
 import { useOverlayOpen } from '../../../hooks/useOverlayOpen';
+import { editBoard } from '../../../utils/boardEdit';
 
 export function TeamSelectModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   useOverlayOpen(open);
@@ -33,7 +34,7 @@ export function TeamSelectModal({ open, onClose }: { open: boolean; onClose: () 
             <select
               value={team1PresetId ?? ''}
               onChange={(e) => {
-                setTeamPreset('team1', e.target.value || null);
+                editBoard('Apply team preset', () => setTeamPreset('team1', e.target.value || null));
                 const team = AFL_TEAMS.find(t => t.id === e.target.value);
                 if (team && !matchHome) setMatchHome(team.name);
               }}
@@ -51,7 +52,7 @@ export function TeamSelectModal({ open, onClose }: { open: boolean; onClose: () 
             <select
               value={team2PresetId ?? ''}
               onChange={(e) => {
-                setTeamPreset('team2', e.target.value || null);
+                editBoard('Apply team preset', () => setTeamPreset('team2', e.target.value || null));
                 const team = AFL_TEAMS.find(t => t.id === e.target.value);
                 if (team && !matchAway) setMatchAway(team.name);
               }}
