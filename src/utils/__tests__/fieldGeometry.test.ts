@@ -7,7 +7,10 @@ import {
   outOfBounds,
   pullInsideBoundary,
   STANDARD_BOUNDARY,
+  boundaryPoints,
+  fiftyMetreArcPoints,
   type Boundary,
+  type FieldPoint,
 } from '../fieldGeometry';
 import type { BoardSnapshot } from '../boardSnapshot';
 import type { Player } from '../../models/PlayerModel';
@@ -431,5 +434,204 @@ describe('pullInsideBoundary', () => {
     pullInsideBoundary(snap, TIGHT);
 
     expect(snap.players[0].position).toEqual([0, 0, 60]);
+  });
+});
+
+// ── The curve, as points ─────────────────────────────────────────────────────
+
+/**
+ * How far off the ellipse a point is, as the ellipse equation's own residual:
+ * 0 on the line, negative inside, positive outside. Stated once so the claims
+ * below read as "this point is on the boundary" rather than as arithmetic.
+ */
+const offEllipse = (point: FieldPoint, boundary: Boundary): number =>
+  (point[0] / boundary.semiX) ** 2 + (point[1] / boundary.semiZ) ** 2 - 1;
+
+const distanceBetween = (a: FieldPoint, b: FieldPoint): number =>
+  Math.hypot(a[0] - b[0], a[1] - b[1]);
+
+/** Every claim about the curve is made at all three, never at Standard alone. */
+const GROUNDS: [string, Boundary][] = [
+  ['Standard ground', STANDARD],
+  ['a tight ground', TIGHT],
+  ['a wide ground', WIDE],
+];
+
+describe('boundaryPoints', () => {
+  it('samples at the count the caller asked for', () => {
+    // segments + 1, because the closing point repeats the first.
+    expect(boundaryPoints(STANDARD, 64)).toHaveLength(65);
+    expect(boundaryPoints(STANDARD, 8)).toHaveLength(9);
+  });
+
+  it('closes — the last point returns to the first', () => {
+    const points = boundaryPoints(TIGHT, 32);
+
+    expect(distanceBetween(points[0], points[points.length - 1])).toBeLessThan(1e-9);
+  });
+
+  it.each(GROUNDS)('puts every sample on the ellipse at %s', (_name, boundary) => {
+    for (const point of boundaryPoints(boundary, 64)) {
+      // Not exactly 0: the samples carry the snap inset, tens of nanometres at
+      // a real ground, so that a drawn point is never off the ground it draws.
+      expect(offEllipse(point, boundary)).toBeCloseTo(0, 7);
+      expect(offEllipse(point, boundary)).toBeLessThan(0);
+    }
+  });
+
+  it.each(GROUNDS)('agrees with the membership predicate at %s — no drawn point is off the ground it draws', (
+    _name,
+    boundary,
+  ) => {
+    for (const [x, z] of boundaryPoints(boundary, 128)) {
+      expect(isPointInField(x, z, boundary)).toBe(true);
+    }
+  });
+
+  it('reaches the goal line and the wings', () => {
+    const points = boundaryPoints(STANDARD, 4);
+
+    // Four segments visit both goal lines and both wings before closing.
+    expect(points[0][0]).toBeCloseTo(82.5);
+    expect(points[1][1]).toBeCloseTo(67.5);
+    expect(points[2][0]).toBeCloseTo(-82.5);
+    expect(points[3][1]).toBeCloseTo(-67.5);
+  });
+
+  it('hands back a new array every call, never a shared one', () => {
+    const first = boundaryPoints(STANDARD, 16);
+    const second = boundaryPoints(STANDARD, 16);
+
+    expect(first).not.toBe(second);
+    expect(first[0]).not.toBe(second[0]);
+  });
+});
+
+describe('fiftyMetreArcPoints', () => {
+  /** The centre of the goal line an arc is struck from. */
+  const goalCentre = (end: 'team1' | 'team2', boundary: Boundary): FieldPoint => [
+    end === 'team1' ? -boundary.semiX : boundary.semiX,
+    0,
+  ];
+
+  it.each(GROUNDS)('ends exactly on the boundary at %s', (_name, boundary) => {
+    for (const end of ['team1', 'team2'] as const) {
+      const points = fiftyMetreArcPoints(boundary, end, 256);
+
+      expect(offEllipse(points[0], boundary)).toBeCloseTo(0, 9);
+      expect(offEllipse(points[points.length - 1], boundary)).toBeCloseTo(0, 9);
+    }
+  });
+
+  it.each(GROUNDS)('stays 50 m from the centre of the goal line at %s', (_name, boundary) => {
+    for (const end of ['team1', 'team2'] as const) {
+      const centre = goalCentre(end, boundary);
+
+      for (const point of fiftyMetreArcPoints(boundary, end, 128)) {
+        expect(distanceBetween(point, centre)).toBeCloseTo(50, 9);
+      }
+    }
+  });
+
+  it('reaches its apex 50 m out from goal, curving toward the centre of the ground', () => {
+    const points = fiftyMetreArcPoints(STANDARD, 'team1', 256);
+    const deepest = Math.max(...points.map(([x]) => x));
+
+    expect(deepest).toBeCloseTo(-82.5 + 50);
+  });
+
+  it('mirrors the two ends', () => {
+    const team1 = fiftyMetreArcPoints(STANDARD, 'team1', 64);
+    const team2 = fiftyMetreArcPoints(STANDARD, 'team2', 64);
+
+    expect(team1).toHaveLength(team2.length);
+    team1.forEach(([x, z], i) => {
+      expect(-x).toBeCloseTo(team2[i][0], 9);
+      expect(z).toBeCloseTo(team2[i][1], 9);
+    });
+  });
+
+  it('is clipped shorter on a narrower ground', () => {
+    const narrow = fiftyMetreArcPoints(TIGHT, 'team1', 256);
+    const wide = fiftyMetreArcPoints(WIDE, 'team1', 256);
+
+    expect(narrow.length).toBeLessThan(wide.length);
+  });
+
+  it('keeps more of the half-circle the wider the ground, and never quite all of it', () => {
+    // A half-circle struck from the centre of the goal line ends 50 m either
+    // side of the goal, on the goal line — and the goal line meets the ellipse
+    // only at z = 0. So every ground clips the arc somewhere; a wide one just
+    // clips less. There is no ground wide enough to return the raw half-circle.
+    const wider = boundaryOf({ boundaryLength: 200, boundaryWidth: 190 });
+    const enormous = boundaryOf({ boundaryLength: 1000, boundaryWidth: 950 });
+
+    expect(fiftyMetreArcPoints(WIDE, 'team1', 256).length).toBeLessThan(
+      fiftyMetreArcPoints(wider, 'team1', 256).length,
+    );
+    expect(fiftyMetreArcPoints(enormous, 'team1', 256).length).toBeGreaterThan(
+      fiftyMetreArcPoints(wider, 'team1', 256).length,
+    );
+    expect(fiftyMetreArcPoints(enormous, 'team1', 256).length).toBeLessThan(257);
+  });
+
+  it('is continuous — no gap where a sample was dropped', () => {
+    for (const boundary of [STANDARD, TIGHT, WIDE]) {
+      const segments = 128;
+      const points = fiftyMetreArcPoints(boundary, 'team1', segments);
+      // One nominal segment of a 50 m arc, with a hair of slack for rounding.
+      const longestAllowed = 50 * (Math.PI / segments) * 1.001;
+
+      for (let i = 1; i < points.length; i++) {
+        expect(distanceBetween(points[i - 1], points[i])).toBeLessThanOrEqual(longestAllowed);
+      }
+    }
+  });
+
+  it('does not move its endpoints when the segment count changes', () => {
+    const coarse = fiftyMetreArcPoints(STANDARD, 'team2', 32);
+    const fine = fiftyMetreArcPoints(STANDARD, 'team2', 1024);
+
+    expect(coarse[0][0]).toBeCloseTo(fine[0][0], 6);
+    expect(coarse[0][1]).toBeCloseTo(fine[0][1], 6);
+    expect(coarse[coarse.length - 1][0]).toBeCloseTo(fine[fine.length - 1][0], 6);
+    expect(coarse[coarse.length - 1][1]).toBeCloseTo(fine[fine.length - 1][1], 6);
+  });
+
+  it.each(GROUNDS)('agrees with the membership predicate at %s — every drawn point is on the ground', (
+    _name,
+    boundary,
+  ) => {
+    for (const [x, z] of fiftyMetreArcPoints(boundary, 'team1', 256)) {
+      expect(isPointInField(x, z, boundary)).toBe(true);
+    }
+  });
+
+  it('draws nothing on a ground too small for a 50 m arc to reach', () => {
+    const pocketSized = boundaryOf({ boundaryLength: 20, boundaryWidth: 20 });
+
+    expect(fiftyMetreArcPoints(pocketSized, 'team1', 256)).toEqual([]);
+  });
+
+  it('still ends on the boundary where the ground is a sliver and barely any arc survives', () => {
+    // Absurd dimensions on purpose: the clip leaves a handful of samples, which
+    // is where an off-by-one in finding them would show up as an empty arc.
+    const sliver = boundaryOf({ boundaryLength: 100, boundaryWidth: 0.7 });
+    const points = fiftyMetreArcPoints(sliver, 'team1', 64);
+
+    expect(points.length).toBeGreaterThan(1);
+    expect(offEllipse(points[0], sliver)).toBeCloseTo(0, 9);
+    expect(offEllipse(points[points.length - 1], sliver)).toBeCloseTo(0, 9);
+    for (const [x, z] of points) {
+      expect(isPointInField(x, z, sliver)).toBe(true);
+    }
+  });
+
+  it('hands back a new array every call, never a shared one', () => {
+    const first = fiftyMetreArcPoints(STANDARD, 'team1', 64);
+    const second = fiftyMetreArcPoints(STANDARD, 'team1', 64);
+
+    expect(first).not.toBe(second);
+    expect(first[0]).not.toBe(second[0]);
   });
 });

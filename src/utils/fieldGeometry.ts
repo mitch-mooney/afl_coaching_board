@@ -1,3 +1,4 @@
+import { FIELD_MARKINGS } from '../models/FieldModel';
 import type { BoundaryDimensions } from '../models/VenueModel';
 import { STANDARD_GROUND_DIMENSIONS } from '../models/VenueModel';
 import type { BoardSnapshot } from './boardSnapshot';
@@ -346,4 +347,141 @@ export function pullInsideBoundary(snap: BoardSnapshot, boundary: Boundary): Boa
     ball: snap.ball && pulledInside(snap.ball, boundary),
     // annotations and camera ride through the spread untouched.
   };
+}
+
+// ── The curve, as points ────────────────────────────────────────────────────
+//
+// The Boundary hands back its own curve, so that every surface drawing the
+// ground asks the module that decides what is inside it. Output is neutral
+// coordinate pairs on the ground plane: no y, no Vector3, no flattened triples.
+// That is what keeps this file free of the 3D library and lets the persistence
+// migration and the sharing service depend on it — a consumer wanting triples
+// flattens in one expression.
+
+/**
+ * A point on the playing surface, in metres: [x, z]. Height is the caller's
+ * business. Named for the surface the way isPointInField and snapToField are —
+ * *Grounds* is the UI's word for the collection, and there is no Ground type.
+ */
+export type FieldPoint = [x: number, z: number];
+
+/** Which end of the ground a marking belongs to. Positive x is the team2 end. */
+export type GoalEnd = 'team1' | 'team2';
+
+/**
+ * The Boundary sampled into points, closed: the last point repeats the first,
+ * so a caller draws one polyline rather than joining the ends itself. The
+ * segment count is a rendering choice — smoothness — and nothing about the
+ * curve depends on it.
+ *
+ * Each sample is inset by SNAP_INSET — the same hair a snapped entity is placed
+ * inside by, so the drawn line is the edge players clamp to. Without it `cos`
+ * and `sin` round some samples a few ULPs *outside*, and a painted point that
+ * isPointInField calls off the ground is exactly the disagreement this module
+ * exists to prevent.
+ */
+export function boundaryPoints(boundary: Boundary, segments: number): FieldPoint[] {
+  const points: FieldPoint[] = [];
+
+  for (let i = 0; i <= segments; i++) {
+    const angle = (i / segments) * Math.PI * 2;
+    points.push([
+      boundary.semiX * Math.cos(angle) * (1 - SNAP_INSET),
+      boundary.semiZ * Math.sin(angle) * (1 - SNAP_INSET),
+    ]);
+  }
+
+  return points;
+}
+
+/**
+ * How many times the crossing search halves its bracket. Enough to collapse the
+ * widest bracket any sane segment count produces onto adjacent doubles, which
+ * is why the endpoint does not move when the segment count does.
+ */
+const CROSSING_BISECTIONS = 60;
+
+/**
+ * The angle at which the arc crosses the boundary. Bisects the bracket between
+ * a sample off the ground and one on it, and returns the inside side of it — a
+ * hair short of the true crossing rather than a hair past, so the point it
+ * yields still satisfies the predicate that found it.
+ */
+function crossingAngle(
+  outsideAngle: number,
+  insideAngle: number,
+  isInside: (angle: number) => boolean,
+): number {
+  let off = outsideAngle;
+  let on = insideAngle;
+
+  for (let i = 0; i < CROSSING_BISECTIONS; i++) {
+    const middle = (off + on) / 2;
+    if (isInside(middle)) on = middle;
+    else off = middle;
+  }
+
+  return on;
+}
+
+/**
+ * The 50 m arc for one end, clipped to the Boundary — the one field marking
+ * whose shape depends on the ground. Its radius never varies (an Absolute
+ * marking); what varies is where the boundary cuts it.
+ *
+ * The ends are exact rather than approximate. Between the last sample inside
+ * the ellipse and the first outside it, the crossing is found by bisection and
+ * the arc ends there, so the endpoint lies on the boundary at any segment count
+ * and at any dimensions — there is nothing left for a drawing tolerance to do.
+ * Membership is asked of isPointInField throughout: one answer for a drawn
+ * point and for a player standing on it.
+ *
+ * A new array every call, never a cached one: an R3F buffer attribute supplied
+ * declaratively never re-uploads, which is what once made these arcs vanish on
+ * iOS after switching Venue.
+ */
+export function fiftyMetreArcPoints(
+  boundary: Boundary,
+  end: GoalEnd,
+  segments: number,
+): FieldPoint[] {
+  const radius = FIELD_MARKINGS.fiftyMetreArcRadius;
+  // Struck from the centre of the goal line, bulging toward the middle of the
+  // ground. The parameter runs from one goal-line end of the arc to the other.
+  const centreX = end === 'team1' ? -boundary.semiX : boundary.semiX;
+  const towardCentre = end === 'team1' ? 1 : -1;
+
+  const pointAt = (angle: number): FieldPoint => [
+    centreX + towardCentre * radius * Math.sin(angle),
+    radius * Math.cos(angle),
+  ];
+  const angleAt = (i: number): number => Math.PI - (Math.PI * i) / segments;
+  const isInside = (angle: number): boolean => {
+    const [x, z] = pointAt(angle);
+    return isPointInField(x, z, boundary);
+  };
+
+  // The unbroken run of samples on the ground, from the first sample inside the
+  // ellipse to the last before it leaves again. A ground too small for a 50 m
+  // arc to reach has no run at all and draws nothing.
+  let runStart = 0;
+  while (runStart <= segments && !isInside(angleAt(runStart))) runStart++;
+  if (runStart > segments) return [];
+
+  let runEnd = runStart;
+  while (runEnd < segments && isInside(angleAt(runEnd + 1))) runEnd++;
+
+  const points: FieldPoint[] = [];
+
+  if (runStart > 0) {
+    points.push(pointAt(crossingAngle(angleAt(runStart - 1), angleAt(runStart), isInside)));
+  }
+  for (let i = runStart; i <= runEnd; i++) {
+    points.push(pointAt(angleAt(i)));
+  }
+  if (runEnd < segments) {
+    points.push(pointAt(crossingAngle(angleAt(runEnd + 1), angleAt(runEnd), isInside)));
+  }
+
+  return points;
 }
