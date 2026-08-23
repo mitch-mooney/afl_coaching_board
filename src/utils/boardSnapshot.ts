@@ -8,8 +8,9 @@ import { STANDARD_GROUND_DIMENSIONS, STANDARD_GROUND_NAME, type BoundaryDimensio
 
 /**
  * boardSnapshot — the canonical shape of a board's content, and the adapters
- * that serialize it. This module is PURE: it owns the `BoardSnapshot` type and
- * the mappings to/from the two persisted formats, and imports no stores, so
+ * that serialize it. This module is PURE: it owns the `BoardSnapshot` type, the mappings
+ * to/from the two persisted formats, and the comparison that answers whether two boards
+ * differ; it imports no stores, so
  * store-free layers (the Dexie migration, sharingService) can depend on it
  * without pulling the UI store graph in. The store-touching capture()/restore()
  * live in `boardSnapshotIO`. See CONTEXT.md — "Board snapshot".
@@ -256,4 +257,92 @@ export function fromShareData(data: SharePayload): BoardSnapshot {
     ball: data.ball ?? null,
     cones: data.cones ?? [],
   };
+}
+
+// ── Comparison: did this edit change anything? ──────────────────────────────
+
+/**
+ * Whether each slice a board holds counts as a change to the board.
+ *
+ * Typed as a record over `BoardSnapshot`'s keys, so that adding a seventh slice
+ * to the snapshot fails to compile until this answers for it. A slice the
+ * comparison silently forgot would be an edit the coach cannot undo, and that
+ * failure is invisible everywhere else.
+ *
+ * The camera answers no. Undo never moves the camera — restoring an entry nulls
+ * it, which is what leaves the coach's framing alone — so a difference in the
+ * camera alone is a change the undo stack cannot represent, and recording it
+ * would spend an undo press on something the press cannot undo. It is also the
+ * one slice the reference short-circuit could never settle: `capture()` builds
+ * a fresh camera object every call, so two captures of a board nobody touched
+ * never share one.
+ */
+const COMPARED_SLICES: Record<keyof BoardSnapshot, boolean> = {
+  players: true,
+  paths: true,
+  annotations: true,
+  ball: true,
+  cones: true,
+  camera: false,
+};
+
+const CONTENT_SLICES = (Object.keys(COMPARED_SLICES) as (keyof BoardSnapshot)[]).filter(
+  (slice) => COMPARED_SLICES[slice],
+);
+
+/**
+ * Structural equality over board content: the same values, however many objects
+ * are holding them.
+ *
+ * Reference equality is the first question asked at every level, not just the
+ * top, because that is what makes the walk cheap — the board stores update
+ * immutably, so everything an edit did not touch is literally the same object
+ * and settles without being read.
+ *
+ * `Date` is handled because an Annotation carries its creation time, and two
+ * Dates for the same instant are two objects. Everything else in a board is a
+ * primitive, an array, or a plain object.
+ */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+
+  // NaN never equals itself under `===`. No board field should hold one, but a
+  // comparison that called a board different from itself would record an edit
+  // the coach never made.
+  if (typeof a === 'number' && typeof b === 'number') return Number.isNaN(a) && Number.isNaN(b);
+
+  if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return false;
+
+  if (a instanceof Date || b instanceof Date) {
+    return a instanceof Date && b instanceof Date && a.getTime() === b.getTime();
+  }
+
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((item, i) => sameValue(item, b[i]));
+  }
+
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  // An explicit `undefined` and an absent key describe the same board — releasing
+  // the ball may write `assignedPlayerId: undefined` where a fresh ball has no
+  // such key — so compare the union of both sides' keys rather than their counts.
+  for (const key of Object.keys(right)) {
+    if (!(key in left)) keys.push(key);
+  }
+  return keys.every((key) => sameValue(left[key], right[key]));
+}
+
+/**
+ * Whether the board changed between two snapshots — the question a Board edit
+ * asks on commit, so that a drag ending where it started, or a formation
+ * re-applied, costs the coach nothing on the undo stack.
+ *
+ * Pure, and total over the snapshot's slices: any difference in board content
+ * counts, including a player who only turned. Which slices are content, and why
+ * the camera is not, is stated once in `COMPARED_SLICES`.
+ */
+export function boardChanged(before: BoardSnapshot, after: BoardSnapshot): boolean {
+  return CONTENT_SLICES.some((slice) => !sameValue(before[slice], after[slice]));
 }

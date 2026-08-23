@@ -30,13 +30,20 @@ extend this file rather than inventing parallel names.
   the type every capture/restore/share path speaks. Defined in `utils/boardSnapshot.ts`.
 
 - **boardSnapshot** (`utils/boardSnapshot.ts`) — the pure, store-free module that owns
-  the `BoardSnapshot` type and its serialization **adapters**:
+  the `BoardSnapshot` type, its serialization **adapters**, and the comparison that
+  answers whether two boards differ:
   - `toPhase` / `fromPhase` — bridge to the persisted `PlayPhase` (renames to/from
     `playerPositions`/`cameraState`; the stored format is unchanged so old Plays load as-is).
   - `toShareData` / `fromShareData` — bridge to the flat `SharePayload` used in shared
     links. `fromShareData` reads `paths` (the hand-rolled restore sites used to drop them),
     and reads *only* board content; the sender's ground comes back through
     `designedGroundOf` instead — see **Designed ground**.
+  - `boardChanged(before, after)` — did anything change? Compares the content slices,
+    asking reference equality first at every level (the board stores update immutably,
+    so an untouched slice is the same object) and walking only what differs. The camera
+    is deliberately *not* content: undo never moves it, so a camera-only difference is a
+    change the undo stack cannot represent. `COMPARED_SLICES` states that answer per
+    slice, and is typed so a new slice cannot be added without answering for it.
   Being store-free, leaf layers (the Dexie migration, `sharingService`) can depend on it
   without pulling in the UI store graph.
 
