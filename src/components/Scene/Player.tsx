@@ -3,11 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Text, Billboard } from '@react-three/drei';
 import { Player } from '../../models/PlayerModel';
 import { usePlayerStore } from '../../store/playerStore';
-import {
-  useHistoryStore,
-  createPlayerSnapshot,
-  captureAnnotationSnapshots,
-} from '../../store/historyStore';
+import { beginEdit, type EditHandle } from '../../utils/boardEdit';
 import { useAnimationStore } from '../../store/animationStore';
 import { usePenStore } from '../../store/penStore';
 import { positionToZone } from '../../utils/fieldGeometry';
@@ -57,8 +53,11 @@ export function PlayerComponent({ player }: PlayerProps) {
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
-  // Store pre-drag position for undo
-  const preDragSnapshot = useRef<{ position: [number, number, number] } | null>(null);
+  // The open Board edit for the drag in progress, begun on pointer-down and
+  // committed when the drag ends.
+  const dragEditRef = useRef<EditHandle | null>(null);
+  // The open Board edit for the right-click rotation in progress.
+  const rotateEditRef = useRef<EditHandle | null>(null);
   // Track touch count to distinguish single-finger drag from multi-touch camera gestures
   const touchCountRef = useRef<number>(0);
   // Store the pointer ID that initiated the drag to track it specifically
@@ -69,8 +68,7 @@ export function PlayerComponent({ player }: PlayerProps) {
   const rotationStartRef = useRef<{ clientX: number; startRotation: number } | null>(null);
   // Animation time for leg cycle
   const animTimeRef = useRef<number>(0);
-  const { selectedPlayerId, selectPlayer, updatePlayerPosition, updatePlayerRotation, labelMode, startEditingPlayerName, setDragging, setPlayerPosition, players, getPlayerMoveState } = usePlayerStore();
-  const { pushSnapshot } = useHistoryStore();
+  const { selectedPlayerId, selectPlayer, updatePlayerPosition, updatePlayerRotation, labelMode, startEditingPlayerName, setDragging, setPlayerPosition, getPlayerMoveState } = usePlayerStore();
   const isPlaying = useAnimationStore((state) => state.isPlaying);
   const { camera, raycaster } = useThree();
   const isSelected = selectedPlayerId === player.id;
@@ -217,10 +215,12 @@ export function PlayerComponent({ player }: PlayerProps) {
     setIsDragging(true);
     setDragging(true);  // Notify store to disable camera controls
 
-    // Save pre-drag position for undo
-    const startPos = [...player.position] as [number, number, number];
-    preDragSnapshot.current = { position: startPos };
-
+    // Begin the Board edit the drag is about to make, so it can be undone.
+    // Closes a stray edit left open by a pointerdown that never reached its
+    // matching pointerup, rather than losing the handle to it — boardEdit has
+    // one open-edit slot, and losing that handle would strand it open.
+    dragEditRef.current?.commit();
+    dragEditRef.current = beginEdit('Move player');
   };
 
   const handlePointerMove = (e: any) => {
@@ -243,6 +243,8 @@ export function PlayerComponent({ player }: PlayerProps) {
       clientX: e.nativeEvent.clientX,
       startRotation: player.rotation,
     };
+    rotateEditRef.current?.commit();
+    rotateEditRef.current = beginEdit('Rotate player');
   };
 
   /**
@@ -250,32 +252,20 @@ export function PlayerComponent({ player }: PlayerProps) {
    * MovementPath comes from a Path-tip Stroke, never from dragging.
    */
   const finishReposition = useCallback(() => {
-    const startPos = preDragSnapshot.current?.position;
-    const finalPos = player.position;
-
-    // Record the pre-drag state for undo, but only if the player actually moved.
-    if (startPos && (startPos[0] !== finalPos[0] || startPos[2] !== finalPos[2])) {
-      pushSnapshot({
-        players: players.map(p =>
-          p.id === player.id
-            ? { id: p.id, position: startPos, rotation: p.rotation }
-            : createPlayerSnapshot(p)
-        ),
-        annotations: captureAnnotationSnapshots(),
-      });
-    }
-
-    // F6: Auto-suggest position from drop zone if player has none
+    // F6: Auto-suggest position from drop zone if player has none. Folded into
+    // the same edit as the drag: undoing the drag also undoes the position it
+    // auto-assigned, rather than leaving an orphaned positionName behind.
     if (!player.positionName) {
-      const suggested = positionToZone(finalPos[0], finalPos[2], boundary);
+      const suggested = positionToZone(player.position[0], player.position[2], boundary);
       if (suggested) {
         setPlayerPosition(player.id, suggested);
       }
     }
 
-    preDragSnapshot.current = null;
+    dragEditRef.current?.commit();
+    dragEditRef.current = null;
     prevDragPos.current = null;
-  }, [boundary, player.id, player.position, player.positionName, pushSnapshot, players, setPlayerPosition]);
+  }, [boundary, player.id, player.position, player.positionName, setPlayerPosition]);
 
   // End dragging helper - used by both pointerUp and window events
   const endDragging = useCallback(() => {
@@ -313,11 +303,17 @@ export function PlayerComponent({ player }: PlayerProps) {
       // If we're dragging and a second finger is added, cancel the drag
       // This allows two-finger gestures (pan/zoom) to take over
       if (isDragging && e.touches.length > 1) {
-        // Cancel the drag without creating a path
+        // Cancel the drag without creating a path. The edit still commits —
+        // whatever the drag moved before the second finger landed is what it
+        // committed to, and a drag that hadn't moved anything yet still
+        // leaves no entry (boardEdit only records a real change). Leaving it
+        // open here would strand `boardEdit`'s single open-edit slot, folding
+        // every edit made afterwards into a gesture that never closes.
         setIsDragging(false);
         setDragging(false);
         dragPointerIdRef.current = null;
-        preDragSnapshot.current = null;
+        dragEditRef.current?.commit();
+        dragEditRef.current = null;
         prevDragPos.current = null;
       }
     };
@@ -349,6 +345,8 @@ export function PlayerComponent({ player }: PlayerProps) {
       setIsRotating(false);
       setDragging(false);
       rotationStartRef.current = null;
+      rotateEditRef.current?.commit();
+      rotateEditRef.current = null;
     };
 
     const preventContextMenu = (e: MouseEvent) => e.preventDefault();

@@ -27,6 +27,13 @@ here, exactly as the scoping predicted. Nothing this ADR decides changed; the se
 "Settled elsewhere" and carries the one part of that resolution which bears on this ADR's
 subject.
 
+Amended 2026-08-23 (issue #71): the marker's *representation* changes, nothing it decides. Every
+edit is now recorded through one module (`utils/boardEdit.ts`) as a `HistoryEntry` — one shape,
+carrying a `label` rather than the bespoke `StateSnapshot.pulledInside` boolean this ADR was
+written against. "The marker is explicit rather than inferred", below, is updated to describe the
+label; the reasoning it gives survives unchanged, because a label set by the edit that made it is
+the same kind of tag the boolean was, not a structural guess.
+
 ## Context
 
 ADR 0002 established the Active Venue as app-wide match context and closed by declining to
@@ -160,11 +167,19 @@ is. A flag in a store would have needed setting in `pullBoardInsideBoundary` and
 `undoBoard`, `redoBoard`, the play-load path and the mode-switch path: four places to keep in
 sync, which is the failure the comments above were written to avoid.
 
-The marker is **explicit rather than inferred**. `StateSnapshot.board` is populated only by Pull
-inside today, so `past.some(e => e.board)` would work — but that field's own doc says *"edits
-that reach past players and annotations — **today** that is Pull inside boundary"*, and building
-on *today* is how this map's two previous false assertions were made. The pull tags its own
-entry.
+The marker is **explicit rather than inferred**. Every `HistoryEntry` since issue #71 carries a
+`label` — a plain description of what the edit was, not a field only Pull inside populates — so
+the risk this section originally guarded against has moved: the naive form would be
+`past.some(e => e.label === 'Pull inside boundary')`, a string literal repeated at both the site
+that records the pull and the predicate that reads it, which is exactly the drift
+`OUT_OF_BOUNDS_AMBER` (`fitReadout.ts`) exists to prevent for a colour. The fix is the same shape:
+one export, `PULL_INSIDE_BOUNDARY_LABEL`, defined in `fitReadout.ts` beside the predicate that
+reads it and imported by `useOutOfBounds.ts` where the pull is recorded. Renaming the label is
+then a one-line change both sides pick up, not a fact re-derived from board shape the way
+`past.some(e => e.board)` would have been — that reading is still rejected, for the reason
+originally given: building on *what the board happens to contain* is how this map's two previous
+false assertions were made. The pull tags its own entry; the tag is now a name it and the
+predicate both import, rather than a boolean only it ever set.
 
 **History is scoped to the open board.** `clearHistory()` existed with a doc-comment saying
 *"e.g., when loading a new playbook"* and was never wired to anything; `playStore.loadPlayBoard`

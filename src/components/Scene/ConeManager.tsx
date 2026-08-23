@@ -1,5 +1,6 @@
 import { useConeStore } from '../../store/coneStore';
 import { useModeStore } from '../../store/modeStore';
+import { editBoard } from '../../utils/boardEdit';
 import type { Cone } from '../../store/coneStore';
 import type { ThreeEvent } from '@react-three/fiber';
 
@@ -11,7 +12,7 @@ function ConeMarker({ cone }: { cone: Cone }) {
       position={[cone.position[0], 1.0, cone.position[2]]}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         e.stopPropagation();
-        removeCone(cone.id);
+        editBoard('Remove cone', () => removeCone(cone.id));
       }}
     >
       <coneGeometry args={[0.5, 2.0, 8]} />
@@ -29,7 +30,7 @@ function ConePlacementPlane() {
       position={[0, 0.05, 0]}
       onPointerDown={(e: ThreeEvent<PointerEvent>) => {
         e.stopPropagation();
-        addCone([e.point.x, 0, e.point.z]);
+        editBoard('Place cone', () => addCone([e.point.x, 0, e.point.z]));
       }}
     >
       <planeGeometry args={[500, 500]} />

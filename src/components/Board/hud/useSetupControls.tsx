@@ -8,7 +8,7 @@ import { getFormationById } from '../../../data/formations';
 import { TeamSelectModal } from './TeamSelectModal';
 import { RosterImportModal } from './RosterImportModal';
 import { useBoardUndo } from '../../../hooks/useBoardUndo';
-import { recordPreEditSnapshot } from '../../../store/historyStore';
+import { editBoard } from '../../../utils/boardEdit';
 import type { HudAction, HudControls } from './hudActions';
 
 const FORMATIONS = [
@@ -40,14 +40,17 @@ export function useSetupControls(): HudControls {
   // The coach's clear, as opposed to the mode reset's: same store action, and
   // only this side knows which it is, so this is the side that records.
   const recordAndClearAnnotations = () => {
-    recordPreEditSnapshot();
-    clearAnnotations();
+    editBoard('Clear annotations', () => clearAnnotations());
+  };
+
+  const recordAndClearPaths = () => {
+    editBoard('Clear paths', () => clearPaths());
   };
 
   const applyPreset = (id: string) => {
     const f = getFormationById(id);
     if (!f) return;
-    applyFormation(f);
+    editBoard('Apply formation', () => applyFormation(f));
     setActiveFormationId(id);
   };
 
@@ -58,12 +61,12 @@ export function useSetupControls(): HudControls {
     ...FORMATIONS.map((f) => ({ key: f.id, label: f.label, onClick: () => applyPreset(f.id) })),
     { key: 'teams', label: '🔵🔴 Teams / jerseys', onClick: () => setShowTeams(true) },
     { key: 'labels', label: `Labels: ${LABELS[labelMode]}`, onClick: cycleLabelMode },
-    { key: 'reset', label: 'Reset players', onClick: resetPlayers },
+    { key: 'reset', label: 'Reset players', onClick: () => editBoard('Reset players', () => resetPlayers()) },
     { key: 'undo', label: '↩ Undo', onClick: handleUndo, disabled: !canUndo() },
     // The two bulk clears sit together: each wipes a category of board content,
     // and neither is an instrument — arming a Pen tip is the Tool rail's job and
     // only the Tool rail's, so no tip is armable from here.
-    { key: 'clear', label: 'Clear paths', onClick: clearPaths, disabled: paths.length === 0 },
+    { key: 'clear', label: 'Clear paths', onClick: recordAndClearPaths, disabled: paths.length === 0 },
     {
       key: 'clear-annotations',
       label: 'Clear annotations',
@@ -73,14 +76,14 @@ export function useSetupControls(): HudControls {
     {
       key: 'give',
       label: `🏉 Give ball${selectedPlayer ? ` to #${selectedPlayer.number}` : ''}`,
-      onClick: () => selectedPlayerId && assignBallToPlayer(selectedPlayerId),
+      onClick: () => selectedPlayerId && editBoard('Assign ball', () => assignBallToPlayer(selectedPlayerId)),
       hidden: !ball,
       disabled: !selectedPlayerId,
     },
     {
       key: 'release',
       label: `Release ball${assignedPlayer ? ` (#${assignedPlayer.number})` : ''}`,
-      onClick: () => assignBallToPlayer(null),
+      onClick: () => editBoard('Release ball', () => assignBallToPlayer(null)),
       hidden: !(ball && assignedPlayer),
     },
     { key: 'roster', label: 'Import roster…', onClick: () => setShowRoster(true) },

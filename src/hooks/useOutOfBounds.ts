@@ -3,8 +3,9 @@ import { usePlayerStore } from '../store/playerStore';
 import { usePathStore } from '../store/pathStore';
 import { useBallStore } from '../store/ballStore';
 import { useConeStore } from '../store/coneStore';
-import { useHistoryStore, createStateSnapshot } from '../store/historyStore';
 import { capture, restore } from '../utils/boardSnapshotIO';
+import { editBoard } from '../utils/boardEdit';
+import { PULL_INSIDE_BOUNDARY_LABEL } from '../components/Board/hud/fitReadout';
 import {
   outOfBounds,
   pullInsideBoundary,
@@ -59,22 +60,15 @@ export function pullBoardInsideBoundary(boundary: Boundary): void {
   const before = capture();
   if (outOfBounds(before, boundary).count === 0) return;
 
-  // Recorded before the edit, exactly as a drag records its pre-drag board. The
-  // full board rides along because this moves more than players — see
-  // StateSnapshot.board.
-  //
-  // The entry is also tagged as a pull, which is the whole of the Fit readout's
-  // memory: while this entry is on `past` the readout says the board has been
-  // pulled inside, and undo takes the claim away with the edit. Still no dirty
-  // flag — nothing is set here that anything else has to clear.
-  useHistoryStore.getState().pushSnapshot({
-    ...createStateSnapshot(before.players, before.annotations),
-    board: before,
-    pulledInside: true,
+  // One Board edit, recorded through the module every edit goes through. Its
+  // label is what the Fit readout's memory reads: while an entry with this
+  // label is on `past`, the readout says the board has been pulled inside, and
+  // undo takes the claim away with the edit. Still no dirty flag — nothing is
+  // set here that anything else has to clear.
+  editBoard(PULL_INSIDE_BOUNDARY_LABEL, () => {
+    // The camera is nulled on the way back in, exactly as undo does it: pulling
+    // content inside must not touch the viewpoint, and holding the view still
+    // while the ground changes underneath is the comparison the coach came for.
+    restore({ ...pullInsideBoundary(before, boundary), camera: null });
   });
-
-  // The camera is nulled on the way back in, exactly as undo does it: pulling
-  // content inside must not touch the viewpoint, and holding the view still
-  // while the ground changes underneath is the comparison the coach came for.
-  restore({ ...pullInsideBoundary(before, boundary), camera: null });
 }

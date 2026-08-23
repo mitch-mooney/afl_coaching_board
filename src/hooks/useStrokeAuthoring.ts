@@ -7,7 +7,7 @@ import { usePenStore } from '../store/penStore';
 import { usePlayerStore } from '../store/playerStore';
 import { useBallStore } from '../store/ballStore';
 import { usePathStore } from '../store/pathStore';
-import { recordPreEditSnapshot } from '../store/historyStore';
+import { editBoard } from '../utils/boardEdit';
 import { snapToField } from '../utils/fieldGeometry';
 import { useActiveBoundary } from './useActiveBoundary';
 import { authoringIntent, tipAvailable } from '../utils/inputContract';
@@ -109,11 +109,15 @@ export function useStrokeAuthoring() {
       const path = pathFromStroke(entity, points);
       if (!path) return;
 
-      const paths = usePathStore.getState();
-      for (const existing of paths.getPathsByEntity(entity.id)) {
-        paths.removePath(existing.id);
-      }
-      paths.addPath(path);
+      // The coach drew this, so it is undoable — one edit for the replace,
+      // even though it removes the old path and adds the new one in two calls.
+      editBoard('Draw movement path', () => {
+        const paths = usePathStore.getState();
+        for (const existing of paths.getPathsByEntity(entity.id)) {
+          paths.removePath(existing.id);
+        }
+        paths.addPath(path);
+      });
     };
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -179,12 +183,13 @@ export function useStrokeAuthoring() {
       } else if (strokeRef.current.length >= 2) {
         // The coach drew this, so it is undoable — the store no longer records
         // on a caller's behalf.
-        recordPreEditSnapshot();
-        addAnnotation({
-          type: armedTip,
-          points: strokeRef.current,
-          color: selectedColor,
-          thickness,
+        editBoard('Add annotation', () => {
+          addAnnotation({
+            type: armedTip,
+            points: strokeRef.current,
+            color: selectedColor,
+            thickness,
+          });
         });
       }
 

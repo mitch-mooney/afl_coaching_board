@@ -27,7 +27,7 @@
  */
 
 import { STANDARD_GROUND_NAME } from '../../../models/VenueModel';
-import type { StateSnapshot } from '../../../store/historyStore';
+import type { HistoryEntry } from '../../../store/historyStore';
 import type { OutOfBoundsReport } from '../../../utils/fieldGeometry';
 
 const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
@@ -86,37 +86,49 @@ export function outOfBoundsSentence(report: OutOfBoundsReport, groundName?: stri
 export const OUT_OF_BOUNDS_AMBER = '#f59e0b';
 
 /**
- * The one field of a history entry the memory reads: whether that entry was
- * recorded by **Pull inside boundary**.
+ * **Pull inside boundary**'s label — the remedy, named as the domain names it,
+ * and also the one string the Fit readout's pull memory matches against. A
+ * single export rather than a literal repeated at both sites: a hex duplicated
+ * across two files that must agree is exactly the drift `OUT_OF_BOUNDS_AMBER`
+ * above exists to prevent, and a label is no different.
+ */
+export const PULL_INSIDE_BOUNDARY_LABEL = 'Pull inside boundary';
+
+/**
+ * The one field of a history entry the memory reads: the label the edit was
+ * recorded under.
  *
  * A `Pick` of the real thing rather than a lookalike interface — same move as
  * `fieldGeometry.PlaceableContent`, and for the same reason: a structural copy
- * would be satisfied by `StateSnapshot` whatever that type later did, so
+ * would be satisfied by `HistoryEntry` whatever that type later did, so
  * renaming the field over there would leave this predicate compiling and
  * silently answering *no* forever. The import is type-only, so this module still
  * pulls in nothing of the store at runtime.
  */
-export type PullMarkedEntry = Pick<StateSnapshot, 'pulledInside'>;
+export type PullMarkedEntry = Pick<HistoryEntry, 'label'>;
 
 /**
  * Has the open board been pulled inside a Boundary — a predicate over the undo
  * stack's entries, nothing else (ADR 0005).
  *
- * The memory is not new state. Pull inside boundary marks the entry it records,
- * so this reads true while that entry is on `past`; undo moves it to `future`
- * and this goes false **on its own**, redo brings both back. There is nothing to
- * clear and nowhere for the claim to drift from what undo will actually do.
+ * The memory is not new state. Every edit now carries a label, and Pull inside
+ * boundary's is `PULL_INSIDE_BOUNDARY_LABEL` — the same string the edit is
+ * recorded under and the remedy is named with, one export rather than a string
+ * repeated at both sites — so this reads true while that entry is on `past`;
+ * undo moves it to `future` and this goes false **on its own**, redo brings
+ * both back. There is nothing to clear and nowhere for the claim to drift from
+ * what undo will actually do.
  *
- * Emphatically not *this board has been edited*: a dragged player leaves an
- * unmarked entry and says nothing here. That reading would be an app-wide dirty
- * flag, which `useOutOfBounds.ts` and `fieldGeometry.ts` both stake the
- * out-of-bounds design on not having.
+ * Emphatically not *this board has been edited*: a dragged player's entry is
+ * labelled "Move player" and says nothing here. That reading would be an
+ * app-wide dirty flag, which `useOutOfBounds.ts` and `fieldGeometry.ts` both
+ * stake the out-of-bounds design on not having.
  *
  * The whole stack, not the newest entry: a pull followed by three drags is still
  * a pulled board, and the coach can still reach it with undo.
  */
 export function hasBeenPulledInside(past: readonly PullMarkedEntry[]): boolean {
-  return past.some((entry) => entry.pulledInside === true);
+  return past.some((entry) => entry.label === PULL_INSIDE_BOUNDARY_LABEL);
 }
 
 /**
@@ -179,7 +191,7 @@ export function fitReadoutState(
     outOfBounds,
     sentence: outOfBoundsSentence(report, groundName),
     reassurance: 'Leaving it is fine — nothing is changed on disk until you save the play.',
-    remedy: 'Pull inside boundary',
+    remedy: PULL_INSIDE_BOUNDARY_LABEL,
     pullMemory: pulled ? PULLED_INSIDE_MEMORY : '',
   };
 }

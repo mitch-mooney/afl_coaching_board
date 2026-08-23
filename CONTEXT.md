@@ -51,11 +51,30 @@ extend this file rather than inventing parallel names.
   `capture()` reads the board stores; `restore(snap)` writes them back through their
   own actions. The single owner of that store access.
 
-  > Undo speaks this type too. A `StateSnapshot` normally carries only players and
-  > annotations, but an edit that reaches further — today, **Pull inside boundary**, which
-  > also moves the ball, cones and path keyframes — records the whole `BoardSnapshot` it was
-  > made against in `StateSnapshot.board`, and is undone by restoring that board wholesale
-  > with the camera nulled. The camera stays outside undo.
+- **Board edit** — a change the coach made to the open board, recorded so it can be
+  undone. A board write the app performs on the coach's behalf — loading a Play,
+  seeding the board, playback, undo's own restore — is not a Board edit and records
+  nothing; that rule, not a list of blessed call sites, decides whether a given write
+  records. `utils/boardEdit.ts` is the one module that makes an edit: `editBoard(label,
+  mutate)` runs a mutation and records it in one call (a tap, a menu action);
+  `beginEdit(label)` opens a gesture that spans time — the coach's hand landing, some
+  number of writes, then lifting — and returns a handle whose `commit()` closes it. Both
+  ask `boardSnapshot.boardChanged` whether the board actually differs before recording,
+  so a drag that ends where it started, or a menu action re-applying what is already
+  true, costs the coach nothing on the undo stack. An edit begun while another is already
+  open folds into it — only the outermost `commit()` records — so a tangled interaction
+  never produces entries out of order. Nothing outside this module pushes onto
+  `historyStore`'s `past`.
+
+  A **`HistoryEntry`** (`store/historyStore.ts`) is `{ before, after, label, timestamp }` —
+  the whole `BoardSnapshot` on both sides, never a lighter shape for an edit that only
+  touched a player or an annotation. Undo restores `before` with the camera nulled — it
+  stays outside undo, and a null camera is exactly what tells `restore()` to leave the
+  live one alone; redo restores `after` the same way, though nothing in the app calls it
+  yet (issue #63). The **Fit readout**'s pull memory (`fitReadout.hasBeenPulledInside`) is
+  a predicate over entries' `label`, matched against the one exported
+  `PULL_INSIDE_BOUNDARY_LABEL` both **Pull inside boundary** and the readout read — see
+  ADR 0005.
 
 - **boardPlayback** (`utils/boardPlayback.ts`) — the pure "where is everything at *t*"
   queries, no store access:
@@ -187,8 +206,8 @@ extend this file rather than inventing parallel names.
   Out of bounds count, its sentence (`describeOutOfBounds`, in
   `components/Board/hud/fitReadout.ts`), **Pull inside boundary**, and
   whether the board **has been pulled inside** (`hasBeenPulledInside`, in the same module —
-  a predicate over the undo stack, since the pull marks the history entry it records rather
-  than setting any flag), together as one thing. The open board has
+  a predicate over the undo stack's entry labels, since the pull marks the history entry
+  it records rather than setting any flag), together as one thing. The open board has
   exactly one Fit readout and it lives **on the board**; a surface that merely sets the Active
   Venue makes no claim about the board's fit. Distinct from **playFit**'s row marker, which is
   the same predicate on a different *subject* — a Play on disk rather than the board — and so

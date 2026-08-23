@@ -50,7 +50,7 @@ interface AnnotationState {
  * both the coach and the app — the same `clearAnnotations` is a coach's *Clear
  * annotations* and a mode reset, the same `setAnnotations` is a restore — and
  * only the caller can tell those apart. So the surface that made the edit
- * records it, with `historyStore.recordPreEditSnapshot`, before calling in here.
+ * records it, with `boardEdit.editBoard`, before calling in here.
  *
  * That includes `removeAnnotation`, which no surface calls today: the first one
  * to call it has to record, or removing an Annotation silently stops being

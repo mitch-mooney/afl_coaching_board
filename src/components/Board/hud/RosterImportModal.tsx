@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { usePlayerStore } from '../../../store/playerStore';
 import { useOverlayOpen } from '../../../hooks/useOverlayOpen';
+import { editBoard } from '../../../utils/boardEdit';
 import { describeRosterFit, type RosterTarget } from './rosterImportFit';
 
 export function RosterImportModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -48,14 +49,16 @@ export function RosterImportModal({ open, onClose }: { open: boolean; onClose: (
 
   const handleImportNamesOnly = () => {
     const teamId = selectedTeam === 'all' ? undefined : selectedTeam;
-    importRoster(pendingNames, teamId);
+    editBoard('Import roster', () => importRoster(pendingNames, teamId));
     closeImportDialog();
   };
 
   const handleImportAutoAssign = () => {
     const teamId = selectedTeam === 'all' ? undefined : selectedTeam;
-    importRoster(pendingNames, teamId);
-    autoAssignPositions(teamId);
+    editBoard('Import roster', () => {
+      importRoster(pendingNames, teamId);
+      autoAssignPositions(teamId);
+    });
     closeImportDialog();
   };
 
