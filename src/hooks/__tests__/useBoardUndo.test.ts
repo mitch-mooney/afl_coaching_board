@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { undoBoard } from '../useBoardUndo';
-import { useHistoryStore, createStateSnapshot } from '../../store/historyStore';
+import {
+  useHistoryStore,
+  createStateSnapshot,
+  recordPreEditSnapshot,
+} from '../../store/historyStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { useAnnotationStore } from '../../store/annotationStore';
 import { useBallStore } from '../../store/ballStore';
@@ -27,18 +31,20 @@ const arrow = () => ({
   color: '#ff0000',
 });
 
-// Mimic what Player.tsx does at drag-end: record the pre-drag board (with the
-// live annotations) then move the player.
+// Mimic what a surface does when the coach edits the board: record the board as
+// it stood, then mutate. Only the order is mimicked — the record itself is the
+// function the real surfaces call.
 const recordPlayerMove = (to: [number, number, number]) => {
-  useHistoryStore
-    .getState()
-    .pushSnapshot(
-      createStateSnapshot(
-        usePlayerStore.getState().players,
-        useAnnotationStore.getState().annotations
-      )
-    );
+  recordPreEditSnapshot();
   usePlayerStore.getState().setPlayers([player(to)]);
+};
+
+// What every Annotation surface now does — the Pen tip's stroke, the Text
+// field's commit and the Setup controls' Clear annotations — since the store
+// stopped recording on their behalf.
+const addAnnotationEdit = () => {
+  recordPreEditSnapshot();
+  useAnnotationStore.getState().addAnnotation(arrow());
 };
 
 beforeEach(() => {
@@ -46,13 +52,12 @@ beforeEach(() => {
   useAnnotationStore.getState().setAnnotations([]);
   usePathStore.getState().setPaths([]);
   useConeStore.getState().setCones([]);
-  useHistoryStore.getState().resumeRecording();
   useHistoryStore.getState().clearHistory();
 });
 
 describe('undo with annotations', () => {
   it('undoes an added annotation', () => {
-    useAnnotationStore.getState().addAnnotation(arrow());
+    addAnnotationEdit();
     expect(useAnnotationStore.getState().annotations).toHaveLength(1);
 
     undoBoard();
@@ -69,7 +74,7 @@ describe('undo with annotations', () => {
   });
 
   it('records the live annotations at the player-move push site', () => {
-    useAnnotationStore.getState().addAnnotation(arrow());
+    addAnnotationEdit();
     recordPlayerMove([5, 0, 5]);
 
     const past = useHistoryStore.getState().past;
@@ -79,7 +84,7 @@ describe('undo with annotations', () => {
   });
 
   it('walks back through interleaved annotation + player edits one press at a time', () => {
-    useAnnotationStore.getState().addAnnotation(arrow()); // edit 1
+    addAnnotationEdit(); // edit 1
     recordPlayerMove([5, 0, 5]); // edit 2
 
     undoBoard(); // takes back the drag
@@ -93,7 +98,7 @@ describe('undo with annotations', () => {
     // undo() used to return past[length - 2], so a second undo's worth of
     // history came back on the first press: the annotation added before the
     // drag vanished along with the drag. One press, one edit.
-    useAnnotationStore.getState().addAnnotation(arrow()); // edit 1
+    addAnnotationEdit(); // edit 1
     recordPlayerMove([5, 0, 5]); // edit 2
 
     undoBoard();
@@ -240,13 +245,25 @@ describe('undo with annotations', () => {
     expect(usePlayerStore.getState().players[0].position).toEqual([0, 0, 60]);
   });
 
-  it('does not record annotation mutations while recording is paused', () => {
-    useHistoryStore.getState().pauseRecording();
-
+  it('records nothing when the Annotation store is written without a surface', () => {
+    // The store no longer records on its own behalf: only a caller knows whether
+    // the coach did it. The same action serves a coach's clear and a restore
+    // putting a board back, which is why recording used to need pausing.
     useAnnotationStore.getState().addAnnotation(arrow());
 
     expect(useHistoryStore.getState().past).toHaveLength(0);
-    // the annotation itself is still applied — only the history record is skipped
     expect(useAnnotationStore.getState().annotations).toHaveLength(1);
+  });
+
+  it('records nothing while restoring a board', () => {
+    // Undo's own restore writes the same store actions a coach's edit does. It
+    // leaves no entry behind because the record sits at the surface, not in the
+    // store — nothing has to be paused for the duration.
+    addAnnotationEdit();
+
+    undoBoard();
+
+    expect(useHistoryStore.getState().past).toHaveLength(0);
+    expect(useHistoryStore.getState().future).toHaveLength(1);
   });
 });

@@ -8,6 +8,7 @@ import { getFormationById } from '../../../data/formations';
 import { TeamSelectModal } from './TeamSelectModal';
 import { RosterImportModal } from './RosterImportModal';
 import { useBoardUndo } from '../../../hooks/useBoardUndo';
+import { recordPreEditSnapshot } from '../../../store/historyStore';
 import type { HudAction, HudControls } from './hudActions';
 
 const FORMATIONS = [
@@ -36,6 +37,13 @@ export function useSetupControls(): HudControls {
   const [showTeams, setShowTeams] = useState(false);
   const [showRoster, setShowRoster] = useState(false);
 
+  // The coach's clear, as opposed to the mode reset's: same store action, and
+  // only this side knows which it is, so this is the side that records.
+  const recordAndClearAnnotations = () => {
+    recordPreEditSnapshot();
+    clearAnnotations();
+  };
+
   const applyPreset = (id: string) => {
     const f = getFormationById(id);
     if (!f) return;
@@ -59,7 +67,7 @@ export function useSetupControls(): HudControls {
     {
       key: 'clear-annotations',
       label: 'Clear annotations',
-      onClick: clearAnnotations,
+      onClick: recordAndClearAnnotations,
       disabled: annotations.length === 0,
     },
     {

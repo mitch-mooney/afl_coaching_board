@@ -5,6 +5,7 @@ import { usePathStore } from '../pathStore';
 import { useAnnotationStore } from '../annotationStore';
 import { useBallStore } from '../ballStore';
 import { useConeStore } from '../coneStore';
+import { useHistoryStore } from '../historyStore';
 import type { Player } from '../../models/PlayerModel';
 import type { MovementPath } from '../../models/PathModel';
 import type { Ball } from '../../models/BallModel';
@@ -64,6 +65,7 @@ beforeEach(() => {
   useBallStore.getState().setBall(null);
   useConeStore.getState().setCones([]);
   useAnnotationStore.getState().setAnnotations([]);
+  useHistoryStore.getState().clearHistory();
 });
 
 describe('modeStore', () => {
@@ -96,5 +98,17 @@ describe('modeStore', () => {
     expect(usePathStore.getState().paths).toEqual([matchPath]);
     expect(useBallStore.getState().ball).toEqual(matchBall);
     expect(useConeStore.getState().cones).toEqual([matchCone]);
+  });
+
+  it('records nothing when a mode reset clears the board', () => {
+    // A mode reset is the app writing the board, not the coach editing it, so
+    // it leaves no undo entry — and needs no bracket around its clear to say so,
+    // because the stores it calls do not record on anyone's behalf.
+    seedMatchBoard();
+
+    useModeStore.getState().resetMode();
+
+    expect(useAnnotationStore.getState().annotations).toEqual([]);
+    expect(useHistoryStore.getState().past).toHaveLength(0);
   });
 });

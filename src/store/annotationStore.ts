@@ -1,11 +1,4 @@
 import { create } from 'zustand';
-import {
-  useHistoryStore,
-  createStateSnapshot,
-  createAnnotationSnapshot,
-  type AnnotationSnapshot,
-} from './historyStore';
-import { usePlayerStore } from './playerStore';
 
 export type AnnotationType = 'line' | 'arrow' | 'circle' | 'rectangle' | 'text' | 'measure' | 'magnifying-glass';
 
@@ -53,24 +46,17 @@ interface AnnotationState {
 }
 
 /**
- * Records the board state *before* an annotation mutation so the mutation is
- * undoable. pushSnapshot honours the paused flag, so undo/redo restoration and
- * system-driven clears (e.g. mode reset) don't record spurious history.
+ * The store mutates the board and records nothing. Every action below serves
+ * both the coach and the app — the same `clearAnnotations` is a coach's *Clear
+ * annotations* and a mode reset, the same `setAnnotations` is a restore — and
+ * only the caller can tell those apart. So the surface that made the edit
+ * records it, with `historyStore.recordPreEditSnapshot`, before calling in here.
+ *
+ * That includes `removeAnnotation`, which no surface calls today: the first one
+ * to call it has to record, or removing an Annotation silently stops being
+ * undoable while adding and clearing still are.
  */
-function recordPreMutationSnapshot(annotations: Annotation[]) {
-  const players = usePlayerStore.getState().players;
-  useHistoryStore.getState().pushSnapshot(createStateSnapshot(players, annotations));
-}
-
-/**
- * Snapshots the live annotations for a history record — the single owner of
- * that shape, shared by the player/ball drag-end push sites.
- */
-export function captureAnnotationSnapshots(): AnnotationSnapshot[] {
-  return useAnnotationStore.getState().annotations.map(createAnnotationSnapshot);
-}
-
-export const useAnnotationStore = create<AnnotationState>((set, get) => ({
+export const useAnnotationStore = create<AnnotationState>((set) => ({
   annotations: [],
   selectedColor: '#ffff00', // Yellow default
   thickness: 2,
@@ -85,7 +71,6 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   },
 
   addAnnotation: (annotation) => {
-    recordPreMutationSnapshot(get().annotations);
     const newAnnotation: Annotation = {
       ...annotation,
       id: `annotation-${Date.now()}-${Math.random()}`,
@@ -97,14 +82,12 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   },
 
   removeAnnotation: (id) => {
-    recordPreMutationSnapshot(get().annotations);
     set((state) => ({
       annotations: state.annotations.filter((a) => a.id !== id),
     }));
   },
 
   clearAnnotations: () => {
-    recordPreMutationSnapshot(get().annotations);
     set({ annotations: [] });
   },
   

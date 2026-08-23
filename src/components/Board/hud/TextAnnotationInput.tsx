@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAnnotationStore } from '../../../store/annotationStore';
+import { recordPreEditSnapshot } from '../../../store/historyStore';
 import { fanPill, glass } from './podStyles';
 
 /**
@@ -63,6 +64,9 @@ export function TextAnnotationInput() {
 
   const commit = () => {
     if (!text.trim()) return;
+    // Recorded here rather than in the store — below the empty-text guard, so
+    // it still lands only on the commits that produce an Annotation.
+    recordPreEditSnapshot();
     addAnnotation({
       type: 'text',
       points: [pendingTextPoint],

@@ -42,13 +42,13 @@ export function restoreBoardSnapshot(snapshot: StateSnapshot): void {
  * restore path is directly unit-testable; the hook below just wraps it.
  */
 export function undoBoard(): void {
-  const { undo, canUndo, pauseRecording, resumeRecording } =
-    useHistoryStore.getState();
+  // Nothing here has to suppress recording: a restore writes the board stores,
+  // and the board stores record nothing — only the surface that made an edit
+  // does. See `historyStore.recordPreEditSnapshot`.
+  const { undo, canUndo } = useHistoryStore.getState();
   if (!canUndo()) return;
-  pauseRecording(); // don't record the restoration as a new action
   const snapshot = undo();
   if (snapshot) restoreBoardSnapshot(snapshot);
-  resumeRecording();
 }
 
 /**

@@ -3,9 +3,12 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Text, Billboard } from '@react-three/drei';
 import { Player } from '../../models/PlayerModel';
 import { usePlayerStore } from '../../store/playerStore';
-import { useHistoryStore, createPlayerSnapshot } from '../../store/historyStore';
+import {
+  useHistoryStore,
+  createPlayerSnapshot,
+  captureAnnotationSnapshots,
+} from '../../store/historyStore';
 import { useAnimationStore } from '../../store/animationStore';
-import { captureAnnotationSnapshots } from '../../store/annotationStore';
 import { usePenStore } from '../../store/penStore';
 import { positionToZone } from '../../utils/fieldGeometry';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
