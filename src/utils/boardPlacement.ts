@@ -1,4 +1,5 @@
 import type { Ball } from '../models/BallModel';
+import type { MovementPath } from '../models/PathModel';
 import { DEFAULT_TEAM_COLORS, PLAYERS_PER_TEAM, skinToneFor, type Player } from '../models/PlayerModel';
 import { getTeamById } from '../data/aflTeams';
 import type { BoardSnapshot } from './boardSnapshot';
@@ -20,6 +21,30 @@ import { snapToField, type Boundary, type FieldPoint } from './fieldGeometry';
 function withoutOwner(ball: Ball | null): Ball | null {
   if (!ball || ball.assignedPlayerId === undefined) return ball;
   return { ...ball, assignedPlayerId: undefined };
+}
+
+/**
+ * The board without one player. Every MovementPath whose entity is that player
+ * goes with them, and the ball is released only if they were holding it, so no
+ * line is left on the grass attached to nobody and the ball never belongs to
+ * someone who is not there. Every other player, path, annotation and cone is
+ * carried through by reference.
+ *
+ * Returns the *same* snapshot by reference when no such player is on the board,
+ * so `editBoard` records nothing.
+ */
+export function withoutPlayer(snap: BoardSnapshot, playerId: string): BoardSnapshot {
+  if (!snap.players.some((player) => player.id === playerId)) return snap;
+
+  const ownedBy = (path: MovementPath) =>
+    path.entityType === 'player' && path.entityId === playerId;
+
+  return {
+    ...snap,
+    players: snap.players.filter((player) => player.id !== playerId),
+    paths: snap.paths.some(ownedBy) ? snap.paths.filter((path) => !ownedBy(path)) : snap.paths,
+    ball: snap.ball?.assignedPlayerId === playerId ? withoutOwner(snap.ball) : snap.ball,
+  };
 }
 
 /**

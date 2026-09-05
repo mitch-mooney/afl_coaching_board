@@ -5,7 +5,13 @@ import { createTeamPlayers, type Player } from '../../models/PlayerModel';
 import type { Annotation } from '../../store/annotationStore';
 import type { BoardSnapshot } from '../boardSnapshot';
 import { isPointInField, STANDARD_BOUNDARY } from '../fieldGeometry';
-import { withoutPlayers, atFullStrength, placePlayer, teamAppearance } from '../boardPlacement';
+import {
+  withoutPlayer,
+  withoutPlayers,
+  atFullStrength,
+  placePlayer,
+  teamAppearance,
+} from '../boardPlacement';
 
 function player(teamId: Player['teamId'], number: number): Player {
   return {
@@ -44,6 +50,57 @@ const board: BoardSnapshot = {
   ball: createBall([0, 0.5, 0], { assignedPlayerId: blue1.id }),
   cones: [{ id: 'c1', position: [8, 0, 8] }],
 };
+
+describe('withoutPlayer', () => {
+  it('removes that player and no one else', () => {
+    const removed = withoutPlayer(board, blue1.id);
+
+    expect(removed.players).toEqual([red1]);
+  });
+
+  it('drops every path whose entity is that player and keeps every other, the ball\'s included', () => {
+    const blue1Again = createMovementPath(blue1.id, 'player', [10, 0, 1], [20, 0, 1], 2, 'path-blue1-b');
+    const twoPaths = { ...board, paths: [blue1Path, ballPath, blue1Again, red1Path] };
+
+    const removed = withoutPlayer(twoPaths, blue1.id);
+
+    expect(removed.paths).toEqual([ballPath, red1Path]);
+  });
+
+  it('releases the ball when it was assigned to that player, keeping it on the board', () => {
+    const removed = withoutPlayer(board, blue1.id);
+
+    expect(removed.ball).not.toBeNull();
+    expect(removed.ball!.assignedPlayerId).toBeUndefined();
+    expect(removed.ball!.position).toEqual([0, 0.5, 0]);
+  });
+
+  it('leaves the ball alone, by reference, when someone else holds it', () => {
+    const removed = withoutPlayer(board, red1.id);
+
+    expect(removed.ball).toBe(board.ball);
+    expect(removed.ball!.assignedPlayerId).toBe(blue1.id);
+  });
+
+  it('leaves a null ball null', () => {
+    expect(withoutPlayer({ ...board, ball: null }, blue1.id).ball).toBeNull();
+  });
+
+  it('hands the same snapshot back by reference when the player is not on the board', () => {
+    expect(withoutPlayer(board, 'team1-player-99')).toBe(board);
+  });
+
+  it('carries annotations, cones and the camera through by reference and leaves the input alone', () => {
+    const removed = withoutPlayer(board, blue1.id);
+
+    expect(removed.annotations).toBe(board.annotations);
+    expect(removed.cones).toBe(board.cones);
+    expect(removed.camera).toBe(board.camera);
+    expect(board.players).toHaveLength(2);
+    expect(board.paths).toHaveLength(3);
+    expect(board.ball!.assignedPlayerId).toBe(blue1.id);
+  });
+});
 
 describe('withoutPlayers', () => {
   it('removes every player and every path that belongs to a player', () => {

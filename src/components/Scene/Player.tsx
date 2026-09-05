@@ -3,8 +3,11 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Text, Billboard } from '@react-three/drei';
 import { Player } from '../../models/PlayerModel';
 import { usePlayerStore } from '../../store/playerStore';
-import { beginEdit, type EditHandle } from '../../utils/boardEdit';
+import { beginEdit, editBoard, type EditHandle } from '../../utils/boardEdit';
+import { withoutPlayer } from '../../utils/boardPlacement';
+import { capture, restore } from '../../utils/boardSnapshotIO';
 import { useAnimationStore } from '../../store/animationStore';
+import { useCameraStore } from '../../store/cameraStore';
 import { usePenStore } from '../../store/penStore';
 import { positionToZone } from '../../utils/fieldGeometry';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
@@ -165,8 +168,42 @@ export function PlayerComponent({ player }: PlayerProps) {
     }
   });
 
+  /**
+   * Whether a tap on this player removes them rather than selecting them.
+   * Read at the instant of the pointer event, not by subscription, because the
+   * question is what Placement was doing when the hand landed. Either team
+   * counts. Armed means "I am editing the roster", and the team only decides
+   * what a tap on grass creates.
+   */
+  const placementArmed = () => usePenStore.getState().armedPlacement !== null;
+
+  /**
+   * Take this player off the board, with everything that belonged to them.
+   * The snapshot edit is one undo step: the player, their paths and the ball's
+   * assignment come back together. Selection and the Follow-cam slots live
+   * outside the snapshot, so they are cleared here, in the same handler.
+   */
+  const removePlayer = () => {
+    editBoard('Remove player', () => restore(withoutPlayer(capture(), player.id)));
+
+    if (isSelected) selectPlayer(null);
+
+    const cameraState = useCameraStore.getState();
+    if (cameraState.povPlayer1Id === player.id) cameraState.clearPov(1);
+    if (cameraState.povPlayer2Id === player.id) cameraState.clearPov(2);
+  };
+
   const handleClick = (e: any) => {
     e.stopPropagation();
+
+    // Click rather than pointerdown, for the same reason PlayerPlacementPlane
+    // places on click. R3F only fires it when the pointer moved 2px or less, so
+    // a camera pan that starts on a player does not take them off.
+    if (placementArmed()) {
+      removePlayer();
+      return;
+    }
+
     if (isSelected) {
       // Click on already-selected player opens name edit, but not during animation
       if (!isDragDisabled) {
@@ -179,6 +216,11 @@ export function PlayerComponent({ player }: PlayerProps) {
 
   const handlePointerDown = (e: any) => {
     e.stopPropagation();
+
+    // While Placement is armed the tap is a removal, handled on click. Neither
+    // select nor begin a drag here, or the player would be selected and moved
+    // on the way to being taken off.
+    if (placementArmed()) return;
 
     // Always allow selection (for POV camera targeting), but skip drag setup during animation
     selectPlayer(player.id);
