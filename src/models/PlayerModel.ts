@@ -26,6 +26,14 @@ export const DEFAULT_TEAM_COLORS = {
 const SKIN_TONES: Array<'fair' | 'medium' | 'dark'> = ['fair', 'fair', 'medium', 'medium', 'dark'];
 
 /**
+ * The skin tone a player of this number is seeded with. One rotation, shared
+ * by seeding and by Placement, so a placed #4 matches the seeded #4.
+ */
+export function skinToneFor(number: number): 'fair' | 'medium' | 'dark' {
+  return SKIN_TONES[(number - 1) % SKIN_TONES.length];
+}
+
+/**
  * How many players a team puts on the board.
  *
  * 18 — the side that takes the field, and no more. There is no interchange
@@ -57,7 +65,7 @@ export function createTeamPlayers(
       rotation: 0,
       color,
       number: i + 1,
-      skinTone: SKIN_TONES[i % SKIN_TONES.length],
+      skinTone: skinToneFor(i + 1),
     });
   }
 
