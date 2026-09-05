@@ -6,6 +6,7 @@ import {
   dragRotation,
   ROTATION_SENSITIVITY,
   FACING_MIN_DISTANCE,
+  isTap,
 } from '../dragMath';
 
 describe('intersectGroundPlane', () => {
@@ -61,5 +62,20 @@ describe('dragRotation', () => {
 
   it('exposes the default sensitivity constant', () => {
     expect(ROTATION_SENSITIVITY).toBe(0.01);
+  });
+});
+
+describe('isTap', () => {
+  it('is true when the pointer lifted within the slop of where it landed', () => {
+    expect(isTap([100, 100], [104, 97])).toBe(true);
+  });
+
+  it('is false once the pointer travelled further than the slop', () => {
+    expect(isTap([100, 100], [120, 100])).toBe(false);
+  });
+
+  it('is exactly the slop distance inclusive', () => {
+    expect(isTap([0, 0], [8, 0])).toBe(true);
+    expect(isTap([0, 0], [8.01, 0])).toBe(false);
   });
 });

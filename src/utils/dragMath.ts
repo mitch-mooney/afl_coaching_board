@@ -7,6 +7,28 @@ export const ROTATION_SENSITIVITY = 0.01;
 /** A drag step must exceed this (metres) before it sets a facing direction. */
 export const FACING_MIN_DISTANCE = 0.3;
 
+/**
+ * How far, in screen pixels, a pointer may travel between landing and lifting
+ * and still count as a tap. A finger wobbles more than a mouse, so this is
+ * wider than R3F's own 2px click threshold.
+ */
+export const TAP_SLOP_PX = 8;
+
+/**
+ * Whether a pointer that landed at `down` and lifted at `up` (screen pixels)
+ * made a tap rather than a drag.
+ *
+ * The scene decides taps this way instead of through `onClick` because the
+ * canvas calls `preventDefault` on `touchstart` to stop browser gestures, and
+ * on iOS Safari that cancels the synthetic click. Pointer events still arrive,
+ * so a tap is a pointer down and a pointer up within the slop.
+ */
+export function isTap(down: [number, number], up: [number, number], slop: number = TAP_SLOP_PX): boolean {
+  const dx = up[0] - down[0];
+  const dy = up[1] - down[1];
+  return dx * dx + dy * dy <= slop * slop;
+}
+
 // Module-scoped scratch — avoids the per-frame Vector3/Plane allocation the
 // inline callers used to do. Safe to share only because callers run inside a
 // synchronous, single-threaded useFrame: intersectGroundPlane writes then
