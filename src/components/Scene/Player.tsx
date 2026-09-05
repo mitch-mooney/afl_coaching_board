@@ -11,7 +11,7 @@ import { useCameraStore } from '../../store/cameraStore';
 import { usePenStore } from '../../store/penStore';
 import { positionToZone } from '../../utils/fieldGeometry';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
-import { snapPointerToField, dragRotation, facingRotation } from '../../utils/dragMath';
+import { snapPointerToField, dragRotation, facingRotation, isTap } from '../../utils/dragMath';
 import { authoringIntent, placementAvailable } from '../../utils/inputContract';
 import { getTeamById } from '../../data/aflTeams';
 
@@ -197,10 +197,13 @@ export function PlayerComponent({ player }: PlayerProps) {
     useCameraStore.getState().releasePov(player.id);
   };
 
-  // Decided once, when the pointer lands, and read back on click. Asking twice
-  // would let playback end between the two, so that pointer down began a Move
-  // edit and click folded a removal into it under the wrong label.
+  // Decided once, when the pointer lands, and read back on pointer up. Asking
+  // twice would let playback end between the two, so that pointer down began a
+  // Move edit and the up folded a removal into it under the wrong label. The
+  // removal itself happens on pointer up rather than click: the canvas cancels
+  // touch defaults, and iOS Safari then never fires a click (see `isTap`).
   const tapIsRemovalRef = useRef(false);
+  const downAtRef = useRef<[number, number] | null>(null);
 
   const handleClick = (e: any) => {
     e.stopPropagation();
@@ -208,9 +211,10 @@ export function PlayerComponent({ player }: PlayerProps) {
     // Click rather than pointerdown, for the same reason PlayerPlacementPlane
     // places on click. R3F only fires it when the pointer moved 2px or less, so
     // a camera pan that starts on a player does not take them off.
+    // Pointer up already handled this tap. On a mouse a click still follows,
+    // and it must not select a player who was just taken off.
     if (tapIsRemovalRef.current) {
       tapIsRemovalRef.current = false;
-      removePlayer();
       return;
     }
 
@@ -231,7 +235,10 @@ export function PlayerComponent({ player }: PlayerProps) {
     // select nor begin a drag here, or the player would be selected and moved
     // on the way to being taken off.
     tapIsRemovalRef.current = placementClaimsTap();
-    if (tapIsRemovalRef.current) return;
+    if (tapIsRemovalRef.current) {
+      downAtRef.current = [e.nativeEvent.clientX, e.nativeEvent.clientY];
+      return;
+    }
 
     // Always allow selection (for POV camera targeting), but skip drag setup during animation
     selectPlayer(player.id);
@@ -415,6 +422,13 @@ export function PlayerComponent({ player }: PlayerProps) {
 
   const handlePointerUp = (e: any) => {
     e.stopPropagation();
+
+    if (tapIsRemovalRef.current) {
+      const downAt = downAtRef.current;
+      downAtRef.current = null;
+      if (downAt && isTap(downAt, [e.nativeEvent.clientX, e.nativeEvent.clientY])) removePlayer();
+      return;
+    }
 
     // Release pointer capture
     if (e.target && e.target.releasePointerCapture) {

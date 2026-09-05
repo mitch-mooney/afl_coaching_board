@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 import { useAnimationStore } from '../../store/animationStore';
@@ -7,6 +8,7 @@ import { editBoard } from '../../utils/boardEdit';
 import { placePlayer, teamAppearance } from '../../utils/boardPlacement';
 import { capture, restore } from '../../utils/boardSnapshotIO';
 import { placementAvailable } from '../../utils/inputContract';
+import { isTap } from '../../utils/dragMath';
 
 /**
  * The surface a tap on grass lands on while Placement is armed.
@@ -18,10 +20,12 @@ import { placementAvailable } from '../../utils/inputContract';
  * players, and `Player` stops propagation on click, so a tap on a player never
  * reaches here.
  *
- * `onClick` rather than the cone plane's `onPointerDown`, deliberately. R3F only
- * fires click when the pointer moved 2px or less between down and up, which is
- * what makes this a tap. A camera pan that starts on grass must not stand a
- * player at its first touch.
+ * A tap, not a press: pointer down, then pointer up within `isTap`'s slop. A
+ * camera pan that starts on grass must not stand a player at its first touch,
+ * which rules out the cone plane's `onPointerDown`. R3F's `onClick` would do,
+ * except that the canvas calls `preventDefault` on `touchstart` to stop browser
+ * gestures, and iOS Safari then never fires the click. Pointer events survive
+ * that, so the plane keeps the down point itself and decides on the up.
  *
  * Reads the armed team from `penStore.armedPlacement`. Whether Placement may
  * act right now is `placementAvailable` in the input contract, the predicate
@@ -35,6 +39,7 @@ export function PlayerPlacementPlane() {
   const team2PresetId = usePlayerStore((state) => state.team2PresetId);
   // Resolved once in component scope, as every other clamp site does.
   const boundary = useActiveBoundary();
+  const downAtRef = useRef<[number, number] | null>(null);
 
   if (!armedPlacement) return null;
 
@@ -45,7 +50,13 @@ export function PlayerPlacementPlane() {
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
       position={[0, 0.05, 0]}
-      onClick={(e: ThreeEvent<MouseEvent>) => {
+      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+        downAtRef.current = [e.nativeEvent.clientX, e.nativeEvent.clientY];
+      }}
+      onPointerUp={(e: ThreeEvent<PointerEvent>) => {
+        const downAt = downAtRef.current;
+        downAtRef.current = null;
+        if (!downAt || !isTap(downAt, [e.nativeEvent.clientX, e.nativeEvent.clientY])) return;
         e.stopPropagation();
         // Read from the store at the instant of the tap, not by subscription.
         // Subscribing would unmount and remount the plane on every play and
