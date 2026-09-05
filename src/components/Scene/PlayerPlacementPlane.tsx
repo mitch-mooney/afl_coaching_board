@@ -1,10 +1,12 @@
 import type { ThreeEvent } from '@react-three/fiber';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
+import { useAnimationStore } from '../../store/animationStore';
 import { usePenStore } from '../../store/penStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { editBoard } from '../../utils/boardEdit';
 import { placePlayer, teamAppearance } from '../../utils/boardPlacement';
 import { capture, restore } from '../../utils/boardSnapshotIO';
+import { placementAvailable } from '../../utils/inputContract';
 
 /**
  * The surface a tap on grass lands on while Placement is armed.
@@ -21,9 +23,11 @@ import { capture, restore } from '../../utils/boardSnapshotIO';
  * what makes this a tap: a camera pan that starts on grass must not stand a
  * player at its first touch.
  *
- * Reads the armed team from `penStore.armedPlacement`. Placement's availability
- * during playback is not decided here yet; see the sibling predicate to
- * `tipAvailable` (#86).
+ * Reads the armed team from `penStore.armedPlacement`. Whether Placement may
+ * act right now is `placementAvailable` in the input contract, the predicate
+ * the Tool rail asks to fade the Placement buttons. The rail cannot be the
+ * enforcement, because a Placement armed before playback started stays armed
+ * by design, so the plane asks again at the tap.
  */
 export function PlayerPlacementPlane() {
   const armedPlacement = usePenStore((state) => state.armedPlacement);
@@ -43,6 +47,10 @@ export function PlayerPlacementPlane() {
       position={[0, 0.05, 0]}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         e.stopPropagation();
+        // Read from the store at the instant of the tap, not by subscription:
+        // subscribing would unmount and remount the plane on every play and
+        // pause. A refused tap never reaches editBoard, so nothing is recorded.
+        if (!placementAvailable({ isPlaying: useAnimationStore.getState().isPlaying })) return;
         // A refused nineteenth hands back the same snapshot, and editBoard
         // records nothing for a board that did not change.
         editBoard('Place player', () =>

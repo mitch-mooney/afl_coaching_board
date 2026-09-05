@@ -12,7 +12,7 @@ import { usePenStore } from '../../store/penStore';
 import { positionToZone } from '../../utils/fieldGeometry';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 import { snapPointerToField, dragRotation, facingRotation } from '../../utils/dragMath';
-import { authoringIntent } from '../../utils/inputContract';
+import { authoringIntent, placementAvailable } from '../../utils/inputContract';
 import { getTeamById } from '../../data/aflTeams';
 
 // Maximum character length for player name labels before truncation
@@ -174,8 +174,15 @@ export function PlayerComponent({ player }: PlayerProps) {
    * question is what Placement was doing when the hand landed. Either team
    * counts. Armed means "I am editing the roster", and the team only decides
    * what a tap on grass creates.
+   *
+   * Armed is not enough on its own. `placementAvailable` says whether Placement
+   * may act right now, and while an animation plays it may not, so the tap
+   * falls through to selection as if nothing were armed. Same predicate as the
+   * Tool rail and the placement plane, so the three cannot disagree.
    */
-  const placementArmed = () => usePenStore.getState().armedPlacement !== null;
+  const placementClaimsTap = () =>
+    usePenStore.getState().armedPlacement !== null &&
+    placementAvailable({ isPlaying: useAnimationStore.getState().isPlaying });
 
   /**
    * Take this player off the board, with everything that belonged to them.
@@ -199,7 +206,7 @@ export function PlayerComponent({ player }: PlayerProps) {
     // Click rather than pointerdown, for the same reason PlayerPlacementPlane
     // places on click. R3F only fires it when the pointer moved 2px or less, so
     // a camera pan that starts on a player does not take them off.
-    if (placementArmed()) {
+    if (placementClaimsTap()) {
       removePlayer();
       return;
     }
@@ -220,7 +227,7 @@ export function PlayerComponent({ player }: PlayerProps) {
     // While Placement is armed the tap is a removal, handled on click. Neither
     // select nor begin a drag here, or the player would be selected and moved
     // on the way to being taken off.
-    if (placementArmed()) return;
+    if (placementClaimsTap()) return;
 
     // Always allow selection (for POV camera targeting), but skip drag setup during animation
     selectPlayer(player.id);
