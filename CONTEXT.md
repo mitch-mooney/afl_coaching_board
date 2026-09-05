@@ -88,6 +88,36 @@ extend this file rather than inventing parallel names.
     so it renders the same moment the live scrubber would. Store-free — for export frames,
     thumbnails, and the shared viewer.
 
+- **boardPlacement** (`utils/boardPlacement.ts`) — the pure "who is on the board" edits,
+  no store access: each returns a new `BoardSnapshot` from the one given, and each surface
+  that uses one is nothing more than `editBoard(label, () => restore(fn(capture())))`.
+  Same pure-vs-IO split as boardSnapshot / boardSnapshotIO.
+  - `placePlayer(snap, teamId, point, appearance, boundary)` — the board with one more player
+    of that team standing where the coach tapped: the lowest free number for the team from 1
+    upward, the id a seeded player of that number would have, the jersey in `appearance`,
+    facing the ball or the ground centre when there is none, and the point snapped inside
+    the Boundary. Returns the same snapshot by reference when the team already holds 18, so
+    `editBoard` records nothing for a refused nineteenth. This is what **Placement** records
+    on a tap on grass.
+  - `withoutPlayer(snap, playerId)` — the board without one player: every MovementPath that
+    belongs to them goes with them, and the ball is released only if they held it. Same
+    snapshot by reference when no such player is on the board. This is what **Placement**
+    records on a tap on a player.
+  - `withoutPlayers(snap)` — the board with no players: every MovementPath that belongs to a
+    player goes with them and the ball is released. The ball itself, the ball's own path,
+    every annotation and every cone stay, because none of them belongs to a player. This is
+    what **Clear players** in the Setup pod records.
+  - `atFullStrength(board)` — true only when both teams hold exactly 18. The formation
+    presets position 18 a side by number, so the three formation actions are disabled
+    whenever this is false; **Reset players** is never disabled, because reseeding 36 is how
+    a short board gets back to full strength.
+
+  A board short of 36 is a legitimate board. Nothing downstream counts the players list —
+  `toPhase`, `toShareData`, `restore`, `boardChanged`, `boardAt`, the fit readout all read
+  it — so a 6v6 board saves, shares, undoes and plays back as drawn. The round trip through
+  both adapter pairs is pinned in the boardSnapshot suite. Startup is unchanged: 36 players
+  in Centre Bounce. See issue #81.
+
   > Scope note: a BoardSnapshot captures players/paths/annotations/camera **plus the ball
   > and cones**. `toPhase`/`toShareData` emit `ball`/`cones` only when present, so pre-ball/
   > pre-cones Plays and shared links keep a byte-identical stored shape. Scoreboard/match
@@ -190,7 +220,8 @@ extend this file rather than inventing parallel names.
   play that does not fit this ground, not an error to be repaired. It is **pure geometry
   with no exemption list**, which rests on an invariant: *the only ways board content can be
   out of bounds are a Venue change or a shared link* — the board seeds 18 per team and
-  places nothing outside the Boundary, and both clamps are unconditional. There is no
+  places nothing outside the Boundary, Placement clamps the tapped point inside it, and
+  every one of those clamps is unconditional. There is no
   interchange bench and so nothing here to name. The invariant holds for players, the ball
   and paths; drill cones are a known exception, since `addCone` is unclamped (issue #34). See
   ADR 0002 and issue #29.
@@ -238,19 +269,46 @@ extend this file rather than inventing parallel names.
 - **Pen tip** — the currently armed authoring instrument: at most one of the Annotation
   kinds, or Path, or none. Called a *tip* rather than a mode deliberately — it describes
   what a Stroke turns into, not a state the board is in. Nothing else about the board's
-  behaviour changes when the tip changes.
+  behaviour changes when the tip changes. **Placement** is not one; it decides what a tap
+  creates, never what a Stroke turns into, and `PenTip` is not widened for it.
 
 - **Path tip** — the Pen tip that turns a Stroke into a MovementPath. The Stroke must
   begin on the entity it belongs to; a Stroke starting on open grass produces nothing.
 
-- **Tool rail** — the always-visible surface presenting the Pen tips and the current
-  colour. Always-visible is the point: arming a tip is never a trip through a menu.
-  A Tool rail button *arms an instrument*; it never opens a panel.
+- **Tool rail** — the always-visible surface presenting the Pen tips, the two Placement
+  buttons and the current colour. It arms two kinds of instrument, a Pen tip above the
+  divider or a Placement below it, one at a time. Always-visible is the point: arming an
+  instrument is never a trip through a menu. A Tool rail button *arms an instrument*; it
+  never opens a panel.
+
+- **Placement** — the Tool rail's second kind of instrument. It is armed *for a team*:
+  while it is armed, a tap on grass places a player of that team where the tap landed, and
+  a tap on any player, either team, takes that player off the board, with their
+  MovementPaths, the ball if they held it, and any selection or POV slot they occupied.
+  Armed means "I am editing the roster"; the team only decides what a tap on grass creates.
+  A placed player is a real player in every respect — the lowest free number for the team,
+  the team's current jersey, facing the ball (or the ground centre when there is none),
+  clamped inside the Boundary, and refused once the team holds 18 — so nothing downstream
+  has a second kind of player to know about. Not a Pen tip, and deliberately outside the
+  Input contract's authoring rule, by the reasoning ADR 0001 gives for cone placement:
+  placing an object is a pointer job, and a pointer job accepts a finger, a Pencil and a
+  mouse alike. At most one instrument is armed, a tip or a Placement, never both; arming
+  either disarms the other, and arming the armed one disarms it. Cone setup is exclusive
+  with it too, in both directions, since the cone plane and the placement plane would
+  otherwise both take the same tap. Unavailable while an
+  animation plays, for the Path tip's reason: it writes the state playback reads, and a
+  removal mid-animation would take off whoever was under the tap. Available again when
+  playback is paused or stopped, and playback starting does not disarm it. **Clear
+  players**, in the Setup pod, is the bulk form of removal and arms nothing; arming is the
+  Tool rail's job. The armed team: `store/penStore.ts` (`armedPlacement`). The edits:
+  `utils/boardPlacement.ts`. The grass under the tap:
+  `components/Scene/PlayerPlacementPlane.tsx`; the tap on a player is handled in
+  `components/Scene/Player.tsx`, ahead of selection.
 
 - **Mode rail** — a distinct, older surface: the column of Setup / Animate / Camera
   buttons that opens a contextual panel. Present in the Rail HUD skin only. Named apart
   from the Tool rail deliberately, because the two are different kinds of thing — a Mode
-  rail button opens a panel, a Tool rail button arms a tip. "Rail" alone is ambiguous and
+  rail button opens a panel, a Tool rail button arms an instrument. "Rail" alone is ambiguous and
   should not be used as a domain noun.
 
 - **HUD skin** — which board chrome is rendered: **Pods** (thumb-reachable pods) or

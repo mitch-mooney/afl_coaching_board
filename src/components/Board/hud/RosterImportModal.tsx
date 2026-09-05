@@ -17,11 +17,15 @@ export function RosterImportModal({ open, onClose }: { open: boolean; onClose: (
 
   // Counted off the same players importRoster fills by index, rather than
   // assumed from the roster size — if the two ever disagree, the confirmation
-  // should be telling the truth about what the import will do.
+  // should be telling the truth about what the import will do. The per-team
+  // size is the count of the team being imported into; for a board-wide import
+  // that is the first team, since that is where the names run out and spill
+  // onto the second.
+  const teamSize = (teamId: 'team1' | 'team2') => players.filter((p) => p.teamId === teamId).length;
   const target: RosterTarget =
     selectedTeam === 'all'
-      ? { capacity: players.length, scope: 'board' }
-      : { capacity: players.filter((p) => p.teamId === selectedTeam).length, scope: 'team' };
+      ? { capacity: players.length, scope: 'board', perTeam: teamSize('team1') }
+      : { capacity: teamSize(selectedTeam), scope: 'team', perTeam: teamSize(selectedTeam) };
 
   const closeImportDialog = () => {
     setRosterText('');

@@ -59,6 +59,26 @@ export function tipAvailable(tip: PenTip, { isPlaying }: PlaybackContext): boole
   return tip !== 'path' || !isPlaying;
 }
 
+/**
+ * Whether Placement may act, given playback.
+ *
+ * The Path tip's rule, for the Path tip's reason. Placement writes the very
+ * state playback is reading, and a removal by tap mid-animation would take off
+ * whoever happened to be under the finger at that instant. So Placement goes
+ * unavailable while an animation plays; paused counts as not playing, as it
+ * does for tips.
+ *
+ * Playback starting does not disarm Placement, just as it leaves the armed tip
+ * alone. An armed Placement simply cannot place or remove until playback ends.
+ *
+ * One predicate, three consumers: the Tool rail's two Placement buttons, the
+ * placement plane and the Player's removal branch all ask this, so a button
+ * that looks disabled and a tap that is refused cannot drift apart.
+ */
+export function placementAvailable({ isPlaying }: PlaybackContext): boolean {
+  return !isPlaying;
+}
+
 export type AuthoringIntent = 'author' | 'manipulate';
 
 export function authoringIntent({
