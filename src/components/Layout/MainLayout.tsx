@@ -18,6 +18,7 @@ import { VideoWorkspace } from '../VideoImport/VideoWorkspace';
 import { VideoPiP } from '../VideoImport/VideoPiP';
 import { TrainingMode } from '../TrainingMode/TrainingMode';
 import { ConeManager } from '../Scene/ConeManager';
+import { PlayerPlacementPlane } from '../Scene/PlayerPlacementPlane';
 import { useVideoStore } from '../../store/videoStore';
 import { useModeStore } from '../../store/modeStore';
 import { useConeStore } from '../../store/coneStore';
@@ -261,6 +262,7 @@ export function MainLayout() {
             <Scoreboard />
             <AnnotationLayer />
             <ConeManager />
+            <PlayerPlacementPlane />
 
             {/* FIX: moved inside Canvas so R3F hooks work */}
             <AnnotationInteractionHandler />

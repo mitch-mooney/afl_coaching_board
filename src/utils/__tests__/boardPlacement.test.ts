@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { createMovementPath } from '../../models/PathModel';
 import { createBall } from '../../models/BallModel';
-import type { Player } from '../../models/PlayerModel';
+import { createTeamPlayers, type Player } from '../../models/PlayerModel';
 import type { Annotation } from '../../store/annotationStore';
 import type { BoardSnapshot } from '../boardSnapshot';
-import { withoutPlayers, atFullStrength } from '../boardPlacement';
+import { isPointInField, STANDARD_BOUNDARY } from '../fieldGeometry';
+import { withoutPlayers, atFullStrength, placePlayer, teamAppearance } from '../boardPlacement';
 
 function player(teamId: Player['teamId'], number: number): Player {
   return {
@@ -103,3 +104,145 @@ describe('atFullStrength', () => {
   });
 });
 
+
+describe('placePlayer: numbering', () => {
+  const empty: BoardSnapshot = { ...board, players: [] };
+  const blue = { color: '#0066cc', teamPresetId: undefined };
+  const at = (snap: BoardSnapshot, x: number, z: number) =>
+    placePlayer(snap, 'team1', [x, z], blue, STANDARD_BOUNDARY);
+
+  it('gives the first player on an empty board #1, and the next #2', () => {
+    const one = at(empty, 0, 0);
+    const two = at(one, 10, 0);
+
+    expect(one.players.map((p) => p.number)).toEqual([1]);
+    expect(two.players.map((p) => p.number)).toEqual([1, 2]);
+  });
+
+  it('fills the lowest free number, not the one after the highest', () => {
+    const three = at(at(at(empty, 0, 0), 10, 0), 20, 0);
+    const without2 = { ...three, players: three.players.filter((p) => p.number !== 2) };
+
+    const refilled = at(without2, 30, 0);
+
+    // Append order: the refilled #2 is the newest player, not the second.
+    expect(refilled.players.map((p) => p.number)).toEqual([1, 3, 2]);
+  });
+
+  it('counts each team on its own', () => {
+    const full = { ...empty, players: side('team1', 18) };
+
+    const placed = placePlayer(full, 'team2', [0, 0], blue, STANDARD_BOUNDARY);
+
+    expect(placed.players).toHaveLength(19);
+    expect(placed.players[18]).toMatchObject({ teamId: 'team2', number: 1 });
+  });
+
+  it('fills 1 to 18 and then hands the same snapshot back by reference', () => {
+    let snap = empty;
+    for (let i = 0; i < 18; i++) snap = at(snap, i, 0);
+
+    expect(snap.players.map((p) => p.number)).toEqual(
+      Array.from({ length: 18 }, (_, i) => i + 1),
+    );
+
+    const refused = at(snap, 50, 0);
+    expect(refused).toBe(snap);
+  });
+
+  it('derives the id from team and number in the seeded form', () => {
+    const placed = at({ ...empty, players: side('team1', 3) }, 0, 0);
+
+    expect(placed.players[3].id).toBe('team1-player-4');
+  });
+
+  it('follows the seeding skin tone rotation by number', () => {
+    let snap = empty;
+    for (let i = 0; i < 6; i++) snap = at(snap, i, 0);
+
+    expect(snap.players.map((p) => p.skinTone)).toEqual(
+      createTeamPlayers('team1', '#000000', 6).map((p) => p.skinTone),
+    );
+  });
+});
+
+describe('placePlayer: where and which way', () => {
+  const noPlayers: BoardSnapshot = { ...board, players: [] };
+  const red = { color: '#cc0000', teamPresetId: undefined };
+
+  it('stands the player on the tapped point, on the ground', () => {
+    const placed = placePlayer(noPlayers, 'team2', [12, -7], red, STANDARD_BOUNDARY);
+
+    expect(placed.players[0].position).toEqual([12, 0, -7]);
+  });
+
+  it('faces the ball when the board has one, under rotation 0 facing +z', () => {
+    const withBall = { ...noPlayers, ball: createBall([10, 0.5, 10]) };
+
+    const placed = placePlayer(withBall, 'team2', [0, 10], red, STANDARD_BOUNDARY);
+
+    // The ball is straight along +x from the player: the same angle
+    // dragMath.facingRotation gives for that step.
+    expect(placed.players[0].rotation).toBeCloseTo(Math.atan2(10, 0));
+  });
+
+  it('faces the ground centre when the board has no ball', () => {
+    const placed = placePlayer({ ...noPlayers, ball: null }, 'team2', [0, 10], red, STANDARD_BOUNDARY);
+
+    // The centre is straight along -z from the player.
+    expect(placed.players[0].rotation).toBeCloseTo(Math.atan2(0, -10));
+  });
+
+  it('lands a point outside the boundary inside it', () => {
+    const placed = placePlayer(noPlayers, 'team2', [200, 90], red, STANDARD_BOUNDARY);
+    const [x, , z] = placed.players[0].position;
+
+    expect(isPointInField(200, 90, STANDARD_BOUNDARY)).toBe(false);
+    expect(isPointInField(x, z, STANDARD_BOUNDARY)).toBe(true);
+  });
+
+  it('applies the appearance: colour and preset id', () => {
+    const placed = placePlayer(
+      noPlayers,
+      'team2',
+      [0, 0],
+      { color: '#FFD200', teamPresetId: 'richmond' },
+      STANDARD_BOUNDARY,
+    );
+
+    expect(placed.players[0]).toMatchObject({ color: '#FFD200', teamPresetId: 'richmond' });
+  });
+
+  it('gives no name and no position code', () => {
+    const placed = placePlayer(noPlayers, 'team2', [0, 0], red, STANDARD_BOUNDARY);
+
+    expect(placed.players[0].playerName).toBeUndefined();
+    expect(placed.players[0].positionName).toBeUndefined();
+  });
+
+  it('carries every other slice through by reference and leaves the input alone', () => {
+    const placed = placePlayer(board, 'team1', [0, 0], red, STANDARD_BOUNDARY);
+
+    expect(placed.paths).toBe(board.paths);
+    expect(placed.annotations).toBe(board.annotations);
+    expect(placed.cones).toBe(board.cones);
+    expect(placed.camera).toBe(board.camera);
+    expect(placed.ball).toBe(board.ball);
+    expect(board.players).toHaveLength(2);
+  });
+});
+
+describe('teamAppearance', () => {
+  it('reads the preset primary colour and id when a preset is chosen', () => {
+    expect(teamAppearance('team1', 'richmond')).toEqual({ color: '#FFD200', teamPresetId: 'richmond' });
+  });
+
+  it('falls back to the team default with no preset', () => {
+    expect(teamAppearance('team1', null)).toEqual({ color: '#0066cc', teamPresetId: undefined });
+    expect(teamAppearance('team2', null)).toEqual({ color: '#cc0000', teamPresetId: undefined });
+  });
+
+  it('treats an unknown preset id as no preset', () => {
+    expect(teamAppearance('team2', 'not-a-team')).toEqual({ color: '#cc0000', teamPresetId: undefined });
+  });
+});

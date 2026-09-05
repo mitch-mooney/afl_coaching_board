@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useAnimationStore } from '../../../store/animationStore';
 import { useAnnotationStore } from '../../../store/annotationStore';
 import { usePenStore } from '../../../store/penStore';
+import { usePlayerStore } from '../../../store/playerStore';
+import { teamAppearance } from '../../../utils/boardPlacement';
 import { tipAvailable } from '../../../utils/inputContract';
 import { ColourPopover } from './ColourPopover';
 import { glass, TEAL } from './podStyles';
@@ -32,8 +34,12 @@ import { TOOL_RAIL_TIPS } from './toolRailTips';
  * Mode rail's teal means "this panel is open", which is precisely what a Tool
  * rail button never does.
  *
- * The one exception is the current-colour button at the foot of the rail — see
- * the note on it below. It is not a tip, so playback never disables it.
+ * Below the divider sit the rail's non-tip controls. Two Placement buttons, one
+ * per team, arm the rail's second kind of instrument: while one is armed a tap
+ * on grass places a player of that team. Each is drawn in its team's current
+ * colour, so the rail reads what the next tap creates. Then the current-colour
+ * button at the foot of the rail — see the note on it below. It is not a tip,
+ * so playback never disables it.
  *
  * A tip that playback has made unavailable renders faded and refuses the tap.
  * The rail does not decide that itself: it asks `tipAvailable` in the input
@@ -61,7 +67,7 @@ const TIP_BUTTON: CSSProperties = {
   touchAction: 'manipulation',
 };
 
-/** Separates the seven tips from the colour button, which is not one of them. */
+/** Separates the seven tips from the controls below, which are not tips. */
 const DIVIDER: CSSProperties = {
   height: 1,
   flexShrink: 0,
@@ -69,11 +75,21 @@ const DIVIDER: CSSProperties = {
   background: '#ffffff22',
 };
 
+/** The two teams, in rail order: blue above red, the order the board seeds them. */
+const PLACEMENT_TEAMS = [
+  { teamId: 'team1', fallbackName: 'Team 1' },
+  { teamId: 'team2', fallbackName: 'Team 2' },
+] as const;
+
 export function ToolRail() {
   const armedTip = usePenStore((state) => state.armedTip);
   // `armTip` already disarms when the armed tip is re-armed, so one handler
   // covers both taps.
   const armTip = usePenStore((state) => state.armTip);
+  const armedPlacement = usePenStore((state) => state.armedPlacement);
+  const armPlacement = usePenStore((state) => state.armPlacement);
+  const team1PresetId = usePlayerStore((state) => state.team1PresetId);
+  const team2PresetId = usePlayerStore((state) => state.team2PresetId);
   const selectedColour = useAnnotationStore((state) => state.selectedColor);
   // Only ever read through `tipAvailable` — the rail knows that playback makes
   // *some* tip unavailable, never which one.
@@ -182,6 +198,37 @@ export function ToolRail() {
           })}
 
           <div aria-hidden style={DIVIDER} />
+
+          {/*
+            The Placement buttons. Each arms Placement for its team, or disarms
+            it when that team is already armed; `armPlacement` covers both taps,
+            the way `armTip` does. Filled with the team's current jersey colour
+            rather than amber, so the rail keeps reading which team the next tap
+            creates; armed is the tips' amber, worn as a ring around that fill.
+            They open nothing.
+          */}
+          {PLACEMENT_TEAMS.map(({ teamId, fallbackName }) => {
+            const presetId = teamId === 'team1' ? team1PresetId : team2PresetId;
+            const { color } = teamAppearance(teamId, presetId);
+            const armed = armedPlacement === teamId;
+            const label = `Place a ${fallbackName} player`;
+            return (
+              <button
+                key={teamId}
+                type="button"
+                onClick={() => armPlacement(teamId)}
+                aria-label={label}
+                aria-pressed={armed}
+                title={label}
+                style={{
+                  ...TIP_BUTTON,
+                  background: color,
+                  border: armed ? '3px solid #f59e0b' : '2px solid #ffffff44',
+                  boxShadow: armed ? '0 0 0 2px #f59e0b66' : 'none',
+                }}
+              />
+            );
+          })}
 
           {/*
             The current-colour button, rendered in the current colour so the
