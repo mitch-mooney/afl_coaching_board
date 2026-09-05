@@ -4,6 +4,7 @@ import { RotationPreviewBanner } from './RotationPreviewBanner';
 import { useConeStore } from '../../store/coneStore';
 import { useUIStore } from '../../store/uiStore';
 import { useTimerStore } from '../../store/timerStore';
+import { usePenStore } from '../../store/penStore';
 
 export const TrainingMode: React.FC = () => {
   const { cones, isConePlacementActive, setConePlacementActive } = useConeStore();
@@ -11,6 +12,8 @@ export const TrainingMode: React.FC = () => {
   const { isRunning, remainingSeconds, currentTimer, formatTime } = useTimerStore();
 
   const handleSetUpCones = () => {
+    // A tap on grass cannot both set a cone and place a player.
+    usePenStore.getState().disarmPlacement();
     setConePlacementActive(true);
     setEditorTab('board');
   };

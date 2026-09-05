@@ -32,6 +32,8 @@ interface PenState {
   armTip: (tip: PenTip) => void;
   /** Arms Placement for a team, or disarms it if that team is already armed. Clears any tip. */
   armPlacement: (teamId: Player['teamId']) => void;
+  /** Clears any Placement and leaves the tip alone. Cone setup calls this, since a tap cannot both place and set a cone. */
+  disarmPlacement: () => void;
   /** Clears both kinds. */
   disarm: () => void;
 }
@@ -52,6 +54,10 @@ export const usePenStore = create<PenState>((set) => ({
       armedPlacement: state.armedPlacement === teamId ? null : teamId,
       armedTip: null,
     }));
+  },
+
+  disarmPlacement: () => {
+    set({ armedPlacement: null });
   },
 
   disarm: () => {

@@ -31,6 +31,8 @@ interface CameraState {
   // POV mode actions
   setPovPlayer: (slot: 1 | 2, playerId: string) => void;
   clearPov: (slot: 1 | 2) => void;
+  /** Clears any POV slot that holds this player, so the camera never follows someone who is not there. */
+  releasePov: (playerId: string) => void;
   setActivePovSlot: (slot: 1 | 2 | null) => void;
   switchToBroadcast: () => void;
   setPOVSettings: (height: number, distance: number) => void;
@@ -120,6 +122,12 @@ export const useCameraStore = create<CameraState>((set, get) => ({
       ...(clearSlot1 ? { povPlayer1Id: null } : { povPlayer2Id: null }),
       ...(isActive ? { activePovSlot: null } : {}),
     });
+  },
+
+  releasePov: (playerId) => {
+    const { povPlayer1Id, povPlayer2Id, clearPov } = get();
+    if (povPlayer1Id === playerId) clearPov(1);
+    if (povPlayer2Id === playerId) clearPov(2);
   },
 
   setActivePovSlot: (slot) => set({ activePovSlot: slot }),

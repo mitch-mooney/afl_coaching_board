@@ -20,7 +20,7 @@ import { placementAvailable } from '../../utils/inputContract';
  *
  * `onClick` rather than the cone plane's `onPointerDown`, deliberately. R3F only
  * fires click when the pointer moved 2px or less between down and up, which is
- * what makes this a tap: a camera pan that starts on grass must not stand a
+ * what makes this a tap. A camera pan that starts on grass must not stand a
  * player at its first touch.
  *
  * Reads the armed team from `penStore.armedPlacement`. Whether Placement may
@@ -47,8 +47,8 @@ export function PlayerPlacementPlane() {
       position={[0, 0.05, 0]}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         e.stopPropagation();
-        // Read from the store at the instant of the tap, not by subscription:
-        // subscribing would unmount and remount the plane on every play and
+        // Read from the store at the instant of the tap, not by subscription.
+        // Subscribing would unmount and remount the plane on every play and
         // pause. A refused tap never reaches editBoard, so nothing is recorded.
         if (!placementAvailable({ isPlaying: useAnimationStore.getState().isPlaying })) return;
         // A refused nineteenth hands back the same snapshot, and editBoard

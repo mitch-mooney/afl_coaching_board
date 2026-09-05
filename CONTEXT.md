@@ -293,7 +293,9 @@ extend this file rather than inventing parallel names.
   Input contract's authoring rule, by the reasoning ADR 0001 gives for cone placement:
   placing an object is a pointer job, and a pointer job accepts a finger, a Pencil and a
   mouse alike. At most one instrument is armed, a tip or a Placement, never both; arming
-  either disarms the other, and arming the armed one disarms it. Unavailable while an
+  either disarms the other, and arming the armed one disarms it. Cone setup is exclusive
+  with it too, in both directions, since the cone plane and the placement plane would
+  otherwise both take the same tap. Unavailable while an
   animation plays, for the Path tip's reason: it writes the state playback reads, and a
   removal mid-animation would take off whoever was under the tap. Available again when
   playback is paused or stopped, and playback starting does not disarm it. **Clear

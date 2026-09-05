@@ -86,3 +86,17 @@ describe('one instrument at a time', () => {
     expect(usePenStore.getState().armedTip).toBeNull();
   });
 });
+
+describe('disarmPlacement', () => {
+  it('clears the Placement and leaves the tip alone', () => {
+    usePenStore.getState().armTip('arrow');
+    usePenStore.getState().disarmPlacement();
+    expect(usePenStore.getState().armedTip).toBe('arrow');
+    expect(usePenStore.getState().armedPlacement).toBeNull();
+
+    usePenStore.getState().armPlacement('team2');
+    usePenStore.getState().disarmPlacement();
+    expect(usePenStore.getState().armedPlacement).toBeNull();
+    expect(usePenStore.getState().armedTip).toBeNull();
+  });
+});

@@ -5,6 +5,7 @@ import { usePenStore } from '../../../store/penStore';
 import { usePlayerStore } from '../../../store/playerStore';
 import { teamAppearance } from '../../../utils/boardPlacement';
 import { placementAvailable, tipAvailable } from '../../../utils/inputContract';
+import { useConeStore } from '../../../store/coneStore';
 import { ColourPopover } from './ColourPopover';
 import { glass, TEAL } from './podStyles';
 import { TOOL_RAIL_TIPS } from './toolRailTips';
@@ -78,8 +79,8 @@ const DIVIDER: CSSProperties = {
 
 /** The two teams, in rail order: blue above red, the order the board seeds them. */
 const PLACEMENT_TEAMS = [
-  { teamId: 'team1', fallbackName: 'Team 1' },
-  { teamId: 'team2', fallbackName: 'Team 2' },
+  { teamId: 'team1', name: 'Team 1' },
+  { teamId: 'team2', name: 'Team 2' },
 ] as const;
 
 export function ToolRail() {
@@ -95,6 +96,8 @@ export function ToolRail() {
   // Only ever read through `tipAvailable` — the rail knows that playback makes
   // *some* tip unavailable, never which one.
   const isPlaying = useAnimationStore((state) => state.isPlaying);
+  const placementUsable = placementAvailable({ isPlaying });
+  const setConePlacementActive = useConeStore((state) => state.setConePlacementActive);
 
   // The only state the rail owns. Colour and thickness themselves live in
   // `annotationStore`, where the Stroke-authoring hook already reads them.
@@ -213,17 +216,22 @@ export function ToolRail() {
             tooltip that says why survives, and the handler does the refusing.
             The armed ring stays, because the Placement itself does.
           */}
-          {PLACEMENT_TEAMS.map(({ teamId, fallbackName }) => {
+          {PLACEMENT_TEAMS.map(({ teamId, name }) => {
             const presetId = teamId === 'team1' ? team1PresetId : team2PresetId;
             const { color } = teamAppearance(teamId, presetId);
             const armed = armedPlacement === teamId;
-            const available = placementAvailable({ isPlaying });
-            const label = `Place a ${fallbackName} player`;
+            const available = placementUsable;
+            const label = `Place a ${name} player`;
             return (
               <button
                 key={teamId}
                 type="button"
-                onClick={() => available && armPlacement(teamId)}
+                onClick={() => {
+                  if (!available) return;
+                  // The cone plane and this one would both take the same tap.
+                  setConePlacementActive(false);
+                  armPlacement(teamId);
+                }}
                 aria-label={label}
                 aria-pressed={armed}
                 aria-disabled={!available}

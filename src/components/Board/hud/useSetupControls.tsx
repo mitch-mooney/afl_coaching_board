@@ -4,6 +4,7 @@ import { useUIStore } from '../../../store/uiStore';
 import { usePathStore } from '../../../store/pathStore';
 import { useAnnotationStore } from '../../../store/annotationStore';
 import { useBallStore } from '../../../store/ballStore';
+import { useCameraStore } from '../../../store/cameraStore';
 import { getFormationById } from '../../../data/formations';
 import { TeamSelectModal } from './TeamSelectModal';
 import { RosterImportModal } from './RosterImportModal';
@@ -52,11 +53,14 @@ export function useSetupControls(): HudControls {
 
   // The third bulk clear. Unlike its neighbours it is not one store's action.
   // Players, their paths and the ball's owner go together, so the edit is the
-  // pure `withoutPlayers` written back through restore. Selection is not board
-  // content, so it is cleared beside the edit rather than inside it.
+  // pure `withoutPlayers` written back through restore. Selection and the POV
+  // slots are not board content, so they are cleared beside the edit rather
+  // than inside it, the same two clears a tap removal makes in `Player`.
   const recordAndClearPlayers = () => {
     editBoard('Clear players', () => restore(withoutPlayers(capture())));
     selectPlayer(null);
+    const { releasePov } = useCameraStore.getState();
+    for (const player of players) releasePov(player.id);
   };
 
   const applyPreset = (id: string) => {

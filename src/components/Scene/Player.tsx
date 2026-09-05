@@ -194,11 +194,13 @@ export function PlayerComponent({ player }: PlayerProps) {
     editBoard('Remove player', () => restore(withoutPlayer(capture(), player.id)));
 
     if (isSelected) selectPlayer(null);
-
-    const cameraState = useCameraStore.getState();
-    if (cameraState.povPlayer1Id === player.id) cameraState.clearPov(1);
-    if (cameraState.povPlayer2Id === player.id) cameraState.clearPov(2);
+    useCameraStore.getState().releasePov(player.id);
   };
+
+  // Decided once, when the pointer lands, and read back on click. Asking twice
+  // would let playback end between the two, so that pointer down began a Move
+  // edit and click folded a removal into it under the wrong label.
+  const tapIsRemovalRef = useRef(false);
 
   const handleClick = (e: any) => {
     e.stopPropagation();
@@ -206,7 +208,8 @@ export function PlayerComponent({ player }: PlayerProps) {
     // Click rather than pointerdown, for the same reason PlayerPlacementPlane
     // places on click. R3F only fires it when the pointer moved 2px or less, so
     // a camera pan that starts on a player does not take them off.
-    if (placementClaimsTap()) {
+    if (tapIsRemovalRef.current) {
+      tapIsRemovalRef.current = false;
       removePlayer();
       return;
     }
@@ -227,7 +230,8 @@ export function PlayerComponent({ player }: PlayerProps) {
     // While Placement is armed the tap is a removal, handled on click. Neither
     // select nor begin a drag here, or the player would be selected and moved
     // on the way to being taken off.
-    if (placementClaimsTap()) return;
+    tapIsRemovalRef.current = placementClaimsTap();
+    if (tapIsRemovalRef.current) return;
 
     // Always allow selection (for POV camera targeting), but skip drag setup during animation
     selectPlayer(player.id);

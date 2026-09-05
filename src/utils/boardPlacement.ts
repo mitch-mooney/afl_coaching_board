@@ -1,9 +1,10 @@
 import type { Ball } from '../models/BallModel';
 import type { MovementPath } from '../models/PathModel';
-import { DEFAULT_TEAM_COLORS, PLAYERS_PER_TEAM, skinToneFor, type Player } from '../models/PlayerModel';
+import { DEFAULT_TEAM_COLORS, PLAYERS_PER_TEAM, playerId, skinToneFor, type Player } from '../models/PlayerModel';
 import { getTeamById } from '../data/aflTeams';
 import type { BoardSnapshot } from './boardSnapshot';
 import { snapToField, type Boundary, type FieldPoint } from './fieldGeometry';
+import { facingRotation } from './dragMath';
 
 /**
  * boardPlacement — the pure "who is on the board" edits. Given a snapshot,
@@ -115,15 +116,6 @@ function lowestFreeNumber(players: Player[], teamId: Player['teamId']): number |
 }
 
 /**
- * The rotation that looks from one ground point toward another, under the
- * convention `dragMath.facingRotation` uses: rotation 0 faces +z, so the angle
- * is atan2(dx, dz). Standing on the target gives 0, which is as good as any.
- */
-function facing(from: FieldPoint, to: FieldPoint): number {
-  return Math.atan2(to[0] - from[0], to[1] - from[1]);
-}
-
-/**
  * The board with one more player of `teamId` standing where the coach tapped.
  *
  * The point is snapped to the boundary first, so Placement honours the Out of
@@ -149,13 +141,16 @@ export function placePlayer(
   if (number === null) return snap;
 
   const [x, z] = snapToField(point[0], point[1], boundary);
-  const lookAt: FieldPoint = snap.ball ? [snap.ball.position[0], snap.ball.position[2]] : [0, 0];
+  const lookAt: [number, number, number] = snap.ball ? snap.ball.position : [0, 0, 0];
+  // The drag's facing convention, with no minimum distance. Standing on the
+  // target gives null, and 0 is as good a facing as any there.
+  const rotation = facingRotation([x, 0, z], lookAt, 0) ?? 0;
 
   const player: Player = {
-    id: `${teamId}-player-${number}`,
+    id: playerId(teamId, number),
     teamId,
     position: [x, 0, z],
-    rotation: facing([x, z], lookAt),
+    rotation,
     color: appearance.color,
     number,
     skinTone: skinToneFor(number),

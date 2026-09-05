@@ -132,3 +132,23 @@ describe('setPresetView', () => {
     expect(useCameraStore.getState().activePovSlot).toBeNull();
   });
 });
+
+describe('releasePov', () => {
+  it('clears whichever slot holds the player and leaves the other alone', () => {
+    useCameraStore.getState().setPovPlayer(1, 'team1-player-3');
+    useCameraStore.getState().setPovPlayer(2, 'team2-player-5');
+
+    useCameraStore.getState().releasePov('team2-player-5');
+
+    expect(useCameraStore.getState().povPlayer1Id).toBe('team1-player-3');
+    expect(useCameraStore.getState().povPlayer2Id).toBeNull();
+  });
+
+  it('does nothing for a player no slot holds', () => {
+    useCameraStore.getState().setPovPlayer(1, 'team1-player-3');
+
+    useCameraStore.getState().releasePov('team1-player-9');
+
+    expect(useCameraStore.getState().povPlayer1Id).toBe('team1-player-3');
+  });
+});
