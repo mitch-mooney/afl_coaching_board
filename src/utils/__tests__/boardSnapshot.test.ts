@@ -134,6 +134,50 @@ describe('the bench never survives a read', () => {
   });
 });
 
+/**
+ * Nothing downstream counts the players list, so a board short of 36 reaches
+ * disk and a share link intact. `boardPlacement` is the first module that can
+ * put such a board there, and the whole placement feature (#81) rests on this
+ * claim, so it is pinned here beside the adapters that carry it.
+ */
+describe('a 6v6 board round-trips', () => {
+  const side = (teamId: Player['teamId'], count: number): Player[] =>
+    Array.from({ length: count }, (_, i) => ({
+      ...aPlayer,
+      id: `${teamId}-player-${i + 1}`,
+      teamId,
+      number: i + 1,
+    }));
+  const sixASide: BoardSnapshot = {
+    players: [...side('team1', 6), ...side('team2', 6)],
+    paths: [aPath],
+    annotations: [anAnnotation],
+    camera: { position: [1, 2, 3], target: [4, 5, 6], zoom: 2 },
+    ball: aBall,
+    cones: [aCone],
+  };
+  const perTeam = (snap: BoardSnapshot) => ({
+    team1: snap.players.filter((p) => p.teamId === 'team1').length,
+    team2: snap.players.filter((p) => p.teamId === 'team2').length,
+  });
+
+  it('through toPhase and fromPhase', () => {
+    const back = fromPhase(toPhase(sixASide, { id: 'phase-1', label: 'Phase 1' }));
+
+    expect(perTeam(back)).toEqual({ team1: 6, team2: 6 });
+    expect(back.players).toEqual(sixASide.players);
+  });
+
+  it('through toShareData and fromShareData', () => {
+    const back = fromShareData(
+      toShareData(sixASide, { name: 'Ball-up', quarter: null, label: null }, standardGround),
+    );
+
+    expect(perTeam(back)).toEqual({ team1: 6, team2: 6 });
+    expect(back.players).toEqual(sixASide.players);
+  });
+});
+
 describe('boardSnapshot.capture', () => {
   it('reads the board slices, including the ball and cones, from their stores', () => {
     usePlayerStore.setState({ players: [aPlayer] });

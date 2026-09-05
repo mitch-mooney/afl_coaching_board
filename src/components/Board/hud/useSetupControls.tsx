@@ -9,6 +9,8 @@ import { TeamSelectModal } from './TeamSelectModal';
 import { RosterImportModal } from './RosterImportModal';
 import { useBoardUndo } from '../../../hooks/useBoardUndo';
 import { editBoard } from '../../../utils/boardEdit';
+import { capture, restore } from '../../../utils/boardSnapshotIO';
+import { withoutPlayers, atFullStrength } from '../../../utils/boardPlacement';
 import type { HudAction, HudControls } from './hudActions';
 
 const FORMATIONS = [
@@ -24,6 +26,7 @@ export function useSetupControls(): HudControls {
   const labelMode = usePlayerStore((s) => s.labelMode);
   const cycleLabelMode = usePlayerStore((s) => s.cycleLabelMode);
   const selectedPlayerId = usePlayerStore((s) => s.selectedPlayerId);
+  const selectPlayer = usePlayerStore((s) => s.selectPlayer);
   const players = usePlayerStore((s) => s.players);
   const setActiveFormationId = useUIStore((s) => s.setActiveFormationId);
   const clearPaths = usePathStore((s) => s.clearPaths);
@@ -47,6 +50,15 @@ export function useSetupControls(): HudControls {
     editBoard('Clear paths', () => clearPaths());
   };
 
+  // The third bulk clear. Unlike its neighbours it is not one store's action.
+  // Players, their paths and the ball's owner go together, so the edit is the
+  // pure `withoutPlayers` written back through restore. Selection is not board
+  // content, so it is cleared beside the edit rather than inside it.
+  const recordAndClearPlayers = () => {
+    editBoard('Clear players', () => restore(withoutPlayers(capture())));
+    selectPlayer(null);
+  };
+
   const applyPreset = (id: string) => {
     const f = getFormationById(id);
     if (!f) return;
@@ -55,16 +67,24 @@ export function useSetupControls(): HudControls {
   };
 
   const selectedPlayer = selectedPlayerId ? players.find((p) => p.id === selectedPlayerId) : null;
+  // The presets position 18 a side by number. Reset players is not gated,
+  // because it is how a short board gets back to full strength.
+  const fullStrength = atFullStrength({ players });
   const assignedPlayer = ball?.assignedPlayerId ? players.find((p) => p.id === ball.assignedPlayerId) : null;
 
   const actions: HudAction[] = [
-    ...FORMATIONS.map((f) => ({ key: f.id, label: f.label, onClick: () => applyPreset(f.id) })),
+    ...FORMATIONS.map((f) => ({
+      key: f.id,
+      label: f.label,
+      onClick: () => applyPreset(f.id),
+      disabled: !fullStrength,
+    })),
     { key: 'teams', label: '🔵🔴 Teams / jerseys', onClick: () => setShowTeams(true) },
     { key: 'labels', label: `Labels: ${LABELS[labelMode]}`, onClick: cycleLabelMode },
     { key: 'reset', label: 'Reset players', onClick: () => editBoard('Reset players', () => resetPlayers()) },
     { key: 'undo', label: '↩ Undo', onClick: handleUndo, disabled: !canUndo() },
-    // The two bulk clears sit together: each wipes a category of board content,
-    // and neither is an instrument — arming a Pen tip is the Tool rail's job and
+    // The three bulk clears sit together: each wipes a category of board content,
+    // and none is an instrument — arming a Pen tip is the Tool rail's job and
     // only the Tool rail's, so no tip is armable from here.
     { key: 'clear', label: 'Clear paths', onClick: recordAndClearPaths, disabled: paths.length === 0 },
     {
@@ -72,6 +92,12 @@ export function useSetupControls(): HudControls {
       label: 'Clear annotations',
       onClick: recordAndClearAnnotations,
       disabled: annotations.length === 0,
+    },
+    {
+      key: 'clear-players',
+      label: 'Clear players',
+      onClick: recordAndClearPlayers,
+      disabled: players.length === 0,
     },
     {
       key: 'give',

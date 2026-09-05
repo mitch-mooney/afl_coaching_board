@@ -88,6 +88,25 @@ extend this file rather than inventing parallel names.
     so it renders the same moment the live scrubber would. Store-free — for export frames,
     thumbnails, and the shared viewer.
 
+- **boardPlacement** (`utils/boardPlacement.ts`) — the pure "who is on the board" edits,
+  no store access: each returns a new `BoardSnapshot` from the one given, and each surface
+  that uses one is nothing more than `editBoard(label, () => restore(fn(capture())))`.
+  Same pure-vs-IO split as boardSnapshot / boardSnapshotIO.
+  - `withoutPlayers(snap)` — the board with no players: every MovementPath that belongs to a
+    player goes with them and the ball is released. The ball itself, the ball's own path,
+    every annotation and every cone stay, because none of them belongs to a player. This is
+    what **Clear players** in the Setup pod records.
+  - `atFullStrength(board)` — true only when both teams hold exactly 18. The formation
+    presets position 18 a side by number, so the three formation actions are disabled
+    whenever this is false; **Reset players** is never disabled, because reseeding 36 is how
+    a short board gets back to full strength.
+
+  A board short of 36 is a legitimate board. Nothing downstream counts the players list —
+  `toPhase`, `toShareData`, `restore`, `boardChanged`, `boardAt`, the fit readout all read
+  it — so a 6v6 board saves, shares, undoes and plays back as drawn. The round trip through
+  both adapter pairs is pinned in the boardSnapshot suite. Startup is unchanged: 36 players
+  in Centre Bounce. See issue #81.
+
   > Scope note: a BoardSnapshot captures players/paths/annotations/camera **plus the ball
   > and cones**. `toPhase`/`toShareData` emit `ball`/`cones` only when present, so pre-ball/
   > pre-cones Plays and shared links keep a byte-identical stored shape. Scoreboard/match
