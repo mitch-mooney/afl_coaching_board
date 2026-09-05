@@ -12,8 +12,8 @@ import { describeRosterFit } from '../rosterImportFit';
  * holds 18.
  */
 describe('describeRosterFit', () => {
-  const oneTeam = { capacity: 18, scope: 'team' } as const;
-  const wholeBoard = { capacity: 36, scope: 'board' } as const;
+  const oneTeam = { capacity: 18, scope: 'team', perTeam: 18 } as const;
+  const wholeBoard = { capacity: 36, scope: 'board', perTeam: 18 } as const;
 
   it('reports both numbers when a team sheet overflows one team', () => {
     expect(describeRosterFit(22, oneTeam)).toBe(
@@ -53,5 +53,30 @@ describe('describeRosterFit', () => {
 
   it('keeps the singular readable for a one-name paste', () => {
     expect(describeRosterFit(1, oneTeam)).toBe('1 player ready to import.');
+  });
+
+  /**
+   * A board the coach placed by hand can hold fewer than 18 a side (#81). The
+   * sentence then says what this board holds, not what a seeded one would.
+   */
+  describe('on a board holding 6 a side', () => {
+    const oneShortTeam = { capacity: 6, scope: 'team', perTeam: 6 } as const;
+    const wholeShortBoard = { capacity: 12, scope: 'board', perTeam: 6 } as const;
+
+    it('says the board holds 6 when a full team sheet overflows one team', () => {
+      expect(describeRosterFit(18, oneShortTeam)).toBe(
+        '6 of 18 names imported — the board holds 6 per team.',
+      );
+    });
+
+    it('spills onto the second team after 6, not after 18', () => {
+      expect(describeRosterFit(10, wholeShortBoard)).toBe(
+        '10 names imported — 6 to the first team, 4 onto the second. The board holds 6 per team.',
+      );
+    });
+
+    it('says nothing about capacity when every name fits', () => {
+      expect(describeRosterFit(6, oneShortTeam)).toBe('6 players ready to import.');
+    });
   });
 });
