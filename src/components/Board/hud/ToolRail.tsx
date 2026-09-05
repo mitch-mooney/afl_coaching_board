@@ -4,7 +4,7 @@ import { useAnnotationStore } from '../../../store/annotationStore';
 import { usePenStore } from '../../../store/penStore';
 import { usePlayerStore } from '../../../store/playerStore';
 import { teamAppearance } from '../../../utils/boardPlacement';
-import { tipAvailable } from '../../../utils/inputContract';
+import { placementAvailable, tipAvailable } from '../../../utils/inputContract';
 import { ColourPopover } from './ColourPopover';
 import { glass, TEAL } from './podStyles';
 import { TOOL_RAIL_TIPS } from './toolRailTips';
@@ -45,7 +45,8 @@ import { TOOL_RAIL_TIPS } from './toolRailTips';
  * The rail does not decide that itself: it asks `tipAvailable` in the input
  * contract, which is the same predicate `useStrokeAuthoring` consults, so the
  * button's appearance and what a Stroke is actually allowed to do cannot drift
- * apart.
+ * apart. The Placement buttons get the same treatment from `placementAvailable`,
+ * the predicate the placement plane and `Player`'s removal branch consult.
  */
 
 const TIP_BUTTON: CSSProperties = {
@@ -206,25 +207,34 @@ export function ToolRail() {
             rather than amber, so the rail keeps reading which team the next tap
             creates; armed is the tips' amber, worn as a ring around that fill.
             They open nothing.
+
+            Playback makes both unavailable, in the tips' treatment: faded, a
+            not-allowed cursor, `aria-disabled` rather than `disabled` so the
+            tooltip that says why survives, and the handler does the refusing.
+            The armed ring stays, because the Placement itself does.
           */}
           {PLACEMENT_TEAMS.map(({ teamId, fallbackName }) => {
             const presetId = teamId === 'team1' ? team1PresetId : team2PresetId;
             const { color } = teamAppearance(teamId, presetId);
             const armed = armedPlacement === teamId;
+            const available = placementAvailable({ isPlaying });
             const label = `Place a ${fallbackName} player`;
             return (
               <button
                 key={teamId}
                 type="button"
-                onClick={() => armPlacement(teamId)}
+                onClick={() => available && armPlacement(teamId)}
                 aria-label={label}
                 aria-pressed={armed}
-                title={label}
+                aria-disabled={!available}
+                title={available ? label : `${label} — unavailable while an animation plays`}
                 style={{
                   ...TIP_BUTTON,
                   background: color,
                   border: armed ? '3px solid #f59e0b' : '2px solid #ffffff44',
                   boxShadow: armed ? '0 0 0 2px #f59e0b66' : 'none',
+                  opacity: available ? 1 : 0.35,
+                  cursor: available ? 'pointer' : 'not-allowed',
                 }}
               />
             );

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { authoringIntent, tipAvailable } from '../inputContract';
+import { authoringIntent, placementAvailable, tipAvailable } from '../inputContract';
 import { TOOL_RAIL_TIPS } from '../../components/Board/hud/toolRailTips';
 
 /**
@@ -62,5 +62,18 @@ describe('tip availability during playback', () => {
 
   it.each(ANNOTATION_TIPS)('leaves the %s tip available when playback is stopped', (tip) => {
     expect(tipAvailable(tip, { isPlaying: false })).toBe(true);
+  });
+});
+
+describe('Placement availability during playback', () => {
+  // Placement writes the state playback reads, and a removal by tap
+  // mid-animation would take off whoever happened to be under the finger at
+  // that instant. Same rule as the Path tip, for the same reason.
+  it('makes Placement unavailable while an animation plays', () => {
+    expect(placementAvailable({ isPlaying: true })).toBe(false);
+  });
+
+  it('makes Placement available again when playback is paused or stopped', () => {
+    expect(placementAvailable({ isPlaying: false })).toBe(true);
   });
 });
