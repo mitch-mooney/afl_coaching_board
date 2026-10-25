@@ -4,6 +4,10 @@
 
 accepted
 
+Amended 2026-10-25 by ADR 0006: the input device is no longer the *only* modal axis.
+**Present** is a second one, deciding whether a gesture's result is kept. The pen/finger
+rule below is unchanged and holds inside Present.
+
 ## Context
 
 The board had two independent modal axes and no arbiter between them: `boardSubMode`

@@ -22,6 +22,20 @@ extend this file rather than inventing parallel names.
   (`playerPositions`, `paths`, `annotations`, `cameraState`). A Play holds `phases: PlayPhase[]`;
   today exactly one phase is used.
 
+- **Meeting** — an ordered list of Plays a coach presents to a room, one after another
+  ("Thursday's meeting"). It points at Plays rather than copying them, so an edit made
+  after a Play was added is what the room sees. The same Play may appear more than once.
+  Deleting a Play removes it from every Meeting, and the coach is told which Meetings
+  first. Presenting a Meeting is Present, stepping from Play to Play. A Meeting may carry
+  a date; the **next Meeting** is the earliest dated one not yet past, and it leads Home.
+
+- **Home** — what the app opens to: the next Meeting first, ready to present, then the
+  recently edited Plays, then the Playbooks. Ordered by what the coach does next, not by
+  how Plays are filed.
+  _Avoid_: dashboard, landing page, library.
+  _Avoid_: session (TrainingSession is drills on the track), running order, setlist,
+  presentation.
+
 ## Board snapshot
 
 - **BoardSnapshot** — the canonical **in-memory** shape of a board's live content:
@@ -145,6 +159,12 @@ extend this file rather than inventing parallel names.
   Belongs to exactly one entity (a Player or the Ball), identified by `entityId` +
   `entityType`. This is the *only* term for this concept — "run", "route" and "line"
   are not synonyms for it and must not appear as domain nouns. Model: `models/PathModel.ts`.
+
+- **Carrier** — the player holding the ball; a ball with a carrier is a **held ball**,
+  one without is **loose**. A finger gives the ball by dropping it on a player and
+  releases it by dragging it off; a drop that lands on no player leaves it loose, with no
+  catch radius to guess at who was meant (decided 2026-10-25).
+  _Avoid_: assigned player, owner, holder.
 
 - **Annotation** — inert markup drawn on the board (line, arrow, circle, rectangle,
   text, measure). Distinct from a MovementPath: an Annotation never moves anything
@@ -279,7 +299,9 @@ extend this file rather than inventing parallel names.
   buttons and the current colour. It arms two kinds of instrument, a Pen tip above the
   divider or a Placement below it, one at a time. Always-visible is the point: arming an
   instrument is never a trip through a menu. A Tool rail button *arms an instrument*; it
-  never opens a panel.
+  never opens a panel. The one exception is **Undo**, set apart at the rail's foot
+  (decided 2026-10-25): an action, not an instrument, placed here because it changes the
+  board and the left edge is where the board is changed.
 
 - **Placement** — the Tool rail's second kind of instrument. It is armed *for a team*:
   while it is armed, a tap on grass places a player of that team where the tap landed, and
@@ -314,12 +336,92 @@ extend this file rather than inventing parallel names.
 - **HUD skin** — which board chrome is rendered: **Pods** (thumb-reachable pods) or
   **Rail** (the Mode rail plus a contextual panel). Resolved from device characteristics
   unless the coach forces one. The Tool rail is common to both skins — it is not part of
-  what a skin varies.
+  what a skin varies. **Decided for retirement (facelift grilling, 2026-10-25):** the
+  board gets one chrome for every device, designed around the iPad and Present, and the
+  Mode rail goes with the Rail skin. Until that ships, this entry describes the code.
+
+- **Board chrome** — the board's one set of controls, the same on every device (decided
+  2026-10-25, replacing the two HUD skins). Each edge has one job: the **Tool rail** on
+  the left changes the board, the **View column** on the right changes how you see it,
+  and the **Playback bar** along the bottom changes the moment.
+
+- **View column** — the right-edge column holding the Lens switches and the camera views.
+  Nothing in it edits the board, which is what separates it from the retired Mode rail.
+  _Avoid_: right rail, Mode rail, sidebar.
+
+- **Playback bar** — the full-width bottom bar: play, pause and the scrubber, plus the
+  way into the **Setup sheet** (formations, Reset players, Clear players). The one control
+  Present keeps whole.
+  _Avoid_: transport, timeline, Animate pod.
 
 - **Input contract** — **the pen authors, the finger manipulates.** A finger repositions
   players and the ball, moves the camera, and selects; it never authors anything. A pen
   with a tip armed authors; a pen with no tip armed behaves as a finger. This contract is
-  the board's only modal axis, and it lives in the user's hand rather than in app state.
+  one of the board's two modal axes, and it lives in the user's hand rather than in app
+  state. The other is **Present**, which is app state: the contract still decides *what* a
+  gesture makes, and Present decides whether it is kept. Inside Present the contract holds
+  unchanged; what it produces lands in the Present sketch instead of the Play.
+
+## Players on screen
+
+- **Player body** — how a player looks from a broadcast angle: a real athletic build and
+  real movement, a guernsey with a readable number, no face. The player is identified by
+  number, build and motion, the way a crowd identifies them.
+  _Avoid_: avatar, model, figure, character.
+
+- **Player token** — how a player looks from overhead: a flat disc wearing the team's
+  guernsey pattern, a large number on a plain centre so stripes never cut through it, and
+  a notch showing facing. Chosen by the camera, not by the coach: past a
+  steep enough tilt every body becomes its token, and turns back as the camera lowers.
+  A device that cannot keep the board smooth also falls back to tokens, after giving up
+  shadows and Arrival map resolution first: the board may give up looks, never
+  information, and a token carries every fact a body does.
+  _Avoid_: chip (Ground chip owns it), marker, counter, 2D mode.
+
+- **Clash guernsey** — the alternate a team wears when its guernsey is too close to the
+  other team's to tell apart, as on match day. Always the second team that changes, on
+  body and token alike. Covers two clubs that look alike, two custom teams coloured alike,
+  and a club playing itself in an intra-club drill.
+  _Avoid_: away kit, alternate colours, contrast mode.
+
+## Presenting
+
+- **Present** — the board as shown to a room of players: the Play fills the screen, the
+  authoring chrome steps back, and the coach drives playback and the camera. The moment the
+  board's look is designed for; authoring alone is the close second. A coach is
+  *presenting* while in it. Nothing done in Present changes the Play.
+  _Avoid_: presentation mode, slideshow, TV mode.
+
+- **Present sketch** — the disposable layer a coach draws and drags on while presenting:
+  telestrator ink over the paused moment, players moved to a "what if" spot, and Lenses
+  turned on or off. Not a Board
+  edit: it records nothing, saves nothing, and is discarded when playback resumes or the
+  coach leaves Present, so the Play comes back as it was.
+  _Avoid_: scratch edit, temporary edit, draft.
+
+## Space
+
+- **Lens** — a layer that shows space on the board rather than adding content to it: the
+  Arrival map is one. A Play saves which Lenses it opens with, because the space is part
+  of what the Play argues. Toggling a Lens while presenting is part of the Present sketch.
+  _Avoid_: overlay, layer, filter, visualisation.
+
+- **Arrival map** — the ground coloured by which team gets to each point first. Every
+  player runs at the same speed, and turning away from their facing costs time, so space
+  in front of a player is theirs more cheaply than space behind. Reads players only: the
+  ball does not weight it. Derived from the board as shown, so a Present sketch redraws it.
+  _Avoid_: Voronoi, heat map, space control map.
+
+- **Depth** — how many of each team stand behind the ball, toward the goal that team
+  defends. The football meaning, the one players hear on match day; the 3D sense of the
+  word is never called depth. The **Depth Lens** draws the ball's line across the ground
+  and the count either side of it. With no ball on the board there is no Depth, and the
+  Lens cannot be turned on; it never falls back to halfway, which would show a different
+  number that looks the same. A held ball is measured where its carrier stands.
+  _Avoid_: numbers back, behind-the-ball count (as names; fine in speech).
+
+- **Hang time** — the Lens showing a kick's flight: its arc, where it lands, and who can
+  get under it before it does. The board's use of height; not a kind of Depth.
 
 ## Architecture vocabulary
 
