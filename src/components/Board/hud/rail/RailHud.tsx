@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { glass, panelPill, TEAL } from '../podStyles';
+import { typeStyle, withAlpha, palette } from '../../../../theme/tokens';
+import { CHALK_DIM, glass, LIT, panelPill } from '../podStyles';
 import { useSetupControls } from '../useSetupControls';
 import { renderAction } from '../hudActions';
 import { useCameraControls } from '../useCameraControls';
@@ -31,9 +32,9 @@ export function RailHud() {
           return (
             <button key={m.key} onClick={() => toggle(m.key)} aria-pressed={active}
               style={{ width:56, height:56, borderRadius:12, border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2,
-                background: active ? `linear-gradient(135deg, ${TEAL}, #0099ff)` : 'transparent', color: active ? '#000' : '#ffffffcc' }}>
+                ...(active ? LIT : { background: 'transparent', color: CHALK_DIM }) }}>
               <span style={{ fontSize:20 }}>{m.icon}</span>
-              <span style={{ fontSize:9, fontWeight:700 }}>{m.label}</span>
+              <span style={{ ...typeStyle('label'), fontSize:10 }}>{m.label}</span>
             </button>
           );
         })}
@@ -42,7 +43,8 @@ export function RailHud() {
       {/* contextual overlay panel */}
       {mode && (
         <div style={{ position:'absolute', top:54, right:80, ...glass, borderRadius:14, padding:12, width:250, zIndex:30, display:'flex', flexDirection:'column', gap:10 }}>
-          <div style={{ fontSize:11, letterSpacing:'0.12em', opacity:0.55 }}>{mode.toUpperCase()}</div>
+          {/* Sentence case, in the display face: the panel's title, not a shouted label. */}
+          <div style={{ ...typeStyle('title'), color:withAlpha(palette.chalk, 0.8) }}>{MODES.find((m) => m.key === mode)?.label}</div>
           {mode === 'setup' && setup.actions.filter((a) => !a.hidden).map((a) => renderAction(a, panelPill))}
           {mode === 'animate' && <TransportBar />}
           {mode === 'camera' && camera.actions.filter((a) => !a.hidden).map((a) => renderAction(a, panelPill))}

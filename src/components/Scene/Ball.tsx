@@ -1,11 +1,11 @@
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Mesh } from 'three';
+import { Mesh, type Object3D, type Raycaster } from 'three';
 import { Ball } from '../../models/BallModel';
 import { useBallStore } from '../../store/ballStore';
 import { usePlayerStore } from '../../store/playerStore';
 import { usePathStore } from '../../store/pathStore';
-import { beginEdit, type EditHandle } from '../../utils/boardEdit';
+import { beginBallDrag, type BallDragHandle } from '../../utils/ballDrag';
 import { usePenStore } from '../../store/penStore';
 import { snapPointerToField } from '../../utils/dragMath';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
@@ -28,6 +28,31 @@ const AFL_BALL = {
   width: 0.18,     // Semi-axis for width/height (rounder middle)
 };
 
+/**
+ * Every player's group on the scene, found by the `playerId` each `Player`
+ * stamps on its group's userData.
+ */
+function playerGroups(scene: Object3D): Object3D[] {
+  const groups: Object3D[] = [];
+  scene.traverse((object) => {
+    if (typeof object.userData.playerId === 'string') groups.push(object);
+  });
+  return groups;
+}
+
+/**
+ * The id of the player whose mesh is nearest along the ray, or null when the
+ * ray hits no player. This is the whole of "on a player": no catch radius, only
+ * what the pointer is visibly over.
+ */
+function playerUnderRay(raycaster: Raycaster, groups: Object3D[]): string | null {
+  const [nearest] = raycaster.intersectObjects(groups, true);
+  for (let object: Object3D | null = nearest?.object ?? null; object; object = object.parent) {
+    if (typeof object.userData.playerId === 'string') return object.userData.playerId;
+  }
+  return null;
+}
+
 interface BallProps {
   ball: Ball;
 }
@@ -38,11 +63,14 @@ export function BallComponent({ ball }: BallProps) {
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   // The open Board edit for the drag in progress, begun on pointer-down and
-  // committed when the drag ends.
-  const dragEditRef = useRef<EditHandle | null>(null);
-  const { isBallSelected, selectBall, updateBallPosition } = useBallStore();
+  // closed by the drop when the drag ends.
+  const dragRef = useRef<BallDragHandle | null>(null);
+  // The player groups a drag can drop on, gathered once when it begins: no one
+  // joins or leaves the board mid-drag.
+  const dropGroupsRef = useRef<Object3D[]>([]);
+  const { isBallSelected, selectBall, updateBallPosition, setDropTarget } = useBallStore();
   const { getPlayer, setDragging } = usePlayerStore();
-  const { camera, raycaster, gl } = useThree();
+  const { camera, raycaster, gl, scene } = useThree();
   const boundary = useActiveBoundary();
 
   // Calculate ring sizes based on ball size
@@ -86,6 +114,9 @@ export function BallComponent({ ball }: BallProps) {
          const newPos: [number, number, number] = [x, AFL_BALL.length, z];
          updateBallPosition(newPos);
        }
+       // snapPointerToField has just set the raycaster from the pointer, so
+       // this asks of the same ray which player the ball would land on.
+       setDropTarget(playerUnderRay(raycaster, dropGroupsRef.current));
      }
    });
 
@@ -95,14 +126,18 @@ export function BallComponent({ ball }: BallProps) {
   };
 
   /**
-   * Finishes a reposition. Dragging the ball only moves it now — under the
-   * input contract a MovementPath comes from a Path-tip Stroke. This was the
-   * one entity that recorded a path on *every* drag.
+   * Finishes a drag by dropping the ball. Over a player it becomes theirs;
+   * anywhere else it is loose where it was let go. The drop closes the drag's
+   * own edit, so the move and the give are one undo step. A drag never records
+   * a MovementPath: under the input contract those come from a Path-tip Stroke.
    */
-  const finishReposition = useCallback(() => {
-    dragEditRef.current?.commit();
-    dragEditRef.current = null;
-  }, []);
+  const finishDrag = useCallback(() => {
+    const { ball: current, dropTargetPlayerId } = useBallStore.getState();
+    if (current) dragRef.current?.drop(current.position, dropTargetPlayerId);
+    dragRef.current = null;
+    dropGroupsRef.current = [];
+    setDropTarget(null);
+  }, [setDropTarget]);
 
   // End dragging helper - used by both pointerUp and window events
   const endDragging = useCallback(() => {
@@ -110,8 +145,8 @@ export function BallComponent({ ball }: BallProps) {
 
     setIsDragging(false);
     setDragging(false);
-    finishReposition();
-  }, [isDragging, setDragging, finishReposition]);
+    finishDrag();
+  }, [isDragging, setDragging, finishDrag]);
 
   // Use window-level event listener to reliably end drag even when pointer leaves canvas
   useEffect(() => {
@@ -148,11 +183,12 @@ export function BallComponent({ ball }: BallProps) {
     setDragging(true);  // Notify store to disable camera controls
 
     // Begin the Board edit the drag is about to make, so it can be undone.
-    // Closes a stray edit left open by a pointerdown that never reached its
+    // Closes a stray drag left open by a pointerdown that never reached its
     // matching pointerup, rather than losing the handle to it — boardEdit has
     // one open-edit slot, and losing that handle would strand it open.
-    dragEditRef.current?.commit();
-    dragEditRef.current = beginEdit('Move ball');
+    finishDrag();
+    dragRef.current = beginBallDrag();
+    dropGroupsRef.current = playerGroups(scene);
   };
 
   const handlePointerMove = (e: any) => {

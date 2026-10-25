@@ -7,6 +7,8 @@ import { useBallStore } from '../../store/ballStore';
 import { useConeStore } from '../../store/coneStore';
 import { useHistoryStore } from '../../store/historyStore';
 import { editBoard, beginEdit } from '../boardEdit';
+import { beginBallDrag } from '../ballDrag';
+import { createBall } from '../../models/BallModel';
 import type { Player } from '../../models/PlayerModel';
 
 const aPlayer: Player = {
@@ -145,5 +147,35 @@ describe('nested edits fold into the outermost', () => {
     expect(useHistoryStore.getState().past).toHaveLength(1);
     expect(useHistoryStore.getState().past[0].label).toBe('Outer');
     expect(useHistoryStore.getState().past[0].after.players[0].position).toEqual([2, 0, 2]);
+  });
+});
+
+describe('beginBallDrag — the ball drag edit wraps the move and the drop', () => {
+  it('records a move plus a drop on a player as one entry', () => {
+    useBallStore.setState({ ball: createBall([0, 0.5, 0]) });
+
+    const drag = beginBallDrag();
+    useBallStore.getState().updateBallPosition([2, 0.28, 2]);
+    useBallStore.getState().updateBallPosition([4, 0.28, 3]);
+    drag.drop([4, 0.28, 3], 'team1-player-1');
+
+    expect(useHistoryStore.getState().past).toHaveLength(1);
+    const [entry] = useHistoryStore.getState().past;
+    expect(entry.before.ball!.position).toEqual([0, 0.5, 0]);
+    expect(entry.before.ball!.assignedPlayerId).toBeUndefined();
+    expect(entry.after.ball!.position).toEqual([4, 0.28, 3]);
+    expect(entry.after.ball!.assignedPlayerId).toBe('team1-player-1');
+  });
+
+  it('records nothing when a held ball is dragged off and dropped back on its carrier', () => {
+    useBallStore.setState({ ball: createBall([0, 0.78, 0], { assignedPlayerId: 'team1-player-1' }) });
+
+    const drag = beginBallDrag();
+    useBallStore.getState().updateBallPosition([6, 0.28, 6]);
+    useBallStore.getState().updateBallPosition([0.2, 0.28, 0.1]);
+    drag.drop([0.2, 0.28, 0.1], 'team1-player-1');
+
+    expect(useHistoryStore.getState().past).toHaveLength(0);
+    expect(useBallStore.getState().ball!.position).toEqual([0, 0.78, 0]);
   });
 });

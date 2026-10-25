@@ -1,7 +1,8 @@
 import type { CSSProperties } from 'react';
 import { useAnnotationStore } from '../../../store/annotationStore';
 import { usePenStore } from '../../../store/penStore';
-import { glass, TEAL } from './podStyles';
+import { palette, shadows, withAlpha } from '../../../theme/tokens';
+import { glass } from './podStyles';
 import { TOOL_RAIL_COLOURS } from './toolRailColours';
 import { tipLabel, tipUsesThickness } from './toolRailTips';
 
@@ -36,8 +37,7 @@ const SWATCH: CSSProperties = {
 const SECTION_LABEL: CSSProperties = {
   fontSize: 11,
   fontWeight: 700,
-  color: '#ffffffaa',
-  letterSpacing: '0.04em',
+  color: withAlpha(palette.chalk, 0.67),
 };
 
 export function ColourPopover() {
@@ -59,7 +59,7 @@ export function ColourPopover() {
         display: 'flex',
         flexDirection: 'column',
         gap: 10,
-        boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
+        boxShadow: shadows.raised,
         // The rail's positioned box is pointer-events: none so an invisible
         // full-height strip cannot swallow camera drags. Opt back in here.
         pointerEvents: 'auto',
@@ -79,7 +79,9 @@ export function ColourPopover() {
               style={{
                 ...SWATCH,
                 background: colour,
-                border: selected ? `2px solid ${TEAL}` : '1px solid #ffffff44',
+                border: selected
+                  ? `2px solid ${palette.floodlight}`
+                  : `1px solid ${withAlpha(palette.chalk, 0.27)}`,
               }}
             />
           );
@@ -97,9 +99,9 @@ export function ColourPopover() {
               value={thickness}
               onChange={(event) => setThickness(Number(event.target.value))}
               aria-label="Line thickness"
-              style={{ flex: 1, accentColor: TEAL }}
+              style={{ flex: 1, accentColor: palette.floodlight }}
             />
-            <span style={{ fontSize: 11, color: '#fff', width: 26, textAlign: 'right' }}>
+            <span style={{ fontSize: 11, color: palette.chalk, width: 26, textAlign: 'right' }}>
               {thickness}px
             </span>
           </div>
@@ -107,7 +109,7 @@ export function ColourPopover() {
       ) : (
         // Hidden rather than disabled, matching what the palette does today. The
         // line is here so the missing control reads as deliberate.
-        <span style={{ fontSize: 11, color: '#ffffff77' }}>
+        <span style={{ fontSize: 11, color: withAlpha(palette.chalk, 0.47) }}>
           Thickness does not apply to the {tipLabel(armedTip)} tip.
         </span>
       )}

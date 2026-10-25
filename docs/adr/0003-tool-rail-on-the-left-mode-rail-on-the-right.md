@@ -2,7 +2,9 @@
 
 ## Status
 
-accepted
+accepted; Mode rail half superseded by ADR 0007 (2026-10-25). The Tool rail stays on the
+left. The Mode rail and the Rail HUD skin are retired, and the right edge becomes the View
+column, which passes this ADR's asymmetry-of-consequence test.
 
 Amended 2026-08-05 by a design grilling (issue #40, on wayfinding map #24): **where a HUD
 surface starts under the linked-video bar turns on whether that surface is anchored to a

@@ -14,7 +14,8 @@ import {
   OUT_OF_BOUNDS_AMBER,
   type FitReadoutState,
 } from './fitReadout';
-import { glass, TEAL } from './podStyles';
+import { palette, shadows, withAlpha } from '../../../theme/tokens';
+import { glass } from './podStyles';
 
 /**
  * The ground popover: a column of every Venue, dropping out of the **Ground
@@ -113,7 +114,7 @@ export function GroundPopover() {
         display: 'flex',
         flexDirection: 'column',
         gap: 4,
-        boxShadow: '0 8px 28px rgba(0,0,0,0.55)',
+        boxShadow: shadows.popover,
         // Inherited today — the chip's anchor sits inside the top bar's
         // pointer-events-auto control group, while the bar's outer container is
         // pointer-events: none so it cannot swallow camera drags across the top
@@ -181,10 +182,10 @@ function AddGroundFooter({ onTap }: { onTap: () => void }) {
         border: 'none',
         // A hairline above it, so the route off this surface reads as separate
         // from the list of grounds on it.
-        borderTop: '1px solid rgba(255,255,255,0.1)',
+        borderTop: `1px solid ${palette.steel}`,
         borderRadius: 8,
         background: 'transparent',
-        color: 'rgba(255,255,255,0.6)',
+        color: withAlpha(palette.chalk, 0.6),
         fontSize: 13,
         fontWeight: 500,
         cursor: 'pointer',
@@ -227,7 +228,7 @@ const AMBER_INK = '#fcd9a0';
  *
  * The memory goes last, so the reading order is *what is wrong now → how to fix
  * it → and you have already done this once*. It carries no Undo control of its
- * own: undo is board-wide, with a shortcut and a home in the Setup pod, and a
+ * own: undo is board-wide, with a shortcut and a home on the Tool rail, and a
  * second button mid-compare would sit in the way of the rows above it.
  */
 function FitBlock({ state, onPullInside }: { state: FitReadoutState; onPullInside: () => void }) {
@@ -243,8 +244,8 @@ function FitBlock({ state, onPullInside }: { state: FitReadoutState; onPullInsid
         // colour that means it doesn't.
         border: state.outOfBounds
           ? `1px solid ${OUT_OF_BOUNDS_AMBER}66`
-          : '1px solid rgba(255,255,255,0.1)',
-        background: state.outOfBounds ? `${OUT_OF_BOUNDS_AMBER}1a` : 'rgba(255,255,255,0.04)',
+          : `1px solid ${palette.steel}`,
+        background: state.outOfBounds ? `${OUT_OF_BOUNDS_AMBER}1a` : withAlpha(palette.chalk, 0.04),
         display: 'flex',
         flexDirection: 'column',
         gap: 6,
@@ -255,7 +256,7 @@ function FitBlock({ state, onPullInside }: { state: FitReadoutState; onPullInsid
           <p style={{ margin: 0, fontSize: 12, lineHeight: 1.35, color: AMBER_INK }}>
             {state.sentence}
           </p>
-          <p style={{ margin: 0, fontSize: 11, lineHeight: 1.35, color: 'rgba(255,255,255,0.5)' }}>
+          <p style={{ margin: 0, fontSize: 11, lineHeight: 1.35, color: withAlpha(palette.chalk, 0.5) }}>
             {state.reassurance}
           </p>
           <button
@@ -283,7 +284,7 @@ function FitBlock({ state, onPullInside }: { state: FitReadoutState; onPullInsid
           a finding the coach can already see; this one is the finding. Still
           below the sentence's ink, because it reports a board that fits. */}
       {state.pullMemory && (
-        <p style={{ margin: 0, fontSize: 11, lineHeight: 1.35, color: 'rgba(255,255,255,0.55)' }}>
+        <p style={{ margin: 0, fontSize: 11, lineHeight: 1.35, color: withAlpha(palette.chalk, 0.55) }}>
           {state.pullMemory}
         </p>
       )}
@@ -321,10 +322,10 @@ function GroundRow({ venue, active, onTap }: { venue: Venue; active: boolean; on
         minHeight: 44,
         padding: '4px 10px',
         borderRadius: 8,
-        // Teal is the HUD's "this is the one you are on", the same as the chip's
-        // open border and the Mode rail's.
-        border: active ? `1px solid ${TEAL}` : '1px solid transparent',
-        background: active ? 'rgba(0,212,170,0.12)' : 'rgba(255,255,255,0.04)',
+        // Floodlight is the HUD's state colour: "this is the one you are on",
+        // the same as the chip's open border and the Mode rail's.
+        border: active ? `1px solid ${palette.floodlight}` : '1px solid transparent',
+        background: active ? withAlpha(palette.floodlight, 0.12) : withAlpha(palette.chalk, 0.04),
         cursor: 'pointer',
         textAlign: 'left',
         touchAction: 'manipulation',
@@ -339,13 +340,13 @@ function GroundRow({ venue, active, onTap }: { venue: Venue; active: boolean; on
           width: '100%',
         }}
       >
-        <span style={{ fontSize: 13, fontWeight: 600, color: active ? TEAL : '#fff' }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: active ? palette.floodlight : palette.chalk }}>
           {venue.name}
         </span>
         {/* Metres spelled out, as the Grounds panel spells them
             (`VenueModal.tsx:172`): the coach reads the same pair on both surfaces
             and should not have to work out that they are the same number. */}
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 11, color: withAlpha(palette.chalk, 0.45), whiteSpace: 'nowrap' }}>
           {venue.boundaryLength} × {venue.boundaryWidth} m
         </span>
       </span>
@@ -354,7 +355,7 @@ function GroundRow({ venue, active, onTap }: { venue: Venue; active: boolean; on
           surface meets one sentence. The `·` is this column's, not theirs — the
           panel's runs on from the measurements, this one has its own line. */}
       {venue.isDefault && (
-        <span style={{ fontSize: 11, lineHeight: 1.2, color: 'rgba(255,255,255,0.4)' }}>
+        <span style={{ fontSize: 11, lineHeight: 1.2, color: withAlpha(palette.chalk, 0.4) }}>
           · {STANDARD_GROUND_IS_GENERIC}
         </span>
       )}

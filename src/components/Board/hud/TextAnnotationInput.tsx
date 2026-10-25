@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAnnotationStore } from '../../../store/annotationStore';
 import { editBoard } from '../../../utils/boardEdit';
+import { palette, shadows, withAlpha } from '../../../theme/tokens';
 import { fanPill, glass } from './podStyles';
 
 /**
@@ -111,7 +112,7 @@ export function TextAnnotationInput() {
         // Above the Tool rail and the HUD pods, because it is the live end of a
         // gesture the coach is in the middle of.
         zIndex: 60,
-        boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
+        boxShadow: shadows.raised,
       }}
     >
       <input
@@ -130,9 +131,9 @@ export function TextAnnotationInput() {
           minWidth: 0,
           padding: '6px 8px',
           borderRadius: 8,
-          border: '1px solid #ffffff33',
-          background: '#ffffff11',
-          color: '#fff',
+          border: `1px solid ${palette.steel}`,
+          background: withAlpha(palette.chalk, 0.07),
+          color: palette.chalk,
           fontSize: 12,
         }}
       />

@@ -14,8 +14,8 @@ interface HamburgerIconProps {
  * Shows a pulsing ring when the user hasn't opened the menu yet (onboarding).
  *
  * Styled as a control *of* the editor top bar rather than a pill floating over
- * the field: the same dark fill, white hairline border and rounded-lg corners as
- * the tab switcher beside it. It was a white shadowed pill back when it floated
+ * the field: the same Concrete fill, Steel border and rounded-lg corners as the
+ * tab switcher beside it. It was a white shadowed pill back when it floated
  * over the green field; against the dark bar that read as a foreign object.
  */
 export function HamburgerIcon({ isOpen, onClick, className = '' }: HamburgerIconProps) {
@@ -67,7 +67,7 @@ export function HamburgerIcon({ isOpen, onClick, className = '' }: HamburgerIcon
       {/* Onboarding pulse ring — shown until user opens menu for the first time */}
       {showMenuPulse && (
         <motion.div
-          className="absolute inset-0 rounded-lg border-2 border-blue-400 pointer-events-none"
+          className="absolute inset-0 rounded-lg border-2 border-floodlight pointer-events-none"
           animate={{ scale: [1, 1.6, 1], opacity: [0.7, 0, 0.7] }}
           transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
         />
@@ -78,14 +78,13 @@ export function HamburgerIcon({ isOpen, onClick, className = '' }: HamburgerIcon
         className={`
           flex items-center justify-center
           min-w-[44px] min-h-[44px] w-11 h-11
-          bg-black/40 border border-white/20
+          bg-concrete/80 border border-steel
           rounded-lg
-          text-white/70
-          hover:bg-black/60 hover:text-white
-          active:bg-black/70
+          text-chalk/70
+          hover:bg-steel hover:text-chalk
+          active:bg-steel
           transition-colors
           touch-manipulation
-          focus:outline-none focus:ring-2 focus:ring-white/40
           ${className}
         `}
         aria-label={isOpen ? 'Close menu' : 'Open menu'}
