@@ -3,6 +3,17 @@ import { usePlayStore } from '../../store/playStore';
 import { useVideoStore } from '../../store/videoStore';
 import { sharePlay } from '../../services/sharingService';
 import { useOverlayOpen } from '../../hooks/useOverlayOpen';
+import {
+  dialogBody,
+  dialogButton,
+  dialogError,
+  dialogField,
+  dialogLayer,
+  dialogPanel,
+  dialogPrimaryButton,
+  dialogScrim,
+  dialogTitle,
+} from './dialogStyles';
 
 type ShareState = 'idle' | 'working' | 'done' | 'error' | 'tooLarge';
 
@@ -95,43 +106,40 @@ export function SharePlayModal({ open, onClose }: { open: boolean; onClose: () =
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={handleClose}
-      />
-      <div className="relative z-10 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 w-[90vw] max-w-sm">
-        <h3 className="text-lg font-bold mb-3">Share Play</h3>
+    <div className={dialogLayer}>
+      <div className={dialogScrim} onClick={handleClose} />
+      <div className={`${dialogPanel} max-w-sm p-lg`}>
+        <h3 className={`${dialogTitle} mb-md`}>Share Play</h3>
 
         {blockedReason ? (
-          <div className="space-y-3">
-            <p className="text-sm text-gray-600">{blockedReason}</p>
+          <div className="space-y-md">
+            <p className={dialogBody}>{blockedReason}</p>
             <div className="flex justify-end">
               <button
                 onClick={handleClose}
-                className="px-4 py-2 min-h-[44px] bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition touch-manipulation"
+                className={dialogButton}
               >
                 Close
               </button>
             </div>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-md">
             {state === 'idle' && (
               <>
-                <p className="text-sm text-gray-600">
+                <p className={dialogBody}>
                   {hasClip ? 'Board + video clip' : 'Board diagram'}
                 </p>
-                <div className="flex gap-2 justify-end">
+                <div className="flex gap-sm justify-end">
                   <button
                     onClick={handleClose}
-                    className="px-4 py-2 min-h-[44px] bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition touch-manipulation"
+                    className={dialogButton}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleCreate}
-                    className="px-4 py-2 min-h-[44px] bg-orange-500 text-white rounded hover:bg-orange-600 transition touch-manipulation"
+                    className={dialogPrimaryButton}
                   >
                     Create share link
                   </button>
@@ -141,10 +149,10 @@ export function SharePlayModal({ open, onClose }: { open: boolean; onClose: () =
 
             {state === 'working' && (
               <>
-                <p className="text-sm text-gray-600">{progress.phase || 'Working…'}</p>
-                <div className="w-full h-2 bg-gray-200 rounded overflow-hidden">
+                <p className={dialogBody}>{progress.phase || 'Working…'}</p>
+                <div className="w-full h-2 bg-steel rounded-pill overflow-hidden">
                   <div
-                    className="h-full bg-orange-500 transition-all"
+                    className="h-full bg-chalk motion-safe:transition-all"
                     style={{ width: `${Math.round(progress.p * 100)}%` }}
                   />
                 </div>
@@ -153,25 +161,25 @@ export function SharePlayModal({ open, onClose }: { open: boolean; onClose: () =
 
             {state === 'done' && shareUrl && (
               <>
-                <div className="flex gap-2">
+                <div className="flex gap-sm">
                   <input
                     type="text"
                     readOnly
                     value={shareUrl}
-                    className="w-full px-3 py-2 min-h-[44px] border rounded touch-manipulation text-sm"
+                    className={dialogField}
                     onFocus={(e) => e.currentTarget.select()}
                   />
                 </div>
-                <div className="flex gap-2 justify-end">
+                <div className="flex gap-sm justify-end">
                   <button
                     onClick={handleClose}
-                    className="px-4 py-2 min-h-[44px] bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition touch-manipulation"
+                    className={dialogButton}
                   >
                     Close
                   </button>
                   <button
                     onClick={handleCopy}
-                    className="px-4 py-2 min-h-[44px] bg-orange-500 text-white rounded hover:bg-orange-600 transition touch-manipulation"
+                    className={dialogPrimaryButton}
                   >
                     {copied ? 'Copied' : 'Copy'}
                   </button>
@@ -181,17 +189,17 @@ export function SharePlayModal({ open, onClose }: { open: boolean; onClose: () =
 
             {state === 'tooLarge' && (
               <>
-                <p className="text-sm text-red-600">Clip too large — try a shorter moment</p>
-                <div className="flex gap-2 justify-end">
+                <p className={dialogError}>Clip too large — try a shorter moment</p>
+                <div className="flex gap-sm justify-end">
                   <button
                     onClick={handleClose}
-                    className="px-4 py-2 min-h-[44px] bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition touch-manipulation"
+                    className={dialogButton}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleBoardOnly}
-                    className="px-4 py-2 min-h-[44px] bg-orange-500 text-white rounded hover:bg-orange-600 transition touch-manipulation"
+                    className={dialogPrimaryButton}
                   >
                     Share board only
                   </button>
@@ -201,18 +209,18 @@ export function SharePlayModal({ open, onClose }: { open: boolean; onClose: () =
 
             {state === 'error' && (
               <>
-                <p className="text-sm text-red-600">{errorMsg}</p>
-                <div className="flex gap-2 justify-end">
+                <p className={dialogError}>{errorMsg}</p>
+                <div className="flex gap-sm justify-end">
                   <button
                     onClick={handleClose}
-                    className="px-4 py-2 min-h-[44px] bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition touch-manipulation"
+                    className={dialogButton}
                   >
                     Close
                   </button>
                   {retryable && (
                     <button
                       onClick={handleCreate}
-                      className="px-4 py-2 min-h-[44px] bg-orange-500 text-white rounded hover:bg-orange-600 transition touch-manipulation"
+                      className={dialogPrimaryButton}
                     >
                       Try again
                     </button>

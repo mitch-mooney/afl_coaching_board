@@ -7,6 +7,23 @@ import {
 } from '../../models/VenueModel';
 import type { Venue } from '../../models/VenueModel';
 import { useOverlayOpen } from '../../hooks/useOverlayOpen';
+import {
+  dialogBody,
+  dialogButton,
+  dialogChipButton,
+  dialogError,
+  dialogField,
+  dialogFooterButton,
+  dialogHeader,
+  dialogHint,
+  dialogLabel,
+  dialogLayer,
+  dialogLit,
+  dialogPanelScroll,
+  dialogPrimaryButton,
+  dialogScrim,
+  dialogTitle,
+} from './dialogStyles';
 
 interface DraftForm {
   id: number | null; // null = creating
@@ -116,34 +133,34 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 bg-white rounded-lg shadow-xl border border-gray-200 w-[420px] max-h-[80vh] overflow-y-auto">
-        <div className="p-3 border-b border-gray-100">
-          <span className="text-sm font-medium text-gray-700">Grounds</span>
-          <p className="text-xs text-gray-500 mt-0.5">
+    <div className={dialogLayer}>
+      <div className={dialogScrim} onClick={onClose} />
+      <div className={`${dialogPanelScroll} max-w-md`}>
+        <div className={dialogHeader}>
+          <span className={dialogTitle}>Grounds</span>
+          <p className={`${dialogHint} mt-xxs`}>
             The ground every play is drawn on. Measure yours — no two community grounds are the same.
           </p>
         </div>
 
-        <div className="p-3 space-y-2">
+        <div className="p-md space-y-sm">
           {venues.map((venue) => {
             const isActive = venue.id === activeVenueId;
             return (
               <div
                 key={venue.id}
-                className={`border rounded p-2 ${isActive ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200'}`}
+                className={`border rounded-control p-sm ${isActive ? 'border-floodlight bg-steel/40' : 'border-steel'}`}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-sm">
                   <button
                     onClick={() => venue.id != null && setActiveVenue(venue.id)}
-                    className="flex-1 text-left min-h-[36px] touch-manipulation"
+                    className="flex-1 text-left min-h-[44px] touch-manipulation"
                   >
-                    <div className="text-sm font-medium text-gray-800">
+                    <div className="text-body font-semibold text-chalk">
                       {venue.name}
-                      {isActive && <span className="ml-2 text-xs text-indigo-600">· active</span>}
+                      {isActive && <span className="ml-sm text-caption text-floodlight">· active</span>}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className={dialogHint}>
                       {venue.boundaryLength} × {venue.boundaryWidth} m
                       {/* Shared with the board's ground popover, which says the
                           same of the same row — see `VenueModel`. */}
@@ -156,7 +173,7 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
                   {!venue.isDefault && (
                     <button
                       onClick={() => beginEdit(venue)}
-                      className="px-2 py-1 min-h-[36px] text-xs border rounded text-gray-600 hover:bg-gray-50 touch-manipulation"
+                      className={dialogChipButton}
                     >
                       Edit
                     </button>
@@ -168,14 +185,14 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
                           if (venue.id != null) await deleteVenue(venue.id);
                           setConfirmingDelete(null);
                         }}
-                        className="px-2 py-1 min-h-[36px] text-xs border border-red-300 rounded text-red-600 bg-red-50 touch-manipulation"
+                        className={`${dialogChipButton} ${dialogLit}`}
                       >
                         Sure?
                       </button>
                     ) : (
                       <button
                         onClick={() => setConfirmingDelete(venue.id ?? null)}
-                        className="px-2 py-1 min-h-[36px] text-xs border rounded text-gray-600 hover:bg-gray-50 touch-manipulation"
+                        className={dialogChipButton}
                       >
                         Delete
                       </button>
@@ -189,7 +206,7 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
           {!showForm && (
             <button
               onClick={beginCreate}
-              className="w-full min-h-[40px] px-3 py-2 text-sm rounded border border-teal-300 text-teal-700 bg-teal-50 hover:bg-teal-100 touch-manipulation"
+              className={`${dialogButton} w-full`}
             >
               {/* The popover's footer routes here saying this; one name for the
                   action, stated in `VenueModel`. */}
@@ -198,61 +215,61 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
           )}
 
           {showForm && (
-            <div className="border border-gray-200 rounded p-3 space-y-3">
+            <div className="border border-steel rounded-control p-md space-y-md">
               <div>
-                <label className="block text-xs font-medium mb-1 text-gray-600">Ground name</label>
+                <label className={dialogLabel}>Ground name</label>
                 <input
                   type="text"
                   value={draft.name}
                   onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                   placeholder="e.g. Jubilee Park"
-                  className="w-full px-2 py-1.5 min-h-[36px] text-sm border rounded touch-manipulation"
+                  className={dialogField}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-md">
                 <div>
-                  <label className="block text-xs font-medium mb-1 text-gray-600">Length (m)</label>
+                  <label className={dialogLabel}>Length (m)</label>
                   <input
                     type="number"
                     inputMode="decimal"
                     value={draft.boundaryLength}
                     onChange={(e) => setDraft({ ...draft, boundaryLength: e.target.value })}
                     placeholder="goal to goal"
-                    className="w-full px-2 py-1.5 min-h-[36px] text-sm border rounded touch-manipulation"
+                    className={dialogField}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium mb-1 text-gray-600">Width (m)</label>
+                  <label className={dialogLabel}>Width (m)</label>
                   <input
                     type="number"
                     inputMode="decimal"
                     value={draft.boundaryWidth}
                     onChange={(e) => setDraft({ ...draft, boundaryWidth: e.target.value })}
                     placeholder="wing to wing"
-                    className="w-full px-2 py-1.5 min-h-[36px] text-sm border rounded touch-manipulation"
+                    className={dialogField}
                   />
                 </div>
               </div>
 
               {validation && !validation.ok && (
-                <p className="text-xs text-red-600">{validation.error}</p>
+                <p className={dialogError}>{validation.error}</p>
               )}
               {validation && validation.ok && validation.warning && (
-                <p className="text-xs text-amber-600">{validation.warning}</p>
+                <p className={dialogBody}>{validation.warning}</p>
               )}
-              {saveError && <p className="text-xs text-red-600">{saveError}</p>}
+              {saveError && <p className={dialogError}>{saveError}</p>}
 
-              <div className="flex gap-2">
+              <div className="flex gap-sm">
                 <button
                   onClick={save}
                   disabled={!canSave}
-                  className="flex-1 min-h-[40px] px-3 py-2 text-sm rounded bg-indigo-500 text-white disabled:opacity-40 touch-manipulation"
+                  className={`${dialogPrimaryButton} flex-1`}
                 >
                   {draft.id === null ? 'Add ground' : 'Save changes'}
                 </button>
                 <button
                   onClick={() => { setShowForm(false); setSaveError(null); }}
-                  className="min-h-[40px] px-3 py-2 text-sm rounded border text-gray-600 touch-manipulation"
+                  className={dialogButton}
                 >
                   Cancel
                 </button>
@@ -263,7 +280,7 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
 
         <button
           onClick={onClose}
-          className="w-full min-h-[44px] px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 border-t border-gray-100 touch-manipulation"
+          className={dialogFooterButton}
         >
           Close
         </button>
