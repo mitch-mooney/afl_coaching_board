@@ -70,3 +70,17 @@ canvas {
     will-change: contents;
   }
 }
+
+/* A viewer who asks for less motion gets none: transitions and animations
+   finish at once rather than playing out. This covers CSS only; the menu's
+   Framer Motion springs check the same query through useReducedMotion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

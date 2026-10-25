@@ -5,6 +5,10 @@ import rosterLibrary from '../../components/UI/RosterLibrary.tsx?raw';
 import playThumbnail from '../../components/UI/PlayThumbnail.tsx?raw';
 import globalDrawer from '../../components/UI/GlobalDrawer.tsx?raw';
 import mobileMenu from '../../components/UI/MobileMenu.tsx?raw';
+import libraryStyles from '../../components/UI/libraryStyles.ts?raw';
+import { CARD_ACTION, CARD_ACTION_DESTRUCTIVE } from '../../components/UI/libraryStyles';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 /**
  * The library pages, the drawer and the menu take every colour and face from the
@@ -22,6 +26,7 @@ const SURFACES = {
   'PlayThumbnail.tsx': playThumbnail,
   'GlobalDrawer.tsx': globalDrawer,
   'MobileMenu.tsx': mobileMenu,
+  'libraryStyles.ts': libraryStyles,
 };
 
 /** A hex, an rgb()/hsl() call, or a utility class from Tailwind's stock palette. */
@@ -48,5 +53,34 @@ describe('the library and menu palette', () => {
 
   it.each(Object.entries(SURFACES))('%s sets no label in capitals', (_file, source) => {
     expect(source.match(ALL_CAPS) ?? []).toEqual([]);
+  });
+});
+
+describe('destructive actions', () => {
+  it('a card action that deletes is drawn with a dashed edge, not in a colour', () => {
+    expect(CARD_ACTION_DESTRUCTIVE).toMatch(/\bborder-dashed\b/);
+    expect(CARD_ACTION).not.toMatch(/\bborder-dashed\b/);
+  });
+
+  it.each([
+    ['PlaybookLibrary.tsx', playbookLibrary],
+    ['PlayLibrary.tsx', playLibrary],
+    ['RosterLibrary.tsx', rosterLibrary],
+  ])('every Delete in %s is a destructive action', (_file, source) => {
+    const deletes = source.match(/className=\{CARD_ACTION\w*\}\s*>\s*Delete\b/g) ?? [];
+    expect(deletes.length).toBeGreaterThan(0);
+    for (const d of deletes) expect(d).toContain('CARD_ACTION_DESTRUCTIVE');
+  });
+});
+
+describe('reduced motion', () => {
+  // Read from disk: Vitest hands back an empty string for a CSS import, ?raw included.
+  const indexCss = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8');
+
+  it('index.css stills transitions and animations when the viewer asks', () => {
+    const block = indexCss.match(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?)\n\}/);
+    expect(block).not.toBeNull();
+    expect(block![1]).toMatch(/transition-duration/);
+    expect(block![1]).toMatch(/animation-duration/);
   });
 });

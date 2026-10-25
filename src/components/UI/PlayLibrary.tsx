@@ -12,7 +12,7 @@ import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 import { selectActiveVenue, useVenueStore } from '../../store/venueStore';
 import { OUT_OF_BOUNDS_AMBER } from '../Board/hud/fitReadout';
 import {
-  BADGE, BUTTON_PRIMARY, BUTTON_QUIET, BUTTON_SECONDARY, CARD, CARD_ACTION, CARD_BODY, CARD_DETAIL, CARD_GRID,
+  BADGE, BUTTON_PRIMARY, BUTTON_QUIET, BUTTON_SECONDARY, CARD, CARD_ACTION_DESTRUCTIVE, CARD_BODY, CARD_DETAIL, CARD_GRID,
   CARD_NAME, CARD_TURF, CONTENT, COUNT_PILL, FOOT_PILL, FOOT_PILL_BOTTOM, MARK, PAGE, SECTION_HEADER,
   SECTION_TITLE, TOP_BAR, TOP_BAR_ACTIONS, TOP_BAR_TITLE, openOnKey,
 } from './libraryStyles';
@@ -216,8 +216,9 @@ function PlayCard({
             Video unavailable
           </div>
         ) : lvm ? null : (
-          <div className={`${BADGE} right-[7px] border border-dashed border-chalk/25 text-chalk/60 backdrop-blur-none`}>
-            + link video
+          // A solid faint edge: a dashed one marks an action that removes something.
+          <div className={`${BADGE} right-[7px] border border-chalk/25 text-chalk/60 backdrop-blur-none`}>
+            + Link video
           </div>
         )}
 
@@ -244,7 +245,7 @@ function PlayCard({
         <button
           type="button"
           onClick={e => { e.stopPropagation(); onDelete(); }}
-          className={CARD_ACTION}
+          className={CARD_ACTION_DESTRUCTIVE}
         >
           Delete
         </button>

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useRosterStore } from '../../store/rosterStore';
 import { PlayHQImportDialog } from './PlayHQImportDialog';
 import type { RosterPlayer } from '../../models/RosterModel';
-import { BUTTON_PRIMARY, BUTTON_QUIET, CARD_ACTION, CARD_DETAIL, PAGE, SECTION_TITLE } from './libraryStyles';
+import { BUTTON_PRIMARY, BUTTON_QUIET, CARD_ACTION_DESTRUCTIVE, CARD_DETAIL, PAGE, SECTION_TITLE } from './libraryStyles';
 
 export function RosterLibrary() {
   const { rosters, loadRosters, createRoster, deleteRoster } = useRosterStore();
@@ -56,7 +56,7 @@ export function RosterLibrary() {
                   <button
                     type="button"
                     onClick={() => { if (confirm(`Delete "${r.teamName}"?`)) deleteRoster(r.id!); }}
-                    className={CARD_ACTION}
+                    className={CARD_ACTION_DESTRUCTIVE}
                   >
                     Delete
                   </button>

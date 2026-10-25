@@ -17,7 +17,7 @@ export const PAGE = 'min-h-screen bg-concrete text-chalk font-sans';
 export const TOP_BAR =
   'flex flex-wrap items-center gap-md px-lg py-md border-b border-steel bg-concrete';
 
-/** The app's mark: a small lit ground, in place of the old teal-to-blue tile. */
+/** The app's mark: a small lit ground, in place of the old two-tone tile. */
 export const MARK = 'w-7 h-7 flex-shrink-0 rounded-chip border border-chalk/40 bg-gradient-to-b from-turf-lit to-turf';
 
 /** The page or Playbook name in the top bar. */
@@ -40,12 +40,17 @@ export const BUTTON_PRIMARY = `${BUTTON} bg-chalk text-concrete hover:bg-chalk/8
 export const BUTTON_QUIET =
   'inline-flex items-center min-h-[44px] px-xs text-label text-chalk/70 hover:text-chalk transition-colors cursor-pointer';
 
-/**
- * A small action on a card: Rename, Delete. Delete is not red, because the
- * palette has no danger colour, and it asks before it deletes anything.
- */
+/** A small action on a card, such as Rename. */
 export const CARD_ACTION =
-  'flex-shrink-0 rounded-chip px-sm py-xs text-caption text-chalk/50 hover:text-chalk hover:bg-chalk/10 transition-colors cursor-pointer';
+  'flex-shrink-0 rounded-chip border border-transparent px-sm py-xs text-caption text-chalk/50 ' +
+  'hover:text-chalk hover:bg-chalk/10 transition-colors cursor-pointer';
+
+/**
+ * A card action that removes something: Delete. It has a dashed edge rather
+ * than a red fill, because the palette has no danger colour. The menu's
+ * `danger` items are drawn the same way. It asks before it deletes anything.
+ */
+export const CARD_ACTION_DESTRUCTIVE = CARD_ACTION.replace('border-transparent', 'border-dashed border-chalk/35');
 
 /** The body of the page under the top bar. */
 export const CONTENT = 'max-w-[900px] mx-auto px-lg pt-xl pb-[120px]';

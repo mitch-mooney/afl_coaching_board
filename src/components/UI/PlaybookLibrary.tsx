@@ -6,7 +6,7 @@ import { usePlayStore } from '../../store/playStore';
 import { useRosterStore } from '../../store/rosterStore';
 import type { Playbook } from '../../models/PlaybookModel';
 import {
-  CARD_ACTION, BUTTON_PRIMARY, BUTTON_SECONDARY, CARD, CARD_BODY, CARD_DETAIL, CARD_GRID, CARD_NAME,
+  CARD_ACTION, CARD_ACTION_DESTRUCTIVE, BUTTON_PRIMARY, BUTTON_SECONDARY, CARD, CARD_BODY, CARD_DETAIL, CARD_GRID, CARD_NAME,
   CARD_TURF, CONTENT, COUNT_PILL, FOOT_PILL, FOOT_PILL_BOTTOM, MARK, PAGE, SECTION_HEADER, SECTION_TITLE,
   TOP_BAR, TOP_BAR_ACTIONS, TOP_BAR_TITLE, openOnKey,
 } from './libraryStyles';
@@ -206,7 +206,7 @@ function PlaybookCard({
             <button
               type="button"
               onClick={e => { e.stopPropagation(); onDelete(); }}
-              className={CARD_ACTION}
+              className={CARD_ACTION_DESTRUCTIVE}
             >
               Delete
             </button>
