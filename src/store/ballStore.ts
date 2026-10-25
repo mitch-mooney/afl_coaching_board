@@ -8,6 +8,12 @@ interface BallState {
   mode: 'assigned' | 'in-flight' | 'idle';
   currentPathId: string | null;
   currentKickType: KickType | null;
+  /**
+   * The player a ball drag is over, who would become the Carrier if the ball
+   * were let go now. Shown as that player's hover state; null when no drag is
+   * over a player. Not board content, so no snapshot reads it.
+   */
+  dropTargetPlayerId: string | null;
 
   // Actions
   initializeBall: (position?: [number, number, number]) => void;
@@ -22,6 +28,7 @@ interface BallState {
   // Ball trajectory actions
   setBallInFlight: (pathId: string, kickType: KickType) => void;
   setBallIdle: () => void;
+  setDropTarget: (playerId: string | null) => void;
 }
 
 export const useBallStore = create<BallState>((set, get) => ({
@@ -30,6 +37,7 @@ export const useBallStore = create<BallState>((set, get) => ({
   mode: 'assigned',
   currentPathId: null,
   currentKickType: null,
+  dropTargetPlayerId: null,
 
   initializeBall: (position = [0, 0.5, 0]) => {
     const ball = createBall(position);
@@ -86,5 +94,9 @@ export const useBallStore = create<BallState>((set, get) => ({
 
   setBallIdle: () => {
     set({ mode: 'idle', currentPathId: null, currentKickType: null });
+  },
+
+  setDropTarget: (playerId) => {
+    if (get().dropTargetPlayerId !== playerId) set({ dropTargetPlayerId: playerId });
   },
 }));
