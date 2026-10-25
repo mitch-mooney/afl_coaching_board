@@ -3,6 +3,17 @@ import { usePlayerStore } from '../../../store/playerStore';
 import { useOverlayOpen } from '../../../hooks/useOverlayOpen';
 import { editBoard } from '../../../utils/boardEdit';
 import { describeRosterFit, type RosterTarget } from './rosterImportFit';
+import {
+  dialogButton,
+  dialogField,
+  dialogHint,
+  dialogLabel,
+  dialogLayer,
+  dialogPanel,
+  dialogPrimaryButton,
+  dialogScrim,
+  dialogTitle,
+} from '../../UI/dialogStyles';
 
 export function RosterImportModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   useOverlayOpen(open);
@@ -69,50 +80,47 @@ export function RosterImportModal({ open, onClose }: { open: boolean; onClose: (
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={closeImportDialog}
-      />
-      <div className="relative z-10 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 w-[90vw] max-w-sm">
+    <div className={dialogLayer}>
+      <div className={dialogScrim} onClick={closeImportDialog} />
+      <div className={`${dialogPanel} max-w-sm p-lg`}>
         {importStep === 1 ? (
           <>
-            <h3 className="text-lg font-bold mb-1">Import Roster</h3>
-            <p className="text-xs text-gray-500 mb-3">Paste names from PlayHQ (one per line). Leading numbers are stripped automatically.</p>
-            <div className="space-y-3">
+            <h3 className={`${dialogTitle} mb-xs`}>Import roster</h3>
+            <p className={`${dialogHint} mb-md`}>Paste names from PlayHQ (one per line). Leading numbers are stripped automatically.</p>
+            <div className="space-y-md">
               <div>
-                <label className="block text-sm font-medium mb-1">Team</label>
+                <label className={dialogLabel}>Team</label>
                 <select
                   value={selectedTeam}
                   onChange={(e) => setSelectedTeam(e.target.value as 'all' | 'team1' | 'team2')}
-                  className="w-full px-3 py-2 min-h-[44px] border rounded touch-manipulation"
+                  className={dialogField}
                 >
-                  <option value="all">All Players</option>
+                  <option value="all">All players</option>
                   <option value="team1">Team 1</option>
                   <option value="team2">Team 2</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Player Names *</label>
+                <label className={dialogLabel}>Player names *</label>
                 <textarea
                   value={rosterText}
                   onChange={(e) => setRosterText(e.target.value)}
-                  className="w-full px-3 py-2 border rounded font-mono text-sm touch-manipulation"
+                  className={dialogField}
                   placeholder="1. John Smith&#10;2. Jane Doe&#10;3. Mike Johnson"
                   rows={6}
                   autoFocus
                 />
               </div>
-              <div className="flex gap-2 justify-end">
+              <div className="flex gap-sm justify-end">
                 <button
                   onClick={closeImportDialog}
-                  className="px-4 py-2 min-h-[44px] bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition touch-manipulation"
+                  className={dialogButton}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleImportNext}
-                  className="px-4 py-2 min-h-[44px] bg-cyan-500 text-white rounded hover:bg-cyan-600 transition touch-manipulation"
+                  className={dialogPrimaryButton}
                 >
                   Next →
                 </button>
@@ -121,28 +129,28 @@ export function RosterImportModal({ open, onClose }: { open: boolean; onClose: (
           </>
         ) : (
           <>
-            <h3 className="text-lg font-bold mb-1">Assign Positions</h3>
-            <p className="text-xs text-gray-500 mb-3">
+            <h3 className={`${dialogTitle} mb-xs`}>Assign positions</h3>
+            <p className={`${dialogHint} mb-md`}>
               {describeRosterFit(pendingNames.length, target)} How should positions be assigned?
             </p>
-            <div className="space-y-3">
+            <div className="space-y-md">
               <button
                 onClick={handleImportAutoAssign}
-                className="w-full px-4 py-3 min-h-[52px] bg-green-600 text-white rounded-lg hover:bg-green-700 transition touch-manipulation text-left"
+                className={`${dialogPrimaryButton} w-full min-h-[52px] py-md text-left`}
               >
-                <div className="font-medium">Auto-assign by jersey number</div>
-                <div className="text-xs text-green-100 mt-0.5">Uses PlayHQ jersey order: #1→FB, #6→C, #15→FF etc.</div>
+                <div>Auto-assign by jersey number</div>
+                <div className="text-caption text-concrete/70 mt-xxs">Uses PlayHQ jersey order: #1→FB, #6→C, #15→FF etc.</div>
               </button>
               <button
                 onClick={handleImportNamesOnly}
-                className="w-full px-4 py-3 min-h-[52px] bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition touch-manipulation text-left"
+                className={`${dialogButton} w-full min-h-[52px] py-md text-left`}
               >
-                <div className="font-medium">Import names only</div>
-                <div className="text-xs text-cyan-100 mt-0.5">Assign positions manually afterwards</div>
+                <div>Import names only</div>
+                <div className={`${dialogHint} mt-xxs`}>Assign positions manually afterwards</div>
               </button>
               <button
                 onClick={() => setImportStep(1)}
-                className="w-full px-4 py-2 min-h-[44px] bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition touch-manipulation"
+                className={`${dialogButton} w-full`}
               >
                 ← Back
               </button>

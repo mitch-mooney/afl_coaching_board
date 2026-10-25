@@ -1,5 +1,11 @@
 // src/components/UI/OnboardingTour.tsx
 import { useState, useEffect } from 'react';
+import {
+  dialogBody,
+  dialogPanel,
+  dialogPrimaryButton,
+  dialogTitle,
+} from './dialogStyles';
 
 const STEPS = [
   {
@@ -41,35 +47,34 @@ export function OnboardingTour() {
   const cur = STEPS[step];
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end justify-center p-4 pb-10">
-      <div className="bg-gray-900 rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-gray-700">
-        <div className="flex justify-between items-center mb-4">
-          <span className="text-xs text-amber-400 font-semibold uppercase tracking-wider">
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-lg pb-10 bg-concrete/60">
+      <div className={`${dialogPanel} max-w-sm p-xl`}>
+        <div className="flex justify-between items-center mb-lg">
+          <span className="font-display text-number text-chalk/70">
             {step + 1} / {STEPS.length}
           </span>
-          <button onClick={finish} className="text-gray-500 hover:text-gray-300 text-sm">
+          <button onClick={finish} className="min-h-[44px] px-sm text-label text-chalk/60 hover:text-chalk">
             Skip
           </button>
         </div>
-        <h3 className="text-base font-bold mb-2">{cur.title}</h3>
-        <p className="text-sm text-gray-400 mb-6">{cur.body}</p>
+        <h3 className={`${dialogTitle} mb-sm`}>{cur.title}</h3>
+        <p className={`${dialogBody} mb-xl`}>{cur.body}</p>
         <div className="flex items-center justify-between">
-          <div className="flex gap-1">
+          <div className="flex gap-xs">
             {STEPS.map((_, i) => (
               <div
                 key={i}
-                className={`h-1.5 rounded-full transition-all ${
-                  i === step ? 'w-6 bg-amber-500' : 'w-1.5 bg-gray-700'
+                className={`h-1.5 rounded-pill motion-safe:transition-all ${
+                  i === step ? 'w-6 bg-floodlight' : 'w-1.5 bg-steel'
                 }`}
               />
             ))}
           </div>
           <button
             onClick={() => { if (step < STEPS.length - 1) setStep((s) => s + 1); else finish(); }}
-            className="px-5 py-2 rounded-lg bg-amber-500 text-black font-semibold
-                       hover:bg-amber-400 text-sm"
+            className={dialogPrimaryButton}
           >
-            {step < STEPS.length - 1 ? 'Next →' : 'Get Started'}
+            {step < STEPS.length - 1 ? 'Next →' : 'Get started'}
           </button>
         </div>
       </div>
