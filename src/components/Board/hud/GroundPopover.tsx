@@ -228,7 +228,7 @@ const AMBER_INK = '#fcd9a0';
  *
  * The memory goes last, so the reading order is *what is wrong now → how to fix
  * it → and you have already done this once*. It carries no Undo control of its
- * own: undo is board-wide, with a shortcut and a home in the Setup pod, and a
+ * own: undo is board-wide, with a shortcut and a home on the Tool rail, and a
  * second button mid-compare would sit in the way of the rows above it.
  */
 function FitBlock({ state, onPullInside }: { state: FitReadoutState; onPullInside: () => void }) {

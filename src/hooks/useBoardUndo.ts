@@ -41,7 +41,7 @@ export function redoBoard(): void {
 
 /**
  * useBoardUndo - restores the previous board state from history. Shared by
- * the Setup pod's Undo control and the Ctrl/Cmd-Z shortcut.
+ * the Ctrl/Cmd-Z shortcut. The Tool rail's Undo calls `undoBoard` directly.
  */
 export function useBoardUndo() {
   const canUndo = useHistoryStore((s) => s.canUndo);
