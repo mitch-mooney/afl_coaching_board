@@ -354,6 +354,19 @@ extend this file rather than inventing parallel names.
   Present keeps whole.
   _Avoid_: transport, timeline, Animate pod.
 
+- **Design tokens** — the one source for the app's colour, type, spacing and radius:
+  `src/theme/tokens.ts`. The Tailwind theme is built from it and inline-style HUD code
+  imports it, so a utility class and an inline style cannot disagree. The palette is a
+  night game under lights: **Turf**, **Turf lit**, **Chalk**, **Concrete**, **Steel** and
+  **Floodlight**. There is no brand accent; team colours are the accents. Type is Big
+  Shoulders Display for numbers and headings and Public Sans for everything else, both
+  bundled with the build.
+
+- **Floodlight** — the state colour: an armed tip, an active view or tab, an open panel,
+  the focus ring. A state never borrows a team's colour, and amber is not a state: it
+  means only *doesn't fit* (ADR 0005).
+  _Avoid_: accent, brand colour, highlight.
+
 - **Input contract** — **the pen authors, the finger manipulates.** A finger repositions
   players and the ball, moves the camera, and selects; it never authors anything. A pen
   with a tip armed authors; a pen with no tip armed behaves as a finger. This contract is

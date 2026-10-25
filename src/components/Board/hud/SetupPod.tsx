@@ -1,3 +1,4 @@
+import { typeStyle } from '../../../theme/tokens';
 import { fanPill, podButton, TOOL_RAIL_CLEARANCE } from './podStyles';
 import { useSetupControls } from './useSetupControls';
 import { renderAction } from './hudActions';
@@ -18,7 +19,7 @@ export function SetupPod({ open, onToggle }: { open: boolean; onToggle: () => vo
         )}
         <button onClick={onToggle} style={podButton(open)}>
           <span style={{ fontSize: 22 }}>{open ? '✕' : '👥'}</span>
-          <span style={{ fontSize: 9, fontWeight: 700 }}>SETUP</span>
+          <span style={{ ...typeStyle('label'), fontSize: 10 }}>Setup</span>
         </button>
       </div>
 

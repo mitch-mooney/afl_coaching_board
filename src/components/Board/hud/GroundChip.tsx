@@ -3,7 +3,8 @@ import { useOutOfBounds } from '../../../hooks/useOutOfBounds';
 import { selectActiveVenue, useVenueStore } from '../../../store/venueStore';
 import { groundChipState, OUT_OF_BOUNDS_AMBER } from './fitReadout';
 import { GroundPopover } from './GroundPopover';
-import { TEAL } from './podStyles';
+import { palette, withAlpha } from '../../../theme/tokens';
+import { CHALK_DIM } from './podStyles';
 
 /**
  * The **Ground chip**: the board's answer to *which ground am I drawing?*, and
@@ -27,9 +28,10 @@ import { TEAL } from './podStyles';
  * renders a board; both Match and Training mode, because a drill set up on a
  * tight ground reports the same way a play does.
  *
- * Teal while its popover is open, matching the HUD's existing *this panel is
- * open* — the Mode rail's, and the Tool rail's colour button. A popover that
- * stays open across picks especially needs the chip to say it owns it.
+ * Edged in Floodlight while its popover is open, the HUD's state colour, as the
+ * Mode rail and the Tool rail's colour button wear it for *this panel is open*.
+ * A popover that stays open across picks especially needs the chip to say it
+ * owns it.
  */
 
 export function GroundChip() {
@@ -95,9 +97,9 @@ export function GroundChip() {
           gap: 6,
           padding: '0 12px',
           borderRadius: 8,
-          border: open ? `1px solid ${TEAL}` : '1px solid rgba(255,255,255,0.2)',
-          background: 'rgba(0,0,0,0.4)',
-          color: 'rgba(255,255,255,0.7)',
+          border: open ? `1px solid ${palette.floodlight}` : `1px solid ${palette.steel}`,
+          background: withAlpha(palette.concrete, 0.8),
+          color: CHALK_DIM,
           fontSize: 13,
           fontWeight: 500,
           minHeight: 34,

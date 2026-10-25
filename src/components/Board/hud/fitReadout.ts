@@ -76,12 +76,13 @@ export function outOfBoundsSentence(report: OutOfBoundsReport, groundName?: stri
  * The colour of *this board does not fit*: the chip's dot and the readout
  * block's border, which are the same finding at two resolutions (ADR 0005).
  *
- * Deliberately here rather than in `podStyles`, which holds the same hex for a
- * different meaning — on the Tool rail amber means *this tip is armed*. One
- * constant for two meanings would make either impossible to change without
- * changing the other. Shared between the chip and the block because there it is
- * one meaning, and a hex duplicated across two files that must agree is exactly
- * the drift this module exists to prevent.
+ * Deliberately here rather than in the design tokens (`src/theme/tokens.ts`).
+ * Amber is not a palette colour: it is reserved for this one meaning, and the
+ * HUD's states (an armed tip, an open panel) wear Floodlight instead. Amber used
+ * to mean *this tip is armed* on the Tool rail too, and keeping it out of the
+ * palette is what stops a second meaning creeping back. Shared between the chip
+ * and the block because there it is one meaning, and a hex duplicated across
+ * two files that must agree is exactly the drift this module exists to prevent.
  */
 export const OUT_OF_BOUNDS_AMBER = '#f59e0b';
 
