@@ -1,13 +1,47 @@
 import type { CSSProperties } from 'react';
+import { palette, radii, shadows, typeStyle, withAlpha } from '../../../theme/tokens';
 
-export const TEAL = '#00d4aa';
-export const glass: CSSProperties = { background: 'rgba(13,13,26,0.86)', border: '1px solid #ffffff22', backdropFilter: 'blur(6px)' };
-export const fanPill: CSSProperties = { ...glass, padding: '9px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap', textAlign: 'left' };
+/**
+ * The HUD's shared inline styles, built from the design tokens
+ * (`src/theme/tokens.ts`). Nothing here defines a colour of its own.
+ *
+ * Floodlight is the HUD's one state colour: an armed tip, an open panel, an
+ * active view and the focus ring all wear it. Text on a Floodlight fill is
+ * Concrete, so a lit control reads as lit rather than as a team colour.
+ */
+
+/** The fill of a lit (armed, active, open) control. */
+export const LIT: CSSProperties = { background: palette.floodlight, color: palette.concrete };
+
+/** A hairline in Chalk: a control's resting border. */
+export const HAIRLINE = `1px solid ${withAlpha(palette.chalk, 0.18)}`;
+
+/** Chalk faded for an unlit control's icon or label. */
+export const CHALK_DIM = withAlpha(palette.chalk, 0.75);
+
+/** The surface every floating HUD panel sits on: Concrete over the board, edged in Steel. */
+export const glass: CSSProperties = {
+  background: withAlpha(palette.concrete, 0.92),
+  border: `1px solid ${palette.steel}`,
+  color: palette.chalk,
+  backdropFilter: 'blur(6px)',
+};
+
+export const fanPill: CSSProperties = {
+  ...glass,
+  ...typeStyle('label'),
+  padding: '9px 12px',
+  borderRadius: radii.pill,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  textAlign: 'left',
+};
 
 export const panelPill: CSSProperties = {
-  padding: '8px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+  ...typeStyle('label'),
+  padding: '8px 10px', borderRadius: radii.chip,
   cursor: 'pointer', whiteSpace: 'nowrap', textAlign: 'left', width: '100%',
-  border: '1px solid #ffffff22', background: 'rgba(0,0,0,0.4)', color: 'rgba(255,255,255,0.85)',
+  border: `1px solid ${palette.steel}`, background: palette.steel, color: palette.chalk,
 };
 
 /**
@@ -31,7 +65,7 @@ export function podButton(open: boolean): CSSProperties {
   return {
     width: 66, height: 66, borderRadius: 20, cursor: 'pointer',
     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
-    background: open ? '#f59e0b' : 'rgba(13,13,26,0.9)', color: open ? '#000' : '#fff',
-    border: open ? 'none' : '1px solid #ffffff33', boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
+    ...(open ? LIT : { background: withAlpha(palette.concrete, 0.94), color: palette.chalk }),
+    border: open ? 'none' : `1px solid ${palette.steel}`, boxShadow: shadows.raised,
   };
 }

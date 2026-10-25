@@ -28,6 +28,7 @@ import { usePathStore } from '../../store/pathStore';
 import { useUIStore } from '../../store/uiStore';
 import { usePlayStore } from '../../store/playStore';
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { palette, withAlpha } from '../../theme/tokens';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useStrokeAuthoring } from '../../hooks/useStrokeAuthoring';
 import { useCanvasResizeWithWindow } from '../../hooks/useCanvasResize';
@@ -280,14 +281,13 @@ export function MainLayout() {
                 zIndex: 20,
                 padding: '8px 20px',
                 borderRadius: 10,
-                border: '1.5px dashed #00d4aa',
-                background: '#13132a',
-                color: '#00d4aa',
+                border: `1.5px dashed ${withAlpha(palette.chalk, 0.5)}`,
+                background: palette.concrete,
+                color: palette.chalk,
                 fontSize: 13,
                 fontWeight: 600,
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
-                letterSpacing: '0.03em',
               }}
             >
               🎬 Link Video Moment

@@ -1,4 +1,5 @@
 import { useCameraStore } from '../../../store/cameraStore';
+import { typeStyle } from '../../../theme/tokens';
 import { fanPill, podButton } from './podStyles';
 import { renderAction } from './hudActions';
 import { useCameraControls } from './useCameraControls';
@@ -18,7 +19,7 @@ export function CameraPod({ open, onToggle }: { open: boolean; onToggle: () => v
         )}
         <button onClick={onToggle} style={podButton(open)}>
           <span style={{ fontSize: 22 }}>{open ? '✕' : '🎥'}</span>
-          <span style={{ fontSize: 9, fontWeight: 700 }}>{activePovSlot ? 'POV' : 'CAM'}</span>
+          <span style={{ ...typeStyle('label'), fontSize: 10 }}>{activePovSlot ? 'POV' : 'Camera'}</span>
         </button>
       </div>
       {modals}

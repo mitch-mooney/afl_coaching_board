@@ -7,7 +7,8 @@ import { teamAppearance } from '../../../utils/boardPlacement';
 import { placementAvailable, tipAvailable } from '../../../utils/inputContract';
 import { useConeStore } from '../../../store/coneStore';
 import { ColourPopover } from './ColourPopover';
-import { glass, TEAL } from './podStyles';
+import { palette, withAlpha } from '../../../theme/tokens';
+import { CHALK_DIM, glass, LIT } from './podStyles';
 import { TOOL_RAIL_TIPS } from './toolRailTips';
 
 /**
@@ -31,9 +32,9 @@ import { TOOL_RAIL_TIPS } from './toolRailTips';
  * vertically rather than run to the bottom edge where a heel of a hand lands.
  * (Palm rejection itself is out of scope.)
  *
- * The armed tip is amber, carried over from the retired `AnnotatePalette`; the
- * Mode rail's teal means "this panel is open", which is precisely what a Tool
- * rail button never does.
+ * The armed tip is lit in Floodlight, the HUD's one state colour. It used to be
+ * amber, but amber now means only "doesn't fit" (ADR 0005), and a tip that is
+ * armed is not a board that doesn't fit.
  *
  * Below the divider sit the rail's non-tip controls. Two Placement buttons, one
  * per team, arm the rail's second kind of instrument: while one is armed a tap
@@ -74,7 +75,7 @@ const DIVIDER: CSSProperties = {
   height: 1,
   flexShrink: 0,
   margin: '2px 4px',
-  background: '#ffffff22',
+  background: palette.steel,
 };
 
 /** The two teams, in rail order: blue above red, the order the board seeds them. */
@@ -187,10 +188,9 @@ export function ToolRail() {
                 style={{
                   ...TIP_BUTTON,
                   // Armed styling survives playback, because the tip itself does.
-                  background: armed ? '#f59e0b' : 'transparent',
-                  color: armed ? '#000' : '#ffffffcc',
+                  ...(armed ? LIT : { background: 'transparent', color: CHALK_DIM }),
                   // Faded, with a not-allowed cursor: a third treatment,
-                  // distinct from armed amber and from an unarmed tip, whichever
+                  // distinct from armed and from an unarmed tip, whichever
                   // of the two the unavailable tip happens to be.
                   opacity: available ? 1 : 0.35,
                   cursor: available ? 'pointer' : 'not-allowed',
@@ -207,8 +207,9 @@ export function ToolRail() {
             The Placement buttons. Each arms Placement for its team, or disarms
             it when that team is already armed; `armPlacement` covers both taps,
             the way `armTip` does. Filled with the team's current jersey colour
-            rather than amber, so the rail keeps reading which team the next tap
-            creates; armed is the tips' amber, worn as a ring around that fill.
+            rather than Floodlight, so the rail keeps reading which team the next
+            tap creates; armed is the tips' Floodlight, worn as a ring around that
+            fill. The team colour is the content, never the state.
             They open nothing.
 
             Playback makes both unavailable, in the tips' treatment: faded, a
@@ -239,8 +240,10 @@ export function ToolRail() {
                 style={{
                   ...TIP_BUTTON,
                   background: color,
-                  border: armed ? '3px solid #f59e0b' : '2px solid #ffffff44',
-                  boxShadow: armed ? '0 0 0 2px #f59e0b66' : 'none',
+                  border: armed
+                    ? `3px solid ${palette.floodlight}`
+                    : `2px solid ${withAlpha(palette.chalk, 0.27)}`,
+                  boxShadow: armed ? `0 0 0 2px ${withAlpha(palette.floodlight, 0.4)}` : 'none',
                   opacity: available ? 1 : 0.35,
                   cursor: available ? 'pointer' : 'not-allowed',
                 }}
@@ -256,9 +259,10 @@ export function ToolRail() {
             It is the single exception to "a Tool rail button arms an instrument
             and never opens a panel", and it is NOT a tip: it sets no tip, clears
             no tip, and neither opening nor using the popover changes what is
-            armed. Hence the divider above it, and hence teal rather than the
-            tips' amber — amber on this rail means "this tip is armed", and this
-            button never arms anything. Teal is the HUD's "this panel is open".
+            armed. Hence the divider above it. Open, it wears Floodlight as a ring
+            rather than a fill: the HUD has one state colour, so the ring and the
+            divider are what keep "this panel is open" from reading as "this tip
+            is armed".
           */}
           <button
             type="button"
@@ -270,7 +274,9 @@ export function ToolRail() {
             style={{
               ...TIP_BUTTON,
               background: selectedColour,
-              border: colourOpen ? `2px solid ${TEAL}` : '2px solid #ffffff44',
+              border: colourOpen
+                ? `2px solid ${palette.floodlight}`
+                : `2px solid ${withAlpha(palette.chalk, 0.27)}`,
             }}
           />
         </div>
