@@ -12,8 +12,7 @@ export const venueTable = playbookDB.venues;
 
 /**
  * The Active Venue is a *selection over* the Venue records, not a record itself, so
- * it lives in localStorage rather than the database — the same split as the HUD skin
- * preference. A stored id that no longer resolves is not an error; it falls back to
+ * it lives in localStorage rather than the database. A stored id that no longer resolves is not an error; it falls back to
  * Standard ground, because there is always an Active Venue.
  */
 export const ACTIVE_VENUE_KEY = 'afl.venue.activeId';

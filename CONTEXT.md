@@ -120,7 +120,7 @@ extend this file rather than inventing parallel names.
   - `withoutPlayers(snap)` — the board with no players: every MovementPath that belongs to a
     player goes with them and the ball is released. The ball itself, the ball's own path,
     every annotation and every cone stay, because none of them belongs to a player. This is
-    what **Clear players** in the Setup pod records.
+    what **Clear players** in the Setup sheet records.
   - `atFullStrength(board)` — true only when both teams hold exactly 18. The formation
     presets position 18 a side by number, so the three formation actions are disabled
     whenever this is false; **Reset players** is never disabled, because reseeding 36 is how
@@ -226,8 +226,8 @@ extend this file rather than inventing parallel names.
   hanging beneath the list and an *Add a ground* footer beneath that — which routes to the
   **Grounds** panel and never creates, so grounds are managed in one place. Both are board
   chrome and
-  render on the board tab only, from the top bar rather than either HUD skin, so they land
-  identically in both. What the chip *says* is decided in
+  render on the board tab only, from the top bar, where the **Board chrome** leaves them.
+  What the chip *says* is decided in
   `components/Board/hud/fitReadout.ts` beside the **Fit readout**'s words, because the dot
   and the sentence are the same finding at two resolutions. Components:
   `components/Board/hud/GroundChip.tsx`, `GroundPopover.tsx`. See ADR 0003 for where the
@@ -321,38 +321,46 @@ extend this file rather than inventing parallel names.
   animation plays, for the Path tip's reason: it writes the state playback reads, and a
   removal mid-animation would take off whoever was under the tap. Available again when
   playback is paused or stopped, and playback starting does not disarm it. **Clear
-  players**, in the Setup pod, is the bulk form of removal and arms nothing; arming is the
+  players**, in the Setup sheet, is the bulk form of removal and arms nothing; arming is the
   Tool rail's job. The armed team: `store/penStore.ts` (`armedPlacement`). The edits:
   `utils/boardPlacement.ts`. The grass under the tap:
   `components/Scene/PlayerPlacementPlane.tsx`; the tap on a player is handled in
   `components/Scene/Player.tsx`, ahead of selection.
 
-- **Mode rail** — a distinct, older surface: the column of Setup / Animate / Camera
-  buttons that opens a contextual panel. Present in the Rail HUD skin only. Named apart
-  from the Tool rail deliberately, because the two are different kinds of thing — a Mode
-  rail button opens a panel, a Tool rail button arms an instrument. "Rail" alone is ambiguous and
-  should not be used as a domain noun.
+- **Mode rail** — retired with the Rail HUD skin (ADR 0007). It was the column of Setup /
+  Animate / Camera buttons that opened a contextual panel. The name survives only in ADRs
+  0003 and 0007; "Rail" alone is ambiguous and should not be used as a domain noun.
 
-- **HUD skin** — which board chrome is rendered: **Pods** (thumb-reachable pods) or
-  **Rail** (the Mode rail plus a contextual panel). Resolved from device characteristics
-  unless the coach forces one. The Tool rail is common to both skins — it is not part of
-  what a skin varies. **Decided for retirement (facelift grilling, 2026-10-25):** the
-  board gets one chrome for every device, designed around the iPad and Present, and the
-  Mode rail goes with the Rail skin. Until that ships, this entry describes the code.
+- **Board chrome** — the board's one set of controls, the same on every device (ADR 0007).
+  Each edge has one job: the **Tool rail** on the left changes the board, the **View
+  column** on the right changes how you see it, and the **Playback bar** along the bottom
+  changes the moment. The bottom of the board is one stack between the two side
+  clearances, so nothing there is placed against another surface's height: the Playback
+  bar, the **Setup sheet** above it when open, and the Link Video Moment button above
+  that. Component: `components/Board/hud/BoardChrome.tsx`.
+  _Avoid_: HUD skin, Pods, Rail (all retired).
 
-- **Board chrome** — the board's one set of controls, the same on every device (decided
-  2026-10-25, replacing the two HUD skins). Each edge has one job: the **Tool rail** on
-  the left changes the board, the **View column** on the right changes how you see it,
-  and the **Playback bar** along the bottom changes the moment.
-
-- **View column** — the right-edge column holding the Lens switches and the camera views.
-  Nothing in it edits the board, which is what separates it from the retired Mode rail.
+- **View column** — the right-edge column holding the camera views (Broadcast, Top,
+  Sideline, End-to-end, Reset camera), the two POV slots and their assignment, and an
+  empty, labelled Lens group that Spec 2 fills. Nothing in it edits the board, which is
+  why it may sit in the right-hand palm zone (ADR 0007, answering ADR 0003). It starts on
+  the Tool rail's line under the linked-video bar, and other surfaces keep out of it
+  through `VIEW_COLUMN_CLEARANCE`, as they keep out of the Tool rail through
+  `TOOL_RAIL_CLEARANCE` (`components/Board/hud/podStyles.ts`). Component:
+  `components/Board/hud/ViewColumn.tsx`.
   _Avoid_: right rail, Mode rail, sidebar.
 
-- **Playback bar** — the full-width bottom bar: play, pause and the scrubber, plus the
-  way into the **Setup sheet** (formations, Reset players, Clear players). The one control
-  Present keeps whole.
+- **Playback bar** — the bottom bar, between the two side clearances: the scrubber across
+  its width, and beneath it play/pause, stop, speed and the **Setup** button. A Play with
+  no animation says *No animation* and its transport is disabled. The one control Present
+  keeps whole. Component: `components/Board/hud/PlaybackBar.tsx`.
   _Avoid_: transport, timeline, Animate pod.
+
+- **Setup sheet** — rises from the Playback bar and holds the Setup action list:
+  formations (disabled while a team is short of 18), Teams / jerseys, Labels, Reset
+  players, Clear paths, Clear annotations, Clear players, Give / Release ball and Import
+  roster. Undo is not in it. It closes on a tap on the board or on Escape. Component:
+  `components/Board/hud/SetupSheet.tsx`; the list is `useSetupControls`.
 
 - **Design tokens** — the one source for the app's colour, type, spacing and radius:
   `src/theme/tokens.ts`. The Tailwind theme is built from it and inline-style HUD code

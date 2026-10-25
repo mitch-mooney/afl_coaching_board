@@ -70,3 +70,18 @@ canvas {
     will-change: contents;
   }
 }
+
+/* The Setup sheet rises from the Playback bar. Only with motion allowed: under
+   reduced motion it simply appears. */
+@media (prefers-reduced-motion: no-preference) {
+  .setup-sheet {
+    animation: setup-sheet-rise 160ms ease-out;
+  }
+}
+
+@keyframes setup-sheet-rise {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}

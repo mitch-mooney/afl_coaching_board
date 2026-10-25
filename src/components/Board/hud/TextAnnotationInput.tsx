@@ -19,7 +19,7 @@ import { fanPill, glass } from './podStyles';
  * while that palette happened to be open — and it was pinned to the palette's
  * corner, so the coach typed at the bottom-left while looking at a tap point
  * somewhere else entirely. Retiring the palette moved it here, beside the Tool
- * rail's own components, and `BoardHud` renders it once for both HUD skins.
+ * rail's own components, and `BoardChrome` renders it.
  *
  * It is deliberately NOT on the Tool rail. A Tool rail button arms an
  * instrument; this is the tail end of a single authoring gesture, alive only

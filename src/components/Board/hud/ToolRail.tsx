@@ -18,12 +18,11 @@ import { TOOL_RAIL_TIPS } from './toolRailTips';
  *
  * Always-visible is the whole point — arming a tip is never a trip through a
  * menu (`docs/adr/0001-pen-authors-finger-manipulates.md`). A Tool rail button
- * arms an instrument and never opens a panel, which is what separates it from
- * the Mode rail on the opposite edge.
+ * arms an instrument and never opens a panel.
  *
- * It is common to both HUD skins rather than something a skin varies, so
- * `BoardHud` renders it beside whichever skin is resolved and it lands in the
- * same place in each — muscle memory transfers.
+ * It is the left edge of the one Board chrome (ADR 0007): `BoardChrome` renders
+ * it on every device, opposite the View column, so it lands in the same place
+ * everywhere and muscle memory transfers.
  *
  * Left edge, per `docs/adr/0003-tool-rail-on-the-left-mode-rail-on-the-right.md`:
  * the coach is right-handed and rests a hand on the glass, so the palm zone is

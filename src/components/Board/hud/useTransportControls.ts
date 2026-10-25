@@ -2,7 +2,7 @@ import { useAnimationStore, type AnimationSpeed } from '../../../store/animation
 import { scrubTo } from '../../../utils/boardScrub';
 
 /**
- * Shared board-transport bindings for the transport widgets (PlayFab, TransportBar).
+ * Board-transport bindings for the Playback bar.
  * Owns the animationStore bindings + the derived scrub/stop actions; each widget
  * renders its own layout. Mirrors the §6b shared-control-hook pattern.
  */

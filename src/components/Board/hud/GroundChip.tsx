@@ -21,15 +21,13 @@ import { CHALK_DIM } from './podStyles';
  * and clears. Everything it says comes from `fitReadout`, so the copy and the
  * rules are asserted there rather than through a component harness.
  *
- * **Rendered from the editor top bar**, right of the tab switcher, rather than
- * from either HUD skin — the same reason `ToolRail` renders outside that choice:
- * a surface rendered per skin lands in two places, and muscle memory then costs
- * the coach their choice of skin. Board tab only, because only the board tab
+ * **Rendered from the editor top bar**, right of the tab switcher, where the
+ * Board chrome leaves it (ADR 0007). Board tab only, because only the board tab
  * renders a board; both Match and Training mode, because a drill set up on a
  * tight ground reports the same way a play does.
  *
  * Edged in Floodlight while its popover is open, the HUD's state colour, as the
- * Mode rail and the Tool rail's colour button wear it for *this panel is open*.
+ * Setup button and the Tool rail's colour button wear it for *this is open*.
  * A popover that stays open across picks especially needs the chip to say it
  * owns it.
  */

@@ -4,7 +4,6 @@ import { VideoUploader } from '../VideoImport/VideoUploader';
 import { MobileMenu, createMenuSection, createMenuItem, type MenuSection } from './MobileMenu';
 import { useAuthStore } from '../../store/authStore';
 import { useMatchStore } from '../../store/matchStore';
-import { useHudPreferenceStore } from '../../store/hudPreferenceStore';
 import { useUIStore } from '../../store/uiStore';
 import { usePlayStore } from '../../store/playStore';
 import { isSupabaseConfigured } from '../../lib/supabase';
@@ -39,13 +38,8 @@ export function GlobalDrawer() {
   const matchShowScoreboard = useMatchStore((s) => s.showScoreboard);
   const toggleScoreboard = useMatchStore((s) => s.toggleScoreboard);
 
-  // HUD skin override (Auto/Rail/Pods)
-  const skinOverride = useHudPreferenceStore((s) => s.skinOverride);
-  const cycleSkinOverride = useHudPreferenceStore((s) => s.cycleSkinOverride);
-  const skinLabel = skinOverride === 'auto' ? 'Auto' : skinOverride === 'B' ? 'Rail' : 'Pods';
-
   // Build mobile menu sections from toolbar functionality (global actions only —
-  // per-mode controls live in the board HUD pods)
+  // per-mode controls live in the Board chrome)
   const mobileMenuSections: MenuSection[] = useMemo(() => {
     const sections: MenuSection[] = [];
 
@@ -97,14 +91,6 @@ export function GlobalDrawer() {
     }
     sections.push(createMenuSection('playbook', 'Playbook', playbookItems));
 
-    // Display section
-    sections.push(createMenuSection('display', 'Display', [
-      createMenuItem('board-layout', `Board layout: ${skinLabel}`, cycleSkinOverride, {
-        variant: 'indigo',
-        description: 'Force the desktop rail or tablet pods layout, or let it auto-select by device',
-      }),
-    ]));
-
     // User section (if authenticated)
     if (authIsConfigured && authUser) {
       sections.push(
@@ -119,7 +105,6 @@ export function GlobalDrawer() {
     isVideoMode, isLoaded, isLoading, clearVideo,
     authUser, authIsConfigured, authSignOut,
     matchShowScoreboard, toggleScoreboard,
-    skinLabel, cycleSkinOverride,
     activePlayId,
     // Listed where the `useState` setters above are not: a store action is stable
     // in fact but not by a rule the linter knows.
