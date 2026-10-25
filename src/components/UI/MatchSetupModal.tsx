@@ -1,6 +1,19 @@
 import { useMatchStore, formatAFLScore } from '../../store/matchStore';
 import type { Quarter } from '../../store/matchStore';
 import { useOverlayOpen } from '../../hooks/useOverlayOpen';
+import {
+  dialogField,
+  dialogFieldCompact,
+  dialogFooterButton,
+  dialogHeader,
+  dialogHint,
+  dialogLabel,
+  dialogLayer,
+  dialogLit,
+  dialogPanelScroll,
+  dialogScrim,
+  dialogTitle,
+} from './dialogStyles';
 
 export function MatchSetupModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   useOverlayOpen(open);
@@ -18,35 +31,32 @@ export function MatchSetupModal({ open, onClose }: { open: boolean; onClose: () 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="relative z-10 bg-white rounded-lg shadow-xl border border-gray-200 w-[400px] max-h-[80vh] overflow-y-auto">
-        <div className="p-3 border-b border-gray-100">
-          <span className="text-sm font-medium text-gray-700">Match Setup</span>
+    <div className={dialogLayer}>
+      <div className={dialogScrim} onClick={onClose} />
+      <div className={`${dialogPanelScroll} max-w-sm`}>
+        <div className={dialogHeader}>
+          <span className={dialogTitle}>Match setup</span>
         </div>
-        <div className="p-4 space-y-4">
+        <div className="p-lg space-y-lg">
           {/* Team names */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-md">
             <div>
-              <label className="block text-xs font-medium mb-1 text-blue-700">Home Team</label>
+              <label className={dialogLabel}>Home team</label>
               <input
                 type="text"
                 value={matchHome}
                 onChange={(e) => setMatchHome(e.target.value)}
-                className="w-full px-2 py-1.5 min-h-[36px] text-sm border rounded touch-manipulation"
+                className={dialogField}
                 placeholder="Home team"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1 text-red-700">Away Team</label>
+              <label className={dialogLabel}>Away team</label>
               <input
                 type="text"
                 value={matchAway}
                 onChange={(e) => setMatchAway(e.target.value)}
-                className="w-full px-2 py-1.5 min-h-[36px] text-sm border rounded touch-manipulation"
+                className={dialogField}
                 placeholder="Away team"
               />
             </div>
@@ -54,47 +64,47 @@ export function MatchSetupModal({ open, onClose }: { open: boolean; onClose: () 
 
           {/* Scores */}
           <div>
-            <label className="block text-xs font-medium mb-2 text-gray-600">Scores</label>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="border rounded p-2">
-                <div className="text-xs text-blue-700 font-medium mb-1">{matchHome || 'Home'}: {formatAFLScore(matchHomeScore)}</div>
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-500">G</label>
+            <label className={dialogLabel}>Scores</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
+              <div className="border border-steel rounded-chip p-sm">
+                <div className="text-label text-chalk mb-xs">{matchHome || 'Home'}: {formatAFLScore(matchHomeScore)}</div>
+                <div className="flex items-center gap-sm">
+                  <label className={dialogHint}>G</label>
                   <input
                     type="number"
                     min={0}
                     value={matchHomeScore.goals}
                     onChange={(e) => setMatchHomeScore({ ...matchHomeScore, goals: Math.max(0, parseInt(e.target.value) || 0) })}
-                    className="w-14 px-1 py-1 text-sm border rounded text-center touch-manipulation"
+                    className={`${dialogFieldCompact} w-14 text-center`}
                   />
-                  <label className="text-xs text-gray-500">B</label>
+                  <label className={dialogHint}>B</label>
                   <input
                     type="number"
                     min={0}
                     value={matchHomeScore.behinds}
                     onChange={(e) => setMatchHomeScore({ ...matchHomeScore, behinds: Math.max(0, parseInt(e.target.value) || 0) })}
-                    className="w-14 px-1 py-1 text-sm border rounded text-center touch-manipulation"
+                    className={`${dialogFieldCompact} w-14 text-center`}
                   />
                 </div>
               </div>
-              <div className="border rounded p-2">
-                <div className="text-xs text-red-700 font-medium mb-1">{matchAway || 'Away'}: {formatAFLScore(matchAwayScore)}</div>
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-500">G</label>
+              <div className="border border-steel rounded-chip p-sm">
+                <div className="text-label text-chalk mb-xs">{matchAway || 'Away'}: {formatAFLScore(matchAwayScore)}</div>
+                <div className="flex items-center gap-sm">
+                  <label className={dialogHint}>G</label>
                   <input
                     type="number"
                     min={0}
                     value={matchAwayScore.goals}
                     onChange={(e) => setMatchAwayScore({ ...matchAwayScore, goals: Math.max(0, parseInt(e.target.value) || 0) })}
-                    className="w-14 px-1 py-1 text-sm border rounded text-center touch-manipulation"
+                    className={`${dialogFieldCompact} w-14 text-center`}
                   />
-                  <label className="text-xs text-gray-500">B</label>
+                  <label className={dialogHint}>B</label>
                   <input
                     type="number"
                     min={0}
                     value={matchAwayScore.behinds}
                     onChange={(e) => setMatchAwayScore({ ...matchAwayScore, behinds: Math.max(0, parseInt(e.target.value) || 0) })}
-                    className="w-14 px-1 py-1 text-sm border rounded text-center touch-manipulation"
+                    className={`${dialogFieldCompact} w-14 text-center`}
                   />
                 </div>
               </div>
@@ -103,16 +113,14 @@ export function MatchSetupModal({ open, onClose }: { open: boolean; onClose: () 
 
           {/* Quarter */}
           <div>
-            <label className="block text-xs font-medium mb-1 text-gray-600">Quarter</label>
-            <div className="flex gap-2">
+            <label className={dialogLabel}>Quarter</label>
+            <div className="flex gap-sm">
               {(['Q1', 'Q2', 'Q3', 'Q4'] as Quarter[]).map((q) => (
                 <button
                   key={q}
                   onClick={() => setMatchQuarter(q)}
-                  className={`flex-1 min-h-[36px] px-2 py-1 text-sm rounded border touch-manipulation transition ${
-                    matchQuarter === q
-                      ? 'bg-indigo-500 text-white border-indigo-500'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  className={`flex-1 min-h-[44px] px-sm py-xs font-display text-number rounded-chip border touch-manipulation motion-safe:transition-colors ${
+                    matchQuarter === q ? dialogLit : 'border-steel text-chalk hover:bg-steel/50'
                   }`}
                 >
                   {q}
@@ -123,7 +131,7 @@ export function MatchSetupModal({ open, onClose }: { open: boolean; onClose: () 
         </div>
         <button
           onClick={onClose}
-          className="w-full min-h-[44px] px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 border-t border-gray-100 touch-manipulation"
+          className={dialogFooterButton}
         >
           Close
         </button>
