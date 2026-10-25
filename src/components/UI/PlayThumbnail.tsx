@@ -4,6 +4,7 @@ import { fromPhase } from '../../utils/boardSnapshot';
 import { boardAt } from '../../utils/boardPlayback';
 import { projectSnapshot, THUMBNAIL_VIEWBOX } from '../../utils/thumbnailProjection';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
+import { palette, withAlpha } from '../../theme/tokens';
 
 const EMPTY: BoardSnapshot = { players: [], paths: [], annotations: [], camera: null, ball: null, cones: [] };
 
@@ -29,16 +30,16 @@ export function PlayThumbnail({ play }: { play: Play }) {
       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
     >
       {/* Filled, faintly, so the ground is a shape rather than an outline: the
-          card behind is green edge to edge, so without this the letterbox at a
+          card behind is Turf edge to edge, so without this the letterbox at a
           narrow ground reads as more grass and the row looks the same size as
-          every other. */}
+          every other. Chalk, as the ground's own lines are. */}
       <ellipse
         cx={prims.field.cx}
         cy={prims.field.cy}
         rx={prims.field.rx}
         ry={prims.field.ry}
-        fill="rgba(160,255,160,0.07)"
-        stroke="rgba(255,255,255,0.18)"
+        fill={withAlpha(palette.chalk, 0.06)}
+        stroke={withAlpha(palette.chalk, 0.3)}
         strokeWidth={1.5}
       />
       {prims.paths.map((p, i) => (
@@ -46,15 +47,15 @@ export function PlayThumbnail({ play }: { play: Play }) {
           key={i}
           points={p.points.map(([x, y]) => `${x},${y}`).join(' ')}
           fill="none"
-          stroke="rgba(0,212,170,0.5)"
+          stroke={withAlpha(palette.chalk, 0.55)}
           strokeWidth={1.5}
         />
       ))}
       {prims.players.map((pl, i) => (
-        <circle key={i} cx={pl.x} cy={pl.y} r={4} fill={pl.color} stroke="rgba(0,0,0,0.4)" strokeWidth={0.5} />
+        <circle key={i} cx={pl.x} cy={pl.y} r={4} fill={pl.color} stroke={withAlpha(palette.concrete, 0.6)} strokeWidth={0.5} />
       ))}
       {prims.ball && (
-        <circle cx={prims.ball.x} cy={prims.ball.y} r={2.5} fill="#ffffff" stroke="rgba(0,0,0,0.5)" strokeWidth={0.75} />
+        <circle cx={prims.ball.x} cy={prims.ball.y} r={2.5} fill={palette.chalk} stroke={withAlpha(palette.concrete, 0.7)} strokeWidth={0.75} />
       )}
     </svg>
   );

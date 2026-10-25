@@ -53,12 +53,11 @@ export function GlobalDrawer() {
     const videoItems = [];
     if (isVideoMode && isLoaded) {
       videoItems.push(
-        createMenuItem('clear-video', 'Clear Video', clearVideo, { variant: 'danger', description: 'Remove the imported background video' })
+        createMenuItem('clear-video', 'Clear video', clearVideo, { variant: 'danger', description: 'Remove the imported background video' })
       );
     } else {
       videoItems.push(
-        createMenuItem('import-video', isLoading ? 'Loading...' : 'Import Video', () => setShowVideoUploader(true), {
-          variant: 'teal',
+        createMenuItem('import-video', isLoading ? 'Loading…' : 'Import video', () => setShowVideoUploader(true), {
           disabled: isLoading,
           description: 'Import a video to overlay on the field',
         })
@@ -69,14 +68,12 @@ export function GlobalDrawer() {
     // Match section
     sections.push(
       createMenuSection('match', 'Match', [
-        createMenuItem('match-setup', 'Match Setup', () => setShowMatchSetup(true), { variant: 'teal', description: 'Configure team names, scores and quarter' }),
-        createMenuItem('toggle-scoreboard', matchShowScoreboard ? 'Hide Scoreboard' : 'Show Scoreboard', toggleScoreboard, {
-          variant: 'primary',
+        createMenuItem('match-setup', 'Match setup', () => setShowMatchSetup(true), { description: 'Configure team names, scores and quarter' }),
+        createMenuItem('toggle-scoreboard', matchShowScoreboard ? 'Hide scoreboard' : 'Show scoreboard', toggleScoreboard, {
           active: matchShowScoreboard,
           description: 'Show or hide the 3D scoreboard on the field',
         }),
         createMenuItem('venue', 'Grounds', () => setShowVenue(true), {
-          variant: 'indigo',
           description: 'Choose, add and measure the grounds your plays are drawn on',
         }),
       ])
@@ -84,12 +81,11 @@ export function GlobalDrawer() {
 
     // Playbook section
     const playbookItems = [
-      createMenuItem('save-playbook', 'Save Playbook', () => setShowSaveDialog(true), { variant: 'warning', description: 'Save this formation to your playbook library' }),
+      createMenuItem('save-playbook', 'Save playbook', () => setShowSaveDialog(true), { description: 'Save this formation to your playbook library' }),
     ];
     if (isSupabaseConfigured()) {
       playbookItems.push(
-        createMenuItem('share-play', 'Share Play', () => setShowShare(true), {
-          variant: 'purple',
+        createMenuItem('share-play', 'Share play', () => setShowShare(true), {
           disabled: activePlayId == null,
           description: activePlayId == null ? 'Open a saved play from your library to share it' : 'Create a shareable link for this play',
         })
@@ -100,7 +96,6 @@ export function GlobalDrawer() {
     // Display section
     sections.push(createMenuSection('display', 'Display', [
       createMenuItem('board-layout', `Board layout: ${skinLabel}`, cycleSkinOverride, {
-        variant: 'indigo',
         description: 'Force the desktop rail or tablet pods layout, or let it auto-select by device',
       }),
     ]));
@@ -109,7 +104,7 @@ export function GlobalDrawer() {
     if (authIsConfigured && authUser) {
       sections.push(
         createMenuSection('user', `Account: ${authUser.email ?? ''}`, [
-          createMenuItem('sign-out', 'Sign Out', authSignOut, { variant: 'danger', description: 'Sign out of your account' }),
+          createMenuItem('sign-out', 'Sign out', authSignOut, { variant: 'danger', description: 'Sign out of your account' }),
         ])
       );
     }
@@ -143,7 +138,7 @@ export function GlobalDrawer() {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-concrete/70 backdrop-blur-sm"
             onClick={() => setShowVideoUploader(false)}
           />
           {/* Modal content */}
