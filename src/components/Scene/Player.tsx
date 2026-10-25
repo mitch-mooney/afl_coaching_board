@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Text, Billboard } from '@react-three/drei';
 import { Player } from '../../models/PlayerModel';
 import { usePlayerStore } from '../../store/playerStore';
+import { useBallStore } from '../../store/ballStore';
 import { beginEdit, editBoard, type EditHandle } from '../../utils/boardEdit';
 import { withoutPlayer } from '../../utils/boardPlacement';
 import { capture, restore } from '../../utils/boardSnapshotIO';
@@ -75,6 +76,9 @@ export function PlayerComponent({ player }: PlayerProps) {
   const isPlaying = useAnimationStore((state) => state.isPlaying);
   const { camera, raycaster } = useThree();
   const isSelected = selectedPlayerId === player.id;
+  // A ball drag over this player would make them the Carrier if let go now.
+  const isDropTarget = useBallStore((state) => state.dropTargetPlayerId === player.id);
+  const showHover = hovered || isDropTarget;
   const boundary = useActiveBoundary();
 
   // Disable dragging while an animation is playing (the playback loop owns
@@ -453,18 +457,20 @@ export function PlayerComponent({ player }: PlayerProps) {
     return player.teamPresetId ? getTeamById(player.teamPresetId) : null;
   }, [player.teamPresetId]);
 
-  const jerseyColor = isSelected ? '#ffff00' : hovered ? '#ffffff' : player.color;
+  const jerseyColor = isSelected ? '#ffff00' : showHover ? '#ffffff' : player.color;
   const jerseyEmissive = isSelected ? '#ffff00' : player.color;
   const jerseyEmissiveIntensity = isSelected ? 0.3 : 0.1;
   const shortsColor = isSelected ? '#cccc00' : (teamPreset?.shortsColor ?? '#2a2a2a');
   // Arms show secondary colour for Minecraft-style two-tone
-  const armColor = isSelected ? '#ffff00' : hovered ? '#ffffff' : (teamPreset?.secondaryColor ?? player.color);
+  const armColor = isSelected ? '#ffff00' : showHover ? '#ffffff' : (teamPreset?.secondaryColor ?? player.color);
   const armEmissive = isSelected ? '#ffff00' : (teamPreset?.secondaryColor ?? player.color);
 
   return (
     <group
       ref={groupRef}
       position={player.position}
+      // Marks this group as a player for the ball drop's raycast.
+      userData={{ playerId: player.id }}
       onClick={handleClick}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
