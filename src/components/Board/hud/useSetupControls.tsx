@@ -8,7 +8,6 @@ import { useCameraStore } from '../../../store/cameraStore';
 import { getFormationById } from '../../../data/formations';
 import { TeamSelectModal } from './TeamSelectModal';
 import { RosterImportModal } from './RosterImportModal';
-import { useBoardUndo } from '../../../hooks/useBoardUndo';
 import { editBoard } from '../../../utils/boardEdit';
 import { capture, restore } from '../../../utils/boardSnapshotIO';
 import { withoutPlayers, atFullStrength } from '../../../utils/boardPlacement';
@@ -36,7 +35,6 @@ export function useSetupControls(): HudControls {
   const clearAnnotations = useAnnotationStore((s) => s.clearAnnotations);
   const annotations = useAnnotationStore((s) => s.annotations);
   const ball = useBallStore((s) => s.ball);
-  const { handleUndo, canUndo } = useBoardUndo();
 
   const [showTeams, setShowTeams] = useState(false);
   const [showRoster, setShowRoster] = useState(false);
@@ -95,7 +93,7 @@ export function useSetupControls(): HudControls {
     { key: 'teams', label: '🔵🔴 Teams / jerseys', onClick: () => setShowTeams(true) },
     { key: 'labels', label: `Labels: ${LABELS[labelMode]}`, onClick: cycleLabelMode },
     { key: 'reset', label: 'Reset players', onClick: () => editBoard('Reset players', () => resetPlayers()) },
-    { key: 'undo', label: '↩ Undo', onClick: handleUndo, disabled: !canUndo() },
+    // Undo is not here: it lives at the foot of the Tool rail, in one place only.
     // The three bulk clears sit together: each wipes a category of board content,
     // and none is an instrument — arming a Pen tip is the Tool rail's job and
     // only the Tool rail's, so no tip is armable from here.
