@@ -59,12 +59,19 @@ const TOWER_HEIGHT = 65;
 /** How far into its quadrant a tower is aimed, as a fraction of the semi-axes. */
 const POOL_REACH = 0.42;
 /**
- * The brightness at the middle of a pool, in the units of a three.js
- * directional light (the day rig's sun was 1.4). Held fixed rather than the
- * tower's intensity, so a bigger ground's pools are no dimmer for its towers
- * standing further off.
+ * The fill's intensity: low, so the towers are the main source and the grass
+ * between their pools falls dark. The day rig's fill was 1.1.
  */
-const POOL_ILLUMINANCE = 1.5;
+const FILL_INTENSITY = 0.8;
+/**
+ * The light a tower puts on the ground at the middle of its pool, in three.js
+ * units. three (r155 on) draws a matte surface at its colour times the light
+ * on it over pi, so the tower and the fill together put pi there: the middle
+ * of a pool shows the turf as painted, and everything outside the pools sinks
+ * below it. Held fixed rather than the tower's intensity, so a bigger ground's
+ * pools are no dimmer for its towers standing further off.
+ */
+const POOL_ILLUMINANCE = Math.PI - FILL_INTENSITY;
 
 /** Corners in the order the shadow pair is picked from: a diagonal first. */
 const CORNERS: [number, number][] = [
@@ -90,11 +97,13 @@ export function towerLights(boundary: { semiX: number; semiZ: number }): TowerLi
     ];
     const target: Vec3 = [sx * boundary.semiX * POOL_REACH, 0, sz * boundary.semiZ * POOL_REACH];
     const distanceSquared = position.reduce((sum, p, axis) => sum + (p - target[axis]) ** 2, 0);
+    // The beam strikes the ground at a slant, which spreads its light thinner.
+    const cosIncidence = (position[1] - target[1]) / Math.sqrt(distanceSquared);
     return {
       position,
       target,
-      intensity: POOL_ILLUMINANCE * distanceSquared,
-      angle: 0.55,
+      intensity: (POOL_ILLUMINANCE * distanceSquared) / cosIncidence,
+      angle: 0.42,
       penumbra: 0.75,
       castShadow: i < 2,
     };
@@ -103,13 +112,15 @@ export function towerLights(boundary: { semiX: number; semiZ: number }): TowerLi
 
 /**
  * The fill under the towers: a hemisphere light dropped low, so the ground
- * between the pools falls dark and the pools read as pools. Sky side Steel,
- * ground side Turf.
+ * between the pools falls dark and the pools read as pools. Its sky side is
+ * Floodlight, the towers' light scattered back off the haze; the sky colour
+ * multiplies the intensity on every upward face, so a dark one (the night sky
+ * itself) would be no fill at all. Ground side Turf.
  */
 export const nightFill = {
-  sky: palette.steel,
+  sky: palette.floodlight,
   ground: palette.turf,
-  intensity: 0.35,
+  intensity: FILL_INTENSITY,
 } as const;
 
 /** How many colour steps make up one tier's band of seats. */
