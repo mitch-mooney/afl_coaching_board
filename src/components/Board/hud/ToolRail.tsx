@@ -328,7 +328,7 @@ export function ToolRail() {
             style={{
               ...TIP_BUTTON,
               background: 'transparent',
-              color: '#ffffffcc',
+              color: CHALK_DIM,
               opacity: undoable ? 1 : 0.35,
               cursor: undoable ? 'pointer' : 'not-allowed',
             }}
