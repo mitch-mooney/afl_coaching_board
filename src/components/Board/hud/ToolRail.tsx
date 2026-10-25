@@ -155,8 +155,16 @@ export function ToolRail() {
         top: 'calc(env(safe-area-inset-top, 0px) + 96px)',
         // No tip under the iPad home indicator.
         bottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
+        // A column, so the row below is a flex item along this box's height:
+        // it shrinks to fit, and its shrunk height is definite, which is what
+        // lets the pill's `maxHeight: 100%` resolve and the pill scroll. In a
+        // row-direction box that percentage resolved against nothing, so on a
+        // short viewport (iPhone 13, 664px) the pill overflowed upward past
+        // this box's top and over the editor top bar — measured.
         display: 'flex',
-        alignItems: 'center',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'flex-start',
         paddingLeft: 8,
         zIndex: 30,
         pointerEvents: 'none',
@@ -168,7 +176,7 @@ export function ToolRail() {
           the popover's foot lines up with the colour button that opened it. */}
       <div
         ref={railRef}
-        style={{ display: 'flex', alignItems: 'flex-end', gap: 10, maxHeight: '100%' }}
+        style={{ display: 'flex', alignItems: 'flex-end', gap: 10, minHeight: 0 }}
       >
         <div
           style={{
