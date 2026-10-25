@@ -9,6 +9,8 @@ import { boardAt } from '../../utils/boardPlayback';
 import { boundaryOf } from '../../utils/fieldGeometry';
 import { capture, restore } from '../../utils/boardSnapshotIO';
 import { Field } from '../Scene/Field';
+import { SkyDome } from '../Scene/SkyDome';
+import { fogColour } from '../Scene/nightGround';
 import { PlayerManager } from '../Scene/PlayerManager';
 import { PathManager } from '../Scene/Path';
 import { CameraController } from '../Scene/CameraController';
@@ -210,15 +212,16 @@ export function SharedPlaybookViewer() {
           <>
             <div style={{ flex: 1, minHeight: '60vh', position: 'relative' }}>
               <Canvas
+                shadows
                 camera={{ position: pd.cameraPosition ?? [0, 100, 150], fov: 50 }}
                 gl={{ antialias: true, alpha: false }}
                 dpr={[1, 2]}
                 style={{ width: '100%', height: '100%', touchAction: 'none' }}
               >
-                <color attach="background" args={['#020a02']} />
-                <ambientLight intensity={0.3} />
-                <pointLight position={[0, 80, 0]} intensity={2} color="#00ff88" />
-                <Field darkMode boundary={boundary} />
+                {/* The board's own ground, sky and lights: one night look everywhere */}
+                <fog attach="fog" args={[fogColour, 350, 950]} />
+                <SkyDome />
+                <Field boundary={boundary} />
                 <PlayerManager readOnly />
                 <PathManager paths={pd.paths ?? []} />
                 <CameraController />
