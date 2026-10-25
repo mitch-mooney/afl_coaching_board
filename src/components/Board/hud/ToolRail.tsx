@@ -6,6 +6,8 @@ import { usePlayerStore } from '../../../store/playerStore';
 import { teamAppearance } from '../../../utils/boardPlacement';
 import { placementAvailable, tipAvailable } from '../../../utils/inputContract';
 import { useConeStore } from '../../../store/coneStore';
+import { useHistoryStore } from '../../../store/historyStore';
+import { undoBoard } from '../../../hooks/useBoardUndo';
 import { ColourPopover } from './ColourPopover';
 import { glass, TEAL } from './podStyles';
 import { TOOL_RAIL_TIPS } from './toolRailTips';
@@ -39,8 +41,16 @@ import { TOOL_RAIL_TIPS } from './toolRailTips';
  * per team, arm the rail's second kind of instrument: while one is armed a tap
  * on grass places a player of that team. Each is drawn in its team's current
  * colour, so the rail reads what the next tap creates. Then the current-colour
- * button at the foot of the rail — see the note on it below. It is not a tip,
+ * button — see the note on it below. It is not a tip,
  * so playback never disables it.
+ *
+ * At the very foot, below a second divider, is **Undo**: an action, not an
+ * instrument (CONTEXT.md, Tool rail). It sits on this edge because the left
+ * edge is where the board is changed, and it is the action a coach reaches for
+ * most while drawing, so it is never a trip through the Setup controls either.
+ * It arms nothing and leaves the armed tip and Placement exactly as they were:
+ * the coach takes back a Stroke and draws the next one with the same tip.
+ * Redo is not offered (issue #63).
  *
  * A tip that playback has made unavailable renders faded and refuses the tap.
  * The rail does not decide that itself: it asks `tipAvailable` in the input
@@ -69,13 +79,23 @@ const TIP_BUTTON: CSSProperties = {
   touchAction: 'manipulation',
 };
 
-/** Separates the seven tips from the controls below, which are not tips. */
+/**
+ * Separates the seven tips from the controls below, which are not tips, and
+ * sets Undo apart from everything above it.
+ */
 const DIVIDER: CSSProperties = {
   height: 1,
   flexShrink: 0,
   margin: '2px 4px',
   background: '#ffffff22',
 };
+
+/**
+ * How far the colour button's foot sits above the pill's: the gap, the divider
+ * with its vertical margin, the gap again, and the Undo button. The popover is
+ * lifted by this much so its foot still lines up with the button that opened it.
+ */
+const UNDO_FOOT = 6 + (1 + 2 + 2) + 6 + 48;
 
 /** The two teams, in rail order: blue above red, the order the board seeds them. */
 const PLACEMENT_TEAMS = [
@@ -98,6 +118,9 @@ export function ToolRail() {
   const isPlaying = useAnimationStore((state) => state.isPlaying);
   const placementUsable = placementAvailable({ isPlaying });
   const setConePlacementActive = useConeStore((state) => state.setConePlacementActive);
+  // Subscribed as a boolean over `past` rather than through `canUndo`, which is
+  // a stable function reference and would never re-render the rail.
+  const undoable = useHistoryStore((state) => state.past.length > 0);
 
   // The only state the rail owns. Colour and thickness themselves live in
   // `annotationStore`, where the Stroke-authoring hook already reads them.
@@ -141,8 +164,8 @@ export function ToolRail() {
     >
       {/* The pill and its popover sit in one row so the popover is laid out
           beside the rail rather than over it, and so a pointer landing anywhere
-          in the pair counts as inside. Bottom-aligned: the popover's foot lines
-          up with the colour button that opened it. */}
+          in the pair counts as inside. Bottom-aligned, then lifted past Undo:
+          the popover's foot lines up with the colour button that opened it. */}
       <div
         ref={railRef}
         style={{ display: 'flex', alignItems: 'flex-end', gap: 10, maxHeight: '100%' }}
@@ -273,9 +296,38 @@ export function ToolRail() {
               border: colourOpen ? `2px solid ${TEAL}` : '2px solid #ffffff44',
             }}
           />
+
+          <div aria-hidden style={DIVIDER} />
+
+          {/*
+            Undo. Disabled in the tips' treatment — faded, not-allowed cursor,
+            `aria-disabled` so it keeps its place in the focus order and its
+            tooltip — and the handler does the refusing, though `undoBoard`
+            would refuse an empty stack anyway. It never touches `penStore`.
+          */}
+          <button
+            type="button"
+            onClick={() => undoable && undoBoard()}
+            aria-label="Undo"
+            aria-disabled={!undoable}
+            title={undoable ? 'Undo (Ctrl+Z)' : 'Undo — nothing to undo'}
+            style={{
+              ...TIP_BUTTON,
+              background: 'transparent',
+              color: '#ffffffcc',
+              opacity: undoable ? 1 : 0.35,
+              cursor: undoable ? 'pointer' : 'not-allowed',
+            }}
+          >
+            ↩
+          </button>
         </div>
 
-        {colourOpen && <ColourPopover />}
+        {colourOpen && (
+          <div style={{ marginBottom: UNDO_FOOT }}>
+            <ColourPopover />
+          </div>
+        )}
       </div>
     </div>
   );
