@@ -10,6 +10,12 @@ import { PlayThumbnail } from './PlayThumbnail';
 import { playFitsBoundary } from '../../utils/playFit';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 import { selectActiveVenue, useVenueStore } from '../../store/venueStore';
+import { OUT_OF_BOUNDS_AMBER } from '../Board/hud/fitReadout';
+import {
+  BADGE, BUTTON_PRIMARY, BUTTON_QUIET, BUTTON_SECONDARY, CARD, CARD_ACTION_DESTRUCTIVE, CARD_BODY, CARD_DETAIL, CARD_GRID,
+  CARD_NAME, CARD_TURF, CONTENT, COUNT_PILL, FOOT_PILL, FOOT_PILL_BOTTOM, MARK, PAGE, SECTION_HEADER,
+  SECTION_TITLE, TOP_BAR, TOP_BAR_ACTIONS, TOP_BAR_TITLE, openOnKey,
+} from './libraryStyles';
 
 async function videoMetadataExists(videoId: number): Promise<boolean> {
   try {
@@ -21,6 +27,12 @@ async function videoMetadataExists(videoId: number): Promise<boolean> {
 }
 
 type FilterMode = 'all' | 'linked' | 'board-only';
+
+const FILTER_LABELS: Record<FilterMode, string> = {
+  all: 'All',
+  linked: 'Linked',
+  'board-only': 'Board only',
+};
 
 export function PlayLibrary() {
   const { plays, loadPlays, createPlay, deletePlay, playsInBook } = usePlayStore();
@@ -71,52 +83,44 @@ export function PlayLibrary() {
   if (Number.isNaN(playbookId) || (playbooks.length > 0 && !currentBook)) return <Navigate to="/" replace />;
 
   return (
-    <div className="min-h-screen" style={{ background: '#0f0f1a', color: '#ffffff', fontFamily: 'sans-serif' }}>
+    <div className={PAGE}>
       {/* Top nav */}
-      <div style={{ background: '#13132a', borderBottom: '1px solid #1e1e3f', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 28, height: 28, background: 'linear-gradient(135deg, #00d4aa, #0099ff)', borderRadius: 6, flexShrink: 0 }} />
-        <button
-          onClick={() => navigate('/')}
-          style={{ background: 'none', border: 'none', color: '#8888aa', fontSize: 12, cursor: 'pointer', padding: 0 }}
-        >
+      <div className={TOP_BAR}>
+        <div className={MARK} aria-hidden="true" />
+        <button type="button" onClick={() => navigate('/')} className={BUTTON_QUIET}>
           ← Playbooks
         </button>
-        <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: 0.5 }}>{currentBook?.name ?? 'Plays'}</span>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button
-            onClick={() => navigate('/rosters')}
-            style={{ background: '#1a1a35', border: '1px solid #2a2a55', borderRadius: 6, padding: '6px 14px', color: '#8888aa', fontSize: 12, cursor: 'pointer' }}
-          >
+        <span className={TOP_BAR_TITLE}>{currentBook?.name ?? 'Plays'}</span>
+        <div className={TOP_BAR_ACTIONS}>
+          <button type="button" onClick={() => navigate('/rosters')} className={BUTTON_SECONDARY}>
             Rosters {rosters.length > 0 && `(${rosters.length})`}
           </button>
-          <button
-            onClick={handleNew}
-            style={{ background: 'linear-gradient(135deg, #00d4aa, #0099ff)', borderRadius: 6, padding: '7px 16px', color: '#000', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer' }}
-          >
-            + New Play
+          <button type="button" onClick={handleNew} className={BUTTON_PRIMARY}>
+            New play
           </button>
         </div>
       </div>
 
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '20px 20px 120px' }}>
+      <div className={CONTENT}>
         {/* Filter chips */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <span style={{ color: '#ffffff', fontWeight: 600, fontSize: 14, marginRight: 4 }}>Plays</span>
-          <span style={{ background: '#1e1e3f', border: '1px solid #2a2a55', borderRadius: 10, padding: '2px 8px', color: '#6666aa', fontSize: 11 }}>{bookPlays.length}</span>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+        <div className={SECTION_HEADER}>
+          <h1 className={SECTION_TITLE}>Plays</h1>
+          <span className={COUNT_PILL}>{bookPlays.length}</span>
+          <div className="ml-auto flex flex-wrap gap-xs" role="group" aria-label="Show">
             {(['all', 'linked', 'board-only'] as FilterMode[]).map(f => (
               <button
                 key={f}
+                type="button"
+                aria-pressed={filter === f}
                 onClick={() => setFilter(f)}
-                style={{
-                  background: filter === f ? '#00d4aa22' : '#1a1a35',
-                  border: `1px solid ${filter === f ? '#00d4aa44' : '#2a2a55'}`,
-                  borderRadius: 5, padding: '4px 10px',
-                  color: filter === f ? '#00d4aa' : '#6666aa',
-                  fontSize: 11, cursor: 'pointer',
-                }}
+                // The active filter is a state, so it is lit in Floodlight.
+                className={`min-h-[36px] rounded-chip border px-md text-label transition-colors cursor-pointer ${
+                  filter === f
+                    ? 'border-floodlight/60 bg-floodlight/15 text-floodlight'
+                    : 'border-steel bg-steel/40 text-chalk/70 hover:text-chalk'
+                }`}
               >
-                {f === 'all' ? 'All' : f === 'linked' ? '🎬 Linked' : 'Board only'}
+                {FILTER_LABELS[f]}
               </button>
             ))}
           </div>
@@ -124,16 +128,16 @@ export function PlayLibrary() {
 
         {/* Play grid */}
         {filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 0', color: '#4444aa' }}>
-            <p style={{ marginBottom: 8 }}>{bookPlays.length === 0 ? 'No plays in this playbook yet' : 'No plays match this filter'}</p>
+          <div className="py-[80px] text-center text-chalk/60">
+            <p className="mb-sm">{bookPlays.length === 0 ? 'No plays in this playbook yet' : 'No plays match this filter'}</p>
             {bookPlays.length === 0 && (
-              <button onClick={handleNew} style={{ background: 'linear-gradient(135deg, #00d4aa, #0099ff)', border: 'none', borderRadius: 8, padding: '10px 24px', color: '#000', fontWeight: 700, cursor: 'pointer' }}>
+              <button type="button" onClick={handleNew} className={BUTTON_PRIMARY}>
                 Create your first play
               </button>
             )}
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+          <div className={CARD_GRID}>
             {filtered.map(p => (
               <PlayCard
                 key={p.id}
@@ -148,19 +152,14 @@ export function PlayLibrary() {
       </div>
 
       {/* Roster pill — safe-area pinned bottom */}
-      <div
-        style={{
-          position: 'fixed', left: '50%', transform: 'translateX(-50%)',
-          bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))',
-          background: '#13132a', border: '1px solid #1e1e3f', borderRadius: 8,
-          padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10,
-          cursor: 'pointer', zIndex: 20,
-        }}
+      <button
+        type="button"
+        className={FOOT_PILL}
+        style={{ bottom: FOOT_PILL_BOTTOM }}
         onClick={() => navigate('/rosters')}
       >
-        <span style={{ color: '#8888aa', fontSize: 12 }}>👥 Manage Roster</span>
-        <span style={{ color: '#4444aa', fontSize: 12 }}>→</span>
-      </div>
+        Manage roster <span aria-hidden="true">→</span>
+      </button>
     </div>
   );
 }
@@ -183,108 +182,70 @@ function PlayCard({
   const fits = useMemo(() => playFitsBoundary(play, boundary), [play, boundary]);
 
   return (
-    <div
-      onClick={onOpen}
-      style={{
-        background: '#13132a',
-        border: `1px solid ${lvm ? '#2a2a55' : '#1e1e3f'}`,
-        borderRadius: 10, overflow: 'hidden', cursor: 'pointer',
-        transition: 'border-color 0.15s',
-      }}
-      onMouseEnter={e => (e.currentTarget.style.borderColor = '#00d4aa44')}
-      onMouseLeave={e => (e.currentTarget.style.borderColor = lvm ? '#2a2a55' : '#1e1e3f')}
-    >
-      {/* Thumbnail area */}
-      <div style={{ height: 100, background: '#0d2a0d', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 60%, #1a4a1a, #0a1a0a)' }} />
+    <div role="button" tabIndex={0} onClick={onOpen} onKeyDown={openOnKey(onOpen)} className={CARD}>
+      {/* Thumbnail area: the Play drawn on lit Turf, as the board draws it. */}
+      <div className={CARD_TURF}>
         <PlayThumbnail play={play} />
 
         {/* Doesn't-fit marker — opposite corner to the video badge so a play can
             carry both. Phrased as a finding rather than an error: a play that
             does not fit Saturday's ground is a true thing to look at, and the
-            coach fixes it by opening the play, not from here. */}
+            coach fixes it by opening the play, not from here. Amber, because
+            amber means doesn't fit and nothing else (ADR 0005). */}
         {!fits && (
           <div
             title={`Some of this play is outside ${activeVenue?.name ?? 'the active ground'}.`}
-            style={{
-              position: 'absolute', top: 7, left: 7,
-              background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-              border: '1px solid rgba(255,183,77,0.45)', borderRadius: 5,
-              padding: '3px 7px', display: 'flex', alignItems: 'center', gap: 4,
-            }}
+            className={`${BADGE} left-[7px] bg-concrete/80 font-semibold`}
+            style={{ border: `1px solid ${OUT_OF_BOUNDS_AMBER}73`, color: OUT_OF_BOUNDS_AMBER }}
           >
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ffb74d' }} />
-            <span style={{ color: '#ffb74d', fontSize: 9, fontWeight: 600 }}>
-              DOESN'T FIT
-            </span>
+            <div className="h-[6px] w-[6px] rounded-pill" style={{ background: OUT_OF_BOUNDS_AMBER }} />
+            Doesn't fit
           </div>
         )}
 
         {/* Video badge / link prompt */}
         {lvm && videoAvailable === true ? (
-          <div style={{
-            position: 'absolute', top: 7, right: 7,
-            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-            border: '1px solid rgba(0,212,170,0.4)', borderRadius: 5,
-            padding: '3px 7px', display: 'flex', alignItems: 'center', gap: 4,
-          }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#00d4aa' }} />
-            <span style={{ color: '#00d4aa', fontSize: 9, fontWeight: 600 }}>
-              VIDEO LINKED
-            </span>
+          <div className={`${BADGE} right-[7px] border border-chalk/40 bg-concrete/80 font-semibold text-chalk`}>
+            <div className="h-[6px] w-[6px] rounded-pill bg-chalk" />
+            Video linked
           </div>
         ) : lvm && videoAvailable === false ? (
-          <div style={{
-            position: 'absolute', top: 7, right: 7,
-            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-            border: '1px solid rgba(255,102,102,0.4)', borderRadius: 5,
-            padding: '3px 7px', display: 'flex', alignItems: 'center', gap: 4,
-          }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ff6666' }} />
-            <span style={{ color: '#ff6666', fontSize: 9, fontWeight: 600 }}>
-              UNAVAILABLE
-            </span>
+          // A hollow dot: the link is there, the video it points at is not.
+          <div className={`${BADGE} right-[7px] border border-chalk/25 bg-concrete/80 font-semibold text-chalk/70`}>
+            <div className="h-[6px] w-[6px] rounded-pill border border-chalk/70" />
+            Video unavailable
           </div>
         ) : lvm ? null : (
-          <div style={{
-            position: 'absolute', top: 7, right: 7,
-            border: '1px dashed #2a2a4a', borderRadius: 5,
-            padding: '3px 7px',
-          }}>
-            <span style={{ color: '#3a3a6a', fontSize: 9 }}>+ link video</span>
+          // A solid faint edge: a dashed one marks an action that removes something.
+          <div className={`${BADGE} right-[7px] border border-chalk/25 text-chalk/60 backdrop-blur-none`}>
+            + Link video
           </div>
         )}
 
         {/* Clip duration strip */}
         {lvm && (
-          <div style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0, height: 22,
-            background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', gap: 4, padding: '0 7px',
-          }}>
-            <span style={{ color: '#aaa', fontSize: 9 }}>🎬</span>
-            <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ width: '100%', height: '100%', background: 'linear-gradient(90deg, #00d4aa, #0099ff)', borderRadius: 2 }} />
+          <div className="absolute inset-x-0 bottom-0 flex h-[22px] items-center gap-xs bg-concrete/80 px-sm text-caption text-chalk/70">
+            <span aria-hidden="true">🎬</span>
+            <div className="h-[4px] flex-1 overflow-hidden rounded-pill bg-chalk/15">
+              <div className="h-full w-full rounded-pill bg-chalk/70" />
             </div>
-            <span style={{ color: '#aaa', fontSize: 9 }}>
-              {formatDuration(lvm.endTime - lvm.startTime)}
-            </span>
+            <span className="font-display font-bold">{formatDuration(lvm.endTime - lvm.startTime)}</span>
           </div>
         )}
       </div>
 
       {/* Card body */}
-      <div style={{ padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ color: '#fff', fontSize: 12, fontWeight: 600, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{play.name}</div>
-          <div style={{ color: '#5555aa', fontSize: 10 }}>
+      <div className={CARD_BODY}>
+        <div className="min-w-0">
+          <div className={`${CARD_NAME} mb-xxs`}>{play.name}</div>
+          <div className={CARD_DETAIL}>
             {new Date(play.updatedAt).toLocaleDateString()}
           </div>
         </div>
         <button
+          type="button"
           onClick={e => { e.stopPropagation(); onDelete(); }}
-          style={{ color: 'rgba(239,83,80,0.4)', fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', flexShrink: 0 }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#ef5350')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'rgba(239,83,80,0.4)')}
+          className={CARD_ACTION_DESTRUCTIVE}
         >
           Delete
         </button>

@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import type { CSSProperties } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Canvas } from '@react-three/fiber';
 import { getSharedPlaybook } from '../../services/sharingService';
@@ -13,8 +14,58 @@ import { fogColour } from '../Scene/nightGround';
 import { PlayerManager } from '../Scene/PlayerManager';
 import { PathManager } from '../Scene/Path';
 import { CameraController } from '../Scene/CameraController';
+import { fonts, palette, radii, typeStyle, withAlpha } from '../../theme/tokens';
 
 type Step = 'loading' | 'error' | 'video' | 'board';
+
+/**
+ * The viewer's chrome, from the design tokens: a Concrete page with Chalk
+ * text, the same as the app the coach uses. The ground inside the `<Canvas>`
+ * is the board's own concern (`Field`), not this file's.
+ */
+const page: CSSProperties = {
+  minHeight: '100vh',
+  background: palette.concrete,
+  color: palette.chalk,
+  fontFamily: fonts.body,
+};
+
+const chalkDim = withAlpha(palette.chalk, 0.65);
+
+/** A quiet bordered button: Stay on clip, Skip to board diagram, Replay clip. */
+const quietButton: CSSProperties = {
+  ...typeStyle('label'),
+  background: 'none',
+  border: `1px solid ${palette.steel}`,
+  borderRadius: radii.control,
+  padding: '10px 14px',
+  minHeight: 44,
+  color: chalkDim,
+  cursor: 'pointer',
+};
+
+/**
+ * Which step the recipient is on. A state, so it is lit in Floodlight; the
+ * two steps differ only in their words.
+ */
+function StepBadge({ label }: { label: string }) {
+  return (
+    <div
+      style={{
+        border: `1px solid ${withAlpha(palette.floodlight, 0.4)}`,
+        background: withAlpha(palette.floodlight, 0.12),
+        borderRadius: radii.chip,
+        padding: '3px 8px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+      }}
+    >
+      <div style={{ width: 6, height: 6, borderRadius: radii.pill, background: palette.floodlight }} />
+      <span style={{ ...typeStyle('caption'), color: palette.floodlight, fontWeight: 600 }}>{label}</span>
+    </div>
+  );
+}
 
 export function SharedPlaybookViewer() {
   const { token } = useParams<{ token: string }>();
@@ -75,7 +126,7 @@ export function SharedPlaybookViewer() {
 
   if (step === 'loading') {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#050510', color: '#8888aa', fontFamily: 'sans-serif' }}>
+      <div style={{ ...page, ...typeStyle('body'), color: chalkDim, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         Loading…
       </div>
     );
@@ -83,9 +134,11 @@ export function SharedPlaybookViewer() {
 
   if (step === 'error' || !data) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#050510', color: '#fff', gap: 16, fontFamily: 'sans-serif' }}>
+      <div style={{ ...page, ...typeStyle('body'), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
         <p>Invalid or expired share link.</p>
-        <Link to="/" style={{ color: '#00d4aa' }}>Go to Coaching Board</Link>
+        <Link to="/" style={{ ...typeStyle('label'), color: palette.chalk, textDecoration: 'underline', textUnderlineOffset: 3 }}>
+          Go to Coaching Board
+        </Link>
       </div>
     );
   }
@@ -93,31 +146,22 @@ export function SharedPlaybookViewer() {
   const pd = data.playbook_data;
 
   return (
-    <div style={{ minHeight: '100vh', background: '#050510', display: 'flex', flexDirection: 'column', fontFamily: 'sans-serif' }}>
+    <div style={{ ...page, display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <div style={{ background: 'rgba(10,10,26,0.95)', backdropFilter: 'blur(8px)', borderBottom: '1px solid #1a1a3a', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <div style={{ width: 22, height: 22, background: 'linear-gradient(135deg, #00d4aa, #0099ff)', borderRadius: 5, flexShrink: 0 }} />
-        <div>
-          <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{pd.name ?? 'Shared Play'}</div>
+      <div style={{ background: palette.concrete, borderBottom: `1px solid ${palette.steel}`, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        {/* The app's mark: a patch of lit turf edged in chalk. */}
+        <div style={{ width: 22, height: 22, background: palette.turfLit, border: `1.5px solid ${palette.chalk}`, borderRadius: radii.chip / 2, flexShrink: 0 }} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ ...typeStyle('title'), color: palette.chalk }}>{pd.name ?? 'Shared Play'}</div>
           {ground && (
-            <div style={{ color: '#8888aa', fontSize: 10 }}>
+            <div style={{ ...typeStyle('caption'), color: chalkDim }}>
               Designed at {ground.name} · {ground.boundaryLength} × {ground.boundaryWidth} m
             </div>
           )}
-          <div style={{ color: '#4444aa', fontSize: 10 }}>AFL Coaching Board</div>
+          <div style={{ ...typeStyle('caption'), color: withAlpha(palette.chalk, 0.45) }}>AFL Coaching Board</div>
         </div>
         <div style={{ marginLeft: 'auto' }}>
-          {step === 'video' ? (
-            <div style={{ background: 'rgba(0,212,170,0.15)', border: '1px solid rgba(0,212,170,0.3)', borderRadius: 5, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#00d4aa' }} />
-              <span style={{ color: '#00d4aa', fontSize: 10, fontWeight: 600 }}>WATCH CLIP</span>
-            </div>
-          ) : (
-            <div style={{ background: 'rgba(0,153,255,0.15)', border: '1px solid rgba(0,153,255,0.3)', borderRadius: 5, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#0099ff' }} />
-              <span style={{ color: '#0099ff', fontSize: 10, fontWeight: 600 }}>BOARD</span>
-            </div>
-          )}
+          <StepBadge label={step === 'video' ? 'Watch clip' : 'Board'} />
         </div>
       </div>
 
@@ -125,7 +169,7 @@ export function SharedPlaybookViewer() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {step === 'video' && data.video_url && (
           <>
-            <div style={{ position: 'relative', background: '#000', flex: '0 0 auto' }}>
+            <div style={{ position: 'relative', background: palette.concrete, flex: '0 0 auto' }}>
               <video
                 ref={videoRef}
                 src={data.video_url}
@@ -136,20 +180,20 @@ export function SharedPlaybookViewer() {
                 style={{ width: '100%', maxHeight: '60vh', display: 'block' }}
               />
               {(pd.quarter || pd.label) && (
-                <div style={{ position: 'absolute', bottom: 40, left: 12, background: 'rgba(0,0,0,0.7)', borderLeft: '3px solid #e8a020', padding: '4px 8px' }}>
-                  {pd.quarter && <div style={{ color: '#fff', fontSize: 10, fontWeight: 700 }}>{pd.quarter}</div>}
-                  {pd.label && <div style={{ color: '#aaa', fontSize: 9 }}>{pd.label}</div>}
+                <div style={{ position: 'absolute', bottom: 40, left: 12, background: withAlpha(palette.concrete, 0.8), borderLeft: `3px solid ${palette.chalk}`, padding: '4px 8px' }}>
+                  {pd.quarter && <div style={{ ...typeStyle('number'), color: palette.chalk }}>{pd.quarter}</div>}
+                  {pd.label && <div style={{ ...typeStyle('caption'), color: chalkDim }}>{pd.label}</div>}
                 </div>
               )}
               {countdown !== null && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)' }}>
-                  <div style={{ textAlign: 'center', color: '#fff' }}>
-                    <div style={{ fontSize: 14, marginBottom: 8 }}>Board diagram in {countdown}…</div>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: withAlpha(palette.concrete, 0.6) }}>
+                  <div style={{ textAlign: 'center', color: palette.chalk }}>
+                    <div style={{ ...typeStyle('body'), marginBottom: 8 }}>Board diagram in {countdown}…</div>
                     <button onClick={() => {
                       if (countdownRef.current) clearTimeout(countdownRef.current);
                       countdownRef.current = null;
                       setCountdown(null);
-                    }} style={{ background: 'none', border: '1px solid #ffffff44', borderRadius: 5, padding: '4px 12px', color: '#aaa', fontSize: 11, cursor: 'pointer' }}>
+                    }} style={quietButton}>
                       Stay on clip
                     </button>
                   </div>
@@ -157,7 +201,7 @@ export function SharedPlaybookViewer() {
               )}
             </div>
             <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={goToBoard} style={{ background: 'none', border: '1px solid #1e1e3f', borderRadius: 6, padding: '7px 14px', color: '#4444aa', fontSize: 11, cursor: 'pointer' }}>
+              <button onClick={goToBoard} style={quietButton}>
                 Skip to board diagram →
               </button>
             </div>
@@ -188,14 +232,14 @@ export function SharedPlaybookViewer() {
               {data.video_url && (
                 <button
                   onClick={() => setStep('video')}
-                  style={{ flex: 1, border: '1px solid #1a1a3a', borderRadius: 6, padding: '8px', textAlign: 'center', color: '#4444aa', fontSize: 11, cursor: 'pointer', background: 'none' }}
+                  style={{ ...quietButton, flex: 1, textAlign: 'center' }}
                 >
                   🎬 Replay clip
                 </button>
               )}
               <button
                 onClick={() => setStep(data.video_url ? 'video' : 'board')}
-                style={{ flex: 1, background: 'rgba(0,212,170,0.08)', border: '1px solid rgba(0,212,170,0.2)', borderRadius: 6, padding: '8px', textAlign: 'center', color: '#00d4aa', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+                style={{ ...quietButton, flex: 1, textAlign: 'center', background: palette.chalk, border: `1px solid ${palette.chalk}`, color: palette.concrete }}
               >
                 ↺ Replay all
               </button>
