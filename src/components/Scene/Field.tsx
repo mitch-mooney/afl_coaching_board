@@ -1,9 +1,10 @@
 // @ts-nocheck - Disable TypeScript checks for this file due to Three.js JSX primitive type issues
 import { useRef, useMemo, useEffect } from 'react';
-import { Mesh, BufferGeometry, LineBasicMaterial, Float32BufferAttribute, Line as ThreeLine, CanvasTexture, RepeatWrapping, Shape, Path, ShapeGeometry } from 'three';
+import { Mesh, BufferGeometry, LineBasicMaterial, Float32BufferAttribute, Line as ThreeLine, CanvasTexture, RepeatWrapping, Shape, Path, ShapeGeometry, Object3D } from 'three';
 import { FIELD_MARKINGS } from '../../models/FieldModel';
 import { type Boundary, type FieldPoint, boundaryPoints, fiftyMetreArcPoints } from '../../utils/fieldGeometry';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
+import { BLUE_DOT, chalk, nightFill, skyColours, standColours, towerLights, turfStripes } from './nightGround';
 
 // Helper component to avoid TypeScript JSX issues with lowercase 'line'
 interface FieldLineProps {
@@ -31,7 +32,7 @@ interface FieldLineProps {
  * therefore hand in a `points` array that is stable across unrelated re-renders
  * (memoise it on the Boundary), or this rebuilds every frame.
  */
-function FieldLine({ points, color = '#ffffff', linewidth = 1, position = [0, 0, 0] }: FieldLineProps) {
+function FieldLine({ points, color = chalk, linewidth = 1, position = [0, 0, 0] }: FieldLineProps) {
   const lineObject = useMemo(() => {
     const geo = new BufferGeometry();
     geo.setAttribute('position', new Float32BufferAttribute(points, 3));
@@ -51,22 +52,15 @@ function FieldLine({ points, color = '#ffffff', linewidth = 1, position = [0, 0,
 
 /**
  * Elliptical grandstand bowl around the field boundary.
- * Each tier has a wide bright-blue seat surface + a narrow dark riser divider,
- * creating the alternating light/dark band pattern of real stadium seating.
+ * Each tier has a wide seat surface + a narrow dark riser divider, creating the
+ * alternating light/dark band pattern of real stadium seating. The colours are
+ * the night ground's `standColours`.
  * Sized off the ground's Boundary, so the bowl hugs whichever Venue is active.
  */
 
 /** Metres of clearance between the boundary and the first row of seats. */
 const STAND_CLEARANCE_X = 7.5;
 const STAND_CLEARANCE_Z = 6.5;
-// Gradient colour stops for seat rows: inner (near riser shadow) → mid → outer (bright highlight)
-const SEAT_GRADIENT: [number, number, number][] = [
-  [12,  52, 128],  // darkest — in the shadow of the riser below
-  [20,  78, 168],  // mid-dark
-  [30,  98, 190],  // MCG blue
-  [55, 130, 215],  // lighter blue
-  [85, 165, 235],  // brightest — highlight at top of row
-];
 
 function StadiumStands({ boundary }: { boundary: Boundary }) {
   const items = useMemo(() => {
@@ -82,10 +76,10 @@ function StadiumStands({ boundary }: { boundary: Boundary }) {
     const apronHole = new Path();
     apronHole.absellipse(0, 0, boundary.semiX, boundary.semiZ, 0, Math.PI * 2, true, 0);
     apronShape.holes.push(apronHole);
-    result.push({ geo: new ShapeGeometry(apronShape, 64), y: 0.05, color: '#08111e' });
+    result.push({ geo: new ShapeGeometry(apronShape, 64), y: 0.05, color: standColours.apron });
 
     const TIERS = 8;
-    const GRAD = SEAT_GRADIENT.length;
+    const GRAD = standColours.seats.length;
     const SEAT_DEPTH = 9;
     const RISER_DEPTH = 2;
     const STEP = SEAT_DEPTH + RISER_DEPTH;
@@ -94,7 +88,6 @@ function StadiumStands({ boundary }: { boundary: Boundary }) {
 
     for (let i = 0; i < TIERS; i++) {
       const tY = 0.3 + i * 3.6;
-      const tierFade = 1 - i * 0.055; // upper tiers slightly dimmer
       const seatBaseA = boundary.semiX + STAND_CLEARANCE_X + i * STEP;
       const seatBaseB = boundary.semiZ + STAND_CLEARANCE_Z + i * (STEP * 0.82);
 
@@ -105,8 +98,7 @@ function StadiumStands({ boundary }: { boundary: Boundary }) {
         const outerA = innerA + stripDepthA;
         const outerB = innerB + stripDepthB;
 
-        const [r, gr, b] = SEAT_GRADIENT[g];
-        const color = `rgb(${Math.round(r * tierFade)},${Math.round(gr * tierFade)},${Math.round(b * tierFade)})`;
+        const color = standColours.seats[g];
 
         const shape = new Shape();
         shape.absellipse(0, 0, outerA, outerB, 0, Math.PI * 2, false, 0);
@@ -125,7 +117,7 @@ function StadiumStands({ boundary }: { boundary: Boundary }) {
       const riserHole = new Path();
       riserHole.absellipse(0, 0, riserInnerA, riserInnerB, 0, Math.PI * 2, true, 0);
       riserShape.holes.push(riserHole);
-      result.push({ geo: new ShapeGeometry(riserShape, 64), y: tY + SEAT_DEPTH * 0.18 + 0.4, color: '#05090f' });
+      result.push({ geo: new ShapeGeometry(riserShape, 64), y: tY + SEAT_DEPTH * 0.18 + 0.4, color: standColours.riser });
     }
 
     return result;
@@ -142,8 +134,57 @@ function StadiumStands({ boundary }: { boundary: Boundary }) {
   );
 }
 
+/**
+ * The four light towers: the ground's main source of light. Each is a spotlight
+ * aimed into its own quadrant, so light pools under it and the grass between
+ * the pools falls dark; a lamp head marks where the light comes from.
+ *
+ * Built off the Boundary, so the towers stand back from whichever Venue is
+ * active. Each spotlight's target is a scene object of its own, because three
+ * aims a spotlight at its target's world position and a target left out of the
+ * scene sits at the origin.
+ */
+function LightTowers({ boundary }: { boundary: Boundary }) {
+  const towers = useMemo(
+    () =>
+      towerLights(boundary).map((tower) => {
+        const target = new Object3D();
+        target.position.set(...tower.target);
+        return { ...tower, targetObject: target };
+      }),
+    [boundary.semiX, boundary.semiZ],
+  );
+
+  return (
+    <group>
+      {towers.map((tower, i) => (
+        <group key={i}>
+          <primitive object={tower.targetObject} />
+          <spotLight
+            position={tower.position}
+            target={tower.targetObject}
+            intensity={tower.intensity}
+            angle={tower.angle}
+            penumbra={tower.penumbra}
+            decay={2}
+            color={skyColours.lamp}
+            castShadow={tower.castShadow}
+            shadow-mapSize={[1024, 1024]}
+            shadow-bias={-0.0005}
+            shadow-camera-near={20}
+            shadow-camera-far={400}
+          />
+          <mesh position={tower.position}>
+            <boxGeometry args={[7, 3, 7]} />
+            <meshBasicMaterial color={skyColours.lamp} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
 interface FieldProps {
-  darkMode?: boolean;
   /**
    * Render a ground other than the Active Venue. The one caller is the
    * shared-link viewer, which renders on the sender's ground — see
@@ -156,7 +197,13 @@ interface FieldProps {
   boundary?: Boundary;
 }
 
-export function Field({ darkMode = false, boundary: boundaryOverride }: FieldProps) {
+/**
+ * The ground, at a night game under lights: the turf, its markings, the stands
+ * and the towers that light it. Night is the only look, so the board and the
+ * shared-link viewer render this same ground. Colours and lights come from
+ * `nightGround`.
+ */
+export function Field({ boundary: boundaryOverride }: FieldProps) {
   const fieldRef = useRef<Mesh>(null);
   // The ground everything below is sized against.
   const activeBoundary = useActiveBoundary();
@@ -170,7 +217,7 @@ export function Field({ darkMode = false, boundary: boundaryOverride }: FieldPro
     const stripeCount = 16;
     const stripeH = canvas.height / stripeCount;
     for (let i = 0; i < stripeCount; i++) {
-      ctx.fillStyle = i % 2 === 0 ? '#3a7c18' : '#448c1e';
+      ctx.fillStyle = turfStripes[i % 2];
       ctx.fillRect(0, i * stripeH, canvas.width, stripeH);
     }
     const tex = new CanvasTexture(canvas);
@@ -186,10 +233,7 @@ export function Field({ darkMode = false, boundary: boundaryOverride }: FieldPro
       {/* Main field surface - oval shape */}
       <mesh ref={fieldRef} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[boundary.semiX * 2, boundary.semiZ * 2, 32, 32]} />
-        <meshStandardMaterial
-          map={darkMode ? undefined : stripeTexture}
-          color={darkMode ? '#020a02' : '#ffffff'}
-        /> {/* Green grass color */}
+        <meshStandardMaterial map={stripeTexture} roughness={0.95} />
       </mesh>
      
       {/* Center square outline */}
@@ -222,20 +266,13 @@ export function Field({ darkMode = false, boundary: boundaryOverride }: FieldPro
       {/* Field markings - boundary lines */}
       <FieldBoundary boundary={boundary} />
 
-      {/* Stadium seating bowl — not rendered in cinematic dark mode */}
-      {!darkMode && <StadiumStands boundary={boundary} />}
+      {/* Stadium seating bowl */}
+      <StadiumStands boundary={boundary} />
 
-      {/* Sky blue above, green below — strong ambient base */}
-      <hemisphereLight args={['#8ab4d8', '#2d6b14', 1.1]} />
+      {/* A low fill, so the grass between the towers' pools falls dark */}
+      <hemisphereLight args={[nightFill.sky, nightFill.ground, nightFill.intensity]} />
 
-      {/* Main directional — soft shadows from goal posts */}
-      <directionalLight position={[80, 120, 60]} intensity={1.4} castShadow />
-
-      {/* 4 corner floodlights — bright stadium arc lights */}
-      <pointLight position={[-100, 130, -85]} intensity={7} color="#fff8e8" distance={450} decay={2} />
-      <pointLight position={[100, 130, -85]} intensity={7} color="#fff8e8" distance={450} decay={2} />
-      <pointLight position={[-100, 130, 85]} intensity={7} color="#fff8e8" distance={450} decay={2} />
-      <pointLight position={[100, 130, 85]} intensity={7} color="#fff8e8" distance={450} decay={2} />
+      <LightTowers boundary={boundary} />
     </group>
   );
 }
@@ -253,25 +290,25 @@ function GoalPosts({ position, rotation = [0, 0, 0] }: { position: [number, numb
       {/* Left goal post (taller) */}
       <mesh position={[-goalPostSpacing / 2, goalPostHeight / 2, 0]} castShadow>
         <boxGeometry args={[postThickness, goalPostHeight, postThickness]} />
-        <meshStandardMaterial color="#ffffff" />
+        <meshStandardMaterial color={chalk} />
       </mesh>
 
       {/* Right goal post (taller) */}
       <mesh position={[goalPostSpacing / 2, goalPostHeight / 2, 0]} castShadow>
         <boxGeometry args={[postThickness, goalPostHeight, postThickness]} />
-        <meshStandardMaterial color="#ffffff" />
+        <meshStandardMaterial color={chalk} />
       </mesh>
 
       {/* Left behind post (6.4m to the left of left goal post) */}
       <mesh position={[-goalPostSpacing / 2 - behindPostSpacing, behindPostHeight / 2, 0]} castShadow>
         <boxGeometry args={[postThickness, behindPostHeight, postThickness]} />
-        <meshStandardMaterial color="#ffffff" />
+        <meshStandardMaterial color={chalk} />
       </mesh>
 
       {/* Right behind post (6.4m to the right of right goal post) */}
       <mesh position={[goalPostSpacing / 2 + behindPostSpacing, behindPostHeight / 2, 0]} castShadow>
         <boxGeometry args={[postThickness, behindPostHeight, postThickness]} />
-        <meshStandardMaterial color="#ffffff" />
+        <meshStandardMaterial color={chalk} />
       </mesh>
     </group>
   );
@@ -294,7 +331,7 @@ function GoalLines({ boundary }: { boundary: Boundary }) {
             itemSize={3}
           />
         </bufferGeometry>
-        <lineBasicMaterial color="#ffffff" linewidth={2} />
+        <lineBasicMaterial color={chalk} linewidth={2} />
       </line>
      
       {/* Goal line at Team 2 end (positive X) */}
@@ -307,7 +344,7 @@ function GoalLines({ boundary }: { boundary: Boundary }) {
             itemSize={3}
           />
         </bufferGeometry>
-        <lineBasicMaterial color="#ffffff" linewidth={2} />
+        <lineBasicMaterial color={chalk} linewidth={2} />
       </line>
     </group>
   );
@@ -334,7 +371,7 @@ function GoalSquares({ boundary }: { boundary: Boundary }) {
               itemSize={3}
             />
           </bufferGeometry>
-          <lineBasicMaterial color="#ffffff" linewidth={1} />
+          <lineBasicMaterial color={chalk} linewidth={1} />
         </line>
         {/* Left side line */}
         <line>
@@ -346,7 +383,7 @@ function GoalSquares({ boundary }: { boundary: Boundary }) {
               itemSize={3}
             />
           </bufferGeometry>
-          <lineBasicMaterial color="#ffffff" linewidth={1} />
+          <lineBasicMaterial color={chalk} linewidth={1} />
         </line>
         {/* Right side line */}
         <line>
@@ -358,7 +395,7 @@ function GoalSquares({ boundary }: { boundary: Boundary }) {
               itemSize={3}
             />
           </bufferGeometry>
-          <lineBasicMaterial color="#ffffff" linewidth={1} />
+          <lineBasicMaterial color={chalk} linewidth={1} />
         </line>
         {/* Closing line (goal-line side) */}
         <line>
@@ -370,7 +407,7 @@ function GoalSquares({ boundary }: { boundary: Boundary }) {
               itemSize={3}
             />
           </bufferGeometry>
-          <lineBasicMaterial color="#ffffff" linewidth={1} />
+          <lineBasicMaterial color={chalk} linewidth={1} />
         </line>
       </group>
 
@@ -386,7 +423,7 @@ function GoalSquares({ boundary }: { boundary: Boundary }) {
               itemSize={3}
             />
           </bufferGeometry>
-          <lineBasicMaterial color="#ffffff" linewidth={1} />
+          <lineBasicMaterial color={chalk} linewidth={1} />
         </line>
         {/* Left side line */}
         <line>
@@ -398,7 +435,7 @@ function GoalSquares({ boundary }: { boundary: Boundary }) {
               itemSize={3}
             />
           </bufferGeometry>
-          <lineBasicMaterial color="#ffffff" linewidth={1} />
+          <lineBasicMaterial color={chalk} linewidth={1} />
         </line>
         {/* Right side line */}
         <line>
@@ -410,7 +447,7 @@ function GoalSquares({ boundary }: { boundary: Boundary }) {
               itemSize={3}
             />
           </bufferGeometry>
-          <lineBasicMaterial color="#ffffff" linewidth={1} />
+          <lineBasicMaterial color={chalk} linewidth={1} />
         </line>
         {/* Closing line (goal-line side) */}
         <line>
@@ -422,7 +459,7 @@ function GoalSquares({ boundary }: { boundary: Boundary }) {
               itemSize={3}
             />
           </bufferGeometry>
-          <lineBasicMaterial color="#ffffff" linewidth={1} />
+          <lineBasicMaterial color={chalk} linewidth={1} />
         </line>
       </group>
     </group>
@@ -487,13 +524,13 @@ function BlueDots({ boundary }: { boundary: Boundary }) {
       {/* Blue dot at Team 1 end */}
       <mesh position={[dotX1, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[dotRadius, 16]} />
-        <meshBasicMaterial color="#0066ff" />
+        <meshBasicMaterial color={BLUE_DOT} />
       </mesh>
      
       {/* Blue dot at Team 2 end */}
       <mesh position={[dotX2, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[dotRadius, 16]} />
-        <meshBasicMaterial color="#0066ff" />
+        <meshBasicMaterial color={BLUE_DOT} />
       </mesh>
     </group>
   );
@@ -515,7 +552,7 @@ function CenterSquare() {
             itemSize={3}
           />
         </bufferGeometry>
-        <lineBasicMaterial color="#ffffff" linewidth={1} />
+        <lineBasicMaterial color={chalk} linewidth={1} />
       </line>
       {/* Bottom line */}
       <line position={[0, 0.02, 0]}>
@@ -527,7 +564,7 @@ function CenterSquare() {
             itemSize={3}
           />
         </bufferGeometry>
-        <lineBasicMaterial color="#ffffff" linewidth={1} />
+        <lineBasicMaterial color={chalk} linewidth={1} />
       </line>
       {/* Left line */}
       <line position={[0, 0.02, 0]}>
@@ -539,7 +576,7 @@ function CenterSquare() {
             itemSize={3}
           />
         </bufferGeometry>
-        <lineBasicMaterial color="#ffffff" linewidth={1} />
+        <lineBasicMaterial color={chalk} linewidth={1} />
       </line>
       {/* Right line */}
       <line position={[0, 0.02, 0]}>
@@ -551,7 +588,7 @@ function CenterSquare() {
             itemSize={3}
           />
         </bufferGeometry>
-        <lineBasicMaterial color="#ffffff" linewidth={1} />
+        <lineBasicMaterial color={chalk} linewidth={1} />
       </line>
     </group>
   );
@@ -563,18 +600,20 @@ function CenterCircles() {
   const outerRadius = FIELD_MARKINGS.centerCircleOuterRadius;
   const lineWidth = 0.05;
  
+  // Unlit, like every other painted line, so the circles stay Chalk between the
+  // towers' pools instead of fading with the grass.
   return (
     <group>
       {/* Inner circle (3m diameter) */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
         <ringGeometry args={[innerRadius - lineWidth, innerRadius, 32]} />
-        <meshStandardMaterial color="#ffffff" />
+        <meshBasicMaterial color={chalk} />
       </mesh>
-     
+
       {/* Outer circle (10m diameter) */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
         <ringGeometry args={[outerRadius - lineWidth, outerRadius, 32]} />
-        <meshStandardMaterial color="#ffffff" />
+        <meshBasicMaterial color={chalk} />
       </mesh>
      
       {/* Bisecting line (wing-to-wing) */}
@@ -587,7 +626,7 @@ function CenterCircles() {
             itemSize={3}
           />
         </bufferGeometry>
-        <lineBasicMaterial color="#ffffff" linewidth={1} />
+        <lineBasicMaterial color={chalk} linewidth={1} />
       </line>
     </group>
   );

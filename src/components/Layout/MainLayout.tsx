@@ -9,6 +9,7 @@ import { BallComponent } from '../Scene/Ball';
 import { PathManager } from '../Scene/Path';
 import { Scoreboard } from '../Scene/Scoreboard';
 import { SkyDome } from '../Scene/SkyDome';
+import { fogColour } from '../Scene/nightGround';
 import { GlobalDrawer } from '../UI/GlobalDrawer';
 import { BoardHud } from '../Board/hud/BoardHud';
 import { FeatureNotification } from '../UI/FeatureNotification';
@@ -253,7 +254,7 @@ export function MainLayout() {
               setCanvasReady(true);
             }}
           >
-            <fog attach="fog" args={['#06090f', 350, 950]} />
+            <fog attach="fog" args={[fogColour, 350, 950]} />
             <SkyDome />
             <Field />
             <PlayerManager />
