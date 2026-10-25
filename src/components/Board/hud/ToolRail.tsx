@@ -30,7 +30,8 @@ import { TOOL_RAIL_TIPS } from './toolRailTips';
  * from a resting palm — a stray tap here silently re-arms a tip and is not
  * discovered until the next Stroke becomes the wrong thing. So the buttons sit
  * on the far side of the board from the palm, and the group is centred
- * vertically rather than run to the bottom edge where a heel of a hand lands.
+ * vertically (with the View column, by `BoardChrome`'s side row) rather than
+ * run to the bottom edge where a heel of a hand lands.
  * (Palm rejection itself is out of scope.)
  *
  * The armed tip is lit in Floodlight, the HUD's one state colour. It used to be
@@ -144,29 +145,26 @@ export function ToolRail() {
   }, [colourOpen]);
 
   return (
-    // The positioned box spans the full usable height so the group can centre in
-    // it, but it must not eat pointer events: an invisible full-height strip over
-    // the left edge would swallow camera drags across the field.
+    // The rail's slot in the Board chrome's side row (`BoardChrome`), which
+    // positions and centres the pair of side columns. The slot holds the rail at
+    // its head, so the rail's top is the View column's top. It must not eat
+    // pointer events: an invisible strip over the left edge would swallow
+    // camera drags across the field.
     <div
       style={{
-        position: 'absolute',
-        left: 0,
-        // Clear the editor top bar, and the linked-video bar beneath it.
-        top: 'calc(env(safe-area-inset-top, 0px) + 96px)',
-        // No tip under the iPad home indicator.
-        bottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
-        // A column, so the row below is a flex item along this box's height:
-        // it shrinks to fit, and its shrunk height is definite, which is what
-        // lets the pill's `maxHeight: 100%` resolve and the pill scroll. In a
-        // row-direction box that percentage resolved against nothing, so on a
-        // short viewport (iPhone 13, 664px) the pill overflowed upward past
-        // this box's top and over the editor top bar — measured.
+        // A column whose height the side row stretches to, so the row below is
+        // a flex item along a definite height: it shrinks to fit, and its shrunk
+        // height is definite, which is what lets the pill's `maxHeight: 100%`
+        // resolve and the pill scroll. In a row-direction box that percentage
+        // resolved against nothing, so on a short viewport (iPhone 13, 664px)
+        // the pill overflowed upward past the box's top and over the editor top
+        // bar — measured.
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         alignItems: 'flex-start',
+        minHeight: 0,
         paddingLeft: 8,
-        zIndex: 30,
         pointerEvents: 'none',
       }}
     >

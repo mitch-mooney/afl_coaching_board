@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { palette, radii, typeStyle, withAlpha } from '../../../theme/tokens';
-import { CHALK_DIM, CHROME_BOTTOM, glass, HAIRLINE, LIT, MIN_TARGET, SIDE_COLUMN_TOP } from './podStyles';
+import { CHALK_DIM, glass, HAIRLINE, LIT, MIN_TARGET } from './podStyles';
 import { useCameraControls } from './useCameraControls';
 import type { HudAction } from './hudActions';
 
@@ -12,10 +12,11 @@ import type { HudAction } from './hudActions';
  * shows at once and is undone with one more tap; it never re-arms a tip or
  * changes content silently.
  *
- * It mirrors the Tool rail: the same top line under the linked-video bar
- * (`SIDE_COLUMN_TOP`), the same foot, centred in the height between, and it
- * scrolls rather than shrinks its buttons on a short viewport. Other surfaces
- * keep out of it through `VIEW_COLUMN_CLEARANCE`.
+ * It mirrors the Tool rail: `BoardChrome` sets the two side by side in one row
+ * under the linked-video bar (`SIDE_COLUMN_TOP`), both at the row's head, so
+ * the column's top is the rail's top; the row centres in the height above the
+ * foot. The column scrolls rather than shrinks its buttons on a short viewport.
+ * Other surfaces keep out of it through `VIEW_COLUMN_CLEARANCE`.
  *
  * The Lens group is empty and labelled on purpose: Spec 2 fills it, and
  * reserving its place now means the Lens switches arrive without moving the
@@ -91,21 +92,19 @@ export function ViewColumn() {
 
   return (
     <>
-      {/* The positioned box spans the usable height so the column can centre
-          in it, and lets pointer events through, like the Tool rail's: an
-          invisible strip down the right edge would swallow camera drags. */}
+      {/* The column's slot in the Board chrome's side row, which positions and
+          centres the two side columns. The slot holds the column at its head,
+          so its top is the Tool rail's. It lets pointer events through, like
+          the rail's: an invisible strip down the right edge would swallow
+          camera drags. */}
       <div
         style={{
-          position: 'absolute',
-          right: 0,
-          top: SIDE_COLUMN_TOP,
-          bottom: CHROME_BOTTOM,
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center',
+          justifyContent: 'flex-start',
           alignItems: 'flex-end',
+          minHeight: 0,
           paddingRight: 8,
-          zIndex: 30,
           pointerEvents: 'none',
         }}
       >

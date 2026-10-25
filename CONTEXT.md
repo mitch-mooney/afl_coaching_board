@@ -343,8 +343,9 @@ extend this file rather than inventing parallel names.
 - **View column** — the right-edge column holding the camera views (Broadcast, Top,
   Sideline, End-to-end, Reset camera), the two POV slots and their assignment, and an
   empty, labelled Lens group that Spec 2 fills. Nothing in it edits the board, which is
-  why it may sit in the right-hand palm zone (ADR 0007, answering ADR 0003). It starts on
-  the Tool rail's line under the linked-video bar, and other surfaces keep out of it
+  why it may sit in the right-hand palm zone (ADR 0007, answering ADR 0003). Its top is
+  the Tool rail's top, with or without the linked-video bar: the Board chrome sets the
+  two side by side in one row, each at its head. Other surfaces keep out of it
   through `VIEW_COLUMN_CLEARANCE`, as they keep out of the Tool rail through
   `TOOL_RAIL_CLEARANCE` (`components/Board/hud/podStyles.ts`). Component:
   `components/Board/hud/ViewColumn.tsx`.

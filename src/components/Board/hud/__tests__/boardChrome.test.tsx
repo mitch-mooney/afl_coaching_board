@@ -66,6 +66,23 @@ describe('the View column', () => {
   });
 });
 
+describe('the two side columns', () => {
+  // "View column top equals Tool rail top" means the pills' visible tops. Two
+  // separately centred columns of different heights cannot meet it, so both
+  // sit at the head of one shared row, and that row is what centres.
+  it('share one row, each at its head, so their tops are one line', () => {
+    render();
+    const rail = button(container, 'Undo')!.parentElement!;
+    const view = region('View column')!;
+    const row = rail.parentElement!.parentElement!.parentElement!;
+    expect(row).toBe(view.parentElement!.parentElement);
+    expect(row.style.alignItems).toBe('stretch');
+    for (const slot of [rail.parentElement!.parentElement!, view.parentElement!]) {
+      expect(slot.style.justifyContent).toBe('flex-start');
+    }
+  });
+});
+
 describe('the Playback bar', () => {
   it('holds play, stop, the scrubber, speed and the Setup button', () => {
     useAnimationStore.setState({ hasAnimation: true });
