@@ -11,6 +11,7 @@ import { RosterImportModal } from './RosterImportModal';
 import { editBoard } from '../../../utils/boardEdit';
 import { capture, restore } from '../../../utils/boardSnapshotIO';
 import { withoutPlayers, atFullStrength } from '../../../utils/boardPlacement';
+import { dropBall } from '../../../utils/ballDrop';
 import type { HudAction, HudControls } from './hudActions';
 
 const FORMATIONS = [
@@ -34,7 +35,6 @@ export function useSetupControls(): HudControls {
   const clearAnnotations = useAnnotationStore((s) => s.clearAnnotations);
   const annotations = useAnnotationStore((s) => s.annotations);
   const ball = useBallStore((s) => s.ball);
-  const assignBallToPlayer = useBallStore((s) => s.assignBallToPlayer);
 
   const [showTeams, setShowTeams] = useState(false);
   const [showRoster, setShowRoster] = useState(false);
@@ -59,6 +59,15 @@ export function useSetupControls(): HudControls {
     selectPlayer(null);
     const { releasePov } = useCameraStore.getState();
     for (const player of players) releasePov(player.id);
+  };
+
+  // The menu's fallback for a drop the coach can't land by finger: the same
+  // pure drop, made where the ball already is.
+  const recordAndDropBall = (label: string, playerIdUnder: string | null) => {
+    editBoard(label, () => {
+      const board = capture();
+      if (board.ball) restore(dropBall(board, board.ball.position, playerIdUnder));
+    });
   };
 
   const applyPreset = (id: string) => {
@@ -104,14 +113,14 @@ export function useSetupControls(): HudControls {
     {
       key: 'give',
       label: `🏉 Give ball${selectedPlayer ? ` to #${selectedPlayer.number}` : ''}`,
-      onClick: () => selectedPlayerId && editBoard('Assign ball', () => assignBallToPlayer(selectedPlayerId)),
+      onClick: () => selectedPlayerId && recordAndDropBall('Give ball', selectedPlayerId),
       hidden: !ball,
       disabled: !selectedPlayerId,
     },
     {
       key: 'release',
       label: `Release ball${assignedPlayer ? ` (#${assignedPlayer.number})` : ''}`,
-      onClick: () => editBoard('Release ball', () => assignBallToPlayer(null)),
+      onClick: () => recordAndDropBall('Release ball', null),
       hidden: !(ball && assignedPlayer),
     },
     { key: 'roster', label: 'Import roster…', onClick: () => setShowRoster(true) },
