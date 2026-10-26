@@ -163,3 +163,66 @@ export function tokenDiameter({
   const floor = (TOKEN_MIN_POINTS * visibleHeight) / viewportHeight;
   return Math.max(TOKEN_WORLD_DIAMETER, floor);
 }
+
+/** How long the cross-fade between bodies and tokens takes. */
+export const LOOK_FADE_MS = 150;
+
+/**
+ * How far the board is through the change from bodies (0) to tokens (1), one
+ * frame on. The fade runs at a constant rate towards whatever `playerLook`
+ * decided, so a tilt reversed mid-fade turns back from where it had got to
+ * rather than jumping. Under reduced motion the change is instant.
+ */
+export function lookFade({
+  fade,
+  look,
+  elapsedMs,
+  reducedMotion,
+}: {
+  fade: number;
+  look: PlayerLook;
+  elapsedMs: number;
+  reducedMotion: boolean;
+}): number {
+  const target = look === 'token' ? 1 : 0;
+  if (reducedMotion) return target;
+  const step = elapsedMs / LOOK_FADE_MS;
+  return target > fade ? Math.min(target, fade + step) : Math.max(target, fade - step);
+}
+
+/** Which of the two layers, box figures and tokens, are on the board. */
+export type LookLayers = { body: boolean; token: boolean };
+
+/** Which layers a fade needs on the board: both while it is under way, one at rest. */
+export function lookLayers(fade: number): LookLayers {
+  return { body: fade < 1, token: fade > 0 };
+}
+
+/**
+ * One frame of the cross-fade: the fade to draw and the layers to have on the
+ * board. A layer takes a frame to arrive, so when the step would need one that
+ * is not yet `mounted`, this frame adds it and holds the fade where it was.
+ * Otherwise a jump straight from bodies to tokens (reduced motion, or one long
+ * frame) would draw the figures shrunk away before any token had arrived: a
+ * blank frame. A layer leaves only once the fade no longer shows it.
+ */
+export function fadeFrame({
+  fade,
+  look,
+  elapsedMs,
+  reducedMotion,
+  mounted,
+}: {
+  fade: number;
+  look: PlayerLook;
+  elapsedMs: number;
+  reducedMotion: boolean;
+  mounted: LookLayers;
+}): { fade: number; layers: LookLayers } {
+  const next = lookFade({ fade, look, elapsedMs, reducedMotion });
+  const needed = lookLayers(next);
+  if ((needed.body && !mounted.body) || (needed.token && !mounted.token)) {
+    return { fade, layers: { body: mounted.body || needed.body, token: mounted.token || needed.token } };
+  }
+  return { fade: next, layers: needed };
+}

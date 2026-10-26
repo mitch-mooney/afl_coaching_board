@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, type MutableRefObject } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Billboard, Text } from '@react-three/drei';
 import * as THREE from 'three';
@@ -201,6 +201,9 @@ function tokenTexture(guernsey: Guernsey): THREE.CanvasTexture {
   return texture;
 }
 
+/** The disc's cut-out edge (the notch, the rim) at full opacity. */
+const ALPHA_CUTOFF = 0.5;
+
 /** Each token's notch, by player id, for the Carrier's ball to sit on. */
 const notches = new Map<string, THREE.Object3D>();
 
@@ -224,6 +227,35 @@ interface PlayerTokenProps {
   ring: TokenRing;
   /** This token's place where tokens overlap, from `tokenStacking`. */
   stacking: number;
+  /** How far the board is from bodies (0) to tokens (1): the token's opacity. */
+  fade: MutableRefObject<number>;
+}
+
+type FadingLabel = { fillOpacity: number; outlineOpacity: number };
+
+/**
+ * The disc, its ring and its labels at a given opacity. The disc's cut-off
+ * scales with it, so the notch keeps its edge as the disc fades rather than the
+ * whole disc vanishing at half opacity. It never reaches 0, which would
+ * recompile the shader. The ring fades from its own strength, so a hover ring
+ * stays fainter than a full one throughout.
+ */
+function applyOpacity(
+  disc: THREE.MeshBasicMaterial | null,
+  ring: { material: THREE.MeshBasicMaterial | null; strength: number },
+  labels: (FadingLabel | null)[],
+  opacity: number,
+) {
+  if (disc) {
+    disc.opacity = opacity;
+    disc.alphaTest = Math.max(0.01, ALPHA_CUTOFF * opacity);
+  }
+  if (ring.material) ring.material.opacity = ring.strength * opacity;
+  for (const label of labels) {
+    if (!label) continue;
+    label.fillOpacity = opacity;
+    label.outlineOpacity = opacity;
+  }
 }
 
 /**
@@ -232,10 +264,15 @@ interface PlayerTokenProps {
  * the box figure does. Drawn at 2 m across, or larger when 2 m would read under
  * 32 points on screen.
  */
-export function PlayerToken({ playerId, guernsey, label, name, ring, stacking }: PlayerTokenProps) {
+export function PlayerToken({ playerId, guernsey, label, name, ring, stacking, fade }: PlayerTokenProps) {
   const groupRef = useRef<THREE.Group>(null);
   const notchRef = useRef<THREE.Group>(null);
+  const materialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const ringMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const labelRef = useRef<FadingLabel>(null);
+  const nameRef = useRef<FadingLabel>(null);
   const texture = useMemo(() => tokenTexture(guernsey), [guernsey]);
+  const ringStrength = ring === 'full' ? 1 : HOVER_RING_OPACITY;
   const worldPosition = useMemo(() => new THREE.Vector3(), []);
 
   useFrame(({ camera, size }) => {
@@ -250,6 +287,12 @@ export function PlayerToken({ playerId, guernsey, label, name, ring, stacking }:
       viewportHeight: size.height,
     });
     group.scale.setScalar(diameter);
+    applyOpacity(
+      materialRef.current,
+      { material: ringMaterialRef.current, strength: ringStrength },
+      [labelRef.current, nameRef.current],
+      fade.current,
+    );
   });
 
   useEffect(() => {
@@ -271,7 +314,15 @@ export function PlayerToken({ playerId, guernsey, label, name, ring, stacking }:
     <group ref={groupRef} position={[0, TOKEN_HEIGHT, 0]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, discLift, 0]} renderOrder={discOrder}>
         <circleGeometry args={[0.5, 48]} />
-        <meshBasicMaterial map={texture} transparent alphaTest={0.5} depthWrite={false} toneMapped={false} />
+        <meshBasicMaterial
+          ref={materialRef}
+          map={texture}
+          transparent
+          opacity={fade.current}
+          alphaTest={Math.max(0.01, ALPHA_CUTOFF * fade.current)}
+          depthWrite={false}
+          toneMapped={false}
+        />
       </mesh>
       {ring !== 'none' && (
         // Outside the band, and not something a drop can land on: the drop
@@ -284,9 +335,10 @@ export function PlayerToken({ playerId, guernsey, label, name, ring, stacking }:
         >
           <ringGeometry args={[0.5 + RING_GAP, 0.5 + RING_GAP + RING_WIDTH, 48]} />
           <meshBasicMaterial
+            ref={ringMaterialRef}
             color={palette.floodlight}
             transparent
-            opacity={ring === 'full' ? 1 : HOVER_RING_OPACITY}
+            opacity={ringStrength * fade.current}
             depthWrite={false}
             toneMapped={false}
           />
@@ -299,6 +351,9 @@ export function PlayerToken({ playerId, guernsey, label, name, ring, stacking }:
         <Billboard position={[0, LABEL_LIFT, 0]} follow={true}>
           {label !== undefined && (
             <Text
+              ref={labelRef}
+              fillOpacity={fade.current}
+              outlineOpacity={fade.current}
               font="/fonts/Inter-Bold.woff"
               fontSize={LABEL_SIZE}
               color={guernsey.label}
@@ -323,6 +378,9 @@ export function PlayerToken({ playerId, guernsey, label, name, ring, stacking }:
             // outline as the figure's name does.
             <Text
               position={[0.5 + NAME_GAP, 0, 0]}
+              ref={nameRef}
+              fillOpacity={fade.current}
+              outlineOpacity={fade.current}
               font="/fonts/Inter-Bold.woff"
               fontSize={LABEL_SIZE}
               color={palette.chalk}

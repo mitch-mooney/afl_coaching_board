@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   cameraTilt,
+  fadeFrame,
+  lookFade,
+  lookLayers,
+  LOOK_FADE_MS,
   playerLook,
   povCameraPose,
   presetCameraPose,
@@ -214,5 +218,102 @@ describe('tokenDiameter', () => {
 
   it('counts pinch zoom: zoomed in twice, the floor needs half the ground', () => {
     expect(tokenDiameter({ fov: 50, zoom: 2, distance: 200, viewportHeight: 834 })).toBeCloseTo(3.58, 2);
+  });
+});
+
+describe('lookFade: the cross-fade between bodies and tokens', () => {
+  it('takes about 150 ms', () => {
+    expect(LOOK_FADE_MS).toBe(150);
+  });
+
+  it('is halfway to tokens 75 ms after the board turns to tokens', () => {
+    expect(lookFade({ fade: 0, look: 'token', elapsedMs: 75, reducedMotion: false })).toBeCloseTo(0.5, 10);
+  });
+
+  it('settles on tokens after 150 ms and goes no further', () => {
+    let fade = 0;
+    for (let i = 0; i < 20; i++) fade = lookFade({ fade, look: 'token', elapsedMs: 16, reducedMotion: false });
+    expect(fade).toBe(1);
+  });
+
+  it('runs the same way back down to bodies', () => {
+    expect(lookFade({ fade: 1, look: 'body', elapsedMs: 75, reducedMotion: false })).toBeCloseTo(0.5, 10);
+    expect(lookFade({ fade: 0.1, look: 'body', elapsedMs: 50, reducedMotion: false })).toBe(0);
+  });
+
+  it('reversing the tilt mid-fade turns back from where the fade had got to, without a jump', () => {
+    const midway = lookFade({ fade: 0, look: 'token', elapsedMs: 60, reducedMotion: false });
+    const turned = lookFade({ fade: midway, look: 'body', elapsedMs: 15, reducedMotion: false });
+    expect(turned).toBeCloseTo(midway - 0.1, 10);
+    expect(lookFade({ fade: turned, look: 'body', elapsedMs: 150, reducedMotion: false })).toBe(0);
+  });
+
+  it('a long frame cannot overshoot', () => {
+    expect(lookFade({ fade: 0.9, look: 'token', elapsedMs: 1000, reducedMotion: false })).toBe(1);
+  });
+
+  it('is instant under reduced motion, both ways', () => {
+    expect(lookFade({ fade: 0, look: 'token', elapsedMs: 16, reducedMotion: true })).toBe(1);
+    expect(lookFade({ fade: 0.4, look: 'body', elapsedMs: 16, reducedMotion: true })).toBe(0);
+  });
+});
+
+describe('lookLayers: which layers are on the board', () => {
+  it('shows only bodies at rest on bodies, and only tokens at rest on tokens', () => {
+    expect(lookLayers(0)).toEqual({ body: true, token: false });
+    expect(lookLayers(1)).toEqual({ body: false, token: true });
+  });
+
+  it('shows both while the fade is under way', () => {
+    expect(lookLayers(0.5)).toEqual({ body: true, token: true });
+  });
+});
+
+describe('fadeFrame: one frame of the cross-fade', () => {
+  const bodiesOnly = { body: true, token: false };
+  const both = { body: true, token: true };
+  const tokensOnly = { body: false, token: true };
+
+  it('puts the tokens on the board before the fade moves, so no frame shows neither', () => {
+    expect(fadeFrame({ fade: 0, look: 'token', elapsedMs: 16, reducedMotion: false, mounted: bodiesOnly })).toEqual({
+      fade: 0,
+      layers: both,
+    });
+  });
+
+  it('moves the fade once both layers are on the board', () => {
+    const next = fadeFrame({ fade: 0, look: 'token', elapsedMs: 75, reducedMotion: false, mounted: both });
+    expect(next.fade).toBeCloseTo(0.5, 10);
+    expect(next.layers).toEqual(both);
+  });
+
+  it('takes the figures off once the tokens have fully faded in', () => {
+    expect(fadeFrame({ fade: 0.9, look: 'token', elapsedMs: 50, reducedMotion: false, mounted: both })).toEqual({
+      fade: 1,
+      layers: tokensOnly,
+    });
+  });
+
+  it('under reduced motion, switches in one step with both layers on the board for it', () => {
+    const first = fadeFrame({ fade: 0, look: 'token', elapsedMs: 16, reducedMotion: true, mounted: bodiesOnly });
+    expect(first).toEqual({ fade: 0, layers: both });
+    expect(fadeFrame({ fade: first.fade, look: 'token', elapsedMs: 16, reducedMotion: true, mounted: first.layers })).toEqual({
+      fade: 1,
+      layers: tokensOnly,
+    });
+  });
+
+  it('puts the figures back before fading down to them', () => {
+    expect(fadeFrame({ fade: 1, look: 'body', elapsedMs: 16, reducedMotion: false, mounted: tokensOnly })).toEqual({
+      fade: 1,
+      layers: both,
+    });
+  });
+
+  it('leaves a board at rest alone', () => {
+    expect(fadeFrame({ fade: 0, look: 'body', elapsedMs: 16, reducedMotion: false, mounted: bodiesOnly })).toEqual({
+      fade: 0,
+      layers: bodiesOnly,
+    });
   });
 });

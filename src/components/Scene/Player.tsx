@@ -1,5 +1,6 @@
-import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
+import { useRef, useState, useMemo, useEffect, useCallback, type MutableRefObject, type ReactNode } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
+import type { Group } from 'three';
 import { Text, Billboard } from '@react-three/drei';
 import { Player } from '../../models/PlayerModel';
 import { usePlayerStore } from '../../store/playerStore';
@@ -16,7 +17,7 @@ import { snapPointerToField, dragRotation, facingRotation, isTap } from '../../u
 import { authoringIntent, placementAvailable } from '../../utils/inputContract';
 import { getTeamById } from '../../data/aflTeams';
 import type { Guernsey } from '../../utils/guernsey';
-import type { PlayerLook } from '../../utils/cameraMath';
+import type { LookLayers, PlayerLook } from '../../utils/cameraMath';
 import { tokenRing } from '../../utils/tokenStates';
 import { PlayerToken } from './PlayerToken';
 
@@ -56,11 +57,35 @@ interface PlayerProps {
   guernsey: Guernsey;
   /** Body or token, decided once for the board by `playerLook`. */
   look: PlayerLook;
+  /** Which layers the cross-fade has on the board, from `lookLayers`. */
+  layers: LookLayers;
+  /** How far the board is from bodies (0) to tokens (1), moved every frame by `lookFade`. */
+  fade: MutableRefObject<number>;
   /** This player's place where tokens overlap, decided once for the board by `tokenStacking`. */
   stacking: number;
 }
 
-export function PlayerComponent({ player, guernsey, look, stacking }: PlayerProps) {
+/** The smallest the figure scales to, so its matrix never goes singular. */
+const MIN_FIGURE_SCALE = 0.001;
+
+/**
+ * The box figure, shrinking into the ground as the token fades in. The group
+ * sits at the player's feet, so scaling it pulls the figure down into the grass.
+ */
+function FigureFade({ fade, children }: { fade: MutableRefObject<number>; children: ReactNode }) {
+  const ref = useRef<Group>(null);
+  const scaleFor = (f: number) => Math.max(MIN_FIGURE_SCALE, 1 - f);
+  useFrame(() => {
+    ref.current?.scale.setScalar(scaleFor(fade.current));
+  });
+  return (
+    <group ref={ref} scale={scaleFor(fade.current)}>
+      {children}
+    </group>
+  );
+}
+
+export function PlayerComponent({ player, guernsey, layers, fade, stacking }: PlayerProps) {
   const groupRef = useRef<any>(null);
   const leftThighRef = useRef<any>(null);
   const rightThighRef = useRef<any>(null);
@@ -495,7 +520,7 @@ export function PlayerComponent({ player, guernsey, look, stacking }: PlayerProp
         setHovered(false);
       }}
     >
-      {look === 'token' ? (
+      {layers.token && (
         <PlayerToken
           playerId={player.id}
           guernsey={guernsey}
@@ -505,9 +530,11 @@ export function PlayerComponent({ player, guernsey, look, stacking }: PlayerProp
           name={labelMode === 'name' ? formatDisplayName(player.playerName) : null}
           ring={tokenRing({ selected: isSelected, carrier: isCarrier, dropTarget: isDropTarget, hovered })}
           stacking={stacking}
+          fade={fade}
         />
-      ) : (
-        <>
+      )}
+      {layers.body && (
+        <FigureFade fade={fade}>
           {/* ── Minecraft-style box geometry player ── */}
 
           {/* Body (torso) */}
@@ -654,7 +681,7 @@ export function PlayerComponent({ player, guernsey, look, stacking }: PlayerProp
               <meshStandardMaterial color="#ffff00" emissive="#ffff00" emissiveIntensity={0.5} />
             </mesh>
           )}
-        </>
+        </FigureFade>
       )}
     </group>
   );

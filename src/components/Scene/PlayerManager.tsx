@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { usePlayerStore } from '../../store/playerStore';
@@ -13,7 +13,14 @@ import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 import { beginPreviewDrag, previewPointerIntent } from '../../utils/coneDrag';
 import { useMarkerDrag } from './useMarkerDrag';
 import { boardGuernseys } from '../../utils/guernsey';
-import { cameraTilt, playerLook, type PlayerLook } from '../../utils/cameraMath';
+import {
+  cameraTilt,
+  fadeFrame,
+  lookLayers,
+  playerLook,
+  type LookLayers,
+  type PlayerLook,
+} from '../../utils/cameraMath';
 import { useCameraStore } from '../../store/cameraStore';
 import { useBallStore } from '../../store/ballStore';
 import { tokenStacking } from '../../utils/tokenStates';
@@ -83,14 +90,27 @@ function GhostIndicator({ player }: { player: Player }) {
 /**
  * Bodies or tokens, for the whole board at once. Read from the rendered camera
  * every frame rather than the camera store, because an orbit moves the camera
- * without telling the store. Re-renders only when the answer changes.
+ * without telling the store. Re-renders only when the answer changes, or when
+ * the cross-fade adds or drops a layer.
+ *
+ * `fade` runs from 0 (bodies) to 1 (tokens) and moves every frame, so it is a
+ * ref the players read in their own frame loop, never a re-render. The board's
+ * first frame takes its look at once rather than fading in from bodies.
  */
-function usePlayerLook(): PlayerLook {
+function usePlayerLook(): { look: PlayerLook; layers: LookLayers; fade: MutableRefObject<number> } {
   const [look, setLook] = useState<PlayerLook>('body');
   const lookRef = useRef<PlayerLook>('body');
+  const fade = useRef(0);
+  const [layers, setLayers] = useState<LookLayers>(() => lookLayers(0));
+  const layersRef = useRef(layers);
+  const startedRef = useRef(false);
   const ahead = useMemo(() => new THREE.Vector3(), []);
+  const reducedMotion = useMemo(
+    () => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null),
+    [],
+  );
 
-  useFrame(({ camera }) => {
+  useFrame(({ camera }, delta) => {
     camera.getWorldDirection(ahead).add(camera.position);
     const next = playerLook({
       tilt: cameraTilt(camera.position.toArray(), ahead.toArray()),
@@ -101,9 +121,28 @@ function usePlayerLook(): PlayerLook {
       lookRef.current = next;
       setLook(next);
     }
-  });
 
-  return look;
+    const mounted = layersRef.current;
+    const frame = fadeFrame({
+      fade: fade.current,
+      look: next,
+      elapsedMs: delta * 1000,
+      reducedMotion: !startedRef.current || (reducedMotion?.matches ?? false),
+      mounted,
+    });
+    const { layers: nextLayers } = frame;
+    // The first look is taken at once, on the first frame that adds no layer.
+    if (!(nextLayers.body && !mounted.body) && !(nextLayers.token && !mounted.token)) startedRef.current = true;
+    fade.current = frame.fade;
+    if (nextLayers.body !== mounted.body || nextLayers.token !== mounted.token) {
+      layersRef.current = nextLayers;
+      setLayers(nextLayers);
+    }
+    // Before the players' own frame loops, so they draw this frame's fade. A
+    // negative priority runs first without taking over rendering.
+  }, -1);
+
+  return { look, layers, fade };
 }
 
 export function PlayerManager({ readOnly = false }: PlayerManagerProps) {
@@ -113,7 +152,7 @@ export function PlayerManager({ readOnly = false }: PlayerManagerProps) {
   // One decision for the whole board, so Team 2 changes into its Clash
   // guernsey all at once.
   const guernseys = useMemo(() => boardGuernseys(players, team2Guernsey), [players, team2Guernsey]);
-  const look = usePlayerLook();
+  const { look, layers, fade } = usePlayerLook();
   const selectedId = usePlayerStore((state) => state.selectedPlayerId);
   const carrierId = useBallStore((state) => state.ball?.assignedPlayerId ?? null);
   const stacking = useMemo(
@@ -130,6 +169,8 @@ export function PlayerManager({ readOnly = false }: PlayerManagerProps) {
           player={player}
           guernsey={guernseys[player.teamId]}
           look={look}
+          layers={layers}
+          fade={fade}
           stacking={stacking[player.id]}
         />
       ))}
