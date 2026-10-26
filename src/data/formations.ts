@@ -309,48 +309,100 @@ const MAN_ON_MAN: Formation = {
  *   goal-facing sides, outside the square, out to the boundary (Diagram 2).
  * The 2026 changes drop the requirement for a player in each goal square.
  *
- * Every spot is a contest between two direct opponents, split OPPONENT_GAP
- * apart goal-side. Team 1's forward 50 is listed; its defensive 50 is the same
- * shape turned a half-turn, with the roles swapped.
+ * The shape inside those rules is the coach's, from the #118 review:
+ * - the midfielders start on the centre circle, just outside its line, beside
+ *   their direct opponent;
+ * - each forward line is an umbrella: the full forward in the goal square, the
+ *   centre half forward about 30 m out on the centre line, and the flankers and
+ *   pockets spread around the inside of the 50 m arc.
+ *
+ * Every spot is a contest between two direct opponents OPPONENT_GAP apart.
+ * Team 1's forward 50 is listed; its defensive 50 is the same shape turned a
+ * half-turn, with the roles swapped.
  */
-const CENTRE_BOUNCE_FORWARD_50: Array<{ at: Point; team1: string; team2: string }> = [
-  { at: [GOAL_LINE - 12.5, 0], team1: 'FF', team2: 'FB' },
-  { at: [GOAL_LINE - 18.5, -18], team1: 'FP', team2: 'BP' },
-  { at: [GOAL_LINE - 18.5, 18], team1: 'FP', team2: 'BP' },
-  { at: [GOAL_LINE - 40.5, 0], team1: 'CHF', team2: 'CHB' },
-  { at: [GOAL_LINE - 32.5, -27], team1: 'HFF', team2: 'HBF' },
-  { at: [GOAL_LINE - 32.5, 27], team1: 'HFF', team2: 'HBF' },
+interface Contest {
+  team1: Spot;
+  team2: Spot;
+}
+
+/**
+ * A forward-line contest on the ray from the centre of the goal line at
+ * `angle` degrees off the centre line: the forward `metres` out, the defender
+ * OPPONENT_GAP closer to goal on the same ray.
+ */
+function forwardContest(forward: string, defender: string, metres: number, angle: number): Contest {
+  const rad = (angle * Math.PI) / 180;
+  const along = (d: number): Point => [GOAL_LINE - d * Math.cos(rad), d * Math.sin(rad)];
+  return {
+    team1: { role: forward, at: along(metres) },
+    team2: { role: defender, at: along(metres - OPPONENT_GAP) },
+  };
+}
+
+/** Where the canopy of the umbrella stands: inside the 50 m arc, off its line. */
+const CANOPY = FIELD_MARKINGS.fiftyMetreArcRadius - 4;
+
+const CENTRE_BOUNCE_FORWARD_50: Contest[] = [
+  forwardContest('FF', 'FB', 7, 0),
+  forwardContest('CHF', 'CHB', 30, 0),
+  forwardContest('HFF', 'HBF', CANOPY, -25),
+  forwardContest('HFF', 'HBF', CANOPY, 25),
+  forwardContest('FP', 'BP', CANOPY, -60),
+  forwardContest('FP', 'BP', CANOPY, 60),
 ];
 
-const CENTRE_BOUNCE_MIDFIELD: Array<{ at: Point; team1: string; team2: string }> = [
+/** The radius the midfielders start on: just outside the centre circle's line. */
+const ON_THE_CIRCLE = FIELD_MARKINGS.centerCircleOuterRadius + 1;
+
+/**
+ * A midfield contest on the circle at `angle` degrees (0 = toward Team 2's
+ * goal): the two opponents side by side along the circle, OPPONENT_GAP apart,
+ * Team 1 on the side nearer the goal it defends.
+ */
+function circleContest(role: string, angle: number): Contest {
+  const spread = Math.asin(OPPONENT_GAP / 2 / ON_THE_CIRCLE);
+  const centre = (angle * Math.PI) / 180;
+  const at = (rad: number): Point => [ON_THE_CIRCLE * Math.cos(rad), ON_THE_CIRCLE * Math.sin(rad)];
+  const [a, b] = [at(centre - spread), at(centre + spread)];
+  const team1First = a[0] < b[0] - 1e-9 || (Math.abs(a[0] - b[0]) <= 1e-9 && a[1] < b[1]);
+  return {
+    team1: { role, at: team1First ? a : b },
+    team2: { role, at: team1First ? b : a },
+  };
+}
+
+const HALF_GAP = OPPONENT_GAP / 2;
+
+const CENTRE_BOUNCE_MIDFIELD: Contest[] = [
   // Rucks side by side across the centre line, each in its defensive half.
-  { at: [0, 0], team1: 'RK', team2: 'RK' },
-  // Midfielders paired around the circle, clear of it.
-  { at: [0, -9], team1: 'RR', team2: 'RR' },
-  { at: [0, 9], team1: 'R', team2: 'R' },
-  { at: [-10, 0], team1: 'C', team2: 'C' },
+  { team1: { role: 'RK', at: [-HALF_GAP, 0] }, team2: { role: 'RK', at: [HALF_GAP, 0] } },
+  // Midfielders on the circle, beside their direct opponent.
+  circleContest('RR', -90),
+  circleContest('R', 90),
+  circleContest('C', 180),
   // Wings out on the wing, well clear of the centre square's side.
-  { at: [0, -45], team1: 'W', team2: 'W' },
-  { at: [0, 45], team1: 'W', team2: 'W' },
+  { team1: { role: 'W', at: [-HALF_GAP, -45] }, team2: { role: 'W', at: [HALF_GAP, -45] } },
+  { team1: { role: 'W', at: [-HALF_GAP, 45] }, team2: { role: 'W', at: [HALF_GAP, 45] } },
 ];
 
 function centreBouncePositions(): PlayerPosition[] {
-  const contests = [
+  const turnedSpot = (s: Spot): Spot => ({ role: s.role, at: rotateHalfTurn(s.at) });
+  const contests: Contest[] = [
     ...CENTRE_BOUNCE_FORWARD_50,
-    ...CENTRE_BOUNCE_FORWARD_50.map((c) => ({ at: rotateHalfTurn(c.at), team1: c.team2, team2: c.team1 })),
+    // Team 1's defensive 50: the same umbrella with the teams swapped.
+    ...CENTRE_BOUNCE_FORWARD_50.map((c) => ({ team1: turnedSpot(c.team2), team2: turnedSpot(c.team1) })),
     ...CENTRE_BOUNCE_MIDFIELD,
   ];
-  const half = OPPONENT_GAP / 2;
   return [
-    ...numberedTeam('team1', contests.map((c) => ({ role: c.team1, at: goalSide(c.at, 'team1', half) })), CENTRE),
-    ...numberedTeam('team2', contests.map((c) => ({ role: c.team2, at: goalSide(c.at, 'team2', half) })), CENTRE),
+    ...numberedTeam('team1', contests.map((c) => c.team1), CENTRE),
+    ...numberedTeam('team2', contests.map((c) => c.team2), CENTRE),
   ];
 }
 
 const CENTRE_BOUNCE: Formation = {
   id: 'centre-bounce',
   name: 'Centre Bounce',
-  description: 'The 6-6-6 start: six of each team inside each 50 m arc, four in the centre square with the rucks in the circle, one on each wing. Each player stands beside their direct opponent.',
+  description: 'The 6-6-6 start: each forward line an umbrella inside the 50 m arc, the rucks in the centre circle with the midfielders on it, one on each wing. Each player stands beside their direct opponent.',
   category: 'pre-built',
   positions: centreBouncePositions(),
 };
@@ -372,7 +424,8 @@ const CENTRE_BOUNCE: Formation = {
  *
  * The press is the AFL Youth Coaching Manual's "basic 3-4-5 zone" (12 players)
  * moved out past the modern protected area, with the back six goal-side of the
- * kicking team's forwards. The kicking team gives two short options in the
+ * kicking team's forwards, that contest held up around the middle of the
+ * ground (#118 review). The kicking team gives two short options in the
  * pockets (the most common kick-in, per Champion Data), leads at 40 m, a
  * midfield stack, and the ruck as the long target at the corner of the centre
  * square.
@@ -396,19 +449,20 @@ const KICK_IN_PRESSING_TEAM: Spot[] = [
   { role: 'RR', at: outFromGoal(38, -12) },
   { role: 'R', at: outFromGoal(38, 12) },
   { role: 'HFF', at: outFromGoal(38, 32) },
-  // Line 3 (5), about 55 m out, wings wide.
-  { role: 'W', at: outFromGoal(55, -48) },
+  // Line 3 (5), about 55 m out, wings in off the boundary.
+  { role: 'W', at: outFromGoal(55, -38) },
   { role: 'RK', at: outFromGoal(55, -18) },
   { role: 'C', at: outFromGoal(55, 0) },
   { role: 'CHF', at: outFromGoal(55, 18) },
-  { role: 'W', at: outFromGoal(55, 48) },
-  // Back six: goal-side of the kicking team's forwards (below).
-  { role: 'CHB', at: [-33, 0] },
-  { role: 'HBF', at: [-38, -30] },
-  { role: 'HBF', at: [-38, 30] },
-  { role: 'FB', at: [-61, 0] },
-  { role: 'BP', at: [-65, -20] },
-  { role: 'BP', at: [-65, 20] },
+  { role: 'W', at: outFromGoal(55, 38) },
+  // Back six: goal-side of the kicking team's forwards (below), up around
+  // the middle of the ground with them.
+  { role: 'CHB', at: [5, 0] },
+  { role: 'HBF', at: [0, -30] },
+  { role: 'HBF', at: [0, 30] },
+  { role: 'FB', at: [-23, 0] },
+  { role: 'BP', at: [-27, -20] },
+  { role: 'BP', at: [-27, 20] },
 ];
 
 const KICK_IN_KICKING_TEAM: Spot[] = [
@@ -421,20 +475,21 @@ const KICK_IN_KICKING_TEAM: Spot[] = [
   { role: 'CHB', at: outFromGoal(40, 0) },
   { role: 'HBF', at: outFromGoal(42, -22) },
   { role: 'HBF', at: outFromGoal(42, 22) },
-  // Midfield stack, the ruck as the long target, wings wide.
+  // Midfield stack, the ruck as the long target, wings in off the boundary.
   { role: 'C', at: outFromGoal(62, 0) },
   { role: 'RR', at: outFromGoal(60, -10) },
   { role: 'R', at: outFromGoal(60, 10) },
   { role: 'RK', at: [22, -22] },
-  { role: 'W', at: [12, -50] },
-  { role: 'W', at: [12, 50] },
-  // Forwards held deep in the front half for a quick contest.
-  { role: 'CHF', at: [-30, 0] },
-  { role: 'HFF', at: [-35, -30] },
-  { role: 'HFF', at: [-35, 30] },
-  { role: 'FF', at: [-58, 0] },
-  { role: 'FP', at: [-62, -20] },
-  { role: 'FP', at: [-62, 20] },
+  { role: 'W', at: [12, -36] },
+  { role: 'W', at: [12, 36] },
+  // Forwards held up around the middle of the ground, not deep, the shape
+  // unchanged: a CHF and two flankers in front, FF and pockets behind.
+  { role: 'CHF', at: [8, 0] },
+  { role: 'HFF', at: [3, -30] },
+  { role: 'HFF', at: [3, 30] },
+  { role: 'FF', at: [-20, 0] },
+  { role: 'FP', at: [-24, -20] },
+  { role: 'FP', at: [-24, 20] },
 ];
 
 function turned(spots: Spot[]): Spot[] {

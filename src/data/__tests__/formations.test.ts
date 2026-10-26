@@ -218,6 +218,49 @@ describe('Centre Bounce', () => {
     }
   });
 
+  // The coach's shape, from the #118 review: midfielders start on the circle,
+  // and each forward line is an umbrella — one in the goal square, one about
+  // 30 m out on the centre line, and four spread around the inside of the arc.
+
+  it.each(TEAMS)('%s starts its three midfielders on the centre circle', (team) => {
+    const mids = teamOf(f, team).filter((p) => ['C', 'RR', 'R'].includes(p.role!));
+    expect(mids).toHaveLength(3);
+    for (const p of mids) {
+      const fromCentre = Math.hypot(p.position[0], p.position[2]);
+      expect(fromCentre, p.role).toBeGreaterThanOrEqual(FIELD_MARKINGS.centerCircleOuterRadius);
+      expect(fromCentre, p.role).toBeLessThanOrEqual(FIELD_MARKINGS.centerCircleOuterRadius + 2);
+    }
+  });
+
+  describe.each(TEAMS)('%s sets its forward line up as an umbrella', (team) => {
+    const attackedGoal = -defendedGoal(team);
+    const forwards = teamOf(f, team).filter((p) => ['FF', 'FP', 'CHF', 'HFF'].includes(p.role!));
+    const inGoalSquare = (p: PlayerPosition) =>
+      Math.abs(attackedGoal - p.position[0]) < FIELD_MARKINGS.goalSquareDepth &&
+      Math.abs(p.position[2]) < FIELD_MARKINGS.goalSquareWidth / 2;
+
+    it('puts the full forward in the goal square', () => {
+      expect(forwards.filter(inGoalSquare).map((p) => p.role)).toEqual(['FF']);
+    });
+
+    it('puts the centre half forward about 30 m out on the centre line', () => {
+      const chf = forwards.find((p) => p.role === 'CHF')!;
+      expect(Math.abs(fromGoal(chf, attackedGoal) - 30)).toBeLessThanOrEqual(3);
+      expect(Math.abs(chf.position[2])).toBeLessThan(3);
+    });
+
+    it('spreads the other four around the inside of the 50 m arc, two each side', () => {
+      const canopy = forwards.filter((p) => ['FP', 'HFF'].includes(p.role!));
+      for (const p of canopy) {
+        const d = fromGoal(p, attackedGoal);
+        expect(d, p.role).toBeGreaterThan(FIELD_MARKINGS.fiftyMetreArcRadius - 8);
+        expect(d, p.role).toBeLessThan(FIELD_MARKINGS.fiftyMetreArcRadius);
+      }
+      expect(canopy.filter((p) => p.position[2] < -5)).toHaveLength(2);
+      expect(canopy.filter((p) => p.position[2] > 5)).toHaveLength(2);
+    });
+  });
+
   it('turns everyone to face the bounce', () => {
     const turnedAway = f.positions.filter((p) => !faces(p, [0, 0]));
     expect(turnedAway).toEqual([]);
@@ -265,6 +308,26 @@ describe.each([
       (p) => p !== kicker && distance(at(p), mark) >= 1 && fromGoal(p, goalX) <= PROTECTED_AREA_RADIUS + 1,
     );
     expect(inside.map((p) => `${p.teamId} ${p.role}`)).toEqual([]);
+  });
+
+  // From the #118 review: the wings stay inside the corridor's width, and the
+  // contest at the far end (the kicking team's forwards and the six minding
+  // them) is held up around the middle of the ground, not deep.
+  it('keeps the wings in, no more than 40 m off the centre line', () => {
+    const wings = f.positions.filter((p) => p.role === 'W');
+    expect(wings).toHaveLength(4);
+    for (const w of wings) expect(Math.abs(w.position[2]), `${w.teamId} W`).toBeLessThanOrEqual(40);
+  });
+
+  it('holds the far-end group up around the middle of the ground', () => {
+    const farGroup = [
+      ...teamOf(f, kicking).filter((p) => ['FF', 'FP', 'CHF', 'HFF'].includes(p.role!)),
+      ...teamOf(f, pressing).filter((p) => ['FB', 'BP', 'CHB', 'HBF'].includes(p.role!)),
+    ];
+    expect(farGroup).toHaveLength(12);
+    for (const p of farGroup) {
+      expect(Math.abs(p.position[0]), `${p.teamId} ${p.role}`).toBeLessThanOrEqual(HALF_SQUARE + 5);
+    }
   });
 
   it('turns everyone to face the kicker', () => {
