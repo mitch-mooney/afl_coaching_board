@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import type { Guernsey } from '../../utils/guernsey';
 import type { JerseyPattern } from '../../data/aflTeams';
 import { TOKEN_MIN_POINTS, tokenDiameter } from '../../utils/cameraMath';
+import { palette } from '../../theme/tokens';
 
 /** The plain centre's share of the token's diameter. */
 const CENTRE_RATIO = 0.6;
@@ -21,6 +22,11 @@ const LABEL_POINTS = 18;
 const LABEL_SIZE = LABEL_POINTS / TOKEN_MIN_POINTS;
 /** The outline round the label's digits, as a share of the diameter. */
 const LABEL_OUTLINE = 0.035;
+/**
+ * The gap between the token's edge and the name floating beside it, as a share
+ * of the diameter: wide enough to clear a ring drawn outside the band.
+ */
+const NAME_GAP = 0.25;
 /** The label's height above the disc, as a share of the diameter. */
 const LABEL_LIFT = 0.15;
 /** Above the ground markings (0.02 m), below the drill preview's dots. */
@@ -172,7 +178,10 @@ function tokenTexture(guernsey: Guernsey): THREE.CanvasTexture {
 
 interface PlayerTokenProps {
   guernsey: Guernsey;
-  number?: number;
+  /** What the plain centre says: the number, or the position code in Pos mode. */
+  label?: string | number;
+  /** The player's name, floated beside the token in Name mode. */
+  name?: string | null;
 }
 
 /**
@@ -181,7 +190,7 @@ interface PlayerTokenProps {
  * the box figure does. Drawn at 2 m across, or larger when 2 m would read under
  * 32 points on screen.
  */
-export function PlayerToken({ guernsey, number }: PlayerTokenProps) {
+export function PlayerToken({ guernsey, label, name }: PlayerTokenProps) {
   const groupRef = useRef<THREE.Group>(null);
   const texture = useMemo(() => tokenTexture(guernsey), [guernsey]);
   const worldPosition = useMemo(() => new THREE.Vector3(), []);
@@ -206,21 +215,42 @@ export function PlayerToken({ guernsey, number }: PlayerTokenProps) {
         <circleGeometry args={[0.5, 48]} />
         <meshBasicMaterial map={texture} transparent alphaTest={0.5} toneMapped={false} />
       </mesh>
-      {number !== undefined && (
+      {(label !== undefined || name) && (
         // Lifted so the upright label doesn't sink into the grass when the
         // camera is only just steep enough for tokens.
         <Billboard position={[0, LABEL_LIFT, 0]} follow={true}>
-          <Text
-            font="/fonts/Inter-Bold.woff"
-            fontSize={LABEL_SIZE}
-            color={guernsey.label}
-            outlineWidth={LABEL_OUTLINE}
-            outlineColor={guernsey.body}
-            anchorX="center"
-            anchorY="middle"
-          >
-            {number}
-          </Text>
+          {label !== undefined && (
+            <Text
+              font="/fonts/Inter-Bold.woff"
+              fontSize={LABEL_SIZE}
+              color={guernsey.label}
+              outlineWidth={LABEL_OUTLINE}
+              outlineColor={guernsey.body}
+              anchorX="center"
+              anchorY="middle"
+            >
+              {label}
+            </Text>
+          )}
+          {name && (
+            // Beside the token rather than on it, so a name never overflows the
+            // disc. The Billboard faces the camera, so its x axis is the
+            // screen's right whichever way the player faces. The name sits on
+            // the grass, not the guernsey, so it takes Chalk on a Concrete
+            // outline as the figure's name does.
+            <Text
+              position={[0.5 + NAME_GAP, 0, 0]}
+              font="/fonts/Inter-Bold.woff"
+              fontSize={LABEL_SIZE}
+              color={palette.chalk}
+              outlineWidth={LABEL_OUTLINE * 1.5}
+              outlineColor={palette.concrete}
+              anchorX="left"
+              anchorY="middle"
+            >
+              {name}
+            </Text>
+          )}
         </Billboard>
       )}
     </group>

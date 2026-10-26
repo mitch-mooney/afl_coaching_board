@@ -492,7 +492,13 @@ export function PlayerComponent({ player, guernsey, look }: PlayerProps) {
       }}
     >
       {look === 'token' ? (
-        <PlayerToken guernsey={guernsey} number={player.number} />
+        <PlayerToken
+          guernsey={guernsey}
+          // The token follows the label mode: the position code in Pos mode,
+          // otherwise the number, with the name beside it in Name mode.
+          label={labelMode === 'position' && player.positionName ? player.positionName : player.number}
+          name={labelMode === 'name' ? formatDisplayName(player.playerName) : null}
+        />
       ) : (
         <>
           {/* ── Minecraft-style box geometry player ── */}
