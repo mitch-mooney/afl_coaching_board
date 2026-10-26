@@ -1,432 +1,520 @@
 /**
  * Pre-built AFL Formation Templates
  *
- * Field dimensions: 165m (length/x) x 135m (width/z)
- * Center: (0, 0, 0)
- * Team 1 defends at x = -82.5 (goal at negative x)
- * Team 2 defends at x = +82.5 (goal at positive x)
+ * Coordinates are board coordinates, in metres from the centre of the ground:
+ * `[x, z]`, where x runs goal to goal and z runs wing to wing. Team 1 defends the
+ * goal at -x and attacks +x; Team 2 the reverse.
  *
- * NOTE: Field has been rotated 90 degrees from original orientation.
- * X-axis is now goal-to-goal, Z-axis is now wing-to-wing.
+ * Positions are absolute metres on Standard ground (165 × 135), like every other
+ * position on the board (ADR 0002). Spots that depend on a goal line are written
+ * as distances out from Standard ground's goal line, so the reasoning is
+ * readable even though the result is fixed.
  *
- * Standard AFL positions:
- * - Full Back (FB), Back Pocket (BP)
- * - Centre Half Back (CHB), Half Back Flank (HBF)
- * - Wing (W), Centre (C), Ruck (R), Rover (RO), Ruck Rover (RR)
- * - Centre Half Forward (CHF), Half Forward Flank (HFF)
- * - Full Forward (FF), Forward Pocket (FP)
+ * Each team is numbered by jersey: player n stands in the position
+ * NUMBER_TO_POSITION[n] names (1 = FB, 10 = RK, 12 = R, ...), so a Labels-on
+ * board never puts the full back in the forward pocket.
+ *
+ * Only Centre Bounce, Kick-in Press and Kick-in Kick appear in the Setup sheet.
+ * The rest are reachable only through getFormationById.
  */
 
 import { Formation, PlayerPosition } from '../types/Formation';
+import { FIELD_MARKINGS } from '../models/FieldModel';
+import { STANDARD_BOUNDARY } from '../utils/fieldGeometry';
+import { NUMBER_TO_POSITION } from './aflPositions';
+
+type TeamId = 'team1' | 'team2';
+
+/** A board point in metres: x goal to goal, z wing to wing. */
+type Point = [x: number, z: number];
+
+/** One player's spot, before a jersey number is given to it. */
+interface Spot {
+  role: string;
+  at: Point;
+}
+
+/** The goal line Team 2 defends on Standard ground; Team 1's is its negative. */
+const GOAL_LINE = STANDARD_BOUNDARY.semiX;
 
 /**
- * Helper to create player positions for a team
- * Applies 90-degree rotation to match field orientation (x=goal-to-goal, z=wing-to-wing)
+ * Metres between direct opponents. Each stands half of it toward the goal they
+ * defend, so a defender is always goal-side of the forward they mind, and two
+ * opponents never share a spot.
  */
-function createTeamPositions(
-  teamId: 'team1' | 'team2',
-  positions: Array<{ x: number; z: number; role: string; rotation?: number }>
-): PlayerPosition[] {
-  return positions.map((pos, index) => ({
-    playerNumber: index + 1,
-    teamId,
-    // Rotate 90 degrees: new_x = old_z, new_z = old_x
-    position: [pos.z, 0, pos.x] as [number, number, number],
-    rotation: pos.rotation ?? 0,
-    role: pos.role,
-  }));
+const OPPONENT_GAP = 3;
+
+/** Jersey numbers 1-18 in order, as the positions they name. */
+const JERSEY_ROLES = Array.from({ length: 18 }, (_, i) => NUMBER_TO_POSITION[i + 1]);
+
+/** The heading that turns a player at `from` to look at `target`. */
+function facing(from: Point, target: Point): number {
+  return Math.atan2(target[0] - from[0], target[1] - from[1]);
+}
+
+function rotateHalfTurn([x, z]: Point): Point {
+  return [-x, -z];
+}
+
+/** A point shifted along the goal axis toward the goal a team defends. */
+function goalSide([x, z]: Point, teamId: TeamId, metres: number): Point {
+  return [teamId === 'team1' ? x - metres : x + metres, z];
 }
 
 /**
- * Mirror positions for opposing team (flip z-axis in original orientation)
- * After rotation, this will flip the x-axis (goal-to-goal)
+ * Number a team's 18 spots by jersey: the first spot listed for a role goes to
+ * the lower number. Throws if the spots are not exactly one team's 18 positions.
  */
-function mirrorTeamPositions(
-  sourcePositions: Array<{ x: number; z: number; role: string; rotation?: number }>
-): Array<{ x: number; z: number; role: string; rotation?: number }> {
-  return sourcePositions.map(pos => ({
-    ...pos,
-    z: -pos.z,  // In original coords (will become x after rotation)
-    rotation: pos.rotation ? pos.rotation + Math.PI : Math.PI,
-  }));
+function numberedTeam(teamId: TeamId, spots: Spot[], lookAt: Point): PlayerPosition[] {
+  const remaining = [...spots];
+  const team = JERSEY_ROLES.map((role, i) => {
+    const k = remaining.findIndex((s) => s.role === role);
+    if (k < 0) throw new Error(`${teamId} has no spot for #${i + 1} ${role}`);
+    const [spot] = remaining.splice(k, 1);
+    return {
+      playerNumber: i + 1,
+      teamId,
+      position: [spot.at[0], 0, spot.at[1]] as [number, number, number],
+      rotation: facing(spot.at, lookAt),
+      role,
+    };
+  });
+  if (remaining.length > 0) throw new Error(`${teamId} has ${remaining.length} spots no jersey takes`);
+  return team;
 }
 
-// Standard AFL Team 1 positions (defending at z = -67.5)
-const STANDARD_TEAM1_POSITIONS = [
-  // Defence
-  { x: 0, z: -60, role: 'FB', rotation: 0 },           // Full Back
-  { x: -25, z: -55, role: 'BP', rotation: 0 },         // Back Pocket Left
-  { x: 25, z: -55, role: 'BP', rotation: 0 },          // Back Pocket Right
-  { x: 0, z: -40, role: 'CHB', rotation: 0 },          // Centre Half Back
-  { x: -35, z: -40, role: 'HBF', rotation: 0 },        // Half Back Flank Left
-  { x: 35, z: -40, role: 'HBF', rotation: 0 },         // Half Back Flank Right
+/**
+ * Both teams from one team's shape: Team 2 is Team 1 turned a half-turn about
+ * the centre, so each Team 1 spot is shared with the Team 2 player of the
+ * opposite position (FF with FB, HFF with HBF, wing with wing). The two are then
+ * split OPPONENT_GAP apart, each toward the goal it defends.
+ */
+function matchedUp(team1Shape: Spot[], lookAt: Point): PlayerPosition[] {
+  const half = OPPONENT_GAP / 2;
+  return [
+    ...numberedTeam(
+      'team1',
+      team1Shape.map((s) => ({ role: s.role, at: goalSide(s.at, 'team1', half) })),
+      lookAt,
+    ),
+    ...numberedTeam(
+      'team2',
+      team1Shape.map((s) => ({ role: s.role, at: goalSide(rotateHalfTurn(s.at), 'team2', half) })),
+      lookAt,
+    ),
+  ];
+}
 
-  // Midfield
-  { x: -50, z: 0, role: 'W', rotation: Math.PI / 2 },  // Wing Left
-  { x: 50, z: 0, role: 'W', rotation: -Math.PI / 2 },  // Wing Right
-  { x: 0, z: -5, role: 'C', rotation: 0 },             // Centre
-  { x: 0, z: 5, role: 'R', rotation: 0 },              // Ruckman
-  { x: -15, z: 5, role: 'RR', rotation: 0 },           // Ruck Rover
-  { x: 15, z: 5, role: 'RO', rotation: 0 },            // Rover
-
-  // Forward
-  { x: 0, z: 40, role: 'CHF', rotation: Math.PI },     // Centre Half Forward
-  { x: -35, z: 40, role: 'HFF', rotation: Math.PI },   // Half Forward Flank Left
-  { x: 35, z: 40, role: 'HFF', rotation: Math.PI },    // Half Forward Flank Right
-  { x: 0, z: 60, role: 'FF', rotation: Math.PI },      // Full Forward
-  { x: -25, z: 55, role: 'FP', rotation: Math.PI },    // Forward Pocket Left
-  { x: 25, z: 55, role: 'FP', rotation: Math.PI },     // Forward Pocket Right
-];
+const CENTRE: Point = [0, 0];
 
 /**
- * 1. STANDARD SETUP
- * Traditional AFL positioning with players in their designated areas.
- * Balanced formation suitable for most game situations.
+ * The six phase-of-play shapes predate the board's coordinates and are written
+ * as { x: across, z: along }, Team 1's half only. Read them as board points.
  */
+function legacyShape(rows: Array<{ x: number; z: number; role: string }>): Spot[] {
+  return rows.map((r) => ({ role: r.role, at: [r.z, r.x] }));
+}
+
+// ── Phase-of-play shapes (not in the Setup sheet) ───────────────────────────
+
 const STANDARD_SETUP: Formation = {
   id: 'standard-setup',
   name: 'Standard Setup',
   description: 'Traditional AFL positioning with players in their designated areas. Balanced formation suitable for most game situations.',
   category: 'pre-built',
-  positions: [
-    ...createTeamPositions('team1', STANDARD_TEAM1_POSITIONS),
-    ...createTeamPositions('team2', mirrorTeamPositions(STANDARD_TEAM1_POSITIONS)),
-  ],
+  positions: matchedUp(
+    legacyShape([
+      { x: 0, z: -60, role: 'FB' },
+      { x: -25, z: -55, role: 'BP' },
+      { x: 25, z: -55, role: 'BP' },
+      { x: 0, z: -40, role: 'CHB' },
+      { x: -35, z: -40, role: 'HBF' },
+      { x: 35, z: -40, role: 'HBF' },
+      { x: -50, z: 0, role: 'W' },
+      { x: 50, z: 0, role: 'W' },
+      { x: 0, z: -5, role: 'C' },
+      { x: 0, z: 5, role: 'RK' },
+      { x: -15, z: 5, role: 'RR' },
+      { x: 15, z: 5, role: 'R' },
+      { x: 0, z: 40, role: 'CHF' },
+      { x: -35, z: 40, role: 'HFF' },
+      { x: 35, z: 40, role: 'HFF' },
+      { x: 0, z: 60, role: 'FF' },
+      { x: -25, z: 55, role: 'FP' },
+      { x: 25, z: 55, role: 'FP' },
+    ]),
+    CENTRE,
+  ),
 };
-
-/**
- * 2. ZONE DEFENSE
- * Players positioned in defensive zones rather than man-to-man.
- * Compact defensive structure to limit opposition scoring opportunities.
- */
-const ZONE_DEFENSE_TEAM1_POSITIONS = [
-  // Deep zone - packed defence
-  { x: 0, z: -55, role: 'FB', rotation: 0 },
-  { x: -20, z: -50, role: 'BP', rotation: 0 },
-  { x: 20, z: -50, role: 'BP', rotation: 0 },
-  { x: -40, z: -45, role: 'HBF', rotation: 0 },
-  { x: 40, z: -45, role: 'HBF', rotation: 0 },
-  { x: 0, z: -35, role: 'CHB', rotation: 0 },
-
-  // Mid zone - players sit behind the ball
-  { x: -30, z: -15, role: 'W', rotation: 0 },
-  { x: 30, z: -15, role: 'W', rotation: 0 },
-  { x: -15, z: -20, role: 'RR', rotation: 0 },
-  { x: 15, z: -20, role: 'RO', rotation: 0 },
-  { x: 0, z: -5, role: 'C', rotation: 0 },
-  { x: 0, z: 10, role: 'R', rotation: 0 },
-
-  // Forward zone - minimal forward presence
-  { x: 0, z: 25, role: 'CHF', rotation: Math.PI },
-  { x: -30, z: 35, role: 'HFF', rotation: Math.PI },
-  { x: 30, z: 35, role: 'HFF', rotation: Math.PI },
-  { x: 0, z: 55, role: 'FF', rotation: Math.PI },
-  { x: -20, z: 50, role: 'FP', rotation: Math.PI },
-  { x: 20, z: 50, role: 'FP', rotation: Math.PI },
-];
 
 const ZONE_DEFENSE: Formation = {
   id: 'zone-defense',
   name: 'Zone Defense',
   description: 'Players positioned in defensive zones rather than man-to-man. Compact structure to limit opposition scoring opportunities.',
   category: 'pre-built',
-  positions: [
-    ...createTeamPositions('team1', ZONE_DEFENSE_TEAM1_POSITIONS),
-    ...createTeamPositions('team2', mirrorTeamPositions(ZONE_DEFENSE_TEAM1_POSITIONS)),
-  ],
+  positions: matchedUp(
+    legacyShape([
+      { x: 0, z: -55, role: 'FB' },
+      { x: -20, z: -50, role: 'BP' },
+      { x: 20, z: -50, role: 'BP' },
+      { x: -40, z: -45, role: 'HBF' },
+      { x: 40, z: -45, role: 'HBF' },
+      { x: 0, z: -35, role: 'CHB' },
+      { x: -30, z: -15, role: 'W' },
+      { x: 30, z: -15, role: 'W' },
+      { x: -15, z: -20, role: 'RR' },
+      { x: 15, z: -20, role: 'R' },
+      { x: 0, z: -5, role: 'C' },
+      { x: 0, z: 10, role: 'RK' },
+      { x: 0, z: 25, role: 'CHF' },
+      { x: -30, z: 35, role: 'HFF' },
+      { x: 30, z: 35, role: 'HFF' },
+      { x: 0, z: 55, role: 'FF' },
+      { x: -20, z: 50, role: 'FP' },
+      { x: 20, z: 50, role: 'FP' },
+    ]),
+    CENTRE,
+  ),
 };
-
-/**
- * 3. PRESS
- * High forward pressure formation with midfielders pushing forward.
- * Aggressive setup to force turnovers in the opposition's defensive area.
- */
-const PRESS_TEAM1_POSITIONS = [
-  // Defence - standard positioning
-  { x: 0, z: -58, role: 'FB', rotation: 0 },
-  { x: -22, z: -52, role: 'BP', rotation: 0 },
-  { x: 22, z: -52, role: 'BP', rotation: 0 },
-  { x: 0, z: -35, role: 'CHB', rotation: 0 },
-  { x: -35, z: -38, role: 'HBF', rotation: 0 },
-  { x: 35, z: -38, role: 'HBF', rotation: 0 },
-
-  // Midfield - pushed forward
-  { x: -45, z: 25, role: 'W', rotation: Math.PI / 2 },
-  { x: 45, z: 25, role: 'W', rotation: -Math.PI / 2 },
-  { x: 0, z: 20, role: 'C', rotation: Math.PI },
-  { x: 0, z: 35, role: 'R', rotation: Math.PI },
-  { x: -20, z: 25, role: 'RR', rotation: Math.PI },
-  { x: 20, z: 25, role: 'RO', rotation: Math.PI },
-
-  // Forward - high and tight
-  { x: 0, z: 50, role: 'CHF', rotation: Math.PI },
-  { x: -30, z: 48, role: 'HFF', rotation: Math.PI },
-  { x: 30, z: 48, role: 'HFF', rotation: Math.PI },
-  { x: 0, z: 62, role: 'FF', rotation: Math.PI },
-  { x: -18, z: 58, role: 'FP', rotation: Math.PI },
-  { x: 18, z: 58, role: 'FP', rotation: Math.PI },
-];
 
 const PRESS: Formation = {
   id: 'press',
   name: 'Press',
   description: 'High forward pressure formation with midfielders pushing forward. Aggressive setup to force turnovers in opposition territory.',
   category: 'pre-built',
-  positions: [
-    ...createTeamPositions('team1', PRESS_TEAM1_POSITIONS),
-    ...createTeamPositions('team2', mirrorTeamPositions(PRESS_TEAM1_POSITIONS)),
-  ],
+  positions: matchedUp(
+    legacyShape([
+      { x: 0, z: -58, role: 'FB' },
+      { x: -22, z: -52, role: 'BP' },
+      { x: 22, z: -52, role: 'BP' },
+      { x: 0, z: -35, role: 'CHB' },
+      { x: -35, z: -38, role: 'HBF' },
+      { x: 35, z: -38, role: 'HBF' },
+      { x: -45, z: 25, role: 'W' },
+      { x: 45, z: 25, role: 'W' },
+      { x: 0, z: 20, role: 'C' },
+      { x: 0, z: 35, role: 'RK' },
+      { x: -20, z: 25, role: 'RR' },
+      { x: 20, z: 25, role: 'R' },
+      { x: 0, z: 50, role: 'CHF' },
+      { x: -30, z: 48, role: 'HFF' },
+      { x: 30, z: 48, role: 'HFF' },
+      { x: 0, z: 58, role: 'FF' },
+      { x: -18, z: 58, role: 'FP' },
+      { x: 18, z: 58, role: 'FP' },
+    ]),
+    CENTRE,
+  ),
 };
-
-/**
- * 4. SPREAD
- * Wide distribution formation to create space and open up the ground.
- * Players positioned near the boundary to stretch opposition defence.
- */
-const SPREAD_TEAM1_POSITIONS = [
-  // Defence - wide positioning
-  { x: 0, z: -58, role: 'FB', rotation: 0 },
-  { x: -35, z: -55, role: 'BP', rotation: 0 },
-  { x: 35, z: -55, role: 'BP', rotation: 0 },
-  { x: 0, z: -38, role: 'CHB', rotation: 0 },
-  { x: -50, z: -35, role: 'HBF', rotation: 0 },
-  { x: 50, z: -35, role: 'HBF', rotation: 0 },
-
-  // Midfield - spread wide
-  { x: -60, z: 0, role: 'W', rotation: Math.PI / 2 },
-  { x: 60, z: 0, role: 'W', rotation: -Math.PI / 2 },
-  { x: -25, z: 0, role: 'C', rotation: 0 },
-  { x: 25, z: 0, role: 'R', rotation: 0 },
-  { x: -40, z: 15, role: 'RR', rotation: Math.PI / 4 },
-  { x: 40, z: 15, role: 'RO', rotation: -Math.PI / 4 },
-
-  // Forward - wide spread
-  { x: 0, z: 38, role: 'CHF', rotation: Math.PI },
-  { x: -50, z: 35, role: 'HFF', rotation: Math.PI },
-  { x: 50, z: 35, role: 'HFF', rotation: Math.PI },
-  { x: 0, z: 58, role: 'FF', rotation: Math.PI },
-  { x: -35, z: 55, role: 'FP', rotation: Math.PI },
-  { x: 35, z: 55, role: 'FP', rotation: Math.PI },
-];
 
 const SPREAD: Formation = {
   id: 'spread',
   name: 'Spread',
   description: 'Wide distribution formation to create space and open up the ground. Players positioned near the boundary to stretch the defence.',
   category: 'pre-built',
-  positions: [
-    ...createTeamPositions('team1', SPREAD_TEAM1_POSITIONS),
-    ...createTeamPositions('team2', mirrorTeamPositions(SPREAD_TEAM1_POSITIONS)),
-  ],
+  positions: matchedUp(
+    legacyShape([
+      { x: 0, z: -58, role: 'FB' },
+      { x: -35, z: -55, role: 'BP' },
+      { x: 35, z: -55, role: 'BP' },
+      { x: 0, z: -38, role: 'CHB' },
+      { x: -50, z: -35, role: 'HBF' },
+      { x: 50, z: -35, role: 'HBF' },
+      { x: -60, z: 0, role: 'W' },
+      { x: 60, z: 0, role: 'W' },
+      { x: -25, z: 0, role: 'C' },
+      { x: 25, z: 0, role: 'RK' },
+      { x: -40, z: 15, role: 'RR' },
+      { x: 40, z: 15, role: 'R' },
+      { x: 0, z: 38, role: 'CHF' },
+      { x: -50, z: 35, role: 'HFF' },
+      { x: 50, z: 35, role: 'HFF' },
+      { x: 0, z: 58, role: 'FF' },
+      { x: -35, z: 55, role: 'FP' },
+      { x: 35, z: 55, role: 'FP' },
+    ]),
+    CENTRE,
+  ),
 };
-
-/**
- * 5. FLOOD
- * Extra defenders behind the ball to create a defensive wall.
- * Ideal for protecting a lead or limiting opposition scoring.
- */
-const FLOOD_TEAM1_POSITIONS = [
-  // Defence - extra numbers
-  { x: 0, z: -58, role: 'FB', rotation: 0 },
-  { x: -25, z: -55, role: 'BP', rotation: 0 },
-  { x: 25, z: -55, role: 'BP', rotation: 0 },
-  { x: 0, z: -42, role: 'CHB', rotation: 0 },
-  { x: -40, z: -45, role: 'HBF', rotation: 0 },
-  { x: 40, z: -45, role: 'HBF', rotation: 0 },
-
-  // Midfield - pulled back defensively
-  { x: -55, z: -20, role: 'W', rotation: 0 },
-  { x: 55, z: -20, role: 'W', rotation: 0 },
-  { x: -20, z: -25, role: 'C', rotation: 0 },
-  { x: 20, z: -25, role: 'R', rotation: 0 },
-  { x: -30, z: -35, role: 'RR', rotation: 0 },
-  { x: 30, z: -35, role: 'RO', rotation: 0 },
-
-  // Forward - reduced forward line, high up field
-  { x: 0, z: 10, role: 'CHF', rotation: Math.PI },
-  { x: -30, z: 20, role: 'HFF', rotation: Math.PI },
-  { x: 30, z: 20, role: 'HFF', rotation: Math.PI },
-  { x: 0, z: 45, role: 'FF', rotation: Math.PI },
-  { x: -20, z: 40, role: 'FP', rotation: Math.PI },
-  { x: 20, z: 40, role: 'FP', rotation: Math.PI },
-];
 
 const FLOOD: Formation = {
   id: 'flood',
   name: 'Flood',
   description: 'Extra defenders behind the ball creating a defensive wall. Ideal for protecting a lead or limiting opposition scoring.',
   category: 'pre-built',
-  positions: [
-    ...createTeamPositions('team1', FLOOD_TEAM1_POSITIONS),
-    ...createTeamPositions('team2', mirrorTeamPositions(FLOOD_TEAM1_POSITIONS)),
-  ],
+  positions: matchedUp(
+    legacyShape([
+      { x: 0, z: -58, role: 'FB' },
+      { x: -25, z: -55, role: 'BP' },
+      { x: 25, z: -55, role: 'BP' },
+      { x: 0, z: -42, role: 'CHB' },
+      { x: -40, z: -45, role: 'HBF' },
+      { x: 40, z: -45, role: 'HBF' },
+      { x: -55, z: -20, role: 'W' },
+      { x: 55, z: -20, role: 'W' },
+      { x: -20, z: -25, role: 'C' },
+      { x: 20, z: -25, role: 'RK' },
+      { x: -30, z: -35, role: 'RR' },
+      { x: 30, z: -35, role: 'R' },
+      { x: 0, z: 10, role: 'CHF' },
+      { x: -30, z: 20, role: 'HFF' },
+      { x: 30, z: 20, role: 'HFF' },
+      { x: 0, z: 48, role: 'FF' },
+      { x: -20, z: 40, role: 'FP' },
+      { x: 20, z: 40, role: 'FP' },
+    ]),
+    CENTRE,
+  ),
 };
-
-/**
- * 6. MAN-ON-MAN
- * Tight defensive marking formation with each player assigned to mark an opponent.
- * Used when opposition has dangerous individual players.
- */
-const MAN_ON_MAN_TEAM1_POSITIONS = [
-  // Defence - tight marking positions
-  { x: 0, z: -55, role: 'FB', rotation: 0 },
-  { x: -22, z: -50, role: 'BP', rotation: 0 },
-  { x: 22, z: -50, role: 'BP', rotation: 0 },
-  { x: 0, z: -38, role: 'CHB', rotation: 0 },
-  { x: -33, z: -38, role: 'HBF', rotation: 0 },
-  { x: 33, z: -38, role: 'HBF', rotation: 0 },
-
-  // Midfield - positioned to pick up opponents
-  { x: -48, z: 0, role: 'W', rotation: Math.PI / 2 },
-  { x: 48, z: 0, role: 'W', rotation: -Math.PI / 2 },
-  { x: 0, z: 0, role: 'C', rotation: 0 },
-  { x: 0, z: 8, role: 'R', rotation: 0 },
-  { x: -18, z: 0, role: 'RR', rotation: 0 },
-  { x: 18, z: 0, role: 'RO', rotation: 0 },
-
-  // Forward - spread for marking run
-  { x: 0, z: 38, role: 'CHF', rotation: Math.PI },
-  { x: -33, z: 38, role: 'HFF', rotation: Math.PI },
-  { x: 33, z: 38, role: 'HFF', rotation: Math.PI },
-  { x: 0, z: 55, role: 'FF', rotation: Math.PI },
-  { x: -22, z: 50, role: 'FP', rotation: Math.PI },
-  { x: 22, z: 50, role: 'FP', rotation: Math.PI },
-];
 
 const MAN_ON_MAN: Formation = {
   id: 'man-on-man',
   name: 'Man-on-Man',
   description: 'Tight defensive marking formation with each player assigned to mark an opponent. Used against teams with dangerous individual players.',
   category: 'pre-built',
-  positions: [
-    ...createTeamPositions('team1', MAN_ON_MAN_TEAM1_POSITIONS),
-    ...createTeamPositions('team2', mirrorTeamPositions(MAN_ON_MAN_TEAM1_POSITIONS)),
-  ],
+  positions: matchedUp(
+    legacyShape([
+      { x: 0, z: -55, role: 'FB' },
+      { x: -22, z: -50, role: 'BP' },
+      { x: 22, z: -50, role: 'BP' },
+      { x: 0, z: -38, role: 'CHB' },
+      { x: -33, z: -38, role: 'HBF' },
+      { x: 33, z: -38, role: 'HBF' },
+      { x: -48, z: 0, role: 'W' },
+      { x: 48, z: 0, role: 'W' },
+      { x: 0, z: 0, role: 'C' },
+      { x: 0, z: 8, role: 'RK' },
+      { x: -18, z: 0, role: 'RR' },
+      { x: 18, z: 0, role: 'R' },
+      { x: 0, z: 38, role: 'CHF' },
+      { x: -33, z: 38, role: 'HFF' },
+      { x: 33, z: 38, role: 'HFF' },
+      { x: 0, z: 55, role: 'FF' },
+      { x: -22, z: 50, role: 'FP' },
+      { x: 22, z: 50, role: 'FP' },
+    ]),
+    CENTRE,
+  ),
 };
 
+// ── Centre Bounce ───────────────────────────────────────────────────────────
+
 /**
- * 7. CENTRE BOUNCE SETUP
- * Starting positions for centre bounce at the beginning of a quarter.
- * Only the ruckmen and selected players in the centre square.
+ * The 6-6-6 starting position, Law 13.1 (Laws of Australian Football 2024),
+ * which the 2026 rule changes keep at centre ball-ups:
+ * - six of each team inside each 50 m arc;
+ * - four of each team in the centre square, the Ruck inside the centre circle
+ *   in its own defensive half and nobody else inside it (Law 13.2(b));
+ * - one of each team in each wing area: the band between the centre square's two
+ *   goal-facing sides, outside the square, out to the boundary (Diagram 2).
+ * The 2026 changes drop the requirement for a player in each goal square.
+ *
+ * The shape inside those rules is the coach's, from the #118 review:
+ * - the midfielders start on the centre circle, just outside its line, beside
+ *   their direct opponent;
+ * - each forward line is an umbrella: the full forward in the goal square, the
+ *   centre half forward about 30 m out on the centre line, and the flankers and
+ *   pockets spread around the inside of the 50 m arc.
+ *
+ * Every spot is a contest between two direct opponents OPPONENT_GAP apart.
+ * Team 1's forward 50 is listed; its defensive 50 is the same shape turned a
+ * half-turn, with the roles swapped.
  */
-const CENTRE_BOUNCE_TEAM1_POSITIONS = [
-  // Defence - stationed behind 50m arc
-  { x: 0, z: -77, role: 'FB', rotation: 0 },
-  { x: -25, z: -55, role: 'BP', rotation: 0 },
-  { x: 25, z: -55, role: 'BP', rotation: 0 },
-  { x: 0, z: -48, role: 'CHB', rotation: 0 },
-  { x: -35, z: -45, role: 'HBF', rotation: 0 },
-  { x: 35, z: -45, role: 'HBF', rotation: 0 },
+interface Contest {
+  team1: Spot;
+  team2: Spot;
+}
 
-  // Centre square players (clock-face: 12 o'clock = Team 1 defending goal = -z)
-  { x:  0,   z:  0,   role: 'R',   rotation: 0 },             // Ruck: centre
-  { x:  0,   z:  5,   role: 'C',   rotation: 0 },             // Centre: 6 o'clock
-  { x:  5,   z:  0,   role: 'RR',  rotation: -Math.PI / 2 },  // Ruck-Rover: 3 o'clock
-  { x: -5,   z:  0,   role: 'RO',  rotation:  Math.PI / 2 },  // Rover: 9 o'clock
-  { x: -25,  z:  0,   role: 'W',   rotation:  Math.PI / 2 },  // Wing Left
-  { x:  25,  z:  0,   role: 'W',   rotation: -Math.PI / 2 },  // Wing Right
+/**
+ * A forward-line contest on the ray from the centre of the goal line at
+ * `angle` degrees off the centre line: the forward `metres` out, the defender
+ * OPPONENT_GAP closer to goal on the same ray.
+ */
+function forwardContest(forward: string, defender: string, metres: number, angle: number): Contest {
+  const rad = (angle * Math.PI) / 180;
+  const along = (d: number): Point => [GOAL_LINE - d * Math.cos(rad), d * Math.sin(rad)];
+  return {
+    team1: { role: forward, at: along(metres) },
+    team2: { role: defender, at: along(metres - OPPONENT_GAP) },
+  };
+}
 
-  // Forward - stationed behind 50m arc
-  { x: 0, z: 48, role: 'CHF', rotation: Math.PI },
-  { x: -35, z: 45, role: 'HFF', rotation: Math.PI },
-  { x: 35, z: 45, role: 'HFF', rotation: Math.PI },
-  { x: 0, z: 77, role: 'FF', rotation: Math.PI },
-  { x: -25, z: 55, role: 'FP', rotation: Math.PI },
-  { x: 25, z: 55, role: 'FP', rotation: Math.PI },
+/** Where the canopy of the umbrella stands: inside the 50 m arc, off its line. */
+const CANOPY = FIELD_MARKINGS.fiftyMetreArcRadius - 4;
+
+const CENTRE_BOUNCE_FORWARD_50: Contest[] = [
+  forwardContest('FF', 'FB', 7, 0),
+  forwardContest('CHF', 'CHB', 30, 0),
+  forwardContest('HFF', 'HBF', CANOPY, -25),
+  forwardContest('HFF', 'HBF', CANOPY, 25),
+  forwardContest('FP', 'BP', CANOPY, -60),
+  forwardContest('FP', 'BP', CANOPY, 60),
 ];
+
+/** The radius the midfielders start on: just outside the centre circle's line. */
+const ON_THE_CIRCLE = FIELD_MARKINGS.centerCircleOuterRadius + 1;
+
+/**
+ * A midfield contest on the circle at `angle` degrees (0 = toward Team 2's
+ * goal): the two opponents side by side along the circle, OPPONENT_GAP apart,
+ * Team 1 on the side nearer the goal it defends.
+ */
+function circleContest(role: string, angle: number): Contest {
+  const spread = Math.asin(OPPONENT_GAP / 2 / ON_THE_CIRCLE);
+  const centre = (angle * Math.PI) / 180;
+  const at = (rad: number): Point => [ON_THE_CIRCLE * Math.cos(rad), ON_THE_CIRCLE * Math.sin(rad)];
+  const [a, b] = [at(centre - spread), at(centre + spread)];
+  const team1First = a[0] < b[0] - 1e-9 || (Math.abs(a[0] - b[0]) <= 1e-9 && a[1] < b[1]);
+  return {
+    team1: { role, at: team1First ? a : b },
+    team2: { role, at: team1First ? b : a },
+  };
+}
+
+const HALF_GAP = OPPONENT_GAP / 2;
+
+const CENTRE_BOUNCE_MIDFIELD: Contest[] = [
+  // Rucks side by side across the centre line, each in its defensive half.
+  { team1: { role: 'RK', at: [-HALF_GAP, 0] }, team2: { role: 'RK', at: [HALF_GAP, 0] } },
+  // Midfielders on the circle, beside their direct opponent.
+  circleContest('RR', -90),
+  circleContest('R', 90),
+  circleContest('C', 180),
+  // Wings out on the wing, well clear of the centre square's side.
+  { team1: { role: 'W', at: [-HALF_GAP, -45] }, team2: { role: 'W', at: [HALF_GAP, -45] } },
+  { team1: { role: 'W', at: [-HALF_GAP, 45] }, team2: { role: 'W', at: [HALF_GAP, 45] } },
+];
+
+function centreBouncePositions(): PlayerPosition[] {
+  const turnedSpot = (s: Spot): Spot => ({ role: s.role, at: rotateHalfTurn(s.at) });
+  const contests: Contest[] = [
+    ...CENTRE_BOUNCE_FORWARD_50,
+    // Team 1's defensive 50: the same umbrella with the teams swapped.
+    ...CENTRE_BOUNCE_FORWARD_50.map((c) => ({ team1: turnedSpot(c.team2), team2: turnedSpot(c.team1) })),
+    ...CENTRE_BOUNCE_MIDFIELD,
+  ];
+  return [
+    ...numberedTeam('team1', contests.map((c) => c.team1), CENTRE),
+    ...numberedTeam('team2', contests.map((c) => c.team2), CENTRE),
+  ];
+}
 
 const CENTRE_BOUNCE: Formation = {
   id: 'centre-bounce',
   name: 'Centre Bounce',
-  description: 'Starting positions for centre bounce at the beginning of a quarter. Ruckmen and midfielders positioned for the ball-up.',
+  description: 'The 6-6-6 start: each forward line an umbrella inside the 50 m arc, the rucks in the centre circle with the midfielders on it, one on each wing. Each player stands beside their direct opponent.',
   category: 'pre-built',
-  positions: [
-    ...createTeamPositions('team1', CENTRE_BOUNCE_TEAM1_POSITIONS),
-    ...createTeamPositions('team2', mirrorTeamPositions(CENTRE_BOUNCE_TEAM1_POSITIONS)),
-  ],
+  positions: centreBouncePositions(),
 };
 
+// ── Kick-in ─────────────────────────────────────────────────────────────────
+
 /**
- * 8. KICK-IN (PRESSING)
- * Team 1 presses Team 2's kick-in in 3 lines at 20m, 35m, 52m from goal,
- * with a 3+3 defensive hold near Team 1's centre-square.
+ * One kick-in, after a behind at the goal Team 2 defends: Team 2 kicks in,
+ * Team 1 presses. Kick-in Press is this scene; Kick-in Kick is the same scene
+ * turned a half-turn with the teams swapped, so Team 1 kicks in from its own
+ * goal square.
+ *
+ * Laws of Australian Football 2024, Law 17:
+ * - the kicker kicks from within the goal square, or plays on out of it (17.1(a));
+ * - The Mark is set 15 m from the centre of the kick-off line, toward the centre
+ *   of the ground (17.1(d)); the man on the mark stands there;
+ * - every other player vacates the Protected Area (17.3, Diagram 3), so the
+ *   receivers and the press all start beyond it.
+ *
+ * The press is the AFL Youth Coaching Manual's "basic 3-4-5 zone" (12 players)
+ * moved out past the modern protected area, with the back six goal-side of the
+ * kicking team's forwards, that contest held up around the middle of the
+ * ground (#118 review). The kicking team gives two short options in the
+ * pockets (the most common kick-in, per Champion Data), leads at 40 m, a
+ * midfield stack, and the ruck as the long target at the corner of the centre
+ * square.
  */
-const KICK_IN_PRESSING_TEAM1_POSITIONS = [
-  // Line 1: 20m from Team 2's goal (z = +62.5)
-  { x: -12, z:  62.5, role: 'FP',  rotation: Math.PI },
-  { x:   0, z:  62.5, role: 'FF',  rotation: Math.PI },
-  { x:  12, z:  62.5, role: 'FP',  rotation: Math.PI },
-  // Line 2: 35m from Team 2's goal (z = +47.5)
-  { x: -22, z:  47.5, role: 'HFF', rotation: Math.PI },
-  { x:  -7, z:  47.5, role: 'CHF', rotation: Math.PI },
-  { x:   7, z:  47.5, role: 'R',   rotation: Math.PI },
-  { x:  22, z:  47.5, role: 'HFF', rotation: Math.PI },
-  // Line 3: 52m from Team 2's goal (z = +30.5)
-  { x: -30, z:  30.5, role: 'W',   rotation:  Math.PI / 2 },
-  { x: -15, z:  30.5, role: 'RR',  rotation: Math.PI },
-  { x:   0, z:  30.5, role: 'C',   rotation: Math.PI },
-  { x:  15, z:  30.5, role: 'RO',  rotation: Math.PI },
-  { x:  30, z:  30.5, role: 'W',   rotation: -Math.PI / 2 },
-  // Back 3+3: hold near Team 1's centre-square in defensive half
-  { x: -28, z:   8,   role: 'HBF', rotation: 0 },
-  { x:   0, z:   8,   role: 'CHB', rotation: 0 },
-  { x:  28, z:   8,   role: 'HBF', rotation: 0 },
-  { x: -18, z:  20,   role: 'BP',  rotation: 0 },
-  { x:   0, z:  22,   role: 'FB',  rotation: 0 },
-  { x:  18, z:  20,   role: 'BP',  rotation: 0 },
+const KICK_OFF_LINE = GOAL_LINE - FIELD_MARKINGS.goalSquareDepth;
+const KICK_IN_MARK_FROM_KICK_OFF_LINE = 15;
+const KICKER: Point = [GOAL_LINE - FIELD_MARKINGS.goalSquareDepth / 2, 0];
+
+/** A point `metres` out from Team 2's goal line, `across` from the centre line. */
+function outFromGoal(metres: number, across: number): Point {
+  return [GOAL_LINE - metres, across];
+}
+
+const KICK_IN_PRESSING_TEAM: Spot[] = [
+  // Line 1 (3): the man on the mark, and a pocket each side of him.
+  { role: 'FF', at: [KICK_OFF_LINE - KICK_IN_MARK_FROM_KICK_OFF_LINE, 0] },
+  { role: 'FP', at: outFromGoal(28, -16) },
+  { role: 'FP', at: outFromGoal(28, 16) },
+  // Line 2 (4), about 38 m out.
+  { role: 'HFF', at: outFromGoal(38, -32) },
+  { role: 'RR', at: outFromGoal(38, -12) },
+  { role: 'R', at: outFromGoal(38, 12) },
+  { role: 'HFF', at: outFromGoal(38, 32) },
+  // Line 3 (5), about 55 m out, wings in off the boundary.
+  { role: 'W', at: outFromGoal(55, -38) },
+  { role: 'RK', at: outFromGoal(55, -18) },
+  { role: 'C', at: outFromGoal(55, 0) },
+  { role: 'CHF', at: outFromGoal(55, 18) },
+  { role: 'W', at: outFromGoal(55, 38) },
+  // Back six: goal-side of the kicking team's forwards (below), up around
+  // the middle of the ground with them.
+  { role: 'CHB', at: [5, 0] },
+  { role: 'HBF', at: [0, -30] },
+  { role: 'HBF', at: [0, 30] },
+  { role: 'FB', at: [-23, 0] },
+  { role: 'BP', at: [-27, -20] },
+  { role: 'BP', at: [-27, 20] },
 ];
+
+const KICK_IN_KICKING_TEAM: Spot[] = [
+  // The kicker, in the goal square.
+  { role: 'FB', at: KICKER },
+  // Short options in each pocket, just outside the protected area.
+  { role: 'BP', at: outFromGoal(22, -26) },
+  { role: 'BP', at: outFromGoal(22, 26) },
+  // Leads at about 40 m.
+  { role: 'CHB', at: outFromGoal(40, 0) },
+  { role: 'HBF', at: outFromGoal(42, -22) },
+  { role: 'HBF', at: outFromGoal(42, 22) },
+  // Midfield stack, the ruck as the long target, wings in off the boundary.
+  { role: 'C', at: outFromGoal(62, 0) },
+  { role: 'RR', at: outFromGoal(60, -10) },
+  { role: 'R', at: outFromGoal(60, 10) },
+  { role: 'RK', at: [22, -22] },
+  { role: 'W', at: [12, -36] },
+  { role: 'W', at: [12, 36] },
+  // Forwards held up around the middle of the ground, not deep, the shape
+  // unchanged: a CHF and two flankers in front, FF and pockets behind.
+  { role: 'CHF', at: [8, 0] },
+  { role: 'HFF', at: [3, -30] },
+  { role: 'HFF', at: [3, 30] },
+  { role: 'FF', at: [-20, 0] },
+  { role: 'FP', at: [-24, -20] },
+  { role: 'FP', at: [-24, 20] },
+];
+
+function turned(spots: Spot[]): Spot[] {
+  return spots.map((s) => ({ role: s.role, at: rotateHalfTurn(s.at) }));
+}
 
 const KICK_IN_PRESSING: Formation = {
   id: 'kick-in-pressing',
   name: 'Kick-in (Pressing)',
-  description: "Team 1 presses Team 2's kick-in in 3 lines at 20m, 35m, 52m from goal with a 3+3 defensive hold.",
+  description: "Team 1 presses Team 2's kick-in: a man on the mark 15 m out from the goal square, a 3-4-5 zone beyond the protected area, and six back minding Team 2's forwards.",
   category: 'pre-built',
   positions: [
-    ...createTeamPositions('team1', KICK_IN_PRESSING_TEAM1_POSITIONS),
-    ...createTeamPositions('team2', mirrorTeamPositions(KICK_IN_PRESSING_TEAM1_POSITIONS)),
+    ...numberedTeam('team1', KICK_IN_PRESSING_TEAM, KICKER),
+    ...numberedTeam('team2', KICK_IN_KICKING_TEAM, KICKER),
   ],
 };
-
-/**
- * 9. KICK-IN (KICKING)
- * Team 1 takes the kick-in: FB kicker in goal square, BPs at ±45°,
- * midfield clusters at 40m & 55m, forward 2-1-2-1 diamond.
- */
-const KICK_IN_KICKING_TEAM1_POSITIONS = [
-  // Kicker: FB in goal square
-  { x:   0, z: -78,    role: 'FB',  rotation: 0 },
-  // BPs: ±45° angle, 20m from own goal
-  { x: -14, z: -68,    role: 'BP',  rotation: 0 },
-  { x:  14, z: -68,    role: 'BP',  rotation: 0 },
-  // Cluster 40m from own goal (z = -42.5)
-  { x: -20, z: -42.5,  role: 'W',   rotation:  Math.PI / 2 },
-  { x:  -7, z: -42.5,  role: 'C',   rotation: 0 },
-  { x:   7, z: -42.5,  role: 'RR',  rotation: 0 },
-  { x:  20, z: -42.5,  role: 'W',   rotation: -Math.PI / 2 },
-  // Cluster 55m from own goal (z = -27.5)
-  { x: -25, z: -27.5,  role: 'HBF', rotation: 0 },
-  { x:  -8, z: -27.5,  role: 'CHB', rotation: 0 },
-  { x:   8, z: -27.5,  role: 'R',   rotation: 0 },
-  { x:  25, z: -27.5,  role: 'HBF', rotation: 0 },
-  // Forward 2-1-2-1 diamond
-  { x: -25, z:  18,    role: 'HFF', rotation: Math.PI },
-  { x:  25, z:  18,    role: 'HFF', rotation: Math.PI },
-  { x:   0, z:  30,    role: 'CHF', rotation: Math.PI },
-  { x: -20, z:  50,    role: 'FP',  rotation: Math.PI },
-  { x:  20, z:  50,    role: 'FP',  rotation: Math.PI },
-  { x:   0, z:  60,    role: 'FF',  rotation: Math.PI },
-  // Rover near mid-field
-  { x:   0, z: -15,    role: 'RO',  rotation: 0 },
-];
 
 const KICK_IN_KICKING: Formation = {
   id: 'kick-in-kicking',
   name: 'Kick-in (Kicking)',
-  description: 'Team 1 takes the kick-in: FB kicker in goal square, BPs at ±45°, midfield clusters at 40m & 55m, forward 2-1-2-1 diamond.',
+  description: "Team 1 kicks in from its goal square against Team 2's press: short options in both pockets, leads at 40 m, a midfield stack, and the ruck as the long target.",
   category: 'pre-built',
   positions: [
-    ...createTeamPositions('team1', KICK_IN_KICKING_TEAM1_POSITIONS),
-    ...createTeamPositions('team2', mirrorTeamPositions(KICK_IN_KICKING_TEAM1_POSITIONS)),
+    ...numberedTeam('team1', turned(KICK_IN_KICKING_TEAM), rotateHalfTurn(KICKER)),
+    ...numberedTeam('team2', turned(KICK_IN_PRESSING_TEAM), rotateHalfTurn(KICKER)),
   ],
 };
 

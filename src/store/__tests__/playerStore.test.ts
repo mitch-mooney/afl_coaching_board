@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { usePlayerStore } from '../playerStore';
 import { STANDARD_BOUNDARY, outOfBounds } from '../../utils/fieldGeometry';
+import { getFormationById } from '../../data/formations';
 
 beforeEach(() => { usePlayerStore.setState({ labelMode: 'number' }); });
 
@@ -30,6 +31,19 @@ describe('a freshly seeded board fits Standard ground', () => {
 
     expect(report.players).toEqual([]);
     expect(report.count).toBe(0);
+  });
+
+  it('stands every player where Centre Bounce puts their number', () => {
+    usePlayerStore.getState().initializePlayers();
+    const { players } = usePlayerStore.getState();
+    const centreBounce = getFormationById('centre-bounce')!;
+
+    for (const player of players) {
+      const spot = centreBounce.positions.find(
+        (p) => p.teamId === player.teamId && p.playerNumber === player.number,
+      )!;
+      expect(player.position, `${player.teamId} #${player.number}`).toEqual(spot.position);
+    }
   });
 
   it('numbers each team 1..18, so nothing carries a bench number', () => {
