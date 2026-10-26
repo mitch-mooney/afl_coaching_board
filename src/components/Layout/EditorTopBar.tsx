@@ -3,6 +3,13 @@ import { GroundChip } from '../Board/hud/GroundChip';
 import { CHALK_DIM, LIT } from '../Board/hud/podStyles';
 import { palette, radii, typeStyle, withAlpha } from '../../theme/tokens';
 import { HamburgerIcon } from '../UI/HamburgerIcon';
+import { usePlayerStore } from '../../store/playerStore';
+
+const CHIP_BUTTON: CSSProperties = {
+  padding: '6px 12px', borderRadius: radii.chip, border: `1px solid ${palette.steel}`,
+  background: palette.steel, color: palette.chalk,
+  ...typeStyle('label'), cursor: 'pointer',
+};
 
 interface EditorTopBarProps {
   editorTab: 'board' | 'video' | 'training';
@@ -29,6 +36,9 @@ export function EditorTopBar({
   editorTab, mode, isConePlacementActive, isMenuOpen,
   onBack, onSelectTab, onExitConePlacement, onToggleMenu,
 }: EditorTopBarProps) {
+  const hasDrillPreview = usePlayerStore((s) => s.previewPositions !== null);
+  const clearPreviewPositions = usePlayerStore((s) => s.clearPreviewPositions);
+
   return (
     <div className="absolute top-0 left-0 right-0 z-30 flex items-center gap-2 px-4 pt-safe-top pt-3 pb-6 pointer-events-none"
          style={{ background: `linear-gradient(180deg, ${withAlpha(palette.concrete, 0.85)} 0%, transparent 100%)` }}>
@@ -71,22 +81,26 @@ export function EditorTopBar({
         {editorTab === 'board' && <GroundChip />}
       </div>
 
-      {/* Training-mode board controls (cone placement) */}
-      {editorTab === 'board' && mode === 'training' && (
+      {/* Training-mode board controls (cone setup), and the drill preview's
+          dismissal. The drill's gold dots are a preview held outside the board
+          (`previewPositions`, never captured into a snapshot or saved), so they
+          are cleared, not dragged. They outlive a switch to Match, so the
+          dismissal shows wherever the board shows them. */}
+      {editorTab === 'board' && (mode === 'training' || hasDrillPreview) && (
         <div className="ml-auto flex items-center gap-2 pointer-events-auto">
-          <button
-            onClick={onExitConePlacement}
-            style={{
-              padding: '6px 12px', borderRadius: radii.chip, border: `1px solid ${palette.steel}`,
-              background: palette.steel, color: palette.chalk,
-              ...typeStyle('label'), cursor: 'pointer',
-            }}
-          >
-            ← Training
-          </button>
-          {isConePlacementActive && (
+          {mode === 'training' && (
+            <button onClick={onExitConePlacement} style={CHIP_BUTTON}>
+              ← Training
+            </button>
+          )}
+          {hasDrillPreview && (
+            <button onClick={clearPreviewPositions} style={CHIP_BUTTON}>
+              Clear drill preview
+            </button>
+          )}
+          {mode === 'training' && isConePlacementActive && (
             <span style={{ ...typeStyle('label'), color: palette.floodlight }}>
-              🔶 Tap field to place cone
+              🔶 Tap field to place a cone, tap a cone to remove it
             </span>
           )}
         </div>

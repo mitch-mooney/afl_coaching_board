@@ -25,6 +25,16 @@ describe('coneStore', () => {
     expect(useConeStore.getState().cones).toHaveLength(0);
   });
 
+  it('moveCone moves only the named cone, keeping its id', () => {
+    useConeStore.getState().addCone([0, 0, 0]);
+    useConeStore.getState().addCone([1, 0, 1]);
+    const [a, b] = useConeStore.getState().cones;
+    useConeStore.getState().moveCone(a.id, [7, 0, -3]);
+    const [movedA, movedB] = useConeStore.getState().cones;
+    expect(movedA).toEqual({ id: a.id, position: [7, 0, -3] });
+    expect(movedB).toEqual(b);
+  });
+
   it('clearCones empties the array', () => {
     useConeStore.getState().addCone([0, 0, 0]);
     useConeStore.getState().addCone([1, 0, 1]);
