@@ -1,6 +1,7 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useUIStore } from '../../store/uiStore';
+import { shadows } from '../../theme/tokens';
 
 interface MenuItem {
   id: string;
@@ -8,7 +9,12 @@ interface MenuItem {
   icon?: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
-  variant?: 'default' | 'danger' | 'success' | 'warning' | 'primary' | 'purple' | 'teal' | 'indigo';
+  /**
+   * `danger` marks an item that removes something: Clear video, Sign out. It is
+   * drawn with a dashed edge rather than in red, because the palette has no
+   * danger colour and team colours are the only bright tones in the app.
+   */
+  variant?: 'default' | 'danger';
   active?: boolean;
   badge?: string;
   description?: string;
@@ -25,9 +31,18 @@ interface MobileMenuProps {
   onClose?: () => void;
 }
 
+/** Concrete chrome, Chalk text, Floodlight for an item that is on. */
+function itemStyles(variant: MenuItem['variant'], active?: boolean, disabled?: boolean) {
+  if (disabled) return 'border-steel/60 bg-steel/30 text-chalk/35 cursor-not-allowed';
+  if (active) return 'border-floodlight/60 bg-floodlight/15 text-floodlight';
+  const edge = variant === 'danger' ? 'border-dashed border-chalk/35' : 'border-steel';
+  return `${edge} bg-steel/50 text-chalk hover:bg-steel hover:border-chalk/40 active:bg-steel`;
+}
+
 /**
  * Mobile menu drawer that contains all toolbar items organized into sections.
- * Uses Framer Motion for smooth slide-in/out animations.
+ * Uses Framer Motion for smooth slide-in/out animations, and none at all when
+ * the device asks for reduced motion.
  * Closes on item selection or outside click.
  */
 export function MobileMenu({ sections, onClose }: MobileMenuProps) {
@@ -35,6 +50,7 @@ export function MobileMenu({ sections, onClose }: MobileMenuProps) {
   const closeMenu = useUIStore((state) => state.closeMenu);
   const menuRef = useRef<HTMLDivElement>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
+  const reduceMotion = useReducedMotion();
 
   // Handle close - notify parent and close menu
   const handleClose = useCallback(() => {
@@ -88,82 +104,40 @@ export function MobileMenu({ sections, onClose }: MobileMenuProps) {
     handleClose();
   };
 
-  // Get variant-specific styles
-  const getVariantStyles = (variant: MenuItem['variant'], active?: boolean, disabled?: boolean) => {
-    if (disabled) {
-      return 'bg-gray-100 text-gray-400 cursor-not-allowed';
-    }
-
-    switch (variant) {
-      case 'danger':
-        return active
-          ? 'bg-red-500 text-white'
-          : 'bg-red-50 text-red-700 hover:bg-red-100 active:bg-red-200';
-      case 'success':
-        return active
-          ? 'bg-green-500 text-white'
-          : 'bg-green-50 text-green-700 hover:bg-green-100 active:bg-green-200';
-      case 'warning':
-        return active
-          ? 'bg-yellow-500 text-white'
-          : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 active:bg-yellow-200';
-      case 'primary':
-        return active
-          ? 'bg-blue-600 text-white'
-          : 'bg-blue-50 text-blue-700 hover:bg-blue-100 active:bg-blue-200';
-      case 'purple':
-        return active
-          ? 'bg-purple-500 text-white'
-          : 'bg-purple-50 text-purple-700 hover:bg-purple-100 active:bg-purple-200';
-      case 'teal':
-        return active
-          ? 'bg-teal-500 text-white'
-          : 'bg-teal-50 text-teal-700 hover:bg-teal-100 active:bg-teal-200';
-      case 'indigo':
-        return active
-          ? 'bg-indigo-500 text-white'
-          : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 active:bg-indigo-200';
-      default:
-        return active
-          ? 'bg-gray-600 text-white'
-          : 'bg-gray-50 text-gray-700 hover:bg-gray-100 active:bg-gray-200';
-    }
-  };
-
-  // Animation variants
-  const menuVariants = {
-    closed: {
-      opacity: 0,
-      y: -16,
-      scale: 0.95,
-      transition: {
-        duration: 0.2,
-        ease: [0.4, 0, 1, 1],
-      },
-    },
-    open: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: {
-        duration: 0.25,
-        ease: [0, 0, 0.2, 1],
-      },
-    },
-  };
+  // Animation variants. Under reduced motion the menu appears and goes in one
+  // frame: no slide, no scale, no fade.
+  const instant = { duration: 0 };
+  const menuVariants = reduceMotion
+    ? { closed: { opacity: 0, transition: instant }, open: { opacity: 1, transition: instant } }
+    : {
+        closed: {
+          opacity: 0,
+          y: -16,
+          scale: 0.95,
+          transition: {
+            duration: 0.2,
+            ease: [0.4, 0, 1, 1],
+          },
+        },
+        open: {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          transition: {
+            duration: 0.25,
+            ease: [0, 0, 0.2, 1],
+          },
+        },
+      };
 
   const backdropVariants = {
     closed: {
       opacity: 0,
-      transition: {
-        duration: 0.15,
-      },
+      transition: reduceMotion ? instant : { duration: 0.15 },
     },
     open: {
       opacity: 1,
-      transition: {
-        duration: 0.2,
-      },
+      transition: reduceMotion ? instant : { duration: 0.2 },
     },
   };
 
@@ -176,7 +150,7 @@ export function MobileMenu({ sections, onClose }: MobileMenuProps) {
         <>
           {/* Backdrop */}
           <motion.div
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-concrete/40 backdrop-blur-sm z-40"
             variants={backdropVariants}
             initial="closed"
             animate="open"
@@ -189,14 +163,16 @@ export function MobileMenu({ sections, onClose }: MobileMenuProps) {
             ref={menuRef}
             className="
               absolute top-16 left-4 z-50
-              bg-white/95 backdrop-blur-md
-              rounded-xl shadow-2xl
-              border border-gray-200/50
+              bg-concrete/95 backdrop-blur-md
+              rounded-panel
+              border border-steel
+              text-chalk font-sans
               max-h-[calc(100vh-6rem)]
               overflow-y-auto
               overflow-x-hidden
               w-[calc(100vw-2rem)] max-w-sm md:max-w-md
             "
+            style={{ boxShadow: shadows.popover }}
             variants={menuVariants}
             initial="closed"
             animate="open"
@@ -204,16 +180,16 @@ export function MobileMenu({ sections, onClose }: MobileMenuProps) {
             role="menu"
             aria-label="Mobile menu"
           >
-            <div className="p-3 space-y-3">
+            <div className="p-md space-y-md">
               {visibleSections.map((section) => (
-                <div key={section.id} className="space-y-1.5">
+                <div key={section.id} className="space-y-xs">
                   {/* Section header */}
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2">
+                  <h3 className="font-display text-title text-chalk/70 px-xs truncate">
                     {section.title}
                   </h3>
 
                   {/* Section items */}
-                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                  <div className="grid grid-cols-2 gap-xs sm:grid-cols-3">
                     {section.items.map((item) => (
                       <div key={item.id} className="relative">
                         <button
@@ -222,13 +198,13 @@ export function MobileMenu({ sections, onClose }: MobileMenuProps) {
                           onMouseEnter={() => setHoveredItemId(item.id)}
                           onMouseLeave={() => setHoveredItemId(null)}
                           className={`
-                            w-full flex items-center gap-2 px-3 py-2.5
+                            w-full flex items-center gap-sm px-md py-sm
                             min-h-[44px]
-                            rounded-lg
-                            text-sm font-medium
+                            rounded-control border
+                            text-label text-left
                             transition-colors
                             touch-manipulation
-                            ${getVariantStyles(item.variant, item.active, item.disabled)}
+                            ${itemStyles(item.variant, item.active, item.disabled)}
                           `}
                           role="menuitem"
                           aria-disabled={item.disabled}
@@ -240,7 +216,7 @@ export function MobileMenu({ sections, onClose }: MobileMenuProps) {
                           )}
                           <span className="truncate">{item.label}</span>
                           {item.badge && (
-                            <span className="ml-auto text-xs bg-white/30 px-1.5 py-0.5 rounded-full">
+                            <span className="ml-auto text-caption bg-chalk/15 px-xs rounded-pill">
                               {item.badge}
                             </span>
                           )}
@@ -249,13 +225,14 @@ export function MobileMenu({ sections, onClose }: MobileMenuProps) {
                         <AnimatePresence>
                           {hoveredItemId === item.id && item.description && (
                             <motion.div
-                              className="absolute bottom-full left-0 mb-1.5 z-50
-                                bg-gray-900/95 text-white text-xs rounded-md px-2.5 py-1.5
-                                max-w-[200px] whitespace-normal pointer-events-none shadow-lg"
-                              initial={{ opacity: 0, y: 4 }}
+                              className="absolute bottom-full left-0 mb-xs z-50
+                                bg-steel text-chalk text-caption rounded-chip px-sm py-xs
+                                max-w-[200px] whitespace-normal pointer-events-none"
+                              style={{ boxShadow: shadows.raised }}
+                              initial={{ opacity: 0, y: reduceMotion ? 0 : 4 }}
                               animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: 4 }}
-                              transition={{ duration: 0.15 }}
+                              exit={{ opacity: 0, y: reduceMotion ? 0 : 4 }}
+                              transition={reduceMotion ? instant : { duration: 0.15 }}
                             >
                               {item.description}
                             </motion.div>
@@ -269,20 +246,20 @@ export function MobileMenu({ sections, onClose }: MobileMenuProps) {
             </div>
 
             {/* Close button at bottom */}
-            <div className="sticky bottom-0 p-3 border-t border-gray-200/50 bg-white/90 backdrop-blur-sm">
+            <div className="sticky bottom-0 p-md border-t border-steel bg-concrete/95 backdrop-blur-sm">
               <button
                 onClick={handleClose}
                 className="
-                  w-full py-3 px-4
+                  w-full py-md px-lg
                   min-h-[44px]
-                  bg-gray-100 hover:bg-gray-200 active:bg-gray-300
-                  text-gray-700 font-medium
-                  rounded-lg
+                  rounded-control border border-steel
+                  bg-steel/50 hover:bg-steel active:bg-steel
+                  text-label text-chalk
                   transition-colors
                   touch-manipulation
                 "
               >
-                Close Menu
+                Close menu
               </button>
             </div>
           </motion.div>

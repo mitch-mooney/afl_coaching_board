@@ -70,3 +70,32 @@ canvas {
     will-change: contents;
   }
 }
+
+/* The Setup sheet rises from the Playback bar. Only with motion allowed: under
+   reduced motion it simply appears. */
+@media (prefers-reduced-motion: no-preference) {
+  .setup-sheet {
+    animation: setup-sheet-rise 160ms ease-out;
+  }
+}
+
+@keyframes setup-sheet-rise {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}
+
+/* A viewer who asks for less motion gets none: transitions and animations
+   finish at once rather than playing out. This covers CSS only; the menu's
+   Framer Motion springs check the same query through useReducedMotion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

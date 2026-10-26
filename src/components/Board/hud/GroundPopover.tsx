@@ -323,7 +323,7 @@ function GroundRow({ venue, active, onTap }: { venue: Venue; active: boolean; on
         padding: '4px 10px',
         borderRadius: 8,
         // Floodlight is the HUD's state colour: "this is the one you are on",
-        // the same as the chip's open border and the Mode rail's.
+        // the same as the chip's open border and the View column's.
         border: active ? `1px solid ${palette.floodlight}` : '1px solid transparent',
         background: active ? withAlpha(palette.floodlight, 0.12) : withAlpha(palette.chalk, 0.04),
         cursor: 'pointer',

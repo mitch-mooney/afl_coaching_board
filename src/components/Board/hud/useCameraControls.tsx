@@ -6,7 +6,7 @@ import { PovSelectModal } from './PovSelectModal';
 import type { HudAction, HudControls } from './hudActions';
 
 export function useCameraControls(): HudControls {
-  const { povPlayer1Id, povPlayer2Id, switchToBroadcast, setPresetView, resetCamera, setActivePovSlot } =
+  const { povPlayer1Id, povPlayer2Id, activePovSlot, switchToBroadcast, setPresetView, resetCamera, setActivePovSlot } =
     useCameraStore();
   const players = usePlayerStore((s) => s.players);
   // A preset frames the ground the coach is on, not a ground they are not.
@@ -20,15 +20,15 @@ export function useCameraControls(): HudControls {
   };
 
   const actions: HudAction[] = [
-    { key: 'broadcast', label: '📺 Broadcast', onClick: switchToBroadcast },
+    { key: 'broadcast', label: 'Broadcast', onClick: switchToBroadcast },
     { key: 'top', label: 'Top', onClick: () => setPresetView('top', boundary) },
     { key: 'sideline', label: 'Sideline', onClick: () => setPresetView('sideline', boundary) },
     { key: 'end-to-end', label: 'End-to-end', onClick: () => setPresetView('end-to-end', boundary) },
     { key: 'reset-camera', label: 'Reset camera', onClick: resetCamera },
-    { key: 'pov1', label: `👁 POV ${label(povPlayer1Id)}`, onClick: () => setActivePovSlot(1) },
-    { key: 'pov2', label: `👁 POV ${label(povPlayer2Id)}`, onClick: () => setActivePovSlot(2) },
-    { key: 'assign-pov1', label: 'Assign POV #1', onClick: () => setAssignSlot(1) },
-    { key: 'assign-pov2', label: 'Assign POV #2', onClick: () => setAssignSlot(2) },
+    { key: 'pov1', label: `POV 1: ${label(povPlayer1Id)}`, onClick: () => setActivePovSlot(1), active: activePovSlot === 1 },
+    { key: 'pov2', label: `POV 2: ${label(povPlayer2Id)}`, onClick: () => setActivePovSlot(2), active: activePovSlot === 2 },
+    { key: 'assign-pov1', label: 'Assign POV 1', onClick: () => setAssignSlot(1) },
+    { key: 'assign-pov2', label: 'Assign POV 2', onClick: () => setAssignSlot(2) },
   ];
 
   const modals = <PovSelectModal open={assignSlot !== null} povSlot={assignSlot ?? 1} onClose={() => setAssignSlot(null)} />;

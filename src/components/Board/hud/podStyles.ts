@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { palette, radii, shadows, typeStyle, withAlpha } from '../../../theme/tokens';
+import { palette, radii, typeStyle, withAlpha } from '../../../theme/tokens';
 
 /**
  * The HUD's shared inline styles, built from the design tokens
@@ -37,13 +37,6 @@ export const fanPill: CSSProperties = {
   textAlign: 'left',
 };
 
-export const panelPill: CSSProperties = {
-  ...typeStyle('label'),
-  padding: '8px 10px', borderRadius: radii.chip,
-  cursor: 'pointer', whiteSpace: 'nowrap', textAlign: 'left', width: '100%',
-  border: `1px solid ${palette.steel}`, background: palette.steel, color: palette.chalk,
-};
-
 /**
  * How far in from the left edge other HUD surfaces must start to clear the
  * **Tool rail**.
@@ -61,11 +54,40 @@ export const panelPill: CSSProperties = {
  */
 export const TOOL_RAIL_CLEARANCE = 86;
 
-export function podButton(open: boolean): CSSProperties {
-  return {
-    width: 66, height: 66, borderRadius: 20, cursor: 'pointer',
-    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
-    ...(open ? LIT : { background: withAlpha(palette.concrete, 0.94), color: palette.chalk }),
-    border: open ? 'none' : `1px solid ${palette.steel}`, boxShadow: shadows.raised,
-  };
-}
+/**
+ * How far in from the right edge other HUD surfaces must start to clear the
+ * **View column**, the Tool rail's mirror.
+ *
+ * The column sits 8px from the edge and its pill measures 70px wide (56px view
+ * buttons + 6px padding and a 1px border each side), so its left edge is 78px
+ * in; the remainder is breathing room, as on the left.
+ */
+export const VIEW_COLUMN_CLEARANCE = 86;
+
+/**
+ * Where the two side columns start: below the editor top bar and the
+ * linked-video bar beneath it, whether or not the Play has one. Unanchored
+ * chrome clears that bar unconditionally (ADR 0003's amendment), and the View
+ * column shares the line so its top always equals the Tool rail's.
+ */
+export const SIDE_COLUMN_TOP = 'calc(env(safe-area-inset-top, 0px) + 96px)';
+
+/** Where the chrome's foot sits: clear of the iPad home indicator. */
+export const CHROME_BOTTOM = 'calc(0.75rem + env(safe-area-inset-bottom, 0px))';
+
+/** The smallest a chrome control may be on a finger device, in CSS px (44 pt). */
+export const MIN_TARGET = 44;
+
+/** A Setup sheet action: Chalk on Steel, at least a finger tall. */
+export const sheetPill: CSSProperties = {
+  ...typeStyle('label'),
+  minHeight: MIN_TARGET,
+  padding: '8px 12px',
+  borderRadius: radii.chip,
+  cursor: 'pointer',
+  textAlign: 'left',
+  border: `1px solid ${palette.steel}`,
+  background: palette.steel,
+  color: palette.chalk,
+};
+
