@@ -1,4 +1,6 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
 import { usePlayerStore } from '../../store/playerStore';
 import { usePathStore } from '../../store/pathStore';
 import { useAnimationStore } from '../../store/animationStore';
@@ -11,6 +13,8 @@ import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 import { beginPreviewDrag, previewPointerIntent } from '../../utils/coneDrag';
 import { useMarkerDrag } from './useMarkerDrag';
 import { boardGuernseys } from '../../utils/guernsey';
+import { cameraTilt, playerLook, type PlayerLook } from '../../utils/cameraMath';
+import { useCameraStore } from '../../store/cameraStore';
 import type { Player } from '../../models/PlayerModel';
 import type { ThreeEvent } from '@react-three/fiber';
 
@@ -74,6 +78,32 @@ function GhostIndicator({ player }: { player: Player }) {
   );
 }
 
+/**
+ * Bodies or tokens, for the whole board at once. Read from the rendered camera
+ * every frame rather than the camera store, because an orbit moves the camera
+ * without telling the store. Re-renders only when the answer changes.
+ */
+function usePlayerLook(): PlayerLook {
+  const [look, setLook] = useState<PlayerLook>('body');
+  const lookRef = useRef<PlayerLook>('body');
+  const ahead = useMemo(() => new THREE.Vector3(), []);
+
+  useFrame(({ camera }) => {
+    camera.getWorldDirection(ahead).add(camera.position);
+    const next = playerLook({
+      tilt: cameraTilt(camera.position.toArray(), ahead.toArray()),
+      pov: useCameraStore.getState().activePovSlot !== null,
+      previous: lookRef.current,
+    });
+    if (next !== lookRef.current) {
+      lookRef.current = next;
+      setLook(next);
+    }
+  });
+
+  return look;
+}
+
 export function PlayerManager({ readOnly = false }: PlayerManagerProps) {
   const players = usePlayerStore((state) => state.players);
   const previewPositions = usePlayerStore((state) => state.previewPositions);
@@ -81,12 +111,13 @@ export function PlayerManager({ readOnly = false }: PlayerManagerProps) {
   // One decision for the whole board, so Team 2 changes into its Clash
   // guernsey all at once.
   const guernseys = useMemo(() => boardGuernseys(players, team2Guernsey), [players, team2Guernsey]);
+  const look = usePlayerLook();
 
   return (
     <group>
       {!readOnly && <AnimationDriver />}
       {players.map((player) => (
-        <PlayerComponent key={player.id} player={player} guernsey={guernseys[player.teamId]} />
+        <PlayerComponent key={player.id} player={player} guernsey={guernseys[player.teamId]} look={look} />
       ))}
       {previewPositions?.map((player) => (
         <GhostIndicator key={`ghost-${player.id}`} player={player} />

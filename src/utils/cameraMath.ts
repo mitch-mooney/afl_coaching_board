@@ -94,3 +94,72 @@ export function presetCameraPose(view: CameraPreset, boundary: Boundary): Camera
       return { position: [standoff, standoff * OBLIQUE_HEIGHT_RATIO, 0], target };
   }
 }
+
+/**
+ * How steeply the camera looks down, in degrees above the horizon: 90 straight
+ * down, 0 level with the grass.
+ */
+export function cameraTilt(
+  position: [number, number, number],
+  target: [number, number, number],
+): number {
+  const height = position[1] - target[1];
+  const across = Math.hypot(position[0] - target[0], position[2] - target[2]);
+  return (Math.atan2(height, across) * 180) / Math.PI;
+}
+
+/** Whether the board shows every player as a Player body or as a Player token. */
+export type PlayerLook = 'body' | 'token';
+
+/** Steeper than this, the board shows tokens. */
+export const TOKEN_TILT = 62;
+/** Lower than this, the board shows bodies again. */
+export const BODY_TILT = 58;
+
+/**
+ * Bodies or tokens, decided once for the whole board. The 4° gap between the
+ * two thresholds keeps a camera orbiting near 60° from flicking back and forth:
+ * inside it the board keeps showing what it showed. A POV view always shows
+ * bodies, since a player's-eye view of discs makes no sense.
+ */
+export function playerLook({
+  tilt,
+  pov,
+  previous,
+}: {
+  tilt: number;
+  pov: boolean;
+  previous: PlayerLook;
+}): PlayerLook {
+  if (pov) return 'body';
+  if (tilt > TOKEN_TILT) return 'token';
+  if (tilt < BODY_TILT) return 'body';
+  return previous;
+}
+
+/** A Player token's true size: 2 m across. */
+export const TOKEN_WORLD_DIAMETER = 2;
+/** The smallest a Player token draws on screen, in CSS points. */
+export const TOKEN_MIN_POINTS = 32;
+
+/**
+ * How wide a Player token is in the world, in metres: its true 2 m, or wider
+ * when 2 m would draw under 32 points, so it stays readable however far out the
+ * camera sits. `fov` is the camera's vertical field of view in degrees and
+ * `viewportHeight` the canvas height in CSS points.
+ */
+export function tokenDiameter({
+  distance,
+  fov,
+  zoom,
+  viewportHeight,
+}: {
+  distance: number;
+  fov: number;
+  zoom: number;
+  viewportHeight: number;
+}): number {
+  const visibleHeight = (2 * distance * Math.tan((fov * Math.PI) / 360)) / zoom;
+  const floor = (TOKEN_MIN_POINTS * visibleHeight) / viewportHeight;
+  return Math.max(TOKEN_WORLD_DIAMETER, floor);
+}
