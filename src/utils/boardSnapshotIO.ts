@@ -23,13 +23,14 @@ export function capture(): BoardSnapshot {
     camera: { position, target, zoom },
     ball: useBallStore.getState().ball,
     cones: useConeStore.getState().cones,
+    team2Guernsey: usePlayerStore.getState().team2Guernsey,
   };
 }
 
 /**
  * Write a snapshot back into the board stores through their own actions, so each
- * store keeps enforcing its invariants. Lists (players/paths/annotations/cones) are
- * set authoritatively — restoring a Play with no cones clears them. The nullable
+ * store keeps enforcing its invariants. Lists (players/paths/annotations/cones) and
+ * Team 2's guernsey override are set authoritatively — restoring a Play with no cones clears them. The nullable
  * singletons (camera, ball) are left untouched on null, matching the legacy restore,
  * so restoring a pre-ball Play leaves the live ball where it is rather than clearing it.
  */
@@ -38,6 +39,7 @@ export function restore(snap: BoardSnapshot): void {
   usePathStore.getState().setPaths(snap.paths);
   useAnnotationStore.getState().setAnnotations(snap.annotations);
   useConeStore.getState().setCones(snap.cones);
+  usePlayerStore.getState().setTeam2Guernsey(snap.team2Guernsey);
   if (snap.camera) {
     const camera = useCameraStore.getState();
     camera.setCameraPosition(snap.camera.position);

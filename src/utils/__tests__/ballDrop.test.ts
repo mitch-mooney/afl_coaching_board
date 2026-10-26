@@ -37,6 +37,7 @@ const looseBoard: BoardSnapshot = {
   camera: { position: [1, 2, 3], target: [4, 5, 6], zoom: 2 },
   ball: createBall([0, 0.5, 0]),
   cones: [{ id: 'c1', position: [8, 0, 8] }],
+  team2Guernsey: 'auto',
 };
 
 /** The same board with blue #1 carrying the ball. */
