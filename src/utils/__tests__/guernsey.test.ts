@@ -100,3 +100,59 @@ describe('teamGuernseys: two clubs that look alike', () => {
     expect(team2).toMatchObject({ body: '#cc0000', pattern: 'solid', clash: false });
   });
 });
+
+describe("teamGuernseys: the coach's override for Team 2", () => {
+  it('Auto wears the clash when the teams clash, and says so', () => {
+    const wears = teamGuernseys(club('carlton'), club('carlton'), 'auto');
+    expect(wears.team2.clash).toBe(true);
+    expect(wears.auto).toBe('clash');
+    expect(wears.decidedBy).toBe('auto');
+  });
+
+  it('Auto wears home when the teams are clear, and says so', () => {
+    const wears = teamGuernseys(club('carlton'), club('richmond'), 'auto');
+    expect(wears.team2).toMatchObject({ body: '#FFD200', clash: false });
+    expect(wears.auto).toBe('home');
+  });
+
+  it('is Auto when no override is given', () => {
+    expect(teamGuernseys(club('carlton'), club('carlton')).decidedBy).toBe('auto');
+  });
+
+  it('Clash forces the Clash guernsey on teams Auto would leave alone', () => {
+    const wears = teamGuernseys(club('carlton'), club('richmond'), 'clash');
+    expect(wears.team2).toMatchObject({
+      body: palette.concrete,
+      pattern: 'sash',
+      patternColours: ['#FFD200'],
+      clash: true,
+    });
+    expect(wears.auto).toBe('home');
+    expect(wears.decidedBy).toBe('override');
+  });
+
+  it('Home keeps the home guernsey on teams Auto would change', () => {
+    const wears = teamGuernseys(club('carlton'), club('carlton'), 'home');
+    expect(wears.team2).toMatchObject({ body: '#002B5C', clash: false, label: palette.chalk });
+    expect(wears.auto).toBe('clash');
+    expect(wears.decidedBy).toBe('override');
+  });
+
+  it('never changes Team 1', () => {
+    for (const override of ['auto', 'clash', 'home'] as const) {
+      expect(teamGuernseys(club('carlton'), club('carlton'), override).team1).toMatchObject({
+        body: '#002B5C',
+        clash: false,
+      });
+    }
+  });
+
+  it('reaches the board through boardGuernseys', () => {
+    const players = [
+      ...createTeamPlayers('team1', '#002B5C', 2).map((p) => ({ ...p, teamPresetId: 'carlton' })),
+      ...createTeamPlayers('team2', '#002B5C', 2).map((p) => ({ ...p, teamPresetId: 'carlton' })),
+    ];
+    expect(boardGuernseys(players, 'home').team2.clash).toBe(false);
+    expect(boardGuernseys(players).team2.clash).toBe(true);
+  });
+});

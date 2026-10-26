@@ -6,7 +6,7 @@ import { projectSnapshot, THUMBNAIL_VIEWBOX } from '../../utils/thumbnailProject
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 import { palette, withAlpha } from '../../theme/tokens';
 
-const EMPTY: BoardSnapshot = { players: [], paths: [], annotations: [], camera: null, ball: null, cones: [] };
+const EMPTY: BoardSnapshot = { players: [], paths: [], annotations: [], camera: null, ball: null, cones: [], team2Guernsey: 'auto' };
 
 /**
  * PlayThumbnail — a top-down schematic of a Play's end state on the Active Venue.
