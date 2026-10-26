@@ -10,7 +10,7 @@ import type { MovementPath } from '../../models/PathModel';
 const VB: ThumbnailViewBox = THUMBNAIL_VIEWBOX;
 
 function snapshot(over: Partial<BoardSnapshot> = {}): BoardSnapshot {
-  return { players: [], paths: [], annotations: [], camera: null, ball: null, cones: [], ...over };
+  return { players: [], paths: [], annotations: [], camera: null, ball: null, cones: [], team2Guernsey: 'auto', ...over };
 }
 
 function player(id: string, position: [number, number, number], color = '#fff'): Player {

@@ -1,5 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { povCameraPose, presetCameraPose, POV_LOOK_AHEAD, POV_LOOK_UP } from '../cameraMath';
+import {
+  cameraTilt,
+  fadeFrame,
+  lookFade,
+  lookLayers,
+  LOOK_FADE_MS,
+  playerLook,
+  povCameraPose,
+  presetCameraPose,
+  tokenDiameter,
+  POV_LOOK_AHEAD,
+  POV_LOOK_UP,
+} from '../cameraMath';
 import { STANDARD_BOUNDARY, boundaryOf } from '../fieldGeometry';
 
 // A tight community ground: 150 m goal-to-goal, 110 m wing-to-wing.
@@ -108,5 +120,200 @@ describe('presetCameraPose', () => {
     // be cropped, and they are the part that grew.
     const longAndNarrow = boundaryOf({ boundaryLength: 170, boundaryWidth: 110 });
     expect(presetCameraPose('top', longAndNarrow).position[1]).toBeGreaterThan(200);
+  });
+});
+
+describe('playerLook: bodies or tokens', () => {
+  const look = (tilt: number, previous: 'body' | 'token') => playerLook({ tilt, pov: false, previous });
+
+  it('shows tokens once the camera tilts above 62°', () => {
+    expect(look(63, 'body')).toBe('token');
+    expect(look(90, 'body')).toBe('token');
+  });
+
+  it('shows bodies once the camera lowers below 58°', () => {
+    expect(look(57, 'token')).toBe('body');
+    expect(look(20, 'token')).toBe('body');
+  });
+
+  it('holds whatever it showed while the camera is inside the gap', () => {
+    for (const tilt of [58, 59, 60, 61, 62]) {
+      expect(look(tilt, 'body')).toBe('body');
+      expect(look(tilt, 'token')).toBe('token');
+    }
+  });
+
+  it('does not flicker when the camera orbits through 60° from either side', () => {
+    let shown: 'body' | 'token' = 'body';
+    const seen: Array<[number, string]> = [];
+    for (const tilt of [50, 56, 59, 61, 63, 61, 59, 57, 59, 61]) {
+      shown = look(tilt, shown);
+      seen.push([tilt, shown]);
+    }
+    expect(seen).toEqual([
+      [50, 'body'],
+      [56, 'body'],
+      [59, 'body'],
+      [61, 'body'],
+      [63, 'token'],
+      [61, 'token'],
+      [59, 'token'],
+      [57, 'body'],
+      [59, 'body'],
+      [61, 'body'],
+    ]);
+  });
+
+  it('always shows bodies in a POV view, however steep', () => {
+    expect(playerLook({ tilt: 90, pov: true, previous: 'body' })).toBe('body');
+    expect(playerLook({ tilt: 90, pov: true, previous: 'token' })).toBe('body');
+  });
+
+  describe('the preset views', () => {
+    const tiltOf = (view: 'top' | 'sideline' | 'end-to-end') => {
+      const { position, target } = presetCameraPose(view, STANDARD_BOUNDARY);
+      return cameraTilt(position, target);
+    };
+
+    it('Top looks straight down, so it shows tokens', () => {
+      expect(tiltOf('top')).toBeCloseTo(90, 6);
+      expect(look(tiltOf('top'), 'body')).toBe('token');
+    });
+
+    it('Broadcast, Sideline and End-to-end show bodies', () => {
+      // The Broadcast pose the board opens in: 100 m up, 150 m off the wing.
+      const broadcast = cameraTilt([0, 100, 150], [0, 0, 0]);
+      expect(broadcast).toBeCloseTo(33.69, 2);
+      for (const tilt of [broadcast, tiltOf('sideline'), tiltOf('end-to-end')]) {
+        expect(look(tilt, 'token')).toBe('body');
+      }
+    });
+
+    it('measures tilt from the camera to whatever it looks at', () => {
+      expect(tiltOf('sideline')).toBeCloseTo(18.43, 2);
+      expect(cameraTilt([10, 20, 30], [10, 0, 10])).toBeCloseTo(45, 6);
+    });
+  });
+});
+
+describe('tokenDiameter', () => {
+  // The board's camera: a 50° vertical field of view, no pinch zoom.
+  const view = { fov: 50, zoom: 1 };
+
+  it('is the true 2 m when the camera is close enough for 2 m to read', () => {
+    // 20 m away on an 834-point-tall iPad, 2 m spans about 89 points.
+    expect(tokenDiameter({ ...view, distance: 20, viewportHeight: 834 })).toBe(2);
+  });
+
+  it('never draws smaller than 32 points on screen', () => {
+    // From Top view's 200 m, 834 points span 186.5 m: 4.47 points a metre, so
+    // 2 m would be 9 points. The floor holds the token at 32 points, 7.16 m.
+    expect(tokenDiameter({ ...view, distance: 200, viewportHeight: 834 })).toBeCloseTo(7.16, 2);
+  });
+
+  it('needs more ground for the floor on a shorter screen', () => {
+    // An iPhone 13 in portrait: 664 points of height span the same 186.5 m.
+    expect(tokenDiameter({ ...view, distance: 200, viewportHeight: 664 })).toBeCloseTo(8.99, 2);
+  });
+
+  it('counts pinch zoom: zoomed in twice, the floor needs half the ground', () => {
+    expect(tokenDiameter({ fov: 50, zoom: 2, distance: 200, viewportHeight: 834 })).toBeCloseTo(3.58, 2);
+  });
+});
+
+describe('lookFade: the cross-fade between bodies and tokens', () => {
+  it('takes about 150 ms', () => {
+    expect(LOOK_FADE_MS).toBe(150);
+  });
+
+  it('is halfway to tokens 75 ms after the board turns to tokens', () => {
+    expect(lookFade({ fade: 0, look: 'token', elapsedMs: 75, reducedMotion: false })).toBeCloseTo(0.5, 10);
+  });
+
+  it('settles on tokens after 150 ms and goes no further', () => {
+    let fade = 0;
+    for (let i = 0; i < 20; i++) fade = lookFade({ fade, look: 'token', elapsedMs: 16, reducedMotion: false });
+    expect(fade).toBe(1);
+  });
+
+  it('runs the same way back down to bodies', () => {
+    expect(lookFade({ fade: 1, look: 'body', elapsedMs: 75, reducedMotion: false })).toBeCloseTo(0.5, 10);
+    expect(lookFade({ fade: 0.1, look: 'body', elapsedMs: 50, reducedMotion: false })).toBe(0);
+  });
+
+  it('reversing the tilt mid-fade turns back from where the fade had got to, without a jump', () => {
+    const midway = lookFade({ fade: 0, look: 'token', elapsedMs: 60, reducedMotion: false });
+    const turned = lookFade({ fade: midway, look: 'body', elapsedMs: 15, reducedMotion: false });
+    expect(turned).toBeCloseTo(midway - 0.1, 10);
+    expect(lookFade({ fade: turned, look: 'body', elapsedMs: 150, reducedMotion: false })).toBe(0);
+  });
+
+  it('a long frame cannot overshoot', () => {
+    expect(lookFade({ fade: 0.9, look: 'token', elapsedMs: 1000, reducedMotion: false })).toBe(1);
+  });
+
+  it('is instant under reduced motion, both ways', () => {
+    expect(lookFade({ fade: 0, look: 'token', elapsedMs: 16, reducedMotion: true })).toBe(1);
+    expect(lookFade({ fade: 0.4, look: 'body', elapsedMs: 16, reducedMotion: true })).toBe(0);
+  });
+});
+
+describe('lookLayers: which layers are on the board', () => {
+  it('shows only bodies at rest on bodies, and only tokens at rest on tokens', () => {
+    expect(lookLayers(0)).toEqual({ body: true, token: false });
+    expect(lookLayers(1)).toEqual({ body: false, token: true });
+  });
+
+  it('shows both while the fade is under way', () => {
+    expect(lookLayers(0.5)).toEqual({ body: true, token: true });
+  });
+});
+
+describe('fadeFrame: one frame of the cross-fade', () => {
+  const bodiesOnly = { body: true, token: false };
+  const both = { body: true, token: true };
+  const tokensOnly = { body: false, token: true };
+
+  it('puts the tokens on the board before the fade moves, so no frame shows neither', () => {
+    expect(fadeFrame({ fade: 0, look: 'token', elapsedMs: 16, reducedMotion: false, mounted: bodiesOnly })).toEqual({
+      fade: 0,
+      layers: both,
+    });
+  });
+
+  it('moves the fade once both layers are on the board', () => {
+    const next = fadeFrame({ fade: 0, look: 'token', elapsedMs: 75, reducedMotion: false, mounted: both });
+    expect(next.fade).toBeCloseTo(0.5, 10);
+    expect(next.layers).toEqual(both);
+  });
+
+  it('takes the figures off once the tokens have fully faded in', () => {
+    expect(fadeFrame({ fade: 0.9, look: 'token', elapsedMs: 50, reducedMotion: false, mounted: both })).toEqual({
+      fade: 1,
+      layers: tokensOnly,
+    });
+  });
+
+  it('under reduced motion, switches in one step with both layers on the board for it', () => {
+    const first = fadeFrame({ fade: 0, look: 'token', elapsedMs: 16, reducedMotion: true, mounted: bodiesOnly });
+    expect(first).toEqual({ fade: 0, layers: both });
+    expect(fadeFrame({ fade: first.fade, look: 'token', elapsedMs: 16, reducedMotion: true, mounted: first.layers })).toEqual({
+      fade: 1,
+      layers: tokensOnly,
+    });
+  });
+
+  it('puts the figures back before fading down to them', () => {
+    expect(fadeFrame({ fade: 1, look: 'body', elapsedMs: 16, reducedMotion: false, mounted: tokensOnly })).toEqual({
+      fade: 1,
+      layers: both,
+    });
+  });
+
+  it('leaves a board at rest alone', () => {
+    expect(fadeFrame({ fade: 0, look: 'body', elapsedMs: 16, reducedMotion: false, mounted: bodiesOnly })).toEqual({
+      fade: 0,
+      layers: bodiesOnly,
+    });
   });
 });

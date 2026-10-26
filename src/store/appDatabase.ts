@@ -45,6 +45,7 @@ export function legacyRowToPhase(p: LegacyPlaybook): PlayPhase {
       // empty, so migrated rows keep their byte-identical stored shape.
       ball: null,
       cones: [],
+      team2Guernsey: 'auto',
     },
     { id: 'phase-1', label: 'Phase 1' },
   );

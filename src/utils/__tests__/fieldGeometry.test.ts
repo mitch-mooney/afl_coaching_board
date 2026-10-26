@@ -271,6 +271,7 @@ const board = (over: Partial<BoardSnapshot> = {}): BoardSnapshot => ({
   camera: null,
   ball: null,
   cones: [],
+  team2Guernsey: 'auto',
   ...over,
 });
 
