@@ -409,7 +409,8 @@ extend this file rather than inventing parallel names.
 - **Player token** — how a player looks from overhead: a flat disc wearing the team's
   guernsey pattern, a large number on a plain centre so stripes never cut through it, and
   a notch showing facing. Chosen by the camera, not by the coach: past a
-  steep enough tilt every body becomes its token, and turns back as the camera lowers.
+  steep enough tilt every body becomes its token at once, and turns back as the camera
+  lowers. A POV view always shows bodies.
   A device that cannot keep the board smooth also falls back to tokens, after giving up
   shadows and Arrival map resolution first: the board may give up looks, never
   information, and a token carries every fact a body does.
@@ -417,7 +418,8 @@ extend this file rather than inventing parallel names.
 
 - **Clash guernsey** — the alternate a team wears when its guernsey is too close to the
   other team's to tell apart, as on match day. Always the second team that changes, on
-  body and token alike. Covers two clubs that look alike, two custom teams coloured alike,
+  body and token alike. The board decides when the teams clash; the coach can override
+  it either way. Covers two clubs that look alike, two custom teams coloured alike,
   and a club playing itself in an intra-club drill.
   _Avoid_: away kit, alternate colours, contrast mode.
 
