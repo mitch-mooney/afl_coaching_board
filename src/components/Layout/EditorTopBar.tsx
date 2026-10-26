@@ -65,10 +65,9 @@ export function EditorTopBar({
           </button>
         </div>
 
-        {/* The Ground chip, right of the tab switcher. It renders from here
-            rather than from either HUD skin so it lands identically in both —
-            the same reason the Tool rail does. Board tab only: only the board
-            tab renders a board. Both modes, deliberately. */}
+        {/* The Ground chip, right of the tab switcher. The Board chrome leaves
+            it in the top bar (ADR 0007). Board tab only: only the board tab
+            renders a board. Both modes, deliberately. */}
         {editorTab === 'board' && <GroundChip />}
       </div>
 

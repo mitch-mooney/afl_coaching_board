@@ -4,8 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { useSetupControls } from '../useSetupControls';
 import type { HudAction } from '../hudActions';
 
-// The Setup action list is the one list both HUD skins render, the Setup pod
-// and the Rail's Setup panel, so asserting on it covers both.
+// The Setup action list is the one list the Setup sheet renders.
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

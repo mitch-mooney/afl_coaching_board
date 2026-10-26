@@ -2,11 +2,10 @@ import { describe, expect, it } from 'vitest';
 import podStyles from '../../components/Board/hud/podStyles.ts?raw';
 import toolRail from '../../components/Board/hud/ToolRail.tsx?raw';
 import hudActions from '../../components/Board/hud/hudActions.tsx?raw';
-import playFab from '../../components/Board/hud/PlayFab.tsx?raw';
-import cameraPod from '../../components/Board/hud/CameraPod.tsx?raw';
-import setupPod from '../../components/Board/hud/SetupPod.tsx?raw';
-import railHud from '../../components/Board/hud/rail/RailHud.tsx?raw';
-import transportBar from '../../components/Board/hud/rail/TransportBar.tsx?raw';
+import boardChrome from '../../components/Board/hud/BoardChrome.tsx?raw';
+import viewColumn from '../../components/Board/hud/ViewColumn.tsx?raw';
+import playbackBar from '../../components/Board/hud/PlaybackBar.tsx?raw';
+import setupSheet from '../../components/Board/hud/SetupSheet.tsx?raw';
 import groundChip from '../../components/Board/hud/GroundChip.tsx?raw';
 import editorTopBar from '../../components/Layout/EditorTopBar.tsx?raw';
 import linkedVideoBar from '../../components/Layout/LinkedVideoBar.tsx?raw';
@@ -30,11 +29,10 @@ const CHROME = {
   'podStyles.ts': podStyles,
   'ToolRail.tsx': toolRail,
   'hudActions.tsx': hudActions,
-  'PlayFab.tsx': playFab,
-  'CameraPod.tsx': cameraPod,
-  'SetupPod.tsx': setupPod,
-  'rail/RailHud.tsx': railHud,
-  'rail/TransportBar.tsx': transportBar,
+  'BoardChrome.tsx': boardChrome,
+  'ViewColumn.tsx': viewColumn,
+  'PlaybackBar.tsx': playbackBar,
+  'SetupSheet.tsx': setupSheet,
   'GroundChip.tsx': groundChip,
   'EditorTopBar.tsx': editorTopBar,
   'LinkedVideoBar.tsx': linkedVideoBar,

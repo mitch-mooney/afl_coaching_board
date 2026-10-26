@@ -11,7 +11,7 @@ import { Scoreboard } from '../Scene/Scoreboard';
 import { SkyDome } from '../Scene/SkyDome';
 import { fogColour } from '../Scene/nightGround';
 import { GlobalDrawer } from '../UI/GlobalDrawer';
-import { BoardHud } from '../Board/hud/BoardHud';
+import { BoardChrome } from '../Board/hud/BoardChrome';
 import { FeatureNotification } from '../UI/FeatureNotification';
 import { HelpScreen } from '../UI/HelpScreen';
 import { OnboardingTour } from '../UI/OnboardingTour';
@@ -270,30 +270,6 @@ export function MainLayout() {
             <AnnotationInteractionHandler />
           </Canvas>
 
-          {/* Link Video Moment button — visible when play is active and no video is linked */}
-          {activePlayId !== null && !linkedVideoMoment && (
-            <button
-              onClick={() => setEditorTab('video')}
-              style={{
-                position: 'absolute',
-                bottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                zIndex: 20,
-                padding: '8px 20px',
-                borderRadius: 10,
-                border: `1.5px dashed ${withAlpha(palette.chalk, 0.5)}`,
-                background: palette.concrete,
-                color: palette.chalk,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              🎬 Link Video Moment
-            </button>
-          )}
         </div>
 
       {editorTab === 'video' && (
@@ -317,7 +293,35 @@ export function MainLayout() {
 
       {/* All DOM-layer UI stays outside */}
       <GlobalDrawer />
-      {editorTab === 'board' && <BoardHud />}
+      {editorTab === 'board' && (
+        <BoardChrome
+          accessory={
+            // Visible when a Play is open and no video is linked. Carried by the
+            // chrome, stacked above the Playback bar, so neither covers the
+            // other (refs #58).
+            activePlayId !== null && !linkedVideoMoment ? (
+              <button
+                onClick={() => setEditorTab('video')}
+                style={{
+                  minHeight: 44,
+                  maxWidth: '100%',
+                  padding: '8px 16px',
+                  borderRadius: 10,
+                  border: `1.5px dashed ${withAlpha(palette.chalk, 0.5)}`,
+                  background: palette.concrete,
+                  color: palette.chalk,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  pointerEvents: 'auto',
+                }}
+              >
+                🎬 Link Video Moment
+              </button>
+            ) : undefined
+          }
+        />
+      )}
       <OnboardingTour />
       {helpOpen && <HelpScreen onClose={() => setHelpOpen(false)} />}
 
