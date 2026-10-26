@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { povCameraPose, presetCameraPose, POV_LOOK_AHEAD, POV_LOOK_UP } from '../cameraMath';
+import {
+  cameraTilt,
+  playerLook,
+  povCameraPose,
+  presetCameraPose,
+  tokenDiameter,
+  POV_LOOK_AHEAD,
+  POV_LOOK_UP,
+} from '../cameraMath';
 import { STANDARD_BOUNDARY, boundaryOf } from '../fieldGeometry';
 
 // A tight community ground: 150 m goal-to-goal, 110 m wing-to-wing.
@@ -108,5 +116,103 @@ describe('presetCameraPose', () => {
     // be cropped, and they are the part that grew.
     const longAndNarrow = boundaryOf({ boundaryLength: 170, boundaryWidth: 110 });
     expect(presetCameraPose('top', longAndNarrow).position[1]).toBeGreaterThan(200);
+  });
+});
+
+describe('playerLook: bodies or tokens', () => {
+  const look = (tilt: number, previous: 'body' | 'token') => playerLook({ tilt, pov: false, previous });
+
+  it('shows tokens once the camera tilts above 62°', () => {
+    expect(look(63, 'body')).toBe('token');
+    expect(look(90, 'body')).toBe('token');
+  });
+
+  it('shows bodies once the camera lowers below 58°', () => {
+    expect(look(57, 'token')).toBe('body');
+    expect(look(20, 'token')).toBe('body');
+  });
+
+  it('holds whatever it showed while the camera is inside the gap', () => {
+    for (const tilt of [58, 59, 60, 61, 62]) {
+      expect(look(tilt, 'body')).toBe('body');
+      expect(look(tilt, 'token')).toBe('token');
+    }
+  });
+
+  it('does not flicker when the camera orbits through 60° from either side', () => {
+    let shown: 'body' | 'token' = 'body';
+    const seen: Array<[number, string]> = [];
+    for (const tilt of [50, 56, 59, 61, 63, 61, 59, 57, 59, 61]) {
+      shown = look(tilt, shown);
+      seen.push([tilt, shown]);
+    }
+    expect(seen).toEqual([
+      [50, 'body'],
+      [56, 'body'],
+      [59, 'body'],
+      [61, 'body'],
+      [63, 'token'],
+      [61, 'token'],
+      [59, 'token'],
+      [57, 'body'],
+      [59, 'body'],
+      [61, 'body'],
+    ]);
+  });
+
+  it('always shows bodies in a POV view, however steep', () => {
+    expect(playerLook({ tilt: 90, pov: true, previous: 'body' })).toBe('body');
+    expect(playerLook({ tilt: 90, pov: true, previous: 'token' })).toBe('body');
+  });
+
+  describe('the preset views', () => {
+    const tiltOf = (view: 'top' | 'sideline' | 'end-to-end') => {
+      const { position, target } = presetCameraPose(view, STANDARD_BOUNDARY);
+      return cameraTilt(position, target);
+    };
+
+    it('Top looks straight down, so it shows tokens', () => {
+      expect(tiltOf('top')).toBeCloseTo(90, 6);
+      expect(look(tiltOf('top'), 'body')).toBe('token');
+    });
+
+    it('Broadcast, Sideline and End-to-end show bodies', () => {
+      // The Broadcast pose the board opens in: 100 m up, 150 m off the wing.
+      const broadcast = cameraTilt([0, 100, 150], [0, 0, 0]);
+      expect(broadcast).toBeCloseTo(33.69, 2);
+      for (const tilt of [broadcast, tiltOf('sideline'), tiltOf('end-to-end')]) {
+        expect(look(tilt, 'token')).toBe('body');
+      }
+    });
+
+    it('measures tilt from the camera to whatever it looks at', () => {
+      expect(tiltOf('sideline')).toBeCloseTo(18.43, 2);
+      expect(cameraTilt([10, 20, 30], [10, 0, 10])).toBeCloseTo(45, 6);
+    });
+  });
+});
+
+describe('tokenDiameter', () => {
+  // The board's camera: a 50° vertical field of view, no pinch zoom.
+  const view = { fov: 50, zoom: 1 };
+
+  it('is the true 2 m when the camera is close enough for 2 m to read', () => {
+    // 20 m away on an 834-point-tall iPad, 2 m spans about 89 points.
+    expect(tokenDiameter({ ...view, distance: 20, viewportHeight: 834 })).toBe(2);
+  });
+
+  it('never draws smaller than 32 points on screen', () => {
+    // From Top view's 200 m, 834 points span 186.5 m: 4.47 points a metre, so
+    // 2 m would be 9 points. The floor holds the token at 32 points, 7.16 m.
+    expect(tokenDiameter({ ...view, distance: 200, viewportHeight: 834 })).toBeCloseTo(7.16, 2);
+  });
+
+  it('needs more ground for the floor on a shorter screen', () => {
+    // An iPhone 13 in portrait: 664 points of height span the same 186.5 m.
+    expect(tokenDiameter({ ...view, distance: 200, viewportHeight: 664 })).toBeCloseTo(8.99, 2);
+  });
+
+  it('counts pinch zoom: zoomed in twice, the floor needs half the ground', () => {
+    expect(tokenDiameter({ fov: 50, zoom: 2, distance: 200, viewportHeight: 834 })).toBeCloseTo(3.58, 2);
   });
 });

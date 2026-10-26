@@ -16,6 +16,8 @@ import { snapPointerToField, dragRotation, facingRotation, isTap } from '../../u
 import { authoringIntent, placementAvailable } from '../../utils/inputContract';
 import { getTeamById } from '../../data/aflTeams';
 import type { Guernsey } from '../../utils/guernsey';
+import type { PlayerLook } from '../../utils/cameraMath';
+import { PlayerToken } from './PlayerToken';
 
 // Maximum character length for player name labels before truncation
 const MAX_NAME_LENGTH = 12;
@@ -51,9 +53,11 @@ interface PlayerProps {
   player: Player;
   /** What this player's team wears, decided once for the board by `boardGuernseys`. */
   guernsey: Guernsey;
+  /** Body or token, decided once for the board by `playerLook`. */
+  look: PlayerLook;
 }
 
-export function PlayerComponent({ player, guernsey }: PlayerProps) {
+export function PlayerComponent({ player, guernsey, look }: PlayerProps) {
   const groupRef = useRef<any>(null);
   const leftThighRef = useRef<any>(null);
   const rightThighRef = useRef<any>(null);
@@ -487,151 +491,157 @@ export function PlayerComponent({ player, guernsey }: PlayerProps) {
         setHovered(false);
       }}
     >
-      {/* ── Minecraft-style box geometry player ── */}
+      {look === 'token' ? (
+        <PlayerToken guernsey={guernsey} number={player.number} />
+      ) : (
+        <>
+          {/* ── Minecraft-style box geometry player ── */}
 
-      {/* Body (torso) */}
-      <mesh castShadow position={[0, 1.08, 0]}>
-        <boxGeometry args={[0.50, 0.70, 0.28]} />
-        <meshStandardMaterial
-          color={jerseyColor}
-          emissive={jerseyEmissive}
-          emissiveIntensity={jerseyEmissiveIntensity}
-          roughness={0.6}
-        />
-      </mesh>
+          {/* Body (torso) */}
+          <mesh castShadow position={[0, 1.08, 0]}>
+            <boxGeometry args={[0.50, 0.70, 0.28]} />
+            <meshStandardMaterial
+              color={jerseyColor}
+              emissive={jerseyEmissive}
+              emissiveIntensity={jerseyEmissiveIntensity}
+              roughness={0.6}
+            />
+          </mesh>
 
-      {/* Head */}
-      <mesh castShadow position={[0, 1.62, 0]}>
-        <boxGeometry args={[0.38, 0.38, 0.38]} />
-        <meshStandardMaterial color={skinColor} roughness={0.7} />
-      </mesh>
+          {/* Head */}
+          <mesh castShadow position={[0, 1.62, 0]}>
+            <boxGeometry args={[0.38, 0.38, 0.38]} />
+            <meshStandardMaterial color={skinColor} roughness={0.7} />
+          </mesh>
 
-      {/* Hair (top half of head) */}
-      <mesh position={[0, 1.72, 0]}>
-        <boxGeometry args={[0.39, 0.19, 0.40]} />
-        <meshStandardMaterial color="#3a2a1a" roughness={0.9} />
-      </mesh>
+          {/* Hair (top half of head) */}
+          <mesh position={[0, 1.72, 0]}>
+            <boxGeometry args={[0.39, 0.19, 0.40]} />
+            <meshStandardMaterial color="#3a2a1a" roughness={0.9} />
+          </mesh>
 
-      {/* Left arm — secondary colour for two-tone effect */}
-      <mesh castShadow position={[-0.35, 1.08, 0]}>
-        <boxGeometry args={[0.18, 0.60, 0.18]} />
-        <meshStandardMaterial
-          color={armColor}
-          emissive={armEmissive}
-          emissiveIntensity={isSelected ? 0.3 : 0.05}
-          roughness={0.6}
-        />
-      </mesh>
+          {/* Left arm — secondary colour for two-tone effect */}
+          <mesh castShadow position={[-0.35, 1.08, 0]}>
+            <boxGeometry args={[0.18, 0.60, 0.18]} />
+            <meshStandardMaterial
+              color={armColor}
+              emissive={armEmissive}
+              emissiveIntensity={isSelected ? 0.3 : 0.05}
+              roughness={0.6}
+            />
+          </mesh>
 
-      {/* Right arm — secondary colour for two-tone effect */}
-      <mesh castShadow position={[0.35, 1.08, 0]}>
-        <boxGeometry args={[0.18, 0.60, 0.18]} />
-        <meshStandardMaterial
-          color={armColor}
-          emissive={armEmissive}
-          emissiveIntensity={isSelected ? 0.3 : 0.05}
-          roughness={0.6}
-        />
-      </mesh>
+          {/* Right arm — secondary colour for two-tone effect */}
+          <mesh castShadow position={[0.35, 1.08, 0]}>
+            <boxGeometry args={[0.18, 0.60, 0.18]} />
+            <meshStandardMaterial
+              color={armColor}
+              emissive={armEmissive}
+              emissiveIntensity={isSelected ? 0.3 : 0.05}
+              roughness={0.6}
+            />
+          </mesh>
 
-      {/* Left leg - pivot group sits at the hip (top of the thigh) so the leg
-          swings from the hip rather than about its own midpoint. Children are
-          offset down by half the thigh height, leaving the rest pose unchanged. */}
-      <group ref={leftThighRef} position={[-0.11, HIP_Y, 0]}>
-        <mesh castShadow position={[0, -THIGH_HEIGHT / 2, 0]}>
-          <boxGeometry args={[0.22, THIGH_HEIGHT, 0.22]} />
-          <meshStandardMaterial color={shortsColor} roughness={0.7} />
-        </mesh>
-        {/* Left shoe */}
-        <mesh position={[0, -0.65 - THIGH_HEIGHT / 2, 0.05]}>
-          <boxGeometry args={[0.24, 0.08, 0.28]} />
-          <meshStandardMaterial color="#333333" roughness={0.8} />
-        </mesh>
-      </group>
+          {/* Left leg - pivot group sits at the hip (top of the thigh) so the leg
+              swings from the hip rather than about its own midpoint. Children are
+              offset down by half the thigh height, leaving the rest pose unchanged. */}
+          <group ref={leftThighRef} position={[-0.11, HIP_Y, 0]}>
+            <mesh castShadow position={[0, -THIGH_HEIGHT / 2, 0]}>
+              <boxGeometry args={[0.22, THIGH_HEIGHT, 0.22]} />
+              <meshStandardMaterial color={shortsColor} roughness={0.7} />
+            </mesh>
+            {/* Left shoe */}
+            <mesh position={[0, -0.65 - THIGH_HEIGHT / 2, 0.05]}>
+              <boxGeometry args={[0.24, 0.08, 0.28]} />
+              <meshStandardMaterial color="#333333" roughness={0.8} />
+            </mesh>
+          </group>
 
-      {/* Right leg - see the left leg comment for the hip-pivot offset */}
-      <group ref={rightThighRef} position={[0.11, HIP_Y, 0]}>
-        <mesh castShadow position={[0, -THIGH_HEIGHT / 2, 0]}>
-          <boxGeometry args={[0.22, THIGH_HEIGHT, 0.22]} />
-          <meshStandardMaterial color={shortsColor} roughness={0.7} />
-        </mesh>
-        {/* Right shoe */}
-        <mesh position={[0, -0.65 - THIGH_HEIGHT / 2, 0.05]}>
-          <boxGeometry args={[0.24, 0.08, 0.28]} />
-          <meshStandardMaterial color="#333333" roughness={0.8} />
-        </mesh>
-      </group>
+          {/* Right leg - see the left leg comment for the hip-pivot offset */}
+          <group ref={rightThighRef} position={[0.11, HIP_Y, 0]}>
+            <mesh castShadow position={[0, -THIGH_HEIGHT / 2, 0]}>
+              <boxGeometry args={[0.22, THIGH_HEIGHT, 0.22]} />
+              <meshStandardMaterial color={shortsColor} roughness={0.7} />
+            </mesh>
+            {/* Right shoe */}
+            <mesh position={[0, -0.65 - THIGH_HEIGHT / 2, 0.05]}>
+              <boxGeometry args={[0.24, 0.08, 0.28]} />
+              <meshStandardMaterial color="#333333" roughness={0.8} />
+            </mesh>
+          </group>
 
-      {/* Left eye */}
-      <mesh position={[-0.09, 1.65, 0.19]}>
-        <boxGeometry args={[0.08, 0.06, 0.02]} />
-        <meshStandardMaterial color="#111111" />
-      </mesh>
+          {/* Left eye */}
+          <mesh position={[-0.09, 1.65, 0.19]}>
+            <boxGeometry args={[0.08, 0.06, 0.02]} />
+            <meshStandardMaterial color="#111111" />
+          </mesh>
 
-      {/* Right eye */}
-      <mesh position={[0.09, 1.65, 0.19]}>
-        <boxGeometry args={[0.08, 0.06, 0.02]} />
-        <meshStandardMaterial color="#111111" />
-      </mesh>
+          {/* Right eye */}
+          <mesh position={[0.09, 1.65, 0.19]}>
+            <boxGeometry args={[0.08, 0.06, 0.02]} />
+            <meshStandardMaterial color="#111111" />
+          </mesh>
 
-      {/* Player number — Billboard faces camera so it's always readable */}
-      {player.number && (
-        <Billboard position={[0, 1.08, 0.15]} follow={true}>
-          <Text
-            font="/fonts/Inter-Bold.woff"
-            fontSize={0.22}
-            color="#ffffff"
-            anchorX="center"
-            anchorY="middle"
-            outlineWidth={0.02}
-            outlineColor="#000000"
-          >
-            {player.number}
-          </Text>
-        </Billboard>
-      )}
+          {/* Player number — Billboard faces camera so it's always readable */}
+          {player.number && (
+            <Billboard position={[0, 1.08, 0.15]} follow={true}>
+              <Text
+                font="/fonts/Inter-Bold.woff"
+                fontSize={0.22}
+                color="#ffffff"
+                anchorX="center"
+                anchorY="middle"
+                outlineWidth={0.02}
+                outlineColor="#000000"
+              >
+                {player.number}
+              </Text>
+            </Billboard>
+          )}
 
-      {/* Player name label - uses Billboard to always face camera */}
-      {labelMode === 'name' && formatDisplayName(player.playerName) && (
-        <Billboard position={[0, 2.1, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
-          <Text
-            font="/fonts/Inter-Bold.woff"
-            fontSize={0.4}
-            color="#ffffff"
-            anchorX="center"
-            anchorY="middle"
-            outlineWidth={0.05}
-            outlineColor="#000000"
-            maxWidth={3}
-          >
-            {formatDisplayName(player.playerName)}
-          </Text>
-        </Billboard>
-      )}
+          {/* Player name label - uses Billboard to always face camera */}
+          {labelMode === 'name' && formatDisplayName(player.playerName) && (
+            <Billboard position={[0, 2.1, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
+              <Text
+                font="/fonts/Inter-Bold.woff"
+                fontSize={0.4}
+                color="#ffffff"
+                anchorX="center"
+                anchorY="middle"
+                outlineWidth={0.05}
+                outlineColor="#000000"
+                maxWidth={3}
+              >
+                {formatDisplayName(player.playerName)}
+              </Text>
+            </Billboard>
+          )}
 
-      {/* Position code label - shown independently of name label */}
-      {labelMode === 'position' && player.positionName && (
-        <Billboard position={[0, 2.1, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
-          <Text
-            font="/fonts/Inter-Bold.woff"
-            fontSize={0.38}
-            color="#ffeb3b"
-            anchorX="center"
-            anchorY="middle"
-            outlineWidth={0.05}
-            outlineColor="#000000"
-          >
-            {player.positionName}
-          </Text>
-        </Billboard>
-      )}
+          {/* Position code label - shown independently of name label */}
+          {labelMode === 'position' && player.positionName && (
+            <Billboard position={[0, 2.1, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
+              <Text
+                font="/fonts/Inter-Bold.woff"
+                fontSize={0.38}
+                color="#ffeb3b"
+                anchorX="center"
+                anchorY="middle"
+                outlineWidth={0.05}
+                outlineColor="#000000"
+              >
+                {player.positionName}
+              </Text>
+            </Billboard>
+          )}
 
-      {/* Selection indicator ring */}
-      {isSelected && (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-          <ringGeometry args={[0.5, 0.6, 16]} />
-          <meshStandardMaterial color="#ffff00" emissive="#ffff00" emissiveIntensity={0.5} />
-        </mesh>
+          {/* Selection indicator ring */}
+          {isSelected && (
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+              <ringGeometry args={[0.5, 0.6, 16]} />
+              <meshStandardMaterial color="#ffff00" emissive="#ffff00" emissiveIntensity={0.5} />
+            </mesh>
+          )}
+        </>
       )}
     </group>
   );
