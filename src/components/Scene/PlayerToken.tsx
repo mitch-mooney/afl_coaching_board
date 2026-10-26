@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, type MutableRefObject } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Billboard, Text } from '@react-three/drei';
 import * as THREE from 'three';
@@ -170,9 +170,34 @@ function tokenTexture(guernsey: Guernsey): THREE.CanvasTexture {
   return texture;
 }
 
+/** The disc's cut-out edge (the notch, the rim) at full opacity. */
+const ALPHA_CUTOFF = 0.5;
+
 interface PlayerTokenProps {
   guernsey: Guernsey;
   number?: number;
+  /** How far the board is from bodies (0) to tokens (1): the token's opacity. */
+  fade: MutableRefObject<number>;
+}
+
+/**
+ * The disc and its label at a given opacity. The cut-off scales with it, so the
+ * notch keeps its edge as the disc fades rather than the whole disc vanishing
+ * at half opacity. It never reaches 0, which would recompile the shader.
+ */
+function applyOpacity(
+  material: THREE.MeshBasicMaterial | null,
+  label: { fillOpacity: number; outlineOpacity: number } | null,
+  opacity: number,
+) {
+  if (material) {
+    material.opacity = opacity;
+    material.alphaTest = Math.max(0.01, ALPHA_CUTOFF * opacity);
+  }
+  if (label) {
+    label.fillOpacity = opacity;
+    label.outlineOpacity = opacity;
+  }
 }
 
 /**
@@ -181,8 +206,10 @@ interface PlayerTokenProps {
  * the box figure does. Drawn at 2 m across, or larger when 2 m would read under
  * 32 points on screen.
  */
-export function PlayerToken({ guernsey, number }: PlayerTokenProps) {
+export function PlayerToken({ guernsey, number, fade }: PlayerTokenProps) {
   const groupRef = useRef<THREE.Group>(null);
+  const materialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const labelRef = useRef<{ fillOpacity: number; outlineOpacity: number }>(null);
   const texture = useMemo(() => tokenTexture(guernsey), [guernsey]);
   const worldPosition = useMemo(() => new THREE.Vector3(), []);
 
@@ -198,19 +225,30 @@ export function PlayerToken({ guernsey, number }: PlayerTokenProps) {
       viewportHeight: size.height,
     });
     group.scale.setScalar(diameter);
+    applyOpacity(materialRef.current, labelRef.current, fade.current);
   });
 
   return (
     <group ref={groupRef} position={[0, TOKEN_HEIGHT, 0]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.5, 48]} />
-        <meshBasicMaterial map={texture} transparent alphaTest={0.5} toneMapped={false} />
+        <meshBasicMaterial
+          ref={materialRef}
+          map={texture}
+          transparent
+          opacity={fade.current}
+          alphaTest={Math.max(0.01, ALPHA_CUTOFF * fade.current)}
+          toneMapped={false}
+        />
       </mesh>
       {number !== undefined && (
         // Lifted so the upright label doesn't sink into the grass when the
         // camera is only just steep enough for tokens.
         <Billboard position={[0, LABEL_LIFT, 0]} follow={true}>
           <Text
+            ref={labelRef}
+            fillOpacity={fade.current}
+            outlineOpacity={fade.current}
             font="/fonts/Inter-Bold.woff"
             fontSize={LABEL_SIZE}
             color={guernsey.label}
