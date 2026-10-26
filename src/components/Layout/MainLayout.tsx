@@ -12,7 +12,6 @@ import { SkyDome } from '../Scene/SkyDome';
 import { fogColour } from '../Scene/nightGround';
 import { GlobalDrawer } from '../UI/GlobalDrawer';
 import { BoardChrome } from '../Board/hud/BoardChrome';
-import { FeatureNotification } from '../UI/FeatureNotification';
 import { HelpScreen } from '../UI/HelpScreen';
 import { OnboardingTour } from '../UI/OnboardingTour';
 import { VideoWorkspace } from '../VideoImport/VideoWorkspace';
@@ -327,9 +326,6 @@ export function MainLayout() {
 
       {/* Video PiP overlay when in pip mode */}
       {showVideoPiP && <VideoPiP />}
-
-      {/* Feature notification popup */}
-      <FeatureNotification />
     </div>
   );
 }

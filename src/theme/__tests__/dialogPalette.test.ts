@@ -10,7 +10,6 @@ import matchSetupModal from '../../components/UI/MatchSetupModal.tsx?raw';
 import playHQImportDialog from '../../components/UI/PlayHQImportDialog.tsx?raw';
 import helpScreen from '../../components/UI/HelpScreen.tsx?raw';
 import onboardingTour from '../../components/UI/OnboardingTour.tsx?raw';
-import featureNotification from '../../components/UI/FeatureNotification.tsx?raw';
 import sharedPlaybookViewer from '../../components/Shared/SharedPlaybookViewer.tsx?raw';
 
 /**
@@ -36,7 +35,6 @@ const DIALOGS = {
   'PlayHQImportDialog.tsx': playHQImportDialog,
   'HelpScreen.tsx': helpScreen,
   'OnboardingTour.tsx': onboardingTour,
-  'FeatureNotification.tsx': featureNotification,
   'SharedPlaybookViewer.tsx (chrome)': withoutScene(sharedPlaybookViewer),
 };
 
