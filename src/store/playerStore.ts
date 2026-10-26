@@ -67,6 +67,8 @@ interface PlayerState {
   previewPositions: Player[] | null;
   setPreviewPositions: (positions: Player[]) => void;
   clearPreviewPositions: () => void;
+  /** Move one drill preview marker. Not a Board edit: the preview is not board content. */
+  movePreviewPosition: (id: string, position: [number, number, number]) => void;
 }
 
 const LABEL_MODE_ORDER: Array<'number' | 'name' | 'position'> = ['number', 'name', 'position'];
@@ -442,5 +444,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   clearPreviewPositions() {
     set({ previewPositions: null });
+  },
+
+  movePreviewPosition(id, position) {
+    set((state) => ({
+      previewPositions: state.previewPositions?.map((p) => (p.id === id ? { ...p, position } : p)) ?? null,
+    }));
   },
 }));
