@@ -15,6 +15,8 @@ import { useMarkerDrag } from './useMarkerDrag';
 import { boardGuernseys } from '../../utils/guernsey';
 import { cameraTilt, playerLook, type PlayerLook } from '../../utils/cameraMath';
 import { useCameraStore } from '../../store/cameraStore';
+import { useBallStore } from '../../store/ballStore';
+import { tokenStacking } from '../../utils/tokenStates';
 import type { Player } from '../../models/PlayerModel';
 import type { ThreeEvent } from '@react-three/fiber';
 
@@ -112,12 +114,24 @@ export function PlayerManager({ readOnly = false }: PlayerManagerProps) {
   // guernsey all at once.
   const guernseys = useMemo(() => boardGuernseys(players, team2Guernsey), [players, team2Guernsey]);
   const look = usePlayerLook();
+  const selectedId = usePlayerStore((state) => state.selectedPlayerId);
+  const carrierId = useBallStore((state) => state.ball?.assignedPlayerId ?? null);
+  const stacking = useMemo(
+    () => tokenStacking(players.map((player) => player.id), { selectedId, carrierId }),
+    [players, selectedId, carrierId],
+  );
 
   return (
     <group>
       {!readOnly && <AnimationDriver />}
       {players.map((player) => (
-        <PlayerComponent key={player.id} player={player} guernsey={guernseys[player.teamId]} look={look} />
+        <PlayerComponent
+          key={player.id}
+          player={player}
+          guernsey={guernseys[player.teamId]}
+          look={look}
+          stacking={stacking[player.id]}
+        />
       ))}
       {previewPositions?.map((player) => (
         <GhostIndicator key={`ghost-${player.id}`} player={player} />
