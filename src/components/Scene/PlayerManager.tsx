@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { usePlayerStore } from '../../store/playerStore';
 import { usePathStore } from '../../store/pathStore';
 import { useAnimationStore } from '../../store/animationStore';
@@ -10,6 +10,7 @@ import { usePenStore } from '../../store/penStore';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 import { beginPreviewDrag, previewPointerIntent } from '../../utils/coneDrag';
 import { useMarkerDrag } from './useMarkerDrag';
+import { boardGuernseys } from '../../utils/guernsey';
 import type { Player } from '../../models/PlayerModel';
 import type { ThreeEvent } from '@react-three/fiber';
 
@@ -76,12 +77,15 @@ function GhostIndicator({ player }: { player: Player }) {
 export function PlayerManager({ readOnly = false }: PlayerManagerProps) {
   const players = usePlayerStore((state) => state.players);
   const previewPositions = usePlayerStore((state) => state.previewPositions);
+  // One decision for the whole board, so Team 2 changes into its Clash
+  // guernsey all at once.
+  const guernseys = useMemo(() => boardGuernseys(players), [players]);
 
   return (
     <group>
       {!readOnly && <AnimationDriver />}
       {players.map((player) => (
-        <PlayerComponent key={player.id} player={player} />
+        <PlayerComponent key={player.id} player={player} guernsey={guernseys[player.teamId]} />
       ))}
       {previewPositions?.map((player) => (
         <GhostIndicator key={`ghost-${player.id}`} player={player} />

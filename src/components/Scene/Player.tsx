@@ -15,6 +15,7 @@ import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 import { snapPointerToField, dragRotation, facingRotation, isTap } from '../../utils/dragMath';
 import { authoringIntent, placementAvailable } from '../../utils/inputContract';
 import { getTeamById } from '../../data/aflTeams';
+import type { Guernsey } from '../../utils/guernsey';
 
 // Maximum character length for player name labels before truncation
 const MAX_NAME_LENGTH = 12;
@@ -48,9 +49,11 @@ function formatDisplayName(name: string | undefined): string | null {
 
 interface PlayerProps {
   player: Player;
+  /** What this player's team wears, decided once for the board by `boardGuernseys`. */
+  guernsey: Guernsey;
 }
 
-export function PlayerComponent({ player }: PlayerProps) {
+export function PlayerComponent({ player, guernsey }: PlayerProps) {
   const groupRef = useRef<any>(null);
   const leftThighRef = useRef<any>(null);
   const rightThighRef = useRef<any>(null);
@@ -457,13 +460,16 @@ export function PlayerComponent({ player }: PlayerProps) {
     return player.teamPresetId ? getTeamById(player.teamPresetId) : null;
   }, [player.teamPresetId]);
 
-  const jerseyColor = isSelected ? '#ffff00' : showHover ? '#ffffff' : player.color;
-  const jerseyEmissive = isSelected ? '#ffff00' : player.color;
+  // The torso wears the guernsey's body and the arms its first pattern colour,
+  // so a Clash guernsey flips the figure as it does the token.
+  const trimColor = guernsey.patternColours[0] ?? guernsey.body;
+  const jerseyColor = isSelected ? '#ffff00' : showHover ? '#ffffff' : guernsey.body;
+  const jerseyEmissive = isSelected ? '#ffff00' : guernsey.body;
   const jerseyEmissiveIntensity = isSelected ? 0.3 : 0.1;
   const shortsColor = isSelected ? '#cccc00' : (teamPreset?.shortsColor ?? '#2a2a2a');
-  // Arms show secondary colour for Minecraft-style two-tone
-  const armColor = isSelected ? '#ffff00' : showHover ? '#ffffff' : (teamPreset?.secondaryColor ?? player.color);
-  const armEmissive = isSelected ? '#ffff00' : (teamPreset?.secondaryColor ?? player.color);
+  // Arms show the pattern colour for Minecraft-style two-tone
+  const armColor = isSelected ? '#ffff00' : showHover ? '#ffffff' : trimColor;
+  const armEmissive = isSelected ? '#ffff00' : trimColor;
 
   return (
     <group
