@@ -499,7 +499,10 @@ export function PlayerComponent({ player, guernsey, look, stacking }: PlayerProp
         <PlayerToken
           playerId={player.id}
           guernsey={guernsey}
-          number={player.number}
+          // The token follows the label mode: the position code in Pos mode,
+          // otherwise the number, with the name beside it in Name mode.
+          label={labelMode === 'position' && player.positionName ? player.positionName : player.number}
+          name={labelMode === 'name' ? formatDisplayName(player.playerName) : null}
           ring={tokenRing({ selected: isSelected, carrier: isCarrier, dropTarget: isDropTarget, hovered })}
           stacking={stacking}
         />
