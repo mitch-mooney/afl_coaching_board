@@ -264,11 +264,11 @@ describe('placePlayer: where and which way', () => {
       noPlayers,
       'team2',
       [0, 0],
-      { color: '#FFD200', teamPresetId: 'richmond' },
+      { color: '#000000', teamPresetId: 'richmond' },
       STANDARD_BOUNDARY,
     );
 
-    expect(placed.players[0]).toMatchObject({ color: '#FFD200', teamPresetId: 'richmond' });
+    expect(placed.players[0]).toMatchObject({ color: '#000000', teamPresetId: 'richmond' });
   });
 
   it('gives no name and no position code', () => {
@@ -292,7 +292,7 @@ describe('placePlayer: where and which way', () => {
 
 describe('teamAppearance', () => {
   it('reads the preset primary colour and id when a preset is chosen', () => {
-    expect(teamAppearance('team1', 'richmond')).toEqual({ color: '#FFD200', teamPresetId: 'richmond' });
+    expect(teamAppearance('team1', 'richmond')).toEqual({ color: '#000000', teamPresetId: 'richmond' });
   });
 
   it('falls back to the team default with no preset', () => {
