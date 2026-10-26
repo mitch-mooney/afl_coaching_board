@@ -5,8 +5,8 @@ import { EditorTopBar } from '../EditorTopBar';
 import { usePlayerStore } from '../../../store/playerStore';
 import type { Player } from '../../../models/PlayerModel';
 
-// The drill's gold dots are a preview, never board content, so the board
-// offers a way to dismiss them rather than to drag them.
+// The drill's gold dots are a preview, never board content. A finger drags
+// them (see coneDrag.test.ts); the board also offers a way to dismiss them.
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

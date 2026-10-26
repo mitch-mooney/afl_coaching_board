@@ -1,13 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useRef } from 'react';
 import { useConeStore } from '../../store/coneStore';
 import { useModeStore } from '../../store/modeStore';
 import { usePenStore } from '../../store/penStore';
-import { usePlayerStore } from '../../store/playerStore';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 import { editBoard } from '../../utils/boardEdit';
-import { beginConeDrag, conePointerIntent, type ConeDragHandle } from '../../utils/coneDrag';
-import { intersectGroundPlane, isTap } from '../../utils/dragMath';
+import { beginConeDrag, conePointerIntent } from '../../utils/coneDrag';
+import { isTap } from '../../utils/dragMath';
+import { useMarkerDrag } from './useMarkerDrag';
 import type { Cone } from '../../store/coneStore';
 import type { ThreeEvent } from '@react-three/fiber';
 
@@ -18,55 +17,12 @@ import type { ThreeEvent } from '@react-three/fiber';
  */
 function ConeMarker({ cone }: { cone: Cone }) {
   const removeCone = useConeStore((s) => s.removeCone);
-  const setDragging = usePlayerStore((s) => s.setDragging);
-  const { camera, raycaster } = useThree();
   const boundary = useActiveBoundary();
-  const [isDragging, setIsDragging] = useState(false);
-  // The open Board edit for the drag in progress.
-  const dragRef = useRef<ConeDragHandle | null>(null);
+  const { isDragging, start, end } = useMarkerDrag();
   // Where a removal tap landed, set on pointer down and read on pointer up.
   // Pointer up rather than click: iOS Safari fires no click on the canvas (see
   // `isTap`).
   const removalDownAtRef = useRef<[number, number] | null>(null);
-
-  useFrame((state) => {
-    if (!isDragging) return;
-    // The raw ground hit: the drag handle keeps the grab offset, then snaps
-    // inside the Boundary as a player drag does.
-    raycaster.setFromCamera(state.pointer, camera);
-    const ground = intersectGroundPlane(raycaster.ray);
-    if (ground) dragRef.current?.moveTo(ground);
-  });
-
-  const endDragging = useCallback(() => {
-    if (!isDragging) return;
-    setIsDragging(false);
-    setDragging(false);
-    dragRef.current?.commit();
-    dragRef.current = null;
-  }, [isDragging, setDragging]);
-
-  // End the drag wherever the pointer lifts, even off the canvas.
-  useEffect(() => {
-    if (!isDragging) return;
-    window.addEventListener('pointerup', endDragging);
-    window.addEventListener('pointercancel', endDragging);
-    return () => {
-      window.removeEventListener('pointerup', endDragging);
-      window.removeEventListener('pointercancel', endDragging);
-    };
-  }, [isDragging, endDragging]);
-
-  // A second finger landing mid-drag hands the gesture to the camera. The edit
-  // commits what the drag had moved so far, as a player drag does.
-  useEffect(() => {
-    if (!isDragging) return;
-    const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length > 1) endDragging();
-    };
-    window.addEventListener('touchstart', handleTouchStart, { passive: true });
-    return () => window.removeEventListener('touchstart', handleTouchStart);
-  }, [isDragging, endDragging]);
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
@@ -85,12 +41,7 @@ function ConeMarker({ cone }: { cone: Cone }) {
     }
     if (intent === 'none') return;
 
-    setIsDragging(true);
-    setDragging(true); // disables the camera controls for the drag
-    // Close a drag stranded by a pointer down that never saw its pointer up,
-    // rather than losing the handle: boardEdit has one open-edit slot.
-    dragRef.current?.commit();
-    dragRef.current = beginConeDrag(cone.id, boundary);
+    start(() => beginConeDrag(cone.id, boundary));
   };
 
   const handlePointerUp = (e: ThreeEvent<PointerEvent>) => {
@@ -103,7 +54,7 @@ function ConeMarker({ cone }: { cone: Cone }) {
       }
       return;
     }
-    endDragging();
+    end();
   };
 
   return (

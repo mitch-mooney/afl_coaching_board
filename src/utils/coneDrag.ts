@@ -2,6 +2,7 @@ import { beginEdit } from './boardEdit';
 import { authoringIntent, type PointerContext } from './inputContract';
 import { snapToField, type Boundary } from './fieldGeometry';
 import { useConeStore } from '../store/coneStore';
+import { usePlayerStore } from '../store/playerStore';
 
 export interface ConePointerContext extends PointerContext {
   /** Whether cone setup is armed (`coneStore.isConePlacementActive`). */
@@ -30,17 +31,51 @@ export function conePointerIntent({
   return 'drag';
 }
 
-/** The open half of a cone drag. */
+/**
+ * What a pointer landing on a drill preview marker (a gold dot) does. A finger
+ * drags it, as it drags a cone. While cone setup is armed the tap is left to
+ * the grass beneath, so a coach can set a cone on the marker.
+ */
+export function previewPointerIntent({
+  coneSetupActive,
+  ...pointer
+}: ConePointerContext): 'drag' | 'none' {
+  if (coneSetupActive) return 'none';
+  return conePointerIntent({ coneSetupActive, ...pointer }) === 'drag' ? 'drag' : 'none';
+}
+
+/** The open half of a cone or drill preview marker drag. */
 export interface ConeDragHandle {
   /**
    * Follows the finger to a ground point, `[x, z]`: where the pointer's ray
-   * meets the ground, unsnapped. The first point only takes hold of the cone.
-   * After it, the cone moves by as far as the finger has travelled, snapped
+   * meets the ground, unsnapped. The first point only takes hold of the marker.
+   * After it, the marker moves by as far as the finger has travelled, snapped
    * inside the Boundary as a player drag is.
    */
   moveTo: (groundPoint: [number, number]) => void;
-  /** Ends the drag and records it if the cone moved. Idempotent. */
+  /** Ends the drag, and for a cone records it if the cone moved. Idempotent. */
   commit: () => void;
+}
+
+/**
+ * Follow the finger from `origin`, keeping the offset between the two that
+ * the first ground point sets, and hand each snapped position to `place`.
+ */
+function followFinger(
+  origin: [number, number, number] | undefined,
+  boundary: Boundary,
+  place: (position: [number, number, number]) => void,
+): ConeDragHandle['moveTo'] {
+  let offset: [number, number] | null = null;
+  return ([x, z]) => {
+    if (!origin) return;
+    if (offset === null) {
+      offset = [origin[0] - x, origin[2] - z];
+      return;
+    }
+    const [cx, cz] = snapToField(x + offset[0], z + offset[1], boundary);
+    place([cx, 0, cz]);
+  };
 }
 
 /**
@@ -55,18 +90,22 @@ export interface ConeDragHandle {
 export function beginConeDrag(coneId: string, boundary: Boundary): ConeDragHandle {
   const edit = beginEdit('Move cone');
   const cone = useConeStore.getState().cones.find((c) => c.id === coneId);
-  let offset: [number, number] | null = null;
-
   return {
-    moveTo: ([x, z]) => {
-      if (!cone) return;
-      if (offset === null) {
-        offset = [cone.position[0] - x, cone.position[2] - z];
-        return;
-      }
-      const [cx, cz] = snapToField(x + offset[0], z + offset[1], boundary);
-      useConeStore.getState().moveCone(coneId, [cx, 0, cz]);
-    },
+    moveTo: followFinger(cone?.position, boundary, (p) => useConeStore.getState().moveCone(coneId, p)),
     commit: () => edit.commit(),
+  };
+}
+
+/**
+ * Begin a drag of one drill preview marker. It moves the way a cone does, but
+ * records no Board edit: the preview lives in `previewPositions`, outside the
+ * board, and is never captured into a snapshot, so there is nothing to undo.
+ */
+export function beginPreviewDrag(playerId: string, boundary: Boundary): ConeDragHandle {
+  const marker = usePlayerStore.getState().previewPositions?.find((p) => p.id === playerId);
+  return {
+    moveTo: followFinger(marker?.position, boundary, (p) =>
+      usePlayerStore.getState().movePreviewPosition(playerId, p)),
+    commit: () => {},
   };
 }

@@ -336,8 +336,11 @@ extend this file rather than inventing parallel names.
   moving it. The rule: `utils/coneDrag.ts` (`conePointerIntent`); the cone:
   `components/Scene/ConeManager.tsx`. The gold dots "Set up on Board" shows are a different
   thing, the **drill preview**: ghost positions in `playerStore.previewPositions`, never
-  captured into a BoardSnapshot or saved, so they are cleared (**Clear drill preview**, top
-  bar) rather than dragged.
+  captured into a BoardSnapshot or saved. A finger drags a gold dot as it drags a cone,
+  snapped inside the Boundary, but the drag is not a Board edit and Undo does not reach it,
+  since the preview is not board content (`beginPreviewDrag`). While cone setup is armed a
+  tap on a dot goes to the grass beneath, so a cone can be set on it. **Clear drill
+  preview**, beside the Ground chip, removes the dots.
 
 - **Mode rail** — retired with the Rail HUD skin (ADR 0007). It was the column of Setup /
   Animate / Camera buttons that opened a contextual panel. The name survives only in ADRs

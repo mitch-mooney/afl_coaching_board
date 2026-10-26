@@ -7,7 +7,7 @@ import { useBallStore } from '../../store/ballStore';
 import { useConeStore } from '../../store/coneStore';
 import { useHistoryStore } from '../../store/historyStore';
 import { undoBoard } from '../../hooks/useBoardUndo';
-import { beginConeDrag, conePointerIntent } from '../coneDrag';
+import { beginConeDrag, beginPreviewDrag, conePointerIntent, previewPointerIntent } from '../coneDrag';
 import { isPointInField } from '../fieldGeometry';
 
 beforeEach(() => {
@@ -117,6 +117,72 @@ describe('conePointerIntent â€” what a hand landing on a cone does', () => {
   it('makes a tap a removal only while cone setup is armed, for every pointer', () => {
     for (const pointerType of ['touch', 'pen', 'mouse']) {
       expect(conePointerIntent({ pointerType, armedTip: null, coneSetupActive: true })).toBe('remove');
+    }
+  });
+});
+
+describe('beginPreviewDrag — a drill preview marker follows the finger', () => {
+  const ghost = (id: string, position: [number, number, number]) => ({
+    id, teamId: 'team1' as const, position, rotation: 0, color: '#fff',
+  });
+  const previewAt = (id: string) =>
+    usePlayerStore.getState().previewPositions!.find((p) => p.id === id)!.position;
+
+  beforeEach(() => {
+    usePlayerStore.setState({ previewPositions: [ghost('g1', [0, 0, 0]), ghost('g2', [10, 0, 10])] });
+  });
+
+  it('leaves the marker where it is when the finger lands', () => {
+    const drag = beginPreviewDrag('g1', BOUNDARY);
+    drag.moveTo([0.9, -0.4]);
+    drag.commit();
+    expect(previewAt('g1')).toEqual([0, 0, 0]);
+  });
+
+  it('moves the marker by as far as the finger travels, and no other marker', () => {
+    const drag = beginPreviewDrag('g1', BOUNDARY);
+    drag.moveTo([1, 1]);
+    drag.moveTo([7, -1]);
+    drag.commit();
+    expect(previewAt('g1')).toEqual([6, 0, -2]);
+    expect(previewAt('g2')).toEqual([10, 0, 10]);
+  });
+
+  it('keeps the marker inside the Boundary however far the finger goes', () => {
+    const drag = beginPreviewDrag('g1', BOUNDARY);
+    drag.moveTo([0, 0]);
+    drag.moveTo([0, 900]);
+    const [x, , z] = previewAt('g1');
+    expect(isPointInField(x, z, BOUNDARY)).toBe(true);
+    expect(z).toBeGreaterThan(55);
+  });
+
+  it('records no Board edit: the preview is not board content', () => {
+    const drag = beginPreviewDrag('g1', BOUNDARY);
+    drag.moveTo([0, 0]);
+    drag.moveTo([4, 4]);
+    drag.commit();
+    expect(useHistoryStore.getState().past).toHaveLength(0);
+  });
+});
+
+describe('previewPointerIntent — what a hand landing on a drill preview marker does', () => {
+  it('has a finger drag the marker, even with a tip armed', () => {
+    expect(previewPointerIntent({ pointerType: 'touch', armedTip: null, coneSetupActive: false })).toBe('drag');
+    expect(previewPointerIntent({ pointerType: 'touch', armedTip: 'arrow', coneSetupActive: false })).toBe('drag');
+  });
+
+  it('leaves the marker alone under a pen with a tip armed', () => {
+    expect(previewPointerIntent({ pointerType: 'pen', armedTip: 'arrow', coneSetupActive: false })).toBe('none');
+  });
+
+  it('does not drag on a secondary mouse button', () => {
+    expect(previewPointerIntent({ pointerType: 'mouse', armedTip: null, button: 2, coneSetupActive: false })).toBe('none');
+  });
+
+  it('lets a tap fall through to the grass while cone setup is armed, so a cone can be set on the marker', () => {
+    for (const pointerType of ['touch', 'pen', 'mouse']) {
+      expect(previewPointerIntent({ pointerType, armedTip: null, coneSetupActive: true })).toBe('none');
     }
   });
 });
