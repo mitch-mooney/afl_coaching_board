@@ -2,6 +2,7 @@ import type { Player } from './PlayerModel';
 import type { MovementPath } from './PathModel';
 import type { Ball } from './BallModel';
 import type { Cone } from '../store/coneStore';
+import type { GuernseyOverride } from '../utils/guernsey';
 
 export interface LinkedVideoMoment {
   videoId: number;          // ++id PK from VideoImportDB.videos
@@ -26,6 +27,8 @@ export interface PlayPhase {
   ball?: Ball | null;
   /** Placed drill cones. Optional/absent on Plays saved before cone capture. */
   cones?: Cone[];
+  /** The coach's override for Team 2's guernsey. Absent means Auto, as on Plays saved before it existed. */
+  team2Guernsey?: GuernseyOverride;
 }
 
 export interface Play {

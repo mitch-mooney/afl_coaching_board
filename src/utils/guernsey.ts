@@ -166,16 +166,44 @@ function clashGuernsey(home: HomeGuernsey, opponent: HomeGuernsey): HomeGuernsey
 }
 
 /**
- * What each team wears. Team 2 changes into its Clash guernsey when the two
- * teams clash: the same club on both sides, or main colours too close to tell
- * apart. Team 1 never changes.
+ * The coach's say over Team 2's guernsey on one Play: let the board decide
+ * (`auto`), or force the Clash guernsey or the home one whatever it would decide.
  */
-export function teamGuernseys(team1: TeamKit, team2: TeamKit): { team1: Guernsey; team2: Guernsey } {
+export type GuernseyOverride = 'auto' | 'clash' | 'home';
+
+export const GUERNSEY_OVERRIDES: readonly GuernseyOverride[] = ['auto', 'clash', 'home'];
+
+export interface TeamGuernseys {
+  team1: Guernsey;
+  team2: Guernsey;
+  /** What Auto decides for Team 2, whether or not the coach has overridden it. */
+  auto: 'clash' | 'home';
+  /** Whether Team 2's guernsey came from Auto or from the coach's override. */
+  decidedBy: 'auto' | 'override';
+}
+
+/**
+ * What each team wears. On Auto, Team 2 changes into its Clash guernsey when
+ * the two teams clash: the same club on both sides, or main colours too close
+ * to tell apart. The override can force either guernsey. Team 1 never changes.
+ */
+export function teamGuernseys(
+  team1: TeamKit,
+  team2: TeamKit,
+  override: GuernseyOverride = 'auto',
+): TeamGuernseys {
   const home1 = homeGuernsey(team1);
   const home2 = homeGuernsey(team2);
   const sameClub = team1.presetId !== undefined && team1.presetId === team2.presetId;
-  const wears2 = sameClub || clashes(home1.body, home2.body) ? clashGuernsey(home2, home1) : home2;
-  return { team1: withLabel(home1), team2: withLabel(wears2) };
+  const auto = sameClub || clashes(home1.body, home2.body) ? 'clash' : 'home';
+  const worn = override === 'auto' ? auto : override;
+  const wears2 = worn === 'clash' ? clashGuernsey(home2, home1) : home2;
+  return {
+    team1: withLabel(home1),
+    team2: withLabel(wears2),
+    auto,
+    decidedBy: override === 'auto' ? 'auto' : 'override',
+  };
 }
 
 /**
@@ -184,14 +212,14 @@ export function teamGuernseys(team1: TeamKit, team2: TeamKit): { team1: Guernsey
  * player speaks for the team. A team with no players on the board turns up in
  * its default colour.
  */
-export function boardGuernseys(players: Player[]): Record<Player['teamId'], Guernsey> {
+export function boardGuernseys(players: Player[], override: GuernseyOverride = 'auto'): TeamGuernseys {
   const kit = (teamId: Player['teamId']): TeamKit => {
     const player = players.find((p) => p.teamId === teamId);
     return player
       ? { presetId: player.teamPresetId, color: player.color }
       : { color: DEFAULT_TEAM_COLORS[teamId] };
   };
-  return teamGuernseys(kit('team1'), kit('team2'));
+  return teamGuernseys(kit('team1'), kit('team2'), override);
 }
 
 function contrastRatio(a: string, b: string): number {

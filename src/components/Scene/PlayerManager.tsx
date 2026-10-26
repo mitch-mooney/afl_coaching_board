@@ -77,9 +77,10 @@ function GhostIndicator({ player }: { player: Player }) {
 export function PlayerManager({ readOnly = false }: PlayerManagerProps) {
   const players = usePlayerStore((state) => state.players);
   const previewPositions = usePlayerStore((state) => state.previewPositions);
+  const team2Guernsey = usePlayerStore((state) => state.team2Guernsey);
   // One decision for the whole board, so Team 2 changes into its Clash
   // guernsey all at once.
-  const guernseys = useMemo(() => boardGuernseys(players), [players]);
+  const guernseys = useMemo(() => boardGuernseys(players, team2Guernsey), [players, team2Guernsey]);
 
   return (
     <group>

@@ -73,6 +73,7 @@ describe('boardAt', () => {
     camera: { position: [1, 2, 3], target: [4, 5, 6], zoom: 2 },
     ball: createBall([0, 0, 0]),
     cones: [{ id: 'c1', position: [8, 0, 8] }],
+    team2Guernsey: 'auto',
   };
 
   it('moves players and the ball to their positions at progress; entities without a path stay put', () => {

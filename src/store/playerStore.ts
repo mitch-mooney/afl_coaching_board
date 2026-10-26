@@ -4,6 +4,7 @@ import { getFormationById } from '../data/formations';
 import { getPositionByCode, NUMBER_TO_POSITION } from '../data/aflPositions';
 import { getTeamById } from '../data/aflTeams';
 import type { Formation } from '../types/Formation';
+import type { GuernseyOverride } from '../utils/guernsey';
 
 export interface PlayerUpdate {
   playerId: string;
@@ -31,6 +32,8 @@ interface PlayerState {
   labelMode: 'number' | 'name' | 'position';
   team1PresetId: string | null;
   team2PresetId: string | null;
+  /** The coach's override for Team 2's guernsey on the open Play. Board content: it saves with the Play. */
+  team2Guernsey: GuernseyOverride;
   /** Track movement state for leg animations */
   playerMoveState: Map<string, PlayerMoveState>;
 
@@ -56,6 +59,7 @@ interface PlayerState {
   startEditingPlayerName: (playerId: string) => void;
   stopEditingPlayerName: () => void;
   setTeamPreset: (teamId: 'team1' | 'team2', presetId: string | null) => void;
+  setTeam2Guernsey: (override: GuernseyOverride) => void;
   /** Auto-assign positions from jersey numbers. Only fills in players with no existing positionName. */
   autoAssignPositions: (teamId?: 'team1' | 'team2') => void;
   /** Get movement state for a player */
@@ -82,6 +86,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   labelMode: 'number',
   team1PresetId: null,
   team2PresetId: null,
+  team2Guernsey: 'auto',
   playerMoveState: new Map<string, PlayerMoveState>(),
   previewPositions: null,
 
@@ -412,6 +417,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         };
       }),
     }));
+  },
+
+  setTeam2Guernsey: (override) => {
+    set({ team2Guernsey: override });
   },
 
   getPlayerMoveState: (playerId) => {
