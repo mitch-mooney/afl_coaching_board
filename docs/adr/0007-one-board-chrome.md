@@ -2,7 +2,7 @@
 
 ## Status
 
-accepted (facelift grilling, 2026-10-25; decided, not built). Supersedes the Mode rail
+accepted (facelift grilling, 2026-10-25; built in #97, 2026-10-26). Supersedes the Mode rail
 half of ADR 0003. The Tool rail on the left stands.
 
 ## Context

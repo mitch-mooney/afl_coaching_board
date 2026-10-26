@@ -192,7 +192,7 @@ export function VenueModal({ open, onClose }: { open: boolean; onClose: () => vo
                     ) : (
                       <button
                         onClick={() => setConfirmingDelete(venue.id ?? null)}
-                        className={dialogChipButton}
+                        className={`${dialogChipButton} border-dashed border-chalk/35`}
                       >
                         Delete
                       </button>
