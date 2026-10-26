@@ -2,6 +2,16 @@ import { useState, useRef, useCallback } from 'react';
 import { useVideoStore } from '../../store/videoStore';
 import { useOverlayOpen } from '../../hooks/useOverlayOpen';
 import {
+  dialogBody,
+  dialogButton,
+  dialogError,
+  dialogHint,
+  dialogPanel,
+  dialogPrimaryButton,
+  dialogSubheading,
+  dialogTitle,
+} from '../UI/dialogStyles';
+import {
   validateVideoFile,
   getAcceptedMimeTypes,
   getSupportedFormats,
@@ -217,9 +227,11 @@ function createVideoElementWithProgress(
 
 interface VideoUploaderProps {
   onClose?: () => void;
+  /** The panel's title. The Video tab names the flow it is part of. */
+  title?: string;
 }
 
-export function VideoUploader({ onClose }: VideoUploaderProps) {
+export function VideoUploader({ onClose, title = 'Import video' }: VideoUploaderProps) {
   useOverlayOpen(); // blocking modal — suppress board shortcuts while open
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragActive, setIsDragActive] = useState(false);
@@ -428,13 +440,13 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
   const supportedFormats = getSupportedFormats();
 
   return (
-    <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-6 max-w-md w-full">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Import Video</h2>
+    <div className={`${dialogPanel} max-w-md p-xl`}>
+      <div className="flex justify-between items-center mb-lg">
+        <h2 className={dialogTitle}>{title}</h2>
         {onClose && (
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 transition"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-chalk/60 hover:text-chalk touch-manipulation"
             aria-label="Close"
           >
             <svg
@@ -461,11 +473,11 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         className={`
-          relative border-2 border-dashed rounded-lg p-8 text-center transition-colors
+          relative border-2 border-dashed rounded-control p-xl text-center motion-safe:transition-colors
           ${
             isDragActive
-              ? 'border-blue-500 bg-blue-50'
-              : 'border-gray-300 hover:border-gray-400'
+              ? 'border-floodlight bg-floodlight/10'
+              : 'border-steel hover:border-chalk/40'
           }
           ${isLoading ? 'pointer-events-none opacity-60' : 'cursor-pointer'}
         `}
@@ -491,12 +503,12 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
         />
 
         {isLoading ? (
-          <div className="flex flex-col items-center gap-4 py-2">
+          <div className="flex flex-col items-center gap-lg py-xs">
             {/* File info */}
             {selectedFile && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
+              <div className={`flex items-center gap-sm ${dialogBody}`}>
                 <svg
-                  className="w-5 h-5 text-blue-500"
+                  className="w-5 h-5 text-chalk/60"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -511,25 +523,25 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
                 <span className="truncate max-w-[200px]" title={selectedFile.name}>
                   {selectedFile.name}
                 </span>
-                <span className="text-gray-400">
+                <span className="text-chalk/50">
                   ({formatFileSize(selectedFile.size)})
                 </span>
               </div>
             )}
 
-            {/* Progress bar */}
+            {/* Progress bar. The fill is a measure, not a state, so it is Chalk. */}
             <div className="w-full max-w-xs">
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-2 bg-steel rounded-pill overflow-hidden">
                 <div
-                  className="h-full bg-blue-500 rounded-full transition-all duration-300 ease-out"
+                  className="h-full bg-chalk rounded-pill motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out"
                   style={{ width: `${loadingProgress.percent}%` }}
                 />
               </div>
-              <div className="flex justify-between items-center mt-2">
-                <span className="text-xs text-gray-500">
-                  {loadingProgress.message || 'Loading...'}
+              <div className="flex justify-between items-center mt-sm">
+                <span className={dialogHint}>
+                  {loadingProgress.message || 'Loading…'}
                 </span>
-                <span className="text-xs font-medium text-blue-600">
+                <span className="text-caption text-chalk">
                   {loadingProgress.percent}%
                 </span>
               </div>
@@ -537,29 +549,16 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
 
             {/* Large file streaming notice */}
             {selectedFile && selectedFile.size > LARGE_FILE_WARNING_BYTES && (
-              <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded">
-                <svg
-                  className="w-4 h-4 flex-shrink-0"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span>Large file - using streaming mode for efficiency</span>
-              </div>
+              <p className={dialogHint}>Large file: streaming it rather than loading it all at once.</p>
             )}
           </div>
         ) : (
           <>
             {/* Upload Icon */}
-            <div className="mb-4">
+            <div className="mb-lg">
               <svg
                 className={`w-12 h-12 mx-auto ${
-                  isDragActive ? 'text-blue-500' : 'text-gray-400'
+                  isDragActive ? 'text-floodlight' : 'text-chalk/40'
                 }`}
                 fill="none"
                 stroke="currentColor"
@@ -574,54 +573,37 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
               </svg>
             </div>
 
-            <p className="text-gray-700 font-medium mb-1">
-              {isDragActive ? 'Drop video here' : 'Drag and drop video file'}
+            <p className="text-label text-chalk mb-xs">
+              {isDragActive ? 'Drop the video here' : 'Drag a video file here'}
             </p>
-            <p className="text-gray-500 text-sm mb-3">or click to browse</p>
+            <p className={`${dialogHint} mb-md`}>or tap to browse</p>
 
             <button
               type="button"
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+              className={dialogPrimaryButton}
               onClick={(e) => {
                 e.stopPropagation();
                 handleBrowseClick();
               }}
             >
-              Browse Files
+              Browse files
             </button>
           </>
         )}
       </div>
 
-      {/* Error Message with Recovery Suggestions */}
+      {/* Error, with recovery suggestions. There is no error colour: an error
+          is Chalk at full strength with a Chalk rule beside it. */}
       {errorInfo && (
-        <div
-          className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg"
-          role="alert"
-        >
-          {/* Error Header */}
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-2">
-              <svg
-                className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <div>
-                <p className="font-medium text-red-800">{errorInfo.title}</p>
-                <p className="text-sm text-red-700 mt-0.5">{errorInfo.message}</p>
-              </div>
+        <div className={`mt-lg ${dialogError}`} role="alert">
+          <div className="flex items-start justify-between gap-sm">
+            <div>
+              <p>{errorInfo.title}</p>
+              <p className={`${dialogBody} mt-xxs`}>{errorInfo.message}</p>
             </div>
-            {/* Dismiss button */}
             <button
               onClick={handleDismissError}
-              className="text-red-400 hover:text-red-600 transition p-1"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center text-chalk/60 hover:text-chalk touch-manipulation"
               aria-label="Dismiss error"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -630,14 +612,13 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
             </button>
           </div>
 
-          {/* Recovery Suggestions */}
           {errorInfo.recovery.length > 0 && (
-            <div className="mt-3 pl-7">
-              <p className="text-xs font-medium text-red-700 mb-1">Try the following:</p>
-              <ul className="text-xs text-red-600 space-y-1">
+            <div className="mt-md">
+              <p className={dialogSubheading}>Try the following:</p>
+              <ul className={`${dialogHint} mt-xs space-y-xs`}>
                 {errorInfo.recovery.map((suggestion, index) => (
-                  <li key={index} className="flex items-start gap-1.5">
-                    <span className="text-red-400 mt-0.5">•</span>
+                  <li key={index} className="flex items-start gap-xs">
+                    <span>•</span>
                     <span>{suggestion}</span>
                   </li>
                 ))}
@@ -645,66 +626,36 @@ export function VideoUploader({ onClose }: VideoUploaderProps) {
             </div>
           )}
 
-          {/* Retry Button for retryable errors */}
           {errorInfo.isRetryable && lastFailedFile && (
-            <div className="mt-3 pl-7">
-              <button
-                onClick={handleRetry}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-sm font-medium rounded transition"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-                Try Again
-              </button>
-            </div>
+            <button onClick={handleRetry} className={`${dialogButton} mt-md`}>
+              Try again
+            </button>
           )}
         </div>
       )}
 
       {/* Warning Message */}
       {warning && !errorInfo && (
-        <div
-          className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm"
-          role="alert"
-        >
-          <div className="flex items-start gap-2">
-            <svg
-              className="w-5 h-5 flex-shrink-0 mt-0.5"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span>{warning}</span>
-          </div>
-        </div>
+        <p className={`mt-lg ${dialogBody}`} role="alert">
+          {warning}
+        </p>
       )}
 
       {/* Supported Formats */}
-      <div className="mt-4 pt-4 border-t border-gray-200">
-        <p className="text-xs text-gray-500 mb-2">Supported formats:</p>
-        <div className="flex flex-wrap gap-2">
+      <div className="mt-lg pt-lg border-t border-steel">
+        <p className={`${dialogHint} mb-sm`}>Supported formats:</p>
+        <div className="flex flex-wrap gap-sm">
           {supportedFormats.map((format) => (
             <span
               key={format.extension}
-              className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded"
+              className="px-sm py-xs bg-steel text-chalk/75 text-caption rounded-chip"
               title={format.description}
             >
               {format.extension.toUpperCase().replace('.', '')}
             </span>
           ))}
         </div>
-        <p className="text-xs text-gray-400 mt-2">
+        <p className={`${dialogHint} mt-sm`}>
           Maximum file size: {formatFileSize(500 * 1024 * 1024)}
         </p>
       </div>
