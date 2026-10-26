@@ -41,8 +41,19 @@ const aBall = createBall([3, 0.5, 4], { assignedPlayerId: 'team1-player-1' });
 const aCone: Cone = { id: 'cone-1', position: [8, 0, 8] };
 const standardGround: DesignedGround = { name: 'Standard ground', boundaryLength: 165, boundaryWidth: 135 };
 
+/** An empty board — the base the restore and boardChanged cases vary one slice of. */
+const emptyBoard: BoardSnapshot = {
+  players: [],
+  paths: [],
+  annotations: [],
+  camera: null,
+  ball: null,
+  cones: [],
+  team2Guernsey: 'auto',
+};
+
 beforeEach(() => {
-  usePlayerStore.setState({ players: [] });
+  usePlayerStore.setState({ players: [], team2Guernsey: 'auto' });
   usePathStore.setState({ paths: [] });
   useAnnotationStore.setState({ annotations: [] });
   useCameraStore.setState({ position: [0, 0, 0], target: [0, 0, 0], zoom: 1 });
@@ -155,6 +166,7 @@ describe('a 6v6 board round-trips', () => {
     camera: { position: [1, 2, 3], target: [4, 5, 6], zoom: 2 },
     ball: aBall,
     cones: [aCone],
+    team2Guernsey: 'auto',
   };
   const perTeam = (snap: BoardSnapshot) => ({
     team1: snap.players.filter((p) => p.teamId === 'team1').length,
@@ -213,6 +225,7 @@ describe('boardSnapshot.restore', () => {
       camera: { position: [7, 8, 9], target: [1, 1, 1], zoom: 3 },
       ball: aBall,
       cones: [aCone],
+      team2Guernsey: 'auto',
     });
 
     expect(usePlayerStore.getState().players).toEqual([aPlayer]);
@@ -227,7 +240,7 @@ describe('boardSnapshot.restore', () => {
   it('leaves the camera untouched when the snapshot camera is null', () => {
     useCameraStore.setState({ position: [5, 5, 5], target: [6, 6, 6], zoom: 9 });
 
-    restore({ players: [], paths: [], annotations: [], camera: null, ball: null, cones: [] });
+    restore({ ...emptyBoard });
 
     const cam = useCameraStore.getState();
     expect([cam.position, cam.target, cam.zoom]).toEqual([[5, 5, 5], [6, 6, 6], 9]);
@@ -236,7 +249,7 @@ describe('boardSnapshot.restore', () => {
   it('leaves the ball untouched when the snapshot ball is null', () => {
     useBallStore.setState({ ball: aBall });
 
-    restore({ players: [], paths: [], annotations: [], camera: null, ball: null, cones: [] });
+    restore({ ...emptyBoard });
 
     expect(useBallStore.getState().ball).toEqual(aBall);
   });
@@ -244,7 +257,7 @@ describe('boardSnapshot.restore', () => {
   it('sets cones authoritatively — an empty snapshot list clears existing cones', () => {
     useConeStore.setState({ cones: [aCone] });
 
-    restore({ players: [], paths: [], annotations: [], camera: null, ball: null, cones: [] });
+    restore({ ...emptyBoard });
 
     expect(useConeStore.getState().cones).toEqual([]);
   });
@@ -285,6 +298,7 @@ const sampleSnapshot: BoardSnapshot = {
   camera: { position: [1, 2, 3], target: [4, 5, 6], zoom: 2 },
   ball: aBall,
   cones: [aCone],
+  team2Guernsey: 'auto',
 };
 
 describe('boardSnapshot phase adapter', () => {
@@ -487,16 +501,6 @@ describe('boardSnapshot share adapter — the designed ground', () => {
  * combinatorial across six slices and the callers that will use it do not exist.
  */
 
-/** An empty board — the base every case below varies one slice of. */
-const emptyBoard: BoardSnapshot = {
-  players: [],
-  paths: [],
-  annotations: [],
-  camera: null,
-  ball: null,
-  cones: [],
-};
-
 /**
  * Wrap a slice so that reading anything off it is recorded. Used to prove the
  * reference short-circuit: an untouched slice is settled without its contents
@@ -647,5 +651,72 @@ describe('boardChanged — did this edit change anything?', () => {
 
     expect(boardChanged({ ...sampleSnapshot, players }, { ...sampleSnapshot, players: [aPlayer] })).toBe(false);
     expect(reads.length).toBeGreaterThan(0);
+  });
+});
+
+// ── Team 2's guernsey override ──────────────────────────────────────────────
+
+/**
+ * The coach's Auto · Clash · Home choice is part of the Play's board (#122): it
+ * saves, reloads and travels with the Play, and a board that predates it loads
+ * as Auto.
+ */
+describe("boardSnapshot — Team 2's guernsey override", () => {
+  const forcedHome: BoardSnapshot = { ...sampleSnapshot, team2Guernsey: 'home' };
+  const meta = { name: 'x', quarter: null, label: null };
+
+  it('survives a save and reload', () => {
+    expect(fromPhase(toPhase(forcedHome, { id: 'p', label: 'l' })).team2Guernsey).toBe('home');
+    expect(fromPhase(toPhase({ ...sampleSnapshot, team2Guernsey: 'clash' }, { id: 'p', label: 'l' })).team2Guernsey).toBe(
+      'clash',
+    );
+  });
+
+  it('travels in a shared link', () => {
+    expect(fromShareData(toShareData(forcedHome, meta, standardGround)).team2Guernsey).toBe('home');
+  });
+
+  it('loads a Play saved before the override existed as Auto', () => {
+    const phase: PlayPhase = {
+      id: 'p',
+      label: 'l',
+      playerPositions: [aPlayer],
+      paths: [],
+      annotations: [],
+      cameraState: null,
+    };
+    expect(fromPhase(phase).team2Guernsey).toBe('auto');
+  });
+
+  it('loads a link shared before the override existed as Auto', () => {
+    const { team2Guernsey: _omitted, ...legacy } = toShareData(forcedHome, meta, standardGround);
+    expect(fromShareData(legacy).team2Guernsey).toBe('auto');
+  });
+
+  it('loads a value it does not recognise as Auto', () => {
+    const phase = { ...toPhase(sampleSnapshot, { id: 'p', label: 'l' }), team2Guernsey: 'away' } as unknown as PlayPhase;
+    expect(fromPhase(phase).team2Guernsey).toBe('auto');
+  });
+
+  it('writes nothing for Auto, so an untouched Play keeps its stored shape', () => {
+    expect('team2Guernsey' in toPhase(sampleSnapshot, { id: 'p', label: 'l' })).toBe(false);
+    expect('team2Guernsey' in toShareData(sampleSnapshot, meta, standardGround)).toBe(false);
+  });
+
+  it('is captured from, and restored to, the live board', () => {
+    usePlayerStore.setState({ team2Guernsey: 'clash' });
+    expect(capture().team2Guernsey).toBe('clash');
+
+    restore({ ...emptyBoard, team2Guernsey: 'home' });
+    expect(usePlayerStore.getState().team2Guernsey).toBe('home');
+
+    // Loading a Play on Auto puts the board back on Auto: one Play's override
+    // never carries onto the next.
+    restore({ ...emptyBoard });
+    expect(usePlayerStore.getState().team2Guernsey).toBe('auto');
+  });
+
+  it('counts as a change to the board, so changing it can be undone', () => {
+    expect(boardChanged(sampleSnapshot, forcedHome)).toBe(true);
   });
 });

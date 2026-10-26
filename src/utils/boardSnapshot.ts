@@ -5,6 +5,7 @@ import type { Cone } from '../store/coneStore';
 import type { Annotation } from '../store/annotationStore';
 import type { PlayPhase } from '../models/PlayModel';
 import { STANDARD_GROUND_DIMENSIONS, STANDARD_GROUND_NAME, type BoundaryDimensions } from '../models/VenueModel';
+import { GUERNSEY_OVERRIDES, type GuernseyOverride } from './guernsey';
 
 /**
  * boardSnapshot — the canonical shape of a board's content, and the adapters
@@ -15,7 +16,8 @@ import { STANDARD_GROUND_DIMENSIONS, STANDARD_GROUND_NAME, type BoundaryDimensio
  * without pulling the UI store graph in. The store-touching capture()/restore()
  * live in `boardSnapshotIO`. See CONTEXT.md — "Board snapshot".
  *
- * Scope: the four board slices a Play persists, plus the ball and cones.
+ * Scope: the four board slices a Play persists, plus the ball, cones and the
+ * coach's override for Team 2's guernsey.
  * Scoreboard/match state is deliberately excluded — it is app-wide match context,
  * not per-Play board content, so capturing it would make restoring a Play clobber
  * the live scoreboard.
@@ -38,6 +40,20 @@ export interface BoardSnapshot {
   ball: Ball | null;
   /** Placed drill cones; an empty list when none. */
   cones: Cone[];
+  /**
+   * The coach's say over Team 2's guernsey on this Play. Part of the board, so
+   * forcing a guernsey on one Play leaves every other Play alone.
+   */
+  team2Guernsey: GuernseyOverride;
+}
+
+/**
+ * A stored override, read back. A Play or link saved before the override existed
+ * has none, and anything the board doesn't recognise is treated the same way: as
+ * Auto, so a clash is still caught.
+ */
+function storedOverride(value: unknown): GuernseyOverride {
+  return GUERNSEY_OVERRIDES.includes(value as GuernseyOverride) ? (value as GuernseyOverride) : 'auto';
 }
 
 // ── The deleted interchange bench ───────────────────────────────────────────
@@ -86,9 +102,9 @@ export function withoutInterchangeBench(players: Player[]): Player[] {
 
 /**
  * Wrap a snapshot as a persisted PlayPhase (renames to the stored field names).
- * `ball` and `cones` are written only when present, so pre-ball/pre-cones Plays
- * (and the v3 migration's legacy rows) keep a byte-identical stored shape with no
- * `ball`/`cones` key.
+ * `ball`, `cones` and `team2Guernsey` are written only when they say something
+ * (a ball, a cone, an override other than Auto), so older Plays (and the v3
+ * migration's legacy rows) keep a byte-identical stored shape without those keys.
  */
 export function toPhase(snap: BoardSnapshot, identity: { id: string; label: string }): PlayPhase {
   return {
@@ -100,6 +116,7 @@ export function toPhase(snap: BoardSnapshot, identity: { id: string; label: stri
     cameraState: snap.camera,
     ...(snap.ball ? { ball: snap.ball } : {}),
     ...(snap.cones.length ? { cones: snap.cones } : {}),
+    ...(snap.team2Guernsey !== 'auto' ? { team2Guernsey: snap.team2Guernsey } : {}),
   };
 }
 
@@ -115,6 +132,7 @@ export function fromPhase(phase: PlayPhase): BoardSnapshot {
     camera: phase.cameraState ?? null,
     ball: phase.ball ?? null,
     cones: phase.cones ?? [],
+    team2Guernsey: storedOverride(phase.team2Guernsey),
   };
 }
 
@@ -168,6 +186,8 @@ export interface SharePayload extends ShareMeta {
   ball?: Ball | null;
   /** Present only when the shared board had cones; older links omit it. */
   cones?: Cone[];
+  /** Present only when the coach overrode Team 2's guernsey; Auto and older links omit it. */
+  team2Guernsey?: GuernseyOverride;
   /**
    * The sender's ground. Optional for one reason only: links shared before
    * Venues existed carry none. Every link written from here on carries it, so
@@ -205,6 +225,7 @@ export function toShareData(
     label: meta.label ?? null,
     ...(snap.ball ? { ball: snap.ball } : {}),
     ...(snap.cones.length ? { cones: snap.cones } : {}),
+    ...(snap.team2Guernsey !== 'auto' ? { team2Guernsey: snap.team2Guernsey } : {}),
     venueName: ground.name,
     boundaryLength: ground.boundaryLength,
     boundaryWidth: ground.boundaryWidth,
@@ -256,6 +277,7 @@ export function fromShareData(data: SharePayload): BoardSnapshot {
         : null,
     ball: data.ball ?? null,
     cones: data.cones ?? [],
+    team2Guernsey: storedOverride(data.team2Guernsey),
   };
 }
 
@@ -283,6 +305,7 @@ const COMPARED_SLICES: Record<keyof BoardSnapshot, boolean> = {
   annotations: true,
   ball: true,
   cones: true,
+  team2Guernsey: true,
   camera: false,
 };
 
