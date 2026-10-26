@@ -12,7 +12,6 @@ import { SkyDome } from '../Scene/SkyDome';
 import { fogColour } from '../Scene/nightGround';
 import { GlobalDrawer } from '../UI/GlobalDrawer';
 import { BoardChrome } from '../Board/hud/BoardChrome';
-import { FeatureNotification } from '../UI/FeatureNotification';
 import { HelpScreen } from '../UI/HelpScreen';
 import { OnboardingTour } from '../UI/OnboardingTour';
 import { VideoWorkspace } from '../VideoImport/VideoWorkspace';
@@ -274,14 +273,9 @@ export function MainLayout() {
 
       {editorTab === 'video' && (
         <div className="absolute inset-0 z-10">
+          {/* The workspace carries its own way back to the board, with or
+              without a video loaded. */}
           <VideoWorkspace />
-          <button
-            onClick={() => setEditorTab('board')}
-            className="absolute top-4 right-4 z-50 px-4 py-2 rounded-lg
-                       bg-amber-500 text-black font-semibold hover:bg-amber-400 text-sm"
-          >
-            Take to Board →
-          </button>
         </div>
       )}
 
@@ -327,9 +321,6 @@ export function MainLayout() {
 
       {/* Video PiP overlay when in pip mode */}
       {showVideoPiP && <VideoPiP />}
-
-      {/* Feature notification popup */}
-      <FeatureNotification />
     </div>
   );
 }

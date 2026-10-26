@@ -26,4 +26,18 @@ describe('previewPositions', () => {
     usePlayerStore.getState().clearPreviewPositions();
     expect(usePlayerStore.getState().previewPositions).toBeNull();
   });
+
+  it('movePreviewPosition moves one preview marker and leaves the rest', () => {
+    const other: Player = { ...mockPlayer, id: 'p2', position: [5, 0, 5] };
+    usePlayerStore.getState().setPreviewPositions([mockPlayer, other]);
+    usePlayerStore.getState().movePreviewPosition('p1', [3, 0, -4]);
+    const preview = usePlayerStore.getState().previewPositions!;
+    expect(preview[0].position).toEqual([3, 0, -4]);
+    expect(preview[1].position).toEqual([5, 0, 5]);
+  });
+
+  it('movePreviewPosition does nothing when there is no preview', () => {
+    usePlayerStore.getState().movePreviewPosition('p1', [3, 0, -4]);
+    expect(usePlayerStore.getState().previewPositions).toBeNull();
+  });
 });

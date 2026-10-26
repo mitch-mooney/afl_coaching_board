@@ -243,7 +243,8 @@ extend this file rather than inventing parallel names.
   places nothing outside the Boundary, Placement clamps the tapped point inside it, and
   every one of those clamps is unconditional. There is no
   interchange bench and so nothing here to name. The invariant holds for players, the ball
-  and paths; drill cones are a known exception, since `addCone` is unclamped (issue #34). See
+  and paths; drill cones are a known exception, since `addCone` is unclamped (issue #34). A cone
+  *drag* is not part of that exception: it snaps inside the Boundary as a player drag does. See
   ADR 0002 and issue #29.
 
 - **Pull inside boundary** — the one-tap affordance that moves out-of-bounds content inside
@@ -326,6 +327,20 @@ extend this file rather than inventing parallel names.
   `utils/boardPlacement.ts`. The grass under the tap:
   `components/Scene/PlayerPlacementPlane.tsx`; the tap on a player is handled in
   `components/Scene/Player.tsx`, ahead of selection.
+
+- **Cone setup** — Training mode's counterpart to Placement, for cones. While it is armed
+  ("Set up cones"), a tap on grass sets a cone and a tap on a cone takes it off. Disarmed,
+  a finger drags a cone as it drags a player (ADR 0001), and the drag is one Board edit,
+  snapped inside the Boundary. A tap on a cone does nothing then, so removal is never what
+  an ordinary tap does (issue #110). A pen with a tip armed draws over a cone rather than
+  moving it. The rule: `utils/coneDrag.ts` (`conePointerIntent`); the cone:
+  `components/Scene/ConeManager.tsx`. The gold dots "Set up on Board" shows are a different
+  thing, the **drill preview**: ghost positions in `playerStore.previewPositions`, never
+  captured into a BoardSnapshot or saved. A finger drags a gold dot as it drags a cone,
+  snapped inside the Boundary, but the drag is not a Board edit and Undo does not reach it,
+  since the preview is not board content (`beginPreviewDrag`). While cone setup is armed a
+  tap on a dot goes to the grass beneath, so a cone can be set on it. **Clear drill
+  preview**, beside the Ground chip, removes the dots.
 
 - **Mode rail** — retired with the Rail HUD skin (ADR 0007). It was the column of Setup /
   Animate / Camera buttons that opened a contextual panel. The name survives only in ADRs
