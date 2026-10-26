@@ -12,6 +12,10 @@ import helpScreen from '../../components/UI/HelpScreen.tsx?raw';
 import onboardingTour from '../../components/UI/OnboardingTour.tsx?raw';
 import featureNotification from '../../components/UI/FeatureNotification.tsx?raw';
 import sharedPlaybookViewer from '../../components/Shared/SharedPlaybookViewer.tsx?raw';
+import videoUploader from '../../components/VideoImport/VideoUploader.tsx?raw';
+import videoWorkspace from '../../components/VideoImport/VideoWorkspace.tsx?raw';
+import playbackControls from '../../components/VideoImport/PlaybackControls.tsx?raw';
+import videoTimeline from '../../components/VideoImport/VideoTimeline.tsx?raw';
 
 /**
  * Every dialog belongs to the app (issue #96): it takes its colours, type and
@@ -21,6 +25,9 @@ import sharedPlaybookViewer from '../../components/Shared/SharedPlaybookViewer.t
  * The shared viewer is held to the same rule for its own chrome: the loading,
  * error and header states. Its `<Canvas>` is the ground, which belongs to the
  * Night ground ticket (#94), so the scene inside it is left out here.
+ *
+ * The Video tab is held to the same rules (issue 108): it is where Link Video
+ * Moment lands, and its import panel is the drawer's Import video dialog.
  */
 const withoutScene = (source: string) => source.replace(/<Canvas[\s\S]*?<\/Canvas>/g, '');
 
@@ -38,6 +45,10 @@ const DIALOGS = {
   'OnboardingTour.tsx': onboardingTour,
   'FeatureNotification.tsx': featureNotification,
   'SharedPlaybookViewer.tsx (chrome)': withoutScene(sharedPlaybookViewer),
+  'VideoUploader.tsx': videoUploader,
+  'VideoWorkspace.tsx': videoWorkspace,
+  'PlaybackControls.tsx': playbackControls,
+  'VideoTimeline.tsx': videoTimeline,
 };
 
 /** A hex, an rgb/hsl call, or one of Tailwind's stock colours by name. */

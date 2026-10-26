@@ -198,7 +198,7 @@ export function PlaybackControls() {
           onClick={() => setShowRateDropdown(!showRateDropdown)}
           onKeyDown={handleRateButtonKeyDown}
           disabled={!isLoaded}
-          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed min-w-[60px] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
+          className="px-md min-h-[44px] bg-concrete/85 hover:bg-steel text-chalk border border-steel rounded-control text-label motion-safe:transition-colors disabled:opacity-40 disabled:cursor-not-allowed min-w-[60px] touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-floodlight"
           aria-label={`Playback speed: ${playbackRate}x. Press Enter or Down arrow to change`}
           aria-haspopup="listbox"
           aria-expanded={showRateDropdown}
@@ -219,7 +219,7 @@ export function PlaybackControls() {
             />
             <div
               ref={rateDropdownRef}
-              className="absolute bottom-full left-0 mb-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20 min-w-[80px]"
+              className="absolute bottom-full left-0 mb-xs bg-concrete text-chalk rounded-control shadow-lg border border-steel py-xs z-20 min-w-[80px]"
               role="listbox"
               aria-label="Select playback speed"
               aria-activedescendant={focusedRateIndex >= 0 ? `rate-option-${PLAYBACK_RATES[focusedRateIndex]}` : undefined}
@@ -231,14 +231,14 @@ export function PlaybackControls() {
                   key={rate}
                   id={`rate-option-${rate}`}
                   onClick={() => handleRateChange(rate)}
-                  className={`w-full px-4 py-1.5 text-left text-sm transition focus:outline-none ${
+                  className={`w-full px-lg min-h-[44px] text-left text-label motion-safe:transition-colors focus:outline-none ${
                     rate === playbackRate
-                      ? 'bg-blue-50 text-blue-600 font-medium'
-                      : 'text-gray-700'
+                      ? 'bg-floodlight text-concrete'
+                      : 'text-chalk'
                   } ${
                     index === focusedRateIndex
-                      ? 'ring-2 ring-inset ring-blue-400'
-                      : 'hover:bg-gray-100'
+                      ? 'ring-2 ring-inset ring-floodlight'
+                      : 'hover:bg-steel'
                   }`}
                   role="option"
                   aria-selected={rate === playbackRate}
@@ -253,16 +253,16 @@ export function PlaybackControls() {
       </div>
 
       {/* Divider */}
-      <div className="w-px h-6 bg-gray-300" />
+      <div className="w-px h-6 bg-steel" />
 
       {/* Loop Toggle */}
       <button
         onClick={toggleLoop}
         disabled={!isLoaded}
-        className={`p-2 rounded transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 ${
+        className={`min-h-[44px] min-w-[44px] flex items-center justify-center border border-steel rounded-control motion-safe:transition-colors disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-floodlight ${
           isLooping
-            ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
-            : 'text-gray-600 hover:bg-gray-100'
+            ? 'bg-floodlight text-concrete'
+            : 'bg-concrete/85 text-chalk hover:bg-steel'
         }`}
         aria-label={isLooping ? 'Loop playback enabled, press to disable' : 'Loop playback disabled, press to enable'}
         aria-pressed={isLooping}
@@ -284,7 +284,7 @@ export function PlaybackControls() {
       </button>
 
       {/* Divider */}
-      <div className="w-px h-6 bg-gray-300" />
+      <div className="w-px h-6 bg-steel" />
 
       {/* Volume Control */}
       <div
@@ -304,10 +304,10 @@ export function PlaybackControls() {
         <button
           onClick={toggleMute}
           disabled={!isLoaded}
-          className={`p-2 rounded transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 ${
+          className={`min-h-[44px] min-w-[44px] flex items-center justify-center border border-steel rounded-control motion-safe:transition-colors disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-floodlight ${
             isMuted
-              ? 'text-gray-400 hover:bg-gray-100'
-              : 'text-gray-600 hover:bg-gray-100'
+              ? 'bg-concrete/85 text-chalk/50 hover:bg-steel'
+              : 'bg-concrete/85 text-chalk hover:bg-steel'
           }`}
           aria-label={isMuted ? `Audio muted, press to unmute` : `Volume ${Math.round(volume * 100)}%, press to mute`}
           aria-pressed={isMuted}
@@ -319,14 +319,14 @@ export function PlaybackControls() {
         {/* Volume Slider Popup */}
         {showVolumeSlider && isLoaded && (
           <div
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white rounded-lg shadow-lg border border-gray-200 p-3 z-20"
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-sm bg-concrete text-chalk rounded-control shadow-lg border border-steel p-md z-20"
             role="group"
             aria-label="Volume slider"
           >
             <div className="flex flex-col items-center gap-2">
               {/* Volume percentage display */}
               <span
-                className="text-xs text-gray-500 font-medium"
+                className="text-caption text-chalk/60"
                 aria-hidden="true"
               >
                 {isMuted ? '0' : Math.round(volume * 100)}%
@@ -341,7 +341,7 @@ export function PlaybackControls() {
                   step="0.05"
                   value={isMuted ? 0 : volume}
                   onChange={handleVolumeChange}
-                  className="w-24 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500 -rotate-90 origin-center focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="w-24 h-2 bg-steel rounded-pill appearance-none cursor-pointer accent-chalk -rotate-90 origin-center focus:outline-none focus-visible:ring-2 focus-visible:ring-floodlight"
                   aria-label={`Volume: ${isMuted ? 0 : Math.round(volume * 100)}%`}
                   aria-valuemin={0}
                   aria-valuemax={100}
