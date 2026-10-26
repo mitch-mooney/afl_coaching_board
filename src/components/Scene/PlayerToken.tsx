@@ -4,14 +4,23 @@ import { Billboard, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import type { Guernsey } from '../../utils/guernsey';
 import type { JerseyPattern } from '../../data/aflTeams';
-import { tokenDiameter } from '../../utils/cameraMath';
+import { TOKEN_MIN_POINTS, tokenDiameter } from '../../utils/cameraMath';
 
 /** The plain centre's share of the token's diameter. */
 const CENTRE_RATIO = 0.6;
 /** Half the angle of the facing notch cut into the band. */
 const NOTCH_HALF_ANGLE = (22 * Math.PI) / 180;
-/** The label's height as a share of the diameter: two digits fit the centre. */
-const LABEL_SIZE = 0.48;
+/** The number's type size on the smallest token, in CSS points. */
+const LABEL_POINTS = 18;
+/**
+ * The label's type size as a share of the diameter: 18-point type when the
+ * token sits on its 32-point floor, growing with the token above it. Two digits
+ * run a little past the plain centre, so the outline in the main colour keeps
+ * them clear of the band's pattern.
+ */
+const LABEL_SIZE = LABEL_POINTS / TOKEN_MIN_POINTS;
+/** The outline round the label's digits, as a share of the diameter. */
+const LABEL_OUTLINE = 0.035;
 /** The label's height above the disc, as a share of the diameter. */
 const LABEL_LIFT = 0.15;
 /** Above the ground markings (0.02 m), below the drill preview's dots. */
@@ -205,6 +214,8 @@ export function PlayerToken({ guernsey, number }: PlayerTokenProps) {
             font="/fonts/Inter-Bold.woff"
             fontSize={LABEL_SIZE}
             color={guernsey.label}
+            outlineWidth={LABEL_OUTLINE}
+            outlineColor={guernsey.body}
             anchorX="center"
             anchorY="middle"
           >
