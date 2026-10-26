@@ -1,10 +1,12 @@
-import { useMemo, useRef, type MutableRefObject } from 'react';
+import { useEffect, useMemo, useRef, type MutableRefObject } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Billboard, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import type { Guernsey } from '../../utils/guernsey';
 import type { JerseyPattern } from '../../data/aflTeams';
 import { TOKEN_MIN_POINTS, tokenDiameter } from '../../utils/cameraMath';
+import type { TokenRing } from '../../utils/tokenStates';
+import { palette } from '../../theme/tokens';
 
 /** The plain centre's share of the token's diameter. */
 const CENTRE_RATIO = 0.6;
@@ -21,10 +23,39 @@ const LABEL_POINTS = 18;
 const LABEL_SIZE = LABEL_POINTS / TOKEN_MIN_POINTS;
 /** The outline round the label's digits, as a share of the diameter. */
 const LABEL_OUTLINE = 0.035;
+/**
+ * The gap between the token's edge and the name floating beside it, as a share
+ * of the diameter: wide enough to clear a ring drawn outside the band.
+ */
+const NAME_GAP = 0.25;
 /** The label's height above the disc, as a share of the diameter. */
 const LABEL_LIFT = 0.15;
 /** Above the ground markings (0.02 m), below the drill preview's dots. */
 const TOKEN_HEIGHT = 0.06;
+/** The gap between the band and the Floodlight ring, as a share of the diameter. */
+const RING_GAP = 0.03;
+/** The Floodlight ring's width, as a share of the diameter. */
+const RING_WIDTH = 0.09;
+/** How much of the Floodlight the hover ring shows. */
+const HOVER_RING_OPACITY = 0.55;
+/**
+ * Where the Carrier's ball sits: midway across the band, in the notch, and
+ * high enough above the disc that it rests on it. Shares of the diameter.
+ */
+const NOTCH_RADIUS = (CENTRE_RATIO / 2 + 0.5) / 2;
+const NOTCH_BALL_LIFT = 0.12;
+/**
+ * Tokens draw after the rest of the board's see-through things, two places per
+ * token: disc and ring, then the label above them. Below this nothing claims a
+ * render order.
+ */
+const STACK_BASE = 10;
+/**
+ * How far each place in the stack lifts a token's disc, as a share of the
+ * diameter. Too little to see, but it makes the token drawn on top the one a
+ * tap or a ball drop finds first.
+ */
+const STACK_LIFT = 0.0005;
 /** Pixels across the band texture. */
 const TEXTURE_SIZE = 256;
 
@@ -173,28 +204,55 @@ function tokenTexture(guernsey: Guernsey): THREE.CanvasTexture {
 /** The disc's cut-out edge (the notch, the rim) at full opacity. */
 const ALPHA_CUTOFF = 0.5;
 
+/** Each token's notch, by player id, for the Carrier's ball to sit on. */
+const notches = new Map<string, THREE.Object3D>();
+
+/**
+ * The point on `playerId`'s token where the Carrier's ball sits, or undefined
+ * when that player is not showing a token. Its world position, turn and scale
+ * follow the token: the scale is the token's diameter in metres.
+ */
+export function tokenNotch(playerId: string): THREE.Object3D | undefined {
+  return notches.get(playerId);
+}
+
 interface PlayerTokenProps {
+  playerId: string;
   guernsey: Guernsey;
-  number?: number;
+  /** What the plain centre says: the number, or the position code in Pos mode. */
+  label?: string | number;
+  /** The player's name, floated beside the token in Name mode. */
+  name?: string | null;
+  /** The Floodlight ring this token shows, from `tokenRing`. */
+  ring: TokenRing;
+  /** This token's place where tokens overlap, from `tokenStacking`. */
+  stacking: number;
   /** How far the board is from bodies (0) to tokens (1): the token's opacity. */
   fade: MutableRefObject<number>;
 }
 
+type FadingLabel = { fillOpacity: number; outlineOpacity: number };
+
 /**
- * The disc and its label at a given opacity. The cut-off scales with it, so the
- * notch keeps its edge as the disc fades rather than the whole disc vanishing
- * at half opacity. It never reaches 0, which would recompile the shader.
+ * The disc, its ring and its labels at a given opacity. The disc's cut-off
+ * scales with it, so the notch keeps its edge as the disc fades rather than the
+ * whole disc vanishing at half opacity. It never reaches 0, which would
+ * recompile the shader. The ring fades from its own strength, so a hover ring
+ * stays fainter than a full one throughout.
  */
 function applyOpacity(
-  material: THREE.MeshBasicMaterial | null,
-  label: { fillOpacity: number; outlineOpacity: number } | null,
+  disc: THREE.MeshBasicMaterial | null,
+  ring: { material: THREE.MeshBasicMaterial | null; strength: number },
+  labels: (FadingLabel | null)[],
   opacity: number,
 ) {
-  if (material) {
-    material.opacity = opacity;
-    material.alphaTest = Math.max(0.01, ALPHA_CUTOFF * opacity);
+  if (disc) {
+    disc.opacity = opacity;
+    disc.alphaTest = Math.max(0.01, ALPHA_CUTOFF * opacity);
   }
-  if (label) {
+  if (ring.material) ring.material.opacity = ring.strength * opacity;
+  for (const label of labels) {
+    if (!label) continue;
     label.fillOpacity = opacity;
     label.outlineOpacity = opacity;
   }
@@ -206,11 +264,15 @@ function applyOpacity(
  * the box figure does. Drawn at 2 m across, or larger when 2 m would read under
  * 32 points on screen.
  */
-export function PlayerToken({ guernsey, number, fade }: PlayerTokenProps) {
+export function PlayerToken({ playerId, guernsey, label, name, ring, stacking, fade }: PlayerTokenProps) {
   const groupRef = useRef<THREE.Group>(null);
+  const notchRef = useRef<THREE.Group>(null);
   const materialRef = useRef<THREE.MeshBasicMaterial>(null);
-  const labelRef = useRef<{ fillOpacity: number; outlineOpacity: number }>(null);
+  const ringMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const labelRef = useRef<FadingLabel>(null);
+  const nameRef = useRef<FadingLabel>(null);
   const texture = useMemo(() => tokenTexture(guernsey), [guernsey]);
+  const ringStrength = ring === 'full' ? 1 : HOVER_RING_OPACITY;
   const worldPosition = useMemo(() => new THREE.Vector3(), []);
 
   useFrame(({ camera, size }) => {
@@ -225,12 +287,32 @@ export function PlayerToken({ guernsey, number, fade }: PlayerTokenProps) {
       viewportHeight: size.height,
     });
     group.scale.setScalar(diameter);
-    applyOpacity(materialRef.current, labelRef.current, fade.current);
+    applyOpacity(
+      materialRef.current,
+      { material: ringMaterialRef.current, strength: ringStrength },
+      [labelRef.current, nameRef.current],
+      fade.current,
+    );
   });
+
+  useEffect(() => {
+    const notch = notchRef.current;
+    if (!notch) return;
+    notches.set(playerId, notch);
+    return () => {
+      if (notches.get(playerId) === notch) notches.delete(playerId);
+    };
+  }, [playerId]);
+
+  // Tokens at one height would fight over who draws where they overlap. They
+  // write no depth and draw in stacking order instead, so the order is the
+  // one tokenStacking decides, every frame.
+  const discOrder = STACK_BASE + stacking * 2;
+  const discLift = stacking * STACK_LIFT;
 
   return (
     <group ref={groupRef} position={[0, TOKEN_HEIGHT, 0]}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, discLift, 0]} renderOrder={discOrder}>
         <circleGeometry args={[0.5, 48]} />
         <meshBasicMaterial
           ref={materialRef}
@@ -238,27 +320,83 @@ export function PlayerToken({ guernsey, number, fade }: PlayerTokenProps) {
           transparent
           opacity={fade.current}
           alphaTest={Math.max(0.01, ALPHA_CUTOFF * fade.current)}
+          depthWrite={false}
           toneMapped={false}
         />
       </mesh>
-      {number !== undefined && (
+      {ring !== 'none' && (
+        // Outside the band, and not something a drop can land on: the drop
+        // target is found on the disc.
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, discLift, 0]}
+          renderOrder={discOrder}
+          raycast={() => null}
+        >
+          <ringGeometry args={[0.5 + RING_GAP, 0.5 + RING_GAP + RING_WIDTH, 48]} />
+          <meshBasicMaterial
+            ref={ringMaterialRef}
+            color={palette.floodlight}
+            transparent
+            opacity={ringStrength * fade.current}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
+      )}
+      <group ref={notchRef} position={[0, NOTCH_BALL_LIFT, NOTCH_RADIUS]} />
+      {(label !== undefined || name) && (
         // Lifted so the upright label doesn't sink into the grass when the
         // camera is only just steep enough for tokens.
         <Billboard position={[0, LABEL_LIFT, 0]} follow={true}>
-          <Text
-            ref={labelRef}
-            fillOpacity={fade.current}
-            outlineOpacity={fade.current}
-            font="/fonts/Inter-Bold.woff"
-            fontSize={LABEL_SIZE}
-            color={guernsey.label}
-            outlineWidth={LABEL_OUTLINE}
-            outlineColor={guernsey.body}
-            anchorX="center"
-            anchorY="middle"
-          >
-            {number}
-          </Text>
+          {label !== undefined && (
+            <Text
+              ref={labelRef}
+              fillOpacity={fade.current}
+              outlineOpacity={fade.current}
+              font="/fonts/Inter-Bold.woff"
+              fontSize={LABEL_SIZE}
+              color={guernsey.label}
+              outlineWidth={LABEL_OUTLINE}
+              outlineColor={guernsey.body}
+              anchorX="center"
+              anchorY="middle"
+              renderOrder={discOrder + 1}
+              // A tap on the label is a tap on this token's disc beneath it, so
+              // a token stacked above never loses a tap to a label it covers.
+              raycast={() => null}
+            >
+              <meshBasicMaterial depthWrite={false} transparent toneMapped={false} />
+              {label}
+            </Text>
+          )}
+          {name && (
+            // Beside the token rather than on it, so a name never overflows the
+            // disc. The Billboard faces the camera, so its x axis is the
+            // screen's right whichever way the player faces. The name sits on
+            // the grass, not the guernsey, so it takes Chalk on a Concrete
+            // outline as the figure's name does.
+            <Text
+              position={[0.5 + NAME_GAP, 0, 0]}
+              ref={nameRef}
+              fillOpacity={fade.current}
+              outlineOpacity={fade.current}
+              font="/fonts/Inter-Bold.woff"
+              fontSize={LABEL_SIZE}
+              color={palette.chalk}
+              outlineWidth={LABEL_OUTLINE * 1.5}
+              outlineColor={palette.concrete}
+              anchorX="left"
+              anchorY="middle"
+              renderOrder={discOrder + 1}
+              // A tap on the label is a tap on this token's disc beneath it, so
+              // a token stacked above never loses a tap to a label it covers.
+              raycast={() => null}
+            >
+              <meshBasicMaterial depthWrite={false} transparent toneMapped={false} />
+              {name}
+            </Text>
+          )}
         </Billboard>
       )}
     </group>

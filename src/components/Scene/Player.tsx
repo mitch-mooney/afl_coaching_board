@@ -18,6 +18,7 @@ import { authoringIntent, placementAvailable } from '../../utils/inputContract';
 import { getTeamById } from '../../data/aflTeams';
 import type { Guernsey } from '../../utils/guernsey';
 import type { LookLayers, PlayerLook } from '../../utils/cameraMath';
+import { tokenRing } from '../../utils/tokenStates';
 import { PlayerToken } from './PlayerToken';
 
 // Maximum character length for player name labels before truncation
@@ -60,6 +61,8 @@ interface PlayerProps {
   layers: LookLayers;
   /** How far the board is from bodies (0) to tokens (1), moved every frame by `lookFade`. */
   fade: MutableRefObject<number>;
+  /** This player's place where tokens overlap, decided once for the board by `tokenStacking`. */
+  stacking: number;
 }
 
 /** The smallest the figure scales to, so its matrix never goes singular. */
@@ -82,7 +85,7 @@ function FigureFade({ fade, children }: { fade: MutableRefObject<number>; childr
   );
 }
 
-export function PlayerComponent({ player, guernsey, layers, fade }: PlayerProps) {
+export function PlayerComponent({ player, guernsey, layers, fade, stacking }: PlayerProps) {
   const groupRef = useRef<any>(null);
   const leftThighRef = useRef<any>(null);
   const rightThighRef = useRef<any>(null);
@@ -111,6 +114,7 @@ export function PlayerComponent({ player, guernsey, layers, fade }: PlayerProps)
   // A ball drag over this player would make them the Carrier if let go now.
   const isDropTarget = useBallStore((state) => state.dropTargetPlayerId === player.id);
   const showHover = hovered || isDropTarget;
+  const isCarrier = useBallStore((state) => state.ball?.assignedPlayerId === player.id);
   const boundary = useActiveBoundary();
 
   // Disable dragging while an animation is playing (the playback loop owns
@@ -516,7 +520,19 @@ export function PlayerComponent({ player, guernsey, layers, fade }: PlayerProps)
         setHovered(false);
       }}
     >
-      {layers.token && <PlayerToken guernsey={guernsey} number={player.number} fade={fade} />}
+      {layers.token && (
+        <PlayerToken
+          playerId={player.id}
+          guernsey={guernsey}
+          // The token follows the label mode: the position code in Pos mode,
+          // otherwise the number, with the name beside it in Name mode.
+          label={labelMode === 'position' && player.positionName ? player.positionName : player.number}
+          name={labelMode === 'name' ? formatDisplayName(player.playerName) : null}
+          ring={tokenRing({ selected: isSelected, carrier: isCarrier, dropTarget: isDropTarget, hovered })}
+          stacking={stacking}
+          fade={fade}
+        />
+      )}
       {layers.body && (
         <FigureFade fade={fade}>
           {/* ── Minecraft-style box geometry player ── */}
