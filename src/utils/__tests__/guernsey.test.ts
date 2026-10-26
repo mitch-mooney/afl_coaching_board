@@ -153,7 +153,7 @@ describe("teamGuernseys: the coach's override for Team 2", () => {
 
   it('Auto wears home when the teams are clear, and says so', () => {
     const wears = teamGuernseys(club('carlton'), club('richmond'), 'auto');
-    expect(wears.team2).toMatchObject({ body: '#FFD200', clash: false });
+    expect(wears.team2).toMatchObject({ body: '#000000', clash: false });
     expect(wears.auto).toBe('home');
   });
 
@@ -164,9 +164,9 @@ describe("teamGuernseys: the coach's override for Team 2", () => {
   it('Clash forces the Clash guernsey on teams Auto would leave alone', () => {
     const wears = teamGuernseys(club('carlton'), club('richmond'), 'clash');
     expect(wears.team2).toMatchObject({
-      body: palette.concrete,
+      body: '#FFFFFF',
       pattern: 'sash',
-      patternColours: ['#FFD200'],
+      patternColours: ['#000000'],
       clash: true,
     });
     expect(wears.auto).toBe('home');
