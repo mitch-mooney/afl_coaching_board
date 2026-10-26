@@ -273,14 +273,9 @@ export function MainLayout() {
 
       {editorTab === 'video' && (
         <div className="absolute inset-0 z-10">
+          {/* The workspace carries its own way back to the board, with or
+              without a video loaded. */}
           <VideoWorkspace />
-          <button
-            onClick={() => setEditorTab('board')}
-            className="absolute top-4 right-4 z-50 px-4 py-2 rounded-lg
-                       bg-amber-500 text-black font-semibold hover:bg-amber-400 text-sm"
-          >
-            Take to Board →
-          </button>
         </div>
       )}
 

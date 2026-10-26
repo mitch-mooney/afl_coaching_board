@@ -300,7 +300,7 @@ export function VideoTimeline() {
 
   return (
     <div
-      className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 w-full"
+      className="bg-concrete/90 text-chalk border border-steel rounded-control p-md w-full"
       role="region"
       aria-label="Video playback controls"
     >
@@ -316,7 +316,7 @@ export function VideoTimeline() {
 
       {/* Playback Controls */}
       <div
-        className="flex items-center gap-3 mb-2"
+        className="flex items-center gap-xs sm:gap-md mb-sm"
         role="group"
         aria-label="Playback buttons"
       >
@@ -324,12 +324,12 @@ export function VideoTimeline() {
         <button
           onClick={() => seekBackward(5)}
           disabled={!isLoaded}
-          className="p-2 rounded hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-control hover:bg-steel motion-safe:transition-colors disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-floodlight"
           aria-label="Skip backward 5 seconds"
           title="Skip backward 5 seconds (Shift+←)"
         >
           <svg
-            className="w-5 h-5 text-gray-700"
+            className="w-5 h-5 text-chalk"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -347,12 +347,12 @@ export function VideoTimeline() {
         <button
           onClick={() => stepFrameBackward(1)}
           disabled={!isLoaded}
-          className="p-2 rounded hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-control hover:bg-steel motion-safe:transition-colors disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-floodlight"
           aria-label="Step backward 1 frame"
           title="Step backward 1 frame (←)"
         >
           <svg
-            className="w-5 h-5 text-gray-700"
+            className="w-5 h-5 text-chalk"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -370,10 +370,10 @@ export function VideoTimeline() {
         <button
           onClick={handlePlayPauseClick}
           disabled={!isLoaded}
-          className={`p-3 rounded-full transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${
+          className={`min-h-[48px] min-w-[48px] flex items-center justify-center rounded-pill motion-safe:transition-colors disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-floodlight ${
             isPlaying
-              ? 'bg-blue-500 hover:bg-blue-600 text-white'
-              : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              ? 'bg-chalk hover:bg-chalk/85 text-concrete'
+              : 'bg-steel hover:bg-steel/70 text-chalk'
           }`}
           aria-label={isPlaying ? 'Pause video' : 'Play video'}
           aria-pressed={isPlaying}
@@ -394,12 +394,12 @@ export function VideoTimeline() {
         <button
           onClick={() => stepFrameForward(1)}
           disabled={!isLoaded}
-          className="p-2 rounded hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-control hover:bg-steel motion-safe:transition-colors disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-floodlight"
           aria-label="Step forward 1 frame"
           title="Step forward 1 frame (→)"
         >
           <svg
-            className="w-5 h-5 text-gray-700"
+            className="w-5 h-5 text-chalk"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -417,12 +417,12 @@ export function VideoTimeline() {
         <button
           onClick={() => seekForward(5)}
           disabled={!isLoaded}
-          className="p-2 rounded hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-control hover:bg-steel motion-safe:transition-colors disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-floodlight"
           aria-label="Skip forward 5 seconds"
           title="Skip forward 5 seconds (Shift+→)"
         >
           <svg
-            className="w-5 h-5 text-gray-700"
+            className="w-5 h-5 text-chalk"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -441,18 +441,18 @@ export function VideoTimeline() {
 
         {/* Time Display */}
         <div
-          className="flex items-center gap-2 text-sm font-mono"
+          className="flex items-center gap-xs text-number tabular-nums"
           role="timer"
           aria-label={`Current time: ${formatTime(currentTime)} of ${formatTime(duration)}`}
         >
           <span
-            className="text-gray-800 min-w-[50px] text-right"
+            className="text-chalk min-w-[40px] text-right"
             aria-hidden="true"
           >
             {formatTime(currentTime)}
           </span>
-          <span className="text-gray-400" aria-hidden="true">/</span>
-          <span className="text-gray-500 min-w-[50px]" aria-hidden="true">
+          <span className="text-chalk/40" aria-hidden="true">/</span>
+          <span className="text-chalk/60 min-w-[40px]" aria-hidden="true">
             {formatTime(duration)}
           </span>
         </div>
@@ -461,7 +461,7 @@ export function VideoTimeline() {
       {/* Timeline Scrubber */}
       <div
         ref={timelineRef}
-        className={`relative h-3 bg-gray-200 rounded-full cursor-pointer group focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${
+        className={`relative h-3 bg-steel rounded-pill cursor-pointer group focus:outline-none focus-visible:ring-2 focus-visible:ring-floodlight ${
           !isLoaded ? 'opacity-50 cursor-not-allowed' : ''
         }`}
         onClick={handleTimelineClick}
@@ -481,21 +481,21 @@ export function VideoTimeline() {
       >
         {/* Progress Fill */}
         <div
-          className="absolute left-0 top-0 h-full bg-blue-500 rounded-full transition-[width] duration-75"
+          className="absolute left-0 top-0 h-full bg-chalk rounded-pill motion-safe:transition-[width] motion-safe:duration-75"
           style={{ width: `${progress}%` }}
         />
 
         {/* Hover Preview Line */}
         {isHovering && isLoaded && (
           <div
-            className="absolute top-0 h-full w-0.5 bg-blue-300 pointer-events-none"
+            className="absolute top-0 h-full w-0.5 bg-chalk/50 pointer-events-none"
             style={{ left: `${hoverPosition}%`, transform: 'translateX(-50%)' }}
           />
         )}
 
         {/* Scrubber Handle */}
         <div
-          className={`absolute top-1/2 w-4 h-4 bg-blue-500 rounded-full shadow-md transform -translate-y-1/2 -translate-x-1/2 transition-transform ${
+          className={`absolute top-1/2 w-4 h-4 bg-chalk rounded-pill shadow-md transform -translate-y-1/2 -translate-x-1/2 motion-safe:transition-transform ${
             isDragging || isHovering ? 'scale-125' : 'scale-100 group-hover:scale-110'
           } ${!isLoaded ? 'hidden' : ''}`}
           style={{ left: `${progress}%` }}
@@ -504,7 +504,7 @@ export function VideoTimeline() {
         {/* Hover Time Tooltip */}
         {isHovering && isLoaded && (
           <div
-            className="absolute -top-8 bg-gray-800 text-white text-xs px-2 py-1 rounded pointer-events-none whitespace-nowrap transform -translate-x-1/2"
+            className="absolute -top-8 bg-steel text-chalk text-caption px-sm py-xs rounded-chip pointer-events-none whitespace-nowrap transform -translate-x-1/2"
             style={{ left: `${hoverPosition}%` }}
           >
             {formatTime(hoverTime)}
@@ -514,7 +514,7 @@ export function VideoTimeline() {
 
       {/* Keyboard Shortcuts Hint */}
       <div
-        className="mt-2 text-xs text-gray-400 text-center"
+        className="mt-sm text-caption text-chalk/50 text-center"
         aria-label="Keyboard shortcuts available"
       >
         <span className="hidden sm:inline" aria-hidden="true">

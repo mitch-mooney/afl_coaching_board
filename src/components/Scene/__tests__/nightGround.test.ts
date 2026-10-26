@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { FIELD_MARKINGS } from '../../../models/FieldModel';
 import { palette } from '../../../theme/tokens';
 import { boundaryOf } from '../../../utils/fieldGeometry';
 import {
@@ -100,6 +101,85 @@ describe('the night ground', () => {
     // upward face. A dark sky colour there is a fill of almost nothing.
     expect(nightFill.sky).toBe(palette.floodlight);
     expect(nightFill.ground).toBe(palette.turf);
+  });
+
+  /**
+   * The light the whole rig puts on the ground at (x, z), the way three (r155
+   * on) lights it: each tower by the inverse square, its cone's smoothstep edge
+   * and the cosine of the angle it strikes the ground at; the hemisphere fill
+   * at full intensity on an upward face.
+   */
+  function illuminanceAt(towers: TowerLight[], x: number, z: number): number {
+    let total = nightFill.intensity;
+    for (const { position: [px, py, pz], target: [tx, ty, tz], intensity, angle, penumbra } of towers) {
+      const toLight = [px - x, py, pz - z];
+      const d = Math.hypot(...toLight);
+      const axis = [tx - px, ty - py, tz - pz];
+      const axisLength = Math.hypot(...axis);
+      const cosOffAxis = -(toLight[0] * axis[0] + toLight[1] * axis[1] + toLight[2] * axis[2]) / (d * axisLength);
+      const outer = Math.cos(angle);
+      const inner = Math.cos(angle * (1 - penumbra));
+      const t = Math.min(1, Math.max(0, (cosOffAxis - outer) / (inner - outer)));
+      const cone = t * t * (3 - 2 * t);
+      total += (intensity / d ** 2) * cone * (toLight[1] / d);
+    }
+    return total;
+  }
+
+  /** Points on a grid across the field of play, boundary line included. */
+  function fieldOfPlay({ semiX, semiZ }: { semiX: number; semiZ: number }): [number, number][] {
+    const points: [number, number][] = [];
+    const steps = 30;
+    for (let i = -steps; i <= steps; i++) {
+      for (let j = -steps; j <= steps; j++) {
+        const u = i / steps;
+        const v = j / steps;
+        if (u * u + v * v <= 1) points.push([u * semiX, v * semiZ]);
+      }
+    }
+    return points;
+  }
+
+  // The corners of the range a Venue's boundary may take, plus real grounds.
+  const venues = [
+    standard,
+    big,
+    boundaryOf({ boundaryLength: 120, boundaryWidth: 90 }),
+    boundaryOf({ boundaryLength: 200, boundaryWidth: 170 }),
+    boundaryOf({ boundaryLength: 200, boundaryWidth: 90 }),
+    boundaryOf({ boundaryLength: 120, boundaryWidth: 120 }),
+  ];
+
+  it('lights the wings and both goal squares, on every Venue, nearly as well as the pools', () => {
+    // Coaches draw on the wings and in the goal squares constantly (#107).
+    for (const boundary of venues) {
+      const towers = towerLights(boundary);
+      const peak = Math.max(...fieldOfPlay(boundary).map(([x, z]) => illuminanceAt(towers, x, z)));
+      const spots: [number, number][] = [
+        [0, 0.8 * boundary.semiZ],
+        [0, -0.8 * boundary.semiZ],
+        [boundary.semiX - FIELD_MARKINGS.goalSquareDepth / 2, 0],
+        [-(boundary.semiX - FIELD_MARKINGS.goalSquareDepth / 2), 0],
+      ];
+      for (const [x, z] of spots) {
+        expect(illuminanceAt(towers, x, z)).toBeGreaterThan(0.5 * peak);
+      }
+    }
+  });
+
+  it('drops no part of the field of play into darkness, on every Venue, but keeps the pools', () => {
+    for (const boundary of venues) {
+      const towers = towerLights(boundary);
+      const light = fieldOfPlay(boundary).map(([x, z]) => illuminanceAt(towers, x, z));
+      const peak = Math.max(...light);
+      const darkest = Math.min(...light);
+      // Lit everywhere: a third of the brightest pool at worst.
+      expect(darkest).toBeGreaterThan(peak / 3);
+      // Still a night game: the grass between the pools reads darker than them.
+      expect(darkest).toBeLessThan(0.7 * peak);
+      // And not by flooding it: where pools overlap stays short of blown out.
+      expect(peak).toBeLessThan(1.8 * Math.PI);
+    }
   });
 
   it('throws shadows from the towers, from no more than two of them', () => {

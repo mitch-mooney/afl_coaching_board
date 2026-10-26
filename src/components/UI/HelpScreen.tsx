@@ -45,7 +45,7 @@ const SECTIONS = [
     heading: 'Video and the board',
     items: [
       { key: 'Video tab', desc: 'Import a match video to review, in picture-in-picture or full-field mode.' },
-      { key: 'Take to Board →', desc: 'Switch from video to board to recreate the play you just reviewed.' },
+      { key: '← Board', desc: 'Switch from video to board to recreate the play you just reviewed.' },
     ],
   },
   {
