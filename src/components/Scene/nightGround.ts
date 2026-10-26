@@ -8,6 +8,7 @@
  * grounds. Every colour is a design token or is mixed from them; tune the
  * tokens, not this file.
  */
+import { FIELD_MARKINGS } from '../../models/FieldModel';
 import { palette } from '../../theme/tokens';
 
 /** `a` moved a fraction `t` of the way towards `b`, as `#rrggbb`. */
@@ -56,8 +57,23 @@ export interface TowerLight {
 const TOWER_SETBACK = 22;
 /** Metres up, the head of a tower. */
 const TOWER_HEIGHT = 65;
-/** How far into its quadrant a tower is aimed, as a fraction of the semi-axes. */
-const POOL_REACH = 0.42;
+/**
+ * How far into its quadrant a tower is aimed, as a fraction of each semi-axis:
+ * further towards the goals than towards the wings, so the pools reach the
+ * goal squares (#107).
+ */
+const POOL_REACH_X = 0.6;
+const POOL_REACH_Z = 0.5;
+/**
+ * The beam's half-angle, as a multiple of the widest angle from its aim to the
+ * three places it must light: the centre, the wing on its side and the goal
+ * square at its end. Sized off the ground rather than fixed, so a big Venue's
+ * wings and goal squares sit as far inside the beam as the Standard's do, and a
+ * small one's pools do not swallow the whole ground.
+ */
+const BEAM_SPREAD = 1.5;
+/** How soft the pool's edge is, 0 to 1. */
+const BEAM_PENUMBRA = 0.6;
 /**
  * The fill's intensity: low, so the towers are the main source and the grass
  * between their pools falls dark. The day rig's fill was 1.1.
@@ -81,8 +97,18 @@ const CORNERS: [number, number][] = [
   [-1, 1],
 ];
 
+/** The angle at `from` between the directions to `a` and to `b`, in radians. */
+function angleBetween(from: Vec3, a: Vec3, b: Vec3): number {
+  const u = a.map((v, i) => v - from[i]);
+  const w = b.map((v, i) => v - from[i]);
+  const dot = u.reduce((sum, v, i) => sum + v * w[i], 0);
+  return Math.acos(Math.min(1, dot / (Math.hypot(...u) * Math.hypot(...w))));
+}
+
 /**
- * The four light towers for a ground, the main source of light on it.
+ * The four light towers for a ground, the main source of light on it. The
+ * pools overlap enough that no part of the field of play falls outside every
+ * beam: the grass between them is darker, never dark (#107).
  *
  * Only a diagonal pair casts shadows. Every shadow-casting light renders the
  * scene again each frame, and the day rig cast from one; two diagonal towers
@@ -95,7 +121,13 @@ export function towerLights(boundary: { semiX: number; semiZ: number }): TowerLi
       TOWER_HEIGHT,
       sz * (boundary.semiZ + TOWER_SETBACK),
     ];
-    const target: Vec3 = [sx * boundary.semiX * POOL_REACH, 0, sz * boundary.semiZ * POOL_REACH];
+    const target: Vec3 = [sx * boundary.semiX * POOL_REACH_X, 0, sz * boundary.semiZ * POOL_REACH_Z];
+    const mustLight: Vec3[] = [
+      [0, 0, 0],
+      [0, 0, sz * boundary.semiZ * 0.8],
+      [sx * (boundary.semiX - FIELD_MARKINGS.goalSquareDepth / 2), 0, 0],
+    ];
+    const reach = Math.max(...mustLight.map((point) => angleBetween(position, target, point)));
     const distanceSquared = position.reduce((sum, p, axis) => sum + (p - target[axis]) ** 2, 0);
     // The beam strikes the ground at a slant, which spreads its light thinner.
     const cosIncidence = (position[1] - target[1]) / Math.sqrt(distanceSquared);
@@ -103,8 +135,8 @@ export function towerLights(boundary: { semiX: number; semiZ: number }): TowerLi
       position,
       target,
       intensity: (POOL_ILLUMINANCE * distanceSquared) / cosIncidence,
-      angle: 0.42,
-      penumbra: 0.75,
+      angle: BEAM_SPREAD * reach,
+      penumbra: BEAM_PENUMBRA,
       castShadow: i < 2,
     };
   });
