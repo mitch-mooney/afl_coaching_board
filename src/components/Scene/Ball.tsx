@@ -1,6 +1,6 @@
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Mesh, type Object3D, type Raycaster } from 'three';
+import { Mesh, Vector3, type Group, type Object3D, type Raycaster } from 'three';
 import { Ball } from '../../models/BallModel';
 import { useBallStore } from '../../store/ballStore';
 import { usePlayerStore } from '../../store/playerStore';
@@ -11,6 +11,8 @@ import { snapPointerToField } from '../../utils/dragMath';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
 import { authoringIntent } from '../../utils/inputContract';
 import { heldBallTarget } from '../../utils/ballFollow';
+import { TOKEN_WORLD_DIAMETER } from '../../utils/cameraMath';
+import { tokenNotch } from './PlayerToken';
 
 // Ball visual constants for distinct appearance
 const BALL_COLORS = {
@@ -27,6 +29,17 @@ const AFL_BALL = {
   length: 0.28,    // Semi-axis along the length (pointy ends)
   width: 0.18,     // Semi-axis for width/height (rounder middle)
 };
+
+/**
+ * How much larger than to scale the Carrier's ball draws on a Player token. At
+ * true scale it would be a speck on a token held at its 32-point floor.
+ */
+const BALL_ON_TOKEN_SCALE = 1.3;
+
+/** The ball's long axis upright, as it stands on a player's figure. */
+const UPRIGHT: [number, number, number] = [0, 0, Math.PI / 2];
+/** The ball's long axis along the player's facing, as it lies in a token's notch. */
+const ALONG_FACING: [number, number, number] = [0, Math.PI / 2, 0];
 
 /**
  * Every player's group on the scene, found by the `playerId` each `Player`
@@ -59,7 +72,9 @@ interface BallProps {
 
 export function BallComponent({ ball }: BallProps) {
   const meshRef = useRef<Mesh>(null);
-  const groupRef = useRef<any>(null);
+  const groupRef = useRef<Group>(null);
+  const shapeRef = useRef<Group>(null);
+  const notchScale = useMemo(() => new Vector3(), []);
   const [hovered, setHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   // The open Board edit for the drag in progress, begun on pointer-down and
@@ -90,9 +105,11 @@ export function BallComponent({ ball }: BallProps) {
      // the store so the ball has a SINGLE position writer and can't fight its
      // own declarative `position={ball.position}` binding (the bug that froze
      // the ball then snapped it to the player's end position).
+     let followsCarrier = false;
      if (assignedPlayer && !isDragging) {
        const ballPath = usePathStore.getState().getPathByEntity(ball.id, 'ball');
        const target = heldBallTarget(assignedPlayer.position, ballPath);
+       followsCarrier = target !== null;
        if (target) {
          const cur = ball.position;
          const moved =
@@ -104,6 +121,27 @@ export function BallComponent({ ball }: BallProps) {
      }
      // When the ball has a path (or no assignment) it renders at ball.position
      // — the group's position prop — which usePathPlayback updates each frame.
+
+     // A ball riding a Carrier who shows a token draws on the token's notch,
+     // turning with them, a little larger than to scale. Only the drawing
+     // moves: the ball's position stays the held target above the player.
+     const group = groupRef.current;
+     const shape = shapeRef.current;
+     const notch = followsCarrier && assignedPlayer ? tokenNotch(assignedPlayer.id) : undefined;
+     if (group && shape) {
+       if (notch) {
+         notch.getWorldPosition(group.position);
+         notch.getWorldQuaternion(group.quaternion);
+         notch.getWorldScale(notchScale);
+         group.scale.setScalar((notchScale.x / TOKEN_WORLD_DIAMETER) * BALL_ON_TOKEN_SCALE);
+         shape.rotation.set(...ALONG_FACING);
+       } else {
+         group.position.fromArray(useBallStore.getState().ball?.position ?? ball.position);
+         group.quaternion.identity();
+         group.scale.setScalar(1);
+         shape.rotation.set(...UPRIGHT);
+       }
+     }
 
      // Handle dragging with global pointer events
      if (isDragging) {
@@ -239,7 +277,7 @@ export function BallComponent({ ball }: BallProps) {
       onPointerOut={handlePointerOut}
     >
       {/* AFL Ball - elongated ellipsoid shape rotated to lay flat */}
-      <group rotation={[0, 0, Math.PI / 2]}>
+      <group ref={shapeRef} rotation={UPRIGHT}>
         {/* Main ball body - scaled sphere to create ellipsoid */}
         <mesh ref={meshRef} castShadow scale={[AFL_BALL.length, AFL_BALL.width, AFL_BALL.width]}>
           <sphereGeometry args={[1, 32, 32]} />

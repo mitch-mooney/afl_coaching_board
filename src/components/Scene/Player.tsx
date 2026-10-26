@@ -17,6 +17,7 @@ import { authoringIntent, placementAvailable } from '../../utils/inputContract';
 import { getTeamById } from '../../data/aflTeams';
 import type { Guernsey } from '../../utils/guernsey';
 import type { PlayerLook } from '../../utils/cameraMath';
+import { tokenRing } from '../../utils/tokenStates';
 import { PlayerToken } from './PlayerToken';
 
 // Maximum character length for player name labels before truncation
@@ -55,9 +56,11 @@ interface PlayerProps {
   guernsey: Guernsey;
   /** Body or token, decided once for the board by `playerLook`. */
   look: PlayerLook;
+  /** This player's place where tokens overlap, decided once for the board by `tokenStacking`. */
+  stacking: number;
 }
 
-export function PlayerComponent({ player, guernsey, look }: PlayerProps) {
+export function PlayerComponent({ player, guernsey, look, stacking }: PlayerProps) {
   const groupRef = useRef<any>(null);
   const leftThighRef = useRef<any>(null);
   const rightThighRef = useRef<any>(null);
@@ -86,6 +89,7 @@ export function PlayerComponent({ player, guernsey, look }: PlayerProps) {
   // A ball drag over this player would make them the Carrier if let go now.
   const isDropTarget = useBallStore((state) => state.dropTargetPlayerId === player.id);
   const showHover = hovered || isDropTarget;
+  const isCarrier = useBallStore((state) => state.ball?.assignedPlayerId === player.id);
   const boundary = useActiveBoundary();
 
   // Disable dragging while an animation is playing (the playback loop owns
@@ -492,7 +496,13 @@ export function PlayerComponent({ player, guernsey, look }: PlayerProps) {
       }}
     >
       {look === 'token' ? (
-        <PlayerToken guernsey={guernsey} number={player.number} />
+        <PlayerToken
+          playerId={player.id}
+          guernsey={guernsey}
+          number={player.number}
+          ring={tokenRing({ selected: isSelected, carrier: isCarrier, dropTarget: isDropTarget, hovered })}
+          stacking={stacking}
+        />
       ) : (
         <>
           {/* ── Minecraft-style box geometry player ── */}

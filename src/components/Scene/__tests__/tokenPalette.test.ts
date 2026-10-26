@@ -20,4 +20,9 @@ describe('the Player token palette', () => {
     expect(playerToken).toMatch(/guernsey\.patternColours/);
     expect(playerToken).toMatch(/guernsey\.label/);
   });
+
+  it('rings selection, the Carrier and the drop target in Floodlight from the design tokens', () => {
+    expect(playerToken).toMatch(/palette\.floodlight/);
+    expect(playerToken).toMatch(/from '\.\.\/\.\.\/theme\/tokens'/);
+  });
 });
