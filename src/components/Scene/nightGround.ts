@@ -155,25 +155,272 @@ export const nightFill = {
   intensity: FILL_INTENSITY,
 } as const;
 
-/** How many colour steps make up one tier's band of seats. */
-const SEAT_STEPS = 5;
+/** A ring of the Stadium, or the Boundary itself: an ellipse on the ground. */
+export interface Ring {
+  semiX: number;
+  semiZ: number;
+}
+
+/** One line round the Stadium: how far outside the Boundary it runs, and how high. */
+export interface StadiumLine {
+  /** Metres outside the Boundary, along both semi-axes. */
+  setback: number;
+  /** Metres above the grass. */
+  height: number;
+}
 
 /**
- * The grandstand bowl. The stands sit outside the pools, so they recede: the
- * concrete and steel of the chrome rather than the day rig's bright blue seats.
- * Each tier's seats still band from dark (in the shadow of the riser below) to
- * light, which is what reads as rows from a broadcast angle.
+ * The Stadium's shape: one profile swept round the Boundary, the same on every
+ * side (#136). Outwards from the Boundary: a flat concrete apron, a low fence, a
+ * front wall up to the front row, then a single raked deck rising to the top row.
+ * Every line of it is a `stadiumRing`, the Boundary grown by that line's setback.
+ */
+export interface StadiumShape {
+  /** The ground it stands round. */
+  boundary: Ring;
+  fence: StadiumLine;
+  frontRow: StadiumLine;
+  topRow: StadiumLine;
+  /** Metres of deck between the front row and the top row, along the ground. */
+  deckDepth: number;
+  /** The deck's slope above the horizontal, in radians. */
+  rake: number;
+  /** Metres of deck each row of seats takes, along the ground. */
+  rowDepth: number;
+  /** Where the scoreboard stands: above the back of the far-wing stand, facing Sideline. */
+  scoreboard: ScoreboardPose;
+}
+
+/** The scoreboard's panel, as the Stadium places it. */
+export interface ScoreboardPose {
+  /** The middle of the panel. */
+  position: Vec3;
+  /** Turn about the vertical, in radians: 0 faces +z, towards the Sideline camera. */
+  rotationY: number;
+  /** Metres across the panel. */
+  width: number;
+  /** Metres from the panel's foot to its top. */
+  height: number;
+}
+
+/** The fence round the apron: a few metres out, below a player's waist. */
+const FENCE: StadiumLine = { setback: 4, height: 0.9 };
+/** The front row, fixed at every ground: out-of-bounds content past it is the backdrop's job, not the stand's. */
+const FRONT_ROW: StadiumLine = { setback: 9, height: 1.5 };
+/**
+ * The deck and the top row's height. Set by the presets' sightlines: from Sideline
+ * and End-to-end, at every plausible ground, the line of sight to the near
+ * boundary has to clear the top row. The narrow 200 × 90 ground from Sideline is
+ * the binding case, so the stand is one deck with no roof.
+ */
+const DECK_DEPTH = 24;
+const TOP_ROW_HEIGHT = 12;
+const ROW_DEPTH = 0.8;
+
+/** The scoreboard's panel: big enough to read from across the ground. */
+const SCOREBOARD_WIDTH = 24;
+const SCOREBOARD_HEIGHT = 8;
+/** Metres the scoreboard stands behind the top row, and its foot above it. */
+const SCOREBOARD_BEHIND_TOP_ROW = 3;
+const SCOREBOARD_CLEARANCE = 2;
+
+/**
+ * The Stadium for a ground, from its Boundary alone: no other Venue field, no
+ * board content and no camera feeds it.
+ */
+export function stadiumShape(boundary: Ring): StadiumShape {
+  const topRowSetback = FRONT_ROW.setback + DECK_DEPTH;
+  return {
+    boundary: { semiX: boundary.semiX, semiZ: boundary.semiZ },
+    fence: FENCE,
+    frontRow: FRONT_ROW,
+    topRow: { setback: topRowSetback, height: TOP_ROW_HEIGHT },
+    deckDepth: DECK_DEPTH,
+    rake: Math.atan2(TOP_ROW_HEIGHT - FRONT_ROW.height, DECK_DEPTH),
+    rowDepth: ROW_DEPTH,
+    // The far wing is -z: the Sideline camera stands off +z (`presetCameraPose`).
+    scoreboard: {
+      position: [
+        0,
+        TOP_ROW_HEIGHT + SCOREBOARD_CLEARANCE + SCOREBOARD_HEIGHT / 2,
+        -(boundary.semiZ + topRowSetback + SCOREBOARD_BEHIND_TOP_ROW),
+      ],
+      rotationY: 0,
+      width: SCOREBOARD_WIDTH,
+      height: SCOREBOARD_HEIGHT,
+    },
+  };
+}
+
+/**
+ * The order the backdrop draws in. Board content (players, tokens, the ball,
+ * cones, paths, annotations, labels) draws after it, at three's default of 0.
+ *
+ * The Stadium writes no depth, so anything drawn after it draws over it: an
+ * out-of-bounds player standing where the seats are stays in plain sight (#139).
+ * The sky writes none either, so it goes first. The turf goes before the apron,
+ * which covers the corners of the turf's plane outside the Boundary. The apron,
+ * with its fence and front wall, goes before the deck that rises over it.
+ */
+export const backdropOrder = {
+  sky: -4,
+  turf: -3,
+  apron: -2,
+  deck: -1,
+} as const;
+
+/** The ring `setback` metres outside the Boundary: the Boundary grown along both semi-axes. */
+export function stadiumRing(boundary: Ring, setback: number): Ring {
+  return { semiX: boundary.semiX + setback, semiZ: boundary.semiZ + setback };
+}
+
+/** `hex` with its hue taken out: the grey of the same luma, as `#rrggbb`. */
+export function grey(hex: string): string {
+  const value = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [16, 8, 0].map((shift) => (value >> shift) & 255);
+  const luma = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
+  return `#${luma.toString(16).padStart(2, '0').repeat(3)}`;
+}
+
+/**
+ * The Stadium. A backdrop, so it recedes: greys mixed from the chrome's Concrete
+ * and Steel, none brighter than the darkest mowing stripe, so team colours and
+ * chalk stay the brightest things on screen (#136). The ceiling sits 15% under
+ * the stripe's paint: the turf is lit and sinks below its paint between the
+ * pools, while the unlit Stadium shows as painted (#138). It is unlit, so its shading
+ * is baked in: each row of seats is lit over the shadow at its foot, which is
+ * what reads as rows from a broadcast angle, and the deck darkens towards the back.
  */
 export const standColours = {
-  /** The floor outside the boundary, under the stands. */
-  apron: shade(palette.concrete, 0.45),
-  /** Seat rows inner to outer. */
-  seats: Array.from({ length: SEAT_STEPS }, (_, i) =>
-    mixHex(shade(palette.concrete, 0.75), palette.steel, i / (SEAT_STEPS - 1)),
-  ),
-  /** The step between tiers. */
-  riser: shade(palette.concrete, 0.3),
+  /** The concrete floor from the Boundary out, under the stand. */
+  apron: grey(shade(palette.concrete, 0.6)),
+  /** The low fence round the apron. */
+  fence: grey(palette.concrete),
+  /** The wall below the front row. */
+  frontWall: grey(shade(palette.concrete, 0.75)),
+  /** A row's seats. */
+  seat: grey(mixHex(palette.concrete, palette.steel, 0.25)),
+  /** The shadow at the foot of each row, cast by the row behind. */
+  rowShadow: grey(shade(palette.concrete, 0.55)),
+  /** How much of its brightness the top row keeps against the front row. */
+  backShade: 0.6,
 };
+
+/**
+ * The crowd on the deck: no club colours and no hue, only Concrete and Steel
+ * with a little Chalk (#136). Shirts run from near black up to the ceiling, so
+ * the people read as speckle against each other; faces carry the touch of
+ * Chalk and are the brightest thing in a row, still under the darkest stripe.
+ */
+export const crowdColours = {
+  shirts: [
+    grey(shade(palette.concrete, 0.55)),
+    grey(shade(palette.concrete, 0.8)),
+    grey(palette.concrete),
+    grey(mixHex(palette.concrete, palette.steel, 0.1)),
+    grey(mixHex(palette.concrete, palette.steel, 0.2)),
+  ],
+  /** A face, then a cap or dark hair. */
+  heads: [grey(mixHex(palette.concrete, palette.chalk, 0.035)), grey(shade(palette.concrete, 0.7))],
+};
+
+/** One spectator: what they wear, and how they sit in their seat. */
+export interface Spectator {
+  shirt: string;
+  head: string;
+  /** Leaning off the middle of the seat, -1 to 1. */
+  sway: number;
+  /** How tall they sit, 0 to 1. */
+  stature: number;
+}
+
+/**
+ * One tile of the crowd, tiled across the deck in metres so it is as dense at
+ * every ground. Several rows deep and many seats wide, so neither the rows nor
+ * the seats line up into stripes round the ground.
+ */
+export interface CrowdTile {
+  /** Metres of row each seat takes. */
+  seatWidth: number;
+  seatsPerRow: number;
+  rows: number;
+  /** Row by row from the front; `null` is an empty seat. */
+  seats: (Spectator | null)[][];
+}
+
+const SEAT_WIDTH = 0.5;
+/** 32 m round the deck and 16 rows up it, so the tile's repeat is hard to spot. */
+const SEATS_PER_ROW = 64;
+const CROWD_ROWS = 16;
+/** Seats and rows to a patch of the crowd, the scale it is blotchy at. */
+const PATCH_SEATS = 8;
+const PATCH_ROWS = 4;
+/** The share of seats left empty, on average. */
+const EMPTY_SEATS = 0.1;
+
+/** A small seeded generator, so the crowd is the same on every load and device. */
+function seeded(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * The crowd's tile. A crowd is blotchy: patches a few metres across, spanning
+ * several rows, run darker or lighter and thinner or fuller, which is what reads
+ * as people from a broadcast angle and breaks the rows' rings. Within a patch no
+ * three neighbours share a shirt, so a row never reads as one band up close.
+ * The patches wrap at the tile's edges, so the tiling leaves no seam.
+ */
+export function crowdTile(): CrowdTile {
+  const random = seeded(136);
+  const { shirts, heads } = crowdColours;
+  const across = SEATS_PER_ROW / PATCH_SEATS;
+  const up = CROWD_ROWS / PATCH_ROWS;
+  const patches = Array.from({ length: up }, () => Array.from({ length: across }, () => random()));
+  /** How light the crowd runs at a seat, 0 to 1: the patches, blended smoothly. */
+  const patch = (r: number, s: number) => {
+    const u = s / PATCH_SEATS;
+    const v = r / PATCH_ROWS;
+    const [i, j] = [Math.floor(u), Math.floor(v)];
+    const [fu, fv] = [u - i, v - j];
+    const at = (jj: number, ii: number) => patches[jj % up][ii % across];
+    const lower = at(j, i) * (1 - fu) + at(j, i + 1) * fu;
+    const upper = at(j + 1, i) * (1 - fu) + at(j + 1, i + 1) * fu;
+    return lower * (1 - fv) + upper * fv;
+  };
+
+  const seats: (Spectator | null)[][] = [];
+  for (let r = 0; r < CROWD_ROWS; r++) {
+    const row: (Spectator | null)[] = [];
+    for (let s = 0; s < SEATS_PER_ROW; s++) {
+      const light = patch(r, s);
+      // Gaps open up in the thin, light patches.
+      if (random() < EMPTY_SEATS * 2 * light) {
+        row.push(null);
+        continue;
+      }
+      // A shirt from the patch's end of the wardrobe, one shade either side.
+      const centre = Math.round(light * (shirts.length - 1));
+      const pick = () => shirts[Math.min(shirts.length - 1, Math.max(0, centre + Math.floor(random() * 3) - 1))];
+      const [a, b] = [row[s - 1], row[s - 2]];
+      let shirt = pick();
+      while (a && b && a.shirt === shirt && b.shirt === shirt) shirt = pick();
+      row.push({
+        shirt,
+        head: random() < 0.75 ? heads[0] : heads[1],
+        sway: random() * 2 - 1,
+        stature: random(),
+      });
+    }
+    seats.push(row);
+  }
+  return { seatWidth: SEAT_WIDTH, seatsPerRow: SEATS_PER_ROW, rows: CROWD_ROWS, seats };
+}
 
 /** The sky dome: a night sky, darkest overhead, with the towers' lamps in it. */
 export const skyColours = {

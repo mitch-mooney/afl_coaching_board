@@ -1,10 +1,11 @@
 // @ts-nocheck - Disable TypeScript checks for this file due to Three.js JSX primitive type issues
 import { useRef, useMemo, useEffect } from 'react';
-import { Mesh, BufferGeometry, LineBasicMaterial, Float32BufferAttribute, Line as ThreeLine, CanvasTexture, RepeatWrapping, Shape, Path, ShapeGeometry, Object3D } from 'three';
+import { Mesh, BufferGeometry, LineBasicMaterial, Float32BufferAttribute, Line as ThreeLine, CanvasTexture, RepeatWrapping, Object3D } from 'three';
 import { FIELD_MARKINGS } from '../../models/FieldModel';
 import { type Boundary, type FieldPoint, boundaryPoints, fiftyMetreArcPoints } from '../../utils/fieldGeometry';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
-import { BLUE_DOT, chalk, nightFill, skyColours, standColours, towerLights, turfStripes } from './nightGround';
+import { BLUE_DOT, backdropOrder, chalk, nightFill, skyColours, towerLights, turfStripes } from './nightGround';
+import { Stadium } from './Stadium';
 
 // Helper component to avoid TypeScript JSX issues with lowercase 'line'
 interface FieldLineProps {
@@ -48,90 +49,6 @@ function FieldLine({ points, color = chalk, linewidth = 1, position = [0, 0, 0] 
   }, [lineObject]);
 
   return <primitive object={lineObject} position={position} />;
-}
-
-/**
- * Elliptical grandstand bowl around the field boundary.
- * Each tier has a wide seat surface + a narrow dark riser divider, creating the
- * alternating light/dark band pattern of real stadium seating. The colours are
- * the night ground's `standColours`.
- * Sized off the ground's Boundary, so the bowl hugs whichever Venue is active.
- */
-
-/** Metres of clearance between the boundary and the first row of seats. */
-const STAND_CLEARANCE_X = 7.5;
-const STAND_CLEARANCE_Z = 6.5;
-
-function StadiumStands({ boundary }: { boundary: Boundary }) {
-  const items = useMemo(() => {
-    const result: { geo: ShapeGeometry; y: number; color: string }[] = [];
-
-    // Large dark floor covering everything outside the field boundary — eliminates green bleed.
-    // The inner hole is the boundary ellipse *exactly*: this apron and snapToField are the same
-    // edge, so an entity clamped to the boundary lands on the line rather than half a metre
-    // past the paint. The hole used to be hardcoded 0.5 m tighter, which is what hid
-    // FieldBoundary's white line underneath it.
-    const apronShape = new Shape();
-    apronShape.absellipse(0, 0, 350, 300, 0, Math.PI * 2, false, 0);
-    const apronHole = new Path();
-    apronHole.absellipse(0, 0, boundary.semiX, boundary.semiZ, 0, Math.PI * 2, true, 0);
-    apronShape.holes.push(apronHole);
-    result.push({ geo: new ShapeGeometry(apronShape, 64), y: 0.05, color: standColours.apron });
-
-    const TIERS = 8;
-    const GRAD = standColours.seats.length;
-    const SEAT_DEPTH = 9;
-    const RISER_DEPTH = 2;
-    const STEP = SEAT_DEPTH + RISER_DEPTH;
-    const stripDepthA = SEAT_DEPTH / GRAD;
-    const stripDepthB = (SEAT_DEPTH * 0.82) / GRAD;
-
-    for (let i = 0; i < TIERS; i++) {
-      const tY = 0.3 + i * 3.6;
-      const seatBaseA = boundary.semiX + STAND_CLEARANCE_X + i * STEP;
-      const seatBaseB = boundary.semiZ + STAND_CLEARANCE_Z + i * (STEP * 0.82);
-
-      // Seat area: GRAD sub-rings, each a step in the colour gradient
-      for (let g = 0; g < GRAD; g++) {
-        const innerA = seatBaseA + g * stripDepthA;
-        const innerB = seatBaseB + g * stripDepthB;
-        const outerA = innerA + stripDepthA;
-        const outerB = innerB + stripDepthB;
-
-        const color = standColours.seats[g];
-
-        const shape = new Shape();
-        shape.absellipse(0, 0, outerA, outerB, 0, Math.PI * 2, false, 0);
-        const hole = new Path();
-        hole.absellipse(0, 0, innerA, innerB, 0, Math.PI * 2, true, 0);
-        shape.holes.push(hole);
-        // Slight height ramp so rows look angled when viewed from the side
-        result.push({ geo: new ShapeGeometry(shape, 64), y: tY + g * 0.18, color });
-      }
-
-      // Dark riser — thin strip between tiers
-      const riserInnerA = seatBaseA + SEAT_DEPTH;
-      const riserInnerB = seatBaseB + SEAT_DEPTH * 0.82;
-      const riserShape = new Shape();
-      riserShape.absellipse(0, 0, riserInnerA + RISER_DEPTH, riserInnerB + RISER_DEPTH * 0.82, 0, Math.PI * 2, false, 0);
-      const riserHole = new Path();
-      riserHole.absellipse(0, 0, riserInnerA, riserInnerB, 0, Math.PI * 2, true, 0);
-      riserShape.holes.push(riserHole);
-      result.push({ geo: new ShapeGeometry(riserShape, 64), y: tY + SEAT_DEPTH * 0.18 + 0.4, color: standColours.riser });
-    }
-
-    return result;
-  }, [boundary]);
-
-  return (
-    <group>
-      {items.map((item, i) => (
-        <mesh key={i} geometry={item.geo} rotation={[-Math.PI / 2, 0, 0]} position={[0, item.y, 0]}>
-          <meshStandardMaterial color={item.color} />
-        </mesh>
-      ))}
-    </group>
-  );
 }
 
 /**
@@ -198,7 +115,7 @@ interface FieldProps {
 }
 
 /**
- * The ground, at a night game under lights: the turf, its markings, the stands
+ * The ground, at a night game under lights: the turf, its markings, the Stadium
  * and the towers that light it. Night is the only look, so the board and the
  * shared-link viewer render this same ground. Colours and lights come from
  * `nightGround`.
@@ -230,8 +147,8 @@ export function Field({ boundary: boundaryOverride }: FieldProps) {
 
   return (
     <group>
-      {/* Main field surface - oval shape */}
-      <mesh ref={fieldRef} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      {/* Main field surface - oval shape. Drawn before the Stadium's apron, which covers its corners */}
+      <mesh ref={fieldRef} rotation={[-Math.PI / 2, 0, 0]} receiveShadow renderOrder={backdropOrder.turf}>
         <planeGeometry args={[boundary.semiX * 2, boundary.semiZ * 2, 32, 32]} />
         <meshStandardMaterial map={stripeTexture} roughness={0.95} />
       </mesh>
@@ -266,8 +183,8 @@ export function Field({ boundary: boundaryOverride }: FieldProps) {
       {/* Field markings - boundary lines */}
       <FieldBoundary boundary={boundary} />
 
-      {/* Stadium seating bowl */}
-      <StadiumStands boundary={boundary} />
+      {/* The stand round the ground */}
+      <Stadium boundary={boundary} />
 
       {/* A low fill, so the grass between the towers' pools falls dark */}
       <hemisphereLight args={[nightFill.sky, nightFill.ground, nightFill.intensity]} />
