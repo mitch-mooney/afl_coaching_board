@@ -218,47 +218,26 @@ describe('the night ground', () => {
     ...crowdColours.heads,
   ];
 
-  /** HSL saturation, 0 for a grey to 1. */
-  function saturation(hex: string): number {
-    const c = channels(hex).map((v) => v / 255);
-    const max = Math.max(...c);
-    const min = Math.min(...c);
-    if (max === min) return 0;
-    const l = (max + min) / 2;
-    return (max - min) / (1 - Math.abs(2 * l - 1));
-  }
-
   it('keeps the sky darker than the lit turf, so the ground is what the light falls on', () => {
     for (const colour of [skyColours.zenith, skyColours.horizon, skyColours.below]) {
       expect(luminance(colour)).toBeLessThan(luminance(palette.turfLit));
     }
   });
 
-  it('draws the Stadium, crowd included, in greys no brighter and no more saturated than the darkest mowing stripe', () => {
-    // Team colours and chalk stay the brightest things on screen (#136).
-    const darkest = turfStripes.reduce((a, b) => (luminance(a) <= luminance(b) ? a : b));
+  it('draws the Stadium, crowd included, in greys no brighter than the lit turf', () => {
+    // Team colours and chalk stay the brightest things on screen; the crowd may
+    // reach the brightness of the grass in a light pool, never past it (#136).
     for (const colour of stadiumColours) {
       const [r, g, b] = channels(colour);
       expect(g).toBe(r);
       expect(b).toBe(r);
-      expect(luminance(colour)).toBeLessThanOrEqual(luminance(darkest));
-      expect(saturation(colour)).toBeLessThanOrEqual(saturation(darkest));
+      expect(luminance(colour)).toBeLessThanOrEqual(luminance(palette.turfLit));
     }
   });
 
-  it('keeps the Stadium a margin under the darkest stripe, for the turf that falls off between the pools', () => {
-    // The turf is lit, so on screen it sinks below its painted colour away from
-    // the towers: headless frames put the darkest stripe's 5th percentile ~12%
-    // under its paint. The Stadium is unlit and shows as painted, so it keeps
-    // 15% clear of the stripe to stay darker than the stripe on screen (#138).
-    const luma = (hex: string) => {
-      const [r, g, b] = channels(hex);
-      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    };
-    const darkest = Math.min(...turfStripes.map(luma));
-    for (const colour of stadiumColours) {
-      expect(luma(colour)).toBeLessThanOrEqual(0.85 * darkest);
-    }
+  it("lights the crowd's faces close to the lit turf, so the stand reads as people from Sideline", () => {
+    const faces = Math.max(...crowdColours.heads.map(luminance));
+    expect(faces).toBeGreaterThanOrEqual(0.85 * luminance(palette.turfLit));
   });
 
   it('dresses the crowd in shades far enough apart to read as people, not as a grey band', () => {

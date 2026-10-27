@@ -204,7 +204,7 @@ export function Stadium({ boundary }: { boundary: Boundary }) {
   useEffect(() => () => deck.dispose(), [deck]);
 
   // Not tone mapped: the Stadium's greys are its colours on screen, so the
-  // ceiling under the darkest mowing stripe holds where the coach sees it.
+  // ceiling at the lit turf holds where the coach sees it.
   // No depth written: board content drawn after it draws over it (#139).
   const materials = useMemo(() => {
     const map = crowdTexture(shape.rowDepth);
