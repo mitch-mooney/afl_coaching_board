@@ -245,6 +245,21 @@ describe('the night ground', () => {
     }
   });
 
+  it('keeps the Stadium a margin under the darkest stripe, for the turf that falls off between the pools', () => {
+    // The turf is lit, so on screen it sinks below its painted colour away from
+    // the towers: headless frames put the darkest stripe's 5th percentile ~12%
+    // under its paint. The Stadium is unlit and shows as painted, so it keeps
+    // 15% clear of the stripe to stay darker than the stripe on screen (#138).
+    const luma = (hex: string) => {
+      const [r, g, b] = channels(hex);
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const darkest = Math.min(...turfStripes.map(luma));
+    for (const colour of stadiumColours) {
+      expect(luma(colour)).toBeLessThanOrEqual(0.85 * darkest);
+    }
+  });
+
   it('dresses the crowd in shades far enough apart to read as people, not as a grey band', () => {
     const shades = new Set(crowdColours.shirts.map((c) => channels(c)[0]));
     expect(shades.size).toBeGreaterThanOrEqual(4);
