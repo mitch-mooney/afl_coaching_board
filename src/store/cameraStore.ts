@@ -49,7 +49,8 @@ interface CameraState {
   ) => void;
 }
 
-const DEFAULT_CAMERA_POSITION: [number, number, number] = [0, 100, 150];
+/** Broadcast: where the camera starts, and where Reset camera puts it back. */
+export const DEFAULT_CAMERA_POSITION: [number, number, number] = [0, 100, 150];
 const DEFAULT_TARGET: [number, number, number] = [0, 0, 0];
 const DEFAULT_ZOOM = 1;
 
