@@ -254,6 +254,122 @@ export const standColours = {
   backShade: 0.6,
 };
 
+/**
+ * The crowd on the deck: no club colours and no hue, only Concrete and Steel
+ * with a little Chalk (#136). Shirts run from near black up to the ceiling, so
+ * the people read as speckle against each other; faces carry the touch of
+ * Chalk and are the brightest thing in a row, still under the darkest stripe.
+ */
+export const crowdColours = {
+  shirts: [
+    grey(shade(palette.concrete, 0.55)),
+    grey(shade(palette.concrete, 0.8)),
+    grey(palette.concrete),
+    grey(mixHex(palette.concrete, palette.steel, 0.35)),
+    grey(mixHex(palette.concrete, palette.steel, 0.55)),
+  ],
+  /** A face, then a cap or dark hair. */
+  heads: [grey(mixHex(palette.concrete, palette.chalk, 0.075)), grey(shade(palette.concrete, 0.7))],
+};
+
+/** One spectator: what they wear, and how they sit in their seat. */
+export interface Spectator {
+  shirt: string;
+  head: string;
+  /** Leaning off the middle of the seat, -1 to 1. */
+  sway: number;
+  /** How tall they sit, 0 to 1. */
+  stature: number;
+}
+
+/**
+ * One tile of the crowd, tiled across the deck in metres so it is as dense at
+ * every ground. Several rows deep and many seats wide, so neither the rows nor
+ * the seats line up into stripes round the ground.
+ */
+export interface CrowdTile {
+  /** Metres of row each seat takes. */
+  seatWidth: number;
+  seatsPerRow: number;
+  rows: number;
+  /** Row by row from the front; `null` is an empty seat. */
+  seats: (Spectator | null)[][];
+}
+
+const SEAT_WIDTH = 0.5;
+/** 32 m round the deck and 16 rows up it, so the tile's repeat is hard to spot. */
+const SEATS_PER_ROW = 64;
+const CROWD_ROWS = 16;
+/** Seats and rows to a patch of the crowd, the scale it is blotchy at. */
+const PATCH_SEATS = 8;
+const PATCH_ROWS = 4;
+/** The share of seats left empty, on average. */
+const EMPTY_SEATS = 0.1;
+
+/** A small seeded generator, so the crowd is the same on every load and device. */
+function seeded(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * The crowd's tile. A crowd is blotchy: patches a few metres across, spanning
+ * several rows, run darker or lighter and thinner or fuller, which is what reads
+ * as people from a broadcast angle and breaks the rows' rings. Within a patch no
+ * three neighbours share a shirt, so a row never reads as one band up close.
+ * The patches wrap at the tile's edges, so the tiling leaves no seam.
+ */
+export function crowdTile(): CrowdTile {
+  const random = seeded(136);
+  const { shirts, heads } = crowdColours;
+  const across = SEATS_PER_ROW / PATCH_SEATS;
+  const up = CROWD_ROWS / PATCH_ROWS;
+  const patches = Array.from({ length: up }, () => Array.from({ length: across }, () => random()));
+  /** How light the crowd runs at a seat, 0 to 1: the patches, blended smoothly. */
+  const patch = (r: number, s: number) => {
+    const u = s / PATCH_SEATS;
+    const v = r / PATCH_ROWS;
+    const [i, j] = [Math.floor(u), Math.floor(v)];
+    const [fu, fv] = [u - i, v - j];
+    const at = (jj: number, ii: number) => patches[jj % up][ii % across];
+    const lower = at(j, i) * (1 - fu) + at(j, i + 1) * fu;
+    const upper = at(j + 1, i) * (1 - fu) + at(j + 1, i + 1) * fu;
+    return lower * (1 - fv) + upper * fv;
+  };
+
+  const seats: (Spectator | null)[][] = [];
+  for (let r = 0; r < CROWD_ROWS; r++) {
+    const row: (Spectator | null)[] = [];
+    for (let s = 0; s < SEATS_PER_ROW; s++) {
+      const light = patch(r, s);
+      // Gaps open up in the thin, light patches.
+      if (random() < EMPTY_SEATS * 2 * light) {
+        row.push(null);
+        continue;
+      }
+      // A shirt from the patch's end of the wardrobe, one shade either side.
+      const centre = Math.round(light * (shirts.length - 1));
+      const pick = () => shirts[Math.min(shirts.length - 1, Math.max(0, centre + Math.floor(random() * 3) - 1))];
+      const [a, b] = [row[s - 1], row[s - 2]];
+      let shirt = pick();
+      while (a && b && a.shirt === shirt && b.shirt === shirt) shirt = pick();
+      row.push({
+        shirt,
+        head: random() < 0.75 ? heads[0] : heads[1],
+        sway: random() * 2 - 1,
+        stature: random(),
+      });
+    }
+    seats.push(row);
+  }
+  return { seatWidth: SEAT_WIDTH, seatsPerRow: SEATS_PER_ROW, rows: CROWD_ROWS, seats };
+}
+
 /** The sky dome: a night sky, darkest overhead, with the towers' lamps in it. */
 export const skyColours = {
   zenith: shade(palette.concrete, 0.12),
