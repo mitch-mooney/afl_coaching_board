@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { FIELD_MARKINGS } from '../../../models/FieldModel';
 import { palette } from '../../../theme/tokens';
-import { boundaryOf } from '../../../utils/fieldGeometry';
+import { DEFAULT_CAMERA_POSITION } from '../../../store/cameraStore';
+import { presetCameraPose } from '../../../utils/cameraMath';
+import { type Boundary, boundaryOf, boundaryPoints } from '../../../utils/fieldGeometry';
 import {
   fogColour,
   nightFill,
   skyColours,
+  stadiumRing,
+  stadiumShape,
   standColours,
   towerLights,
   turfStripes,
+  type StadiumShape,
   type TowerLight,
 } from '../nightGround';
 
@@ -199,27 +204,144 @@ describe('the night ground', () => {
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   }
 
-  it('keeps the stands and the sky darker than the lit turf, so the ground is what the light falls on', () => {
-    const bowl = [
-      standColours.apron,
-      standColours.riser,
-      ...standColours.seats,
-      skyColours.zenith,
-      skyColours.horizon,
-      skyColours.below,
-    ];
-    for (const colour of bowl) {
+  /** Every colour the Stadium is drawn in. */
+  const stadiumColours = [
+    standColours.apron,
+    standColours.fence,
+    standColours.frontWall,
+    standColours.seat,
+    standColours.rowShadow,
+  ];
+
+  it('keeps the sky darker than the lit turf, so the ground is what the light falls on', () => {
+    for (const colour of [skyColours.zenith, skyColours.horizon, skyColours.below]) {
       expect(luminance(colour)).toBeLessThan(luminance(palette.turfLit));
     }
   });
 
-  it('bands the seats from dark to light within a tier, and keeps the risers darkest', () => {
-    const seats = standColours.seats.map(luminance);
-    seats.slice(1).forEach((l, i) => expect(l).toBeGreaterThan(seats[i]));
-    expect(luminance(standColours.riser)).toBeLessThan(seats[0]);
+  it('draws the Stadium in greys no brighter than the darkest mowing stripe', () => {
+    // Team colours and chalk stay the brightest things on screen (#136).
+    const darkestStripe = Math.min(...turfStripes.map(luminance));
+    for (const colour of stadiumColours) {
+      const [r, g, b] = channels(colour);
+      expect(g).toBe(r);
+      expect(b).toBe(r);
+      expect(luminance(colour)).toBeLessThanOrEqual(darkestStripe);
+    }
+  });
+
+  it('bands each row of seats light over the shadow at its foot, and darkens towards the back', () => {
+    expect(luminance(standColours.seat)).toBeGreaterThan(luminance(standColours.rowShadow));
+    expect(standColours.backShade).toBeGreaterThan(0);
+    expect(standColours.backShade).toBeLessThan(1);
   });
 
   it('fades the distance into the sky at the horizon, with no seam', () => {
     expect(fogColour).toBe(skyColours.horizon);
   });
+
+  // The Stadium is fitted to every ground in the plausible range, not just the
+  // Standard one: these are its corners (#136).
+  const grounds = [
+    standard,
+    boundaryOf({ boundaryLength: 120, boundaryWidth: 90 }),
+    boundaryOf({ boundaryLength: 120, boundaryWidth: 170 }),
+    boundaryOf({ boundaryLength: 200, boundaryWidth: 90 }),
+    boundaryOf({ boundaryLength: 200, boundaryWidth: 170 }),
+  ];
+
+  it('stands the front row at the same setback outside the Boundary at every ground, past the fence', () => {
+    const setbacks = grounds.map((boundary) => stadiumShape(boundary).frontRow.setback);
+    expect(new Set(setbacks).size).toBe(1);
+    const [setback] = setbacks;
+    expect(setback).toBeGreaterThanOrEqual(8);
+    expect(setback).toBeLessThanOrEqual(10);
+    for (const boundary of grounds) {
+      const { fence, frontRow } = stadiumShape(boundary);
+      expect(fence.setback).toBeGreaterThan(0);
+      expect(fence.setback).toBeLessThan(frontRow.setback);
+    }
+  });
+
+  /** How far outside the Boundary (x, z) lies, as a Stadium setback; negative inside it. */
+  function setbackOf(boundary: Boundary, x: number, z: number): number {
+    const outside = (setback: number) => {
+      const { semiX, semiZ } = stadiumRing(boundary, setback);
+      return (x / semiX) ** 2 + (z / semiZ) ** 2 > 1;
+    };
+    if (!outside(0)) return -1;
+    let lo = 0;
+    let hi = 1000;
+    for (let i = 0; i < 50; i++) {
+      const mid = (lo + hi) / 2;
+      if (outside(mid)) lo = mid;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  /** How high the Stadium stands at a setback: the fence, then the front wall and the raked deck. */
+  function standHeight({ fence, frontRow, topRow }: StadiumShape, setback: number): number {
+    if (setback < fence.setback || setback > topRow.setback) return 0;
+    if (setback < frontRow.setback) return fence.height;
+    const t = (setback - frontRow.setback) / (topRow.setback - frontRow.setback);
+    return frontRow.height + t * (topRow.height - frontRow.height);
+  }
+
+  it('keeps the whole near boundary in sight over the stand, from every preset, at every ground', () => {
+    // The stand is a backdrop: no preset may lose a blade of the field to it.
+    // Every point on the boundary is checked, not just the one straight ahead,
+    // since a line of sight crossing the stand at a slant is the shallow one.
+    const MARGIN = 1;
+    for (const boundary of grounds) {
+      const shape = stadiumShape(boundary);
+      const cameras = [
+        presetCameraPose('sideline', boundary).position,
+        presetCameraPose('end-to-end', boundary).position,
+        DEFAULT_CAMERA_POSITION,
+      ];
+      for (const camera of cameras) {
+        for (const [bx, bz] of boundaryPoints(boundary, 128)) {
+          for (let i = 1; i < 400; i++) {
+            const t = i / 400;
+            const x = bx + (camera[0] - bx) * t;
+            const y = camera[1] * t;
+            const z = bz + (camera[2] - bz) * t;
+            const setback = setbackOf(boundary, x, z);
+            if (setback < shape.fence.setback) continue;
+            expect(y - standHeight(shape, setback)).toBeGreaterThan(MARGIN);
+          }
+        }
+      }
+    }
+  });
+
+  it("rises to the top row from the front row along the deck's rake", () => {
+    for (const boundary of grounds) {
+      const { frontRow, topRow, deckDepth, rake } = stadiumShape(boundary);
+      expect(topRow.setback - frontRow.setback).toBe(deckDepth);
+      expect(Math.tan(rake) * deckDepth).toBeCloseTo(topRow.height - frontRow.height, 9);
+      expect(topRow.height).toBeGreaterThan(frontRow.height);
+    }
+  });
+
+  it('lights the field from the towers exactly as it was tuned (#107)', () => {
+    // Captured from towerLights before the Stadium was built round the towers.
+    expect(towerLights(standard)).toEqual(TOWERS_AT_STANDARD);
+    expect(towerLights(boundaryOf({ boundaryLength: 200, boundaryWidth: 170 }))).toEqual(TOWERS_AT_200_BY_170);
+  });
 });
+
+const TOWERS_AT_STANDARD = [
+  { position: [-104.5, 65, -89.5], target: [-49.5, 0, -33.75], intensity: 37976.57383464596, angle: 0.6160606128106922, penumbra: 0.6, castShadow: true },
+  { position: [104.5, 65, 89.5], target: [49.5, 0, 33.75], intensity: 37976.57383464596, angle: 0.6160606128106922, penumbra: 0.6, castShadow: true },
+  { position: [104.5, 65, -89.5], target: [49.5, 0, -33.75], intensity: 37976.57383464596, angle: 0.6160606128106922, penumbra: 0.6, castShadow: false },
+  { position: [-104.5, 65, 89.5], target: [-49.5, 0, 33.75], intensity: 37976.57383464596, angle: 0.6160606128106922, penumbra: 0.6, castShadow: false },
+];
+
+const TOWERS_AT_200_BY_170 = [
+  { position: [-122, 65, -107], target: [-60, 0, -42.5], intensity: 48718.92817415883, angle: 0.6745354079198873, penumbra: 0.6, castShadow: true },
+  { position: [122, 65, 107], target: [60, 0, 42.5], intensity: 48718.92817415883, angle: 0.6745354079198873, penumbra: 0.6, castShadow: true },
+  { position: [122, 65, -107], target: [60, 0, -42.5], intensity: 48718.92817415883, angle: 0.6745354079198873, penumbra: 0.6, castShadow: false },
+  { position: [-122, 65, 107], target: [-60, 0, 42.5], intensity: 48718.92817415883, angle: 0.6745354079198873, penumbra: 0.6, castShadow: false },
+];
