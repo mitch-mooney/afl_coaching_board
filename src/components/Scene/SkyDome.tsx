@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { BackSide, CanvasTexture } from 'three';
 import { withAlpha } from '../../theme/tokens';
-import { skyColours } from './nightGround';
+import { backdropOrder, skyColours } from './nightGround';
 
 /**
  * Paints the night sky onto a canvas. The texture wraps the interior of the
@@ -58,7 +58,7 @@ export function SkyDome() {
   }, []);
 
   return (
-    <mesh renderOrder={-1}>
+    <mesh renderOrder={backdropOrder.sky}>
       <sphereGeometry args={[800, 48, 24]} />
       <meshBasicMaterial map={texture} side={BackSide} depthWrite={false} />
     </mesh>
