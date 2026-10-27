@@ -194,6 +194,21 @@ extend this file rather than inventing parallel names.
   Venue's Boundary dimensions. This is what "inside the ground" is measured against — one
   ellipse, shared by the painted boundary line, clamping, zone lookup, and thumbnails.
 
+- **Stadium** — everything built outside the Boundary: the stands and the crowd in them.
+  There is one generic stadium, shaped by the Active Venue's Boundary and nothing else, so a
+  Venue stays a name plus its Boundary dimensions and two grounds differ only in size.
+  Scenery: it carries no information and never competes with the board (issue #112).
+  The crowd is the surface of raked seating, not individual spectators. The stadium never
+  hides any part of the field from a preset view, and a camera behind or inside a stand
+  sees through it rather than being blocked. It is the same all the way round. Board content
+  is never hidden by it: an out-of-bounds player standing where the seats are draws in front
+  of them, so the stadium is a backdrop to the board, never part of it. The crowd is neutral
+  and dark, never in club colours, and nothing in the stadium is brighter or more saturated
+  than the darkest mowing stripe, so team colours and chalk stay the brightest things on
+  screen. The scoreboard is not scenery: it stands above the back of the far-wing stand and,
+  like board content, is never hidden by the stadium.
+  _Avoid_: bowl, surround.
+
 - **Standard ground** — the seeded, un-deletable Venue at 165 × 135 m. It is a generic
   ground, not a measured one, and exists so that **there is always an Active Venue** —
   the same role `"My Plays"` plays for Playbooks, including as the fallback when the active
