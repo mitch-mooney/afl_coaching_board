@@ -5,6 +5,7 @@ import { DEFAULT_CAMERA_POSITION } from '../../../store/cameraStore';
 import { presetCameraPose } from '../../../utils/cameraMath';
 import { type Boundary, boundaryOf, boundaryPoints } from '../../../utils/fieldGeometry';
 import {
+  backdropOrder,
   fogColour,
   nightFill,
   skyColours,
@@ -362,6 +363,18 @@ describe('the night ground', () => {
         }
       }
     }
+  });
+
+  it('draws the backdrop before board content, the Stadium last of it, so content stands in front of the seats', () => {
+    // Board content draws at three's default order, 0. The Stadium writes no
+    // depth, so whatever draws after it draws over it (#139).
+    for (const order of Object.values(backdropOrder)) expect(order).toBeLessThan(0);
+    // Before the Stadium: the sky, which writes no depth either, and the turf,
+    // whose corners outside the Boundary the apron has to cover.
+    expect(backdropOrder.sky).toBeLessThan(backdropOrder.apron);
+    expect(backdropOrder.turf).toBeLessThan(backdropOrder.apron);
+    // The deck rises over the apron behind the front wall.
+    expect(backdropOrder.apron).toBeLessThan(backdropOrder.deck);
   });
 
   it('lights the field from the towers exactly as it was tuned (#107)', () => {

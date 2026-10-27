@@ -4,7 +4,7 @@ import { Mesh, BufferGeometry, LineBasicMaterial, Float32BufferAttribute, Line a
 import { FIELD_MARKINGS } from '../../models/FieldModel';
 import { type Boundary, type FieldPoint, boundaryPoints, fiftyMetreArcPoints } from '../../utils/fieldGeometry';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
-import { BLUE_DOT, chalk, nightFill, skyColours, towerLights, turfStripes } from './nightGround';
+import { BLUE_DOT, backdropOrder, chalk, nightFill, skyColours, towerLights, turfStripes } from './nightGround';
 import { Stadium } from './Stadium';
 
 // Helper component to avoid TypeScript JSX issues with lowercase 'line'
@@ -147,8 +147,8 @@ export function Field({ boundary: boundaryOverride }: FieldProps) {
 
   return (
     <group>
-      {/* Main field surface - oval shape */}
-      <mesh ref={fieldRef} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      {/* Main field surface - oval shape. Drawn before the Stadium's apron, which covers its corners */}
+      <mesh ref={fieldRef} rotation={[-Math.PI / 2, 0, 0]} receiveShadow renderOrder={backdropOrder.turf}>
         <planeGeometry args={[boundary.semiX * 2, boundary.semiZ * 2, 32, 32]} />
         <meshStandardMaterial map={stripeTexture} roughness={0.95} />
       </mesh>

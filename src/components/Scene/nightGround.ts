@@ -252,6 +252,23 @@ export function stadiumShape(boundary: Ring): StadiumShape {
   };
 }
 
+/**
+ * The order the backdrop draws in. Board content (players, tokens, the ball,
+ * cones, paths, annotations, labels) draws after it, at three's default of 0.
+ *
+ * The Stadium writes no depth, so anything drawn after it draws over it: an
+ * out-of-bounds player standing where the seats are stays in plain sight (#139).
+ * The sky writes none either, so it goes first. The turf goes before the apron,
+ * which covers the corners of the turf's plane outside the Boundary. The apron,
+ * with its fence and front wall, goes before the deck that rises over it.
+ */
+export const backdropOrder = {
+  sky: -4,
+  turf: -3,
+  apron: -2,
+  deck: -1,
+} as const;
+
 /** The ring `setback` metres outside the Boundary: the Boundary grown along both semi-axes. */
 export function stadiumRing(boundary: Ring, setback: number): Ring {
   return { semiX: boundary.semiX + setback, semiZ: boundary.semiZ + setback };
