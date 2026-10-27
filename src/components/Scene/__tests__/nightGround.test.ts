@@ -5,6 +5,7 @@ import { DEFAULT_CAMERA_POSITION } from '../../../store/cameraStore';
 import { presetCameraPose } from '../../../utils/cameraMath';
 import { type Boundary, boundaryOf, boundaryPoints } from '../../../utils/fieldGeometry';
 import {
+  backdropOrder,
   crowdColours,
   crowdTile,
   fogColour,
@@ -391,6 +392,57 @@ describe('the night ground', () => {
       expect(Math.tan(rake) * deckDepth).toBeCloseTo(topRow.height - frontRow.height, 9);
       expect(topRow.height).toBeGreaterThan(frontRow.height);
     }
+  });
+
+  it('stands the scoreboard behind the far-wing stand, centred on the wing and facing Sideline', () => {
+    for (const boundary of grounds) {
+      const { scoreboard, topRow } = stadiumShape(boundary);
+      const [x, , z] = scoreboard.position;
+      expect(x).toBe(0);
+      // The far wing is the one away from the Sideline camera, past the top row.
+      const [, , cameraZ] = presetCameraPose('sideline', boundary).position;
+      expect(Math.sign(z)).toBe(-Math.sign(cameraZ));
+      expect(setbackOf(boundary, x, z)).toBeGreaterThan(topRow.setback);
+      // Its face points straight at the Sideline camera along the ground.
+      const facing = [Math.sin(scoreboard.rotationY), Math.cos(scoreboard.rotationY)];
+      const toCamera = [0 - x, cameraZ - z];
+      const length = Math.hypot(...toCamera);
+      expect(facing[0] * toCamera[0] / length + facing[1] * toCamera[1] / length).toBeCloseTo(1, 9);
+    }
+  });
+
+  it('shows the whole scoreboard over the far stand from Sideline, at every ground', () => {
+    // Information, not scenery: no stand may cover any of it (#140).
+    const MARGIN = 1;
+    for (const boundary of grounds) {
+      const shape = stadiumShape(boundary);
+      const { position: [cx, cy, cz], width, height } = shape.scoreboard;
+      expect(cy - height / 2).toBeGreaterThan(shape.topRow.height + MARGIN);
+      const camera = presetCameraPose('sideline', boundary).position;
+      for (const [px, py] of [[cx - width / 2, cy - height / 2], [cx, cy - height / 2], [cx + width / 2, cy - height / 2]]) {
+        for (let i = 1; i < 400; i++) {
+          const t = i / 400;
+          const x = px + (camera[0] - px) * t;
+          const y = py + (camera[1] - py) * t;
+          const z = cz + (camera[2] - cz) * t;
+          const setback = setbackOf(boundary, x, z);
+          if (setback < shape.fence.setback) continue;
+          expect(y - standHeight(shape, setback)).toBeGreaterThan(MARGIN);
+        }
+      }
+    }
+  });
+
+  it('draws the backdrop before board content, the Stadium last of it, so content stands in front of the seats', () => {
+    // Board content draws at three's default order, 0. The Stadium writes no
+    // depth, so whatever draws after it draws over it (#139).
+    for (const order of Object.values(backdropOrder)) expect(order).toBeLessThan(0);
+    // Before the Stadium: the sky, which writes no depth either, and the turf,
+    // whose corners outside the Boundary the apron has to cover.
+    expect(backdropOrder.sky).toBeLessThan(backdropOrder.apron);
+    expect(backdropOrder.turf).toBeLessThan(backdropOrder.apron);
+    // The deck rises over the apron behind the front wall.
+    expect(backdropOrder.apron).toBeLessThan(backdropOrder.deck);
   });
 
   it('lights the field from the towers exactly as it was tuned (#107)', () => {

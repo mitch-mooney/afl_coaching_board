@@ -9,7 +9,7 @@ import {
   SRGBColorSpace,
 } from 'three';
 import type { Boundary } from '../../utils/fieldGeometry';
-import { type StadiumShape, crowdTile, stadiumRing, stadiumShape, standColours } from './nightGround';
+import { type StadiumShape, backdropOrder, crowdTile, stadiumRing, stadiumShape, standColours } from './nightGround';
 
 /** Segments round each ring of the Stadium. */
 const SEGMENTS = 128;
@@ -205,11 +205,12 @@ export function Stadium({ boundary }: { boundary: Boundary }) {
 
   // Not tone mapped: the Stadium's greys are its colours on screen, so the
   // ceiling under the darkest mowing stripe holds where the coach sees it.
+  // No depth written: board content drawn after it draws over it (#139).
   const materials = useMemo(() => {
     const map = crowdTexture(shape.rowDepth);
     return {
-      surround: new MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
-      deck: new MeshBasicMaterial({ vertexColors: true, map, toneMapped: false }),
+      surround: new MeshBasicMaterial({ vertexColors: true, toneMapped: false, depthWrite: false }),
+      deck: new MeshBasicMaterial({ vertexColors: true, map, toneMapped: false, depthWrite: false }),
     };
   }, [shape.rowDepth]);
   useEffect(
@@ -223,8 +224,9 @@ export function Stadium({ boundary }: { boundary: Boundary }) {
 
   return (
     <group name="Stadium">
-      <mesh geometry={surround} material={materials.surround} />
-      <mesh geometry={deck} material={materials.deck} />
+      {/* Never picked: a tap over the stand is a tap outside the field. */}
+      <mesh geometry={surround} material={materials.surround} renderOrder={backdropOrder.apron} raycast={() => null} />
+      <mesh geometry={deck} material={materials.deck} renderOrder={backdropOrder.deck} raycast={() => null} />
     </group>
   );
 }

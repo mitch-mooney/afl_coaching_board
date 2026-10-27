@@ -187,6 +187,20 @@ export interface StadiumShape {
   rake: number;
   /** Metres of deck each row of seats takes, along the ground. */
   rowDepth: number;
+  /** Where the scoreboard stands: above the back of the far-wing stand, facing Sideline. */
+  scoreboard: ScoreboardPose;
+}
+
+/** The scoreboard's panel, as the Stadium places it. */
+export interface ScoreboardPose {
+  /** The middle of the panel. */
+  position: Vec3;
+  /** Turn about the vertical, in radians: 0 faces +z, towards the Sideline camera. */
+  rotationY: number;
+  /** Metres across the panel. */
+  width: number;
+  /** Metres from the panel's foot to its top. */
+  height: number;
 }
 
 /** The fence round the apron: a few metres out, below a player's waist. */
@@ -203,21 +217,57 @@ const DECK_DEPTH = 24;
 const TOP_ROW_HEIGHT = 12;
 const ROW_DEPTH = 0.8;
 
+/** The scoreboard's panel: big enough to read from across the ground. */
+const SCOREBOARD_WIDTH = 24;
+const SCOREBOARD_HEIGHT = 8;
+/** Metres the scoreboard stands behind the top row, and its foot above it. */
+const SCOREBOARD_BEHIND_TOP_ROW = 3;
+const SCOREBOARD_CLEARANCE = 2;
+
 /**
  * The Stadium for a ground, from its Boundary alone: no other Venue field, no
  * board content and no camera feeds it.
  */
 export function stadiumShape(boundary: Ring): StadiumShape {
+  const topRowSetback = FRONT_ROW.setback + DECK_DEPTH;
   return {
     boundary: { semiX: boundary.semiX, semiZ: boundary.semiZ },
     fence: FENCE,
     frontRow: FRONT_ROW,
-    topRow: { setback: FRONT_ROW.setback + DECK_DEPTH, height: TOP_ROW_HEIGHT },
+    topRow: { setback: topRowSetback, height: TOP_ROW_HEIGHT },
     deckDepth: DECK_DEPTH,
     rake: Math.atan2(TOP_ROW_HEIGHT - FRONT_ROW.height, DECK_DEPTH),
     rowDepth: ROW_DEPTH,
+    // The far wing is -z: the Sideline camera stands off +z (`presetCameraPose`).
+    scoreboard: {
+      position: [
+        0,
+        TOP_ROW_HEIGHT + SCOREBOARD_CLEARANCE + SCOREBOARD_HEIGHT / 2,
+        -(boundary.semiZ + topRowSetback + SCOREBOARD_BEHIND_TOP_ROW),
+      ],
+      rotationY: 0,
+      width: SCOREBOARD_WIDTH,
+      height: SCOREBOARD_HEIGHT,
+    },
   };
 }
+
+/**
+ * The order the backdrop draws in. Board content (players, tokens, the ball,
+ * cones, paths, annotations, labels) draws after it, at three's default of 0.
+ *
+ * The Stadium writes no depth, so anything drawn after it draws over it: an
+ * out-of-bounds player standing where the seats are stays in plain sight (#139).
+ * The sky writes none either, so it goes first. The turf goes before the apron,
+ * which covers the corners of the turf's plane outside the Boundary. The apron,
+ * with its fence and front wall, goes before the deck that rises over it.
+ */
+export const backdropOrder = {
+  sky: -4,
+  turf: -3,
+  apron: -2,
+  deck: -1,
+} as const;
 
 /** The ring `setback` metres outside the Boundary: the Boundary grown along both semi-axes. */
 export function stadiumRing(boundary: Ring, setback: number): Ring {

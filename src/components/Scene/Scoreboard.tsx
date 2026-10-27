@@ -1,6 +1,7 @@
 import { Text } from '@react-three/drei';
 import { useMatchStore, formatAFLScore } from '../../store/matchStore';
 import { useActiveBoundary } from '../../hooks/useActiveBoundary';
+import { stadiumShape } from './nightGround';
 
 export function Scoreboard() {
   const homeTeamName = useMatchStore((s) => s.homeTeamName);
@@ -14,14 +15,16 @@ export function Scoreboard() {
   // Only render when visible and at least one team name is set
   if (!showScoreboard || (!homeTeamName && !awayTeamName)) return null;
 
-  const boardWidth = 24;
-  const boardHeight = 8;
-  const boardY = 14;
-  // Ten metres back from the wing boundary.
-  const boardZ = -(boundary.semiZ + 10);
+  // Above the back of the far-wing stand, facing Sideline: the Stadium places it (#140).
+  const {
+    position: [boardX, boardY, boardZ],
+    rotationY,
+    width: boardWidth,
+    height: boardHeight,
+  } = stadiumShape(boundary).scoreboard;
 
   return (
-    <group position={[0, 0, boardZ]}>
+    <group name="Scoreboard" position={[boardX, 0, boardZ]} rotation={[0, rotationY, 0]}>
       {/* Support posts */}
       <mesh position={[-boardWidth / 2 + 1, boardY / 2, 0]} castShadow>
         <boxGeometry args={[0.3, boardY, 0.3]} />
