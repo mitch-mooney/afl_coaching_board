@@ -169,11 +169,13 @@ export function Stadium({ boundary }: { boundary: Boundary }) {
   useEffect(() => () => surround.dispose(), [surround]);
   useEffect(() => () => deck.dispose(), [deck]);
 
+  // Not tone mapped: the Stadium's greys are its colours on screen, so the
+  // ceiling under the darkest mowing stripe holds where the coach sees it.
   const materials = useMemo(() => {
     const map = seatTexture(shape.rowDepth);
     return {
-      surround: new MeshBasicMaterial({ vertexColors: true }),
-      deck: new MeshBasicMaterial({ vertexColors: true, map }),
+      surround: new MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
+      deck: new MeshBasicMaterial({ vertexColors: true, map, toneMapped: false }),
     };
   }, [shape.rowDepth]);
   useEffect(

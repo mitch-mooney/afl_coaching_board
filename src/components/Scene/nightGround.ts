@@ -241,11 +241,11 @@ export function grey(hex: string): string {
  */
 export const standColours = {
   /** The concrete floor from the Boundary out, under the stand. */
-  apron: grey(shade(palette.concrete, 0.45)),
+  apron: grey(shade(palette.concrete, 0.6)),
   /** The low fence round the apron. */
   fence: grey(palette.concrete),
   /** The wall below the front row. */
-  frontWall: grey(shade(palette.concrete, 0.6)),
+  frontWall: grey(shade(palette.concrete, 0.75)),
   /** A row's seats. */
   seat: grey(mixHex(palette.concrete, palette.steel, 0.5)),
   /** The shadow at the foot of each row, cast by the row behind. */
