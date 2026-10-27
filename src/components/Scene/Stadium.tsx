@@ -9,7 +9,7 @@ import {
   SRGBColorSpace,
 } from 'three';
 import type { Boundary } from '../../utils/fieldGeometry';
-import { type StadiumShape, backdropOrder, stadiumRing, stadiumShape, standColours } from './nightGround';
+import { type StadiumShape, backdropOrder, crowdTile, stadiumRing, stadiumShape, standColours } from './nightGround';
 
 /** Segments round each ring of the Stadium. */
 const SEGMENTS = 128;
@@ -17,8 +17,6 @@ const SEGMENTS = 128;
 const APRON_REACH = 250;
 /** Just above the grass, so the apron covers the corners of the field's plane without fighting it. */
 const APRON_Y = 0.05;
-/** Metres of deck one tile of the seat texture spans round the ring. */
-const SEAT_TILE_WIDTH = 8;
 
 /** A point on the Stadium's profile: a setback outside the Boundary, a height, and its colour. */
 interface ProfilePoint {
@@ -34,6 +32,8 @@ interface ProfilePoint {
  * the field through it.
  *
  * UVs are in metres: `u` round the ring, `v` out along the ground from `inner`.
+ * `u` is measured along the band's middle ring and shared by both edges, so the
+ * texture runs straight out from the field rather than shearing round the ring.
  */
 function sweepBand(boundary: Boundary, inner: ProfilePoint, outer: ProfilePoint) {
   const positions: number[] = [];
@@ -41,19 +41,24 @@ function sweepBand(boundary: Boundary, inner: ProfilePoint, outer: ProfilePoint)
   const uvs: number[] = [];
   const indices: number[] = [];
 
+  const ellipse = (setback: number, theta: number): [number, number] => {
+    const { semiX, semiZ } = stadiumRing(boundary, setback);
+    return [semiX * Math.cos(theta), semiZ * Math.sin(theta)];
+  };
+  const arcs = [0];
+  const middle = (inner.setback + outer.setback) / 2;
+  for (let i = 1; i <= SEGMENTS; i++) {
+    const [x0, z0] = ellipse(middle, ((i - 1) / SEGMENTS) * Math.PI * 2);
+    const [x1, z1] = ellipse(middle, (i / SEGMENTS) * Math.PI * 2);
+    arcs.push(arcs[i - 1] + Math.hypot(x1 - x0, z1 - z0));
+  }
+
   for (const point of [inner, outer]) {
-    const { semiX, semiZ } = stadiumRing(boundary, point.setback);
-    let arc = 0;
-    let previous: [number, number] | null = null;
     for (let i = 0; i <= SEGMENTS; i++) {
-      const theta = (i / SEGMENTS) * Math.PI * 2;
-      const x = semiX * Math.cos(theta);
-      const z = semiZ * Math.sin(theta);
-      if (previous) arc += Math.hypot(x - previous[0], z - previous[1]);
-      previous = [x, z];
+      const [x, z] = ellipse(point.setback, (i / SEGMENTS) * Math.PI * 2);
       positions.push(x, point.y, z);
       colours.push(point.colour.r, point.colour.g, point.colour.b);
-      uvs.push(arc, point.setback - inner.setback);
+      uvs.push(arcs[i], point.setback - inner.setback);
     }
   }
 
@@ -127,25 +132,54 @@ function deckGeometry({ boundary, frontRow, topRow }: StadiumShape): BufferGeome
   ]);
 }
 
+/** Canvas pixels per seat, across the row and up it. */
+const SEAT_PX = 16;
+const ROW_PX = 32;
+
 /**
- * One row of seats, tiled along the deck: the seats, over the shadow cast at
- * their foot by the row behind. Mipmapped, so far rows blend rather than shimmer.
+ * The crowd, tiled along the deck in metres: `crowdTile`'s rows of people, each
+ * row's seats over the shadow at its foot. Mipmapped, so far rows blend rather
+ * than shimmer.
  */
-function seatTexture(rowDepth: number): CanvasTexture {
+function crowdTexture(rowDepth: number): CanvasTexture {
+  const tile = crowdTile();
   const canvas = document.createElement('canvas');
-  canvas.width = 4;
-  canvas.height = 32;
+  canvas.width = tile.seatsPerRow * SEAT_PX;
+  canvas.height = tile.rows * ROW_PX;
   const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = standColours.seat;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  // The canvas is flipped onto the deck, so its bottom is the foot of the row.
+  // The dark between and behind the people, so they stand out against it.
   ctx.fillStyle = standColours.rowShadow;
-  ctx.fillRect(0, canvas.height * 0.65, canvas.width, canvas.height * 0.35);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  tile.seats.forEach((row, r) => {
+    // The canvas is flipped onto the deck: its bottom is the front row, and
+    // the bottom of each row's band is the foot of that row.
+    const foot = canvas.height - r * ROW_PX;
+    // The lip of the row: the seat backs of the row in front.
+    ctx.fillStyle = standColours.frontWall;
+    ctx.fillRect(0, foot - ROW_PX * 0.12, canvas.width, ROW_PX * 0.12);
+    row.forEach((spectator, s) => {
+      if (!spectator) {
+        // An empty seat shows as a seat.
+        ctx.fillStyle = standColours.seat;
+        ctx.fillRect(s * SEAT_PX + SEAT_PX * 0.15, foot - ROW_PX * 0.45, SEAT_PX * 0.7, ROW_PX * 0.33);
+        return;
+      }
+      const middle = (s + 0.5) * SEAT_PX + spectator.sway * SEAT_PX * 0.15;
+      const shoulders = foot - ROW_PX * (0.62 + spectator.stature * 0.12);
+      const width = SEAT_PX * 0.8;
+      ctx.fillStyle = spectator.shirt;
+      ctx.fillRect(middle - width / 2, shoulders, width, foot - ROW_PX * 0.12 - shoulders);
+      ctx.fillStyle = spectator.head;
+      ctx.beginPath();
+      ctx.ellipse(middle, shoulders - SEAT_PX * 0.2, SEAT_PX * 0.24, SEAT_PX * 0.28, 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  });
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   texture.wrapS = RepeatWrapping;
   texture.wrapT = RepeatWrapping;
-  texture.repeat.set(1 / SEAT_TILE_WIDTH, 1 / rowDepth);
+  texture.repeat.set(1 / (tile.seatsPerRow * tile.seatWidth), 1 / (tile.rows * rowDepth));
   texture.anisotropy = 4;
   return texture;
 }
@@ -173,7 +207,7 @@ export function Stadium({ boundary }: { boundary: Boundary }) {
   // ceiling under the darkest mowing stripe holds where the coach sees it.
   // No depth written: board content drawn after it draws over it (#139).
   const materials = useMemo(() => {
-    const map = seatTexture(shape.rowDepth);
+    const map = crowdTexture(shape.rowDepth);
     return {
       surround: new MeshBasicMaterial({ vertexColors: true, toneMapped: false, depthWrite: false }),
       deck: new MeshBasicMaterial({ vertexColors: true, map, toneMapped: false, depthWrite: false }),
