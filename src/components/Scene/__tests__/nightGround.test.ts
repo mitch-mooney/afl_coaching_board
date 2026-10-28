@@ -218,6 +218,17 @@ describe('the night ground', () => {
     ...crowdColours.heads,
   ];
 
+  it("darkens the floor past the stand to the horizon's, so it fades into the night", () => {
+    expect(luminance(standColours.floor)).toBeLessThan(luminance(standColours.apron));
+    expect(luminance(standColours.floor)).toBeLessThanOrEqual(luminance(skyColours.horizon));
+  });
+
+  it('dims the lamp heads below the Floodlight, so they mark the towers without outshining the field', () => {
+    expect(luminance(skyColours.lampHead)).toBeLessThan(luminance(palette.floodlight));
+    // The towers' light itself is unchanged.
+    expect(skyColours.lamp).toBe(palette.floodlight);
+  });
+
   it('keeps the sky darker than the lit turf, so the ground is what the light falls on', () => {
     for (const colour of [skyColours.zenith, skyColours.horizon, skyColours.below]) {
       expect(luminance(colour)).toBeLessThan(luminance(palette.turfLit));
