@@ -284,10 +284,9 @@ export function grey(hex: string): string {
 
 /**
  * The Stadium. A backdrop, so it recedes: greys mixed from the chrome's Concrete
- * and Steel, none brighter than the darkest mowing stripe, so team colours and
- * chalk stay the brightest things on screen (#136). The ceiling sits 15% under
- * the stripe's paint: the turf is lit and sinks below its paint between the
- * pools, while the unlit Stadium shows as painted (#138). It is unlit, so its shading
+ * and Steel, none brighter than the lit turf, so team colours and chalk stay the
+ * brightest things on screen (#136). Under the darkest stripe the crowd was too
+ * dark to read as people on the iPad, so its ceiling is Turf lit. It is unlit, so its shading
  * is baked in: each row of seats is lit over the shadow at its foot, which is
  * what reads as rows from a broadcast angle, and the deck darkens towards the back.
  */
@@ -297,31 +296,31 @@ export const standColours = {
   /** The low fence round the apron. */
   fence: grey(palette.concrete),
   /** The wall below the front row. */
-  frontWall: grey(shade(palette.concrete, 0.75)),
+  frontWall: grey(palette.concrete),
   /** A row's seats. */
-  seat: grey(mixHex(palette.concrete, palette.steel, 0.25)),
+  seat: grey(mixHex(palette.concrete, palette.steel, 0.6)),
   /** The shadow at the foot of each row, cast by the row behind. */
-  rowShadow: grey(shade(palette.concrete, 0.55)),
+  rowShadow: grey(shade(palette.concrete, 0.8)),
   /** How much of its brightness the top row keeps against the front row. */
-  backShade: 0.6,
+  backShade: 0.75,
 };
 
 /**
  * The crowd on the deck: no club colours and no hue, only Concrete and Steel
  * with a little Chalk (#136). Shirts run from near black up to the ceiling, so
  * the people read as speckle against each other; faces carry the touch of
- * Chalk and are the brightest thing in a row, still under the darkest stripe.
+ * Chalk and are the brightest thing in a row, close to the lit turf but under it.
  */
 export const crowdColours = {
   shirts: [
-    grey(shade(palette.concrete, 0.55)),
-    grey(shade(palette.concrete, 0.8)),
+    grey(shade(palette.concrete, 0.85)),
     grey(palette.concrete),
-    grey(mixHex(palette.concrete, palette.steel, 0.1)),
-    grey(mixHex(palette.concrete, palette.steel, 0.2)),
+    grey(mixHex(palette.concrete, palette.steel, 0.5)),
+    grey(palette.steel),
+    grey(mixHex(palette.steel, palette.chalk, 0.02)),
   ],
   /** A face, then a cap or dark hair. */
-  heads: [grey(mixHex(palette.concrete, palette.chalk, 0.035)), grey(shade(palette.concrete, 0.7))],
+  heads: [grey(mixHex(palette.steel, palette.chalk, 0.055)), grey(shade(palette.concrete, 0.7))],
 };
 
 /** One spectator: what they wear, and how they sit in their seat. */

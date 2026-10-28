@@ -202,10 +202,10 @@ extend this file rather than inventing parallel names.
   hides any part of the field from a preset view, and a camera behind or inside a stand
   sees through it rather than being blocked. It is the same all the way round. Board content
   is never hidden by it: an out-of-bounds player standing where the seats are draws in front
-  of them, so the stadium is a backdrop to the board, never part of it. The crowd is neutral
-  and dark, never in club colours, and nothing in the stadium is brighter or more saturated
-  than the darkest mowing stripe, so team colours and chalk stay the brightest things on
-  screen. The scoreboard is not scenery: it stands above the back of the far-wing stand and,
+  of them, so the stadium is a backdrop to the board, never part of it. The crowd is neutral,
+  never in club colours, and nothing in the stadium has a hue or is brighter than the lit
+  turf, so team colours and chalk stay the brightest things on screen. The scoreboard is not
+  scenery: it stands above the back of the far-wing stand and,
   like board content, is never hidden by the stadium.
   _Avoid_: bowl, surround.
 
