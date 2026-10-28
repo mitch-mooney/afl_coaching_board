@@ -15,6 +15,8 @@ import { type StadiumShape, backdropOrder, crowdTile, stadiumRing, stadiumShape,
 const SEGMENTS = 128;
 /** The apron is the floor out past the stand, so nothing green shows beyond it. */
 const APRON_REACH = 250;
+/** Metres behind the top row over which the apron darkens to the floor. */
+const FLOOR_FADE = 30;
 /** Just above the grass, so the apron covers the corners of the field's plane without fighting it. */
 const APRON_Y = 0.05;
 
@@ -97,12 +99,23 @@ function mergeBands(bands: ReturnType<typeof sweepBand>[]): BufferGeometry {
 }
 
 /** The apron, the fence and the wall below the front row: everything but the seats. */
-function surroundGeometry({ boundary, fence, frontRow }: StadiumShape): BufferGeometry {
+function surroundGeometry({ boundary, fence, frontRow, topRow }: StadiumShape): BufferGeometry {
   const apron = new Color(standColours.apron);
+  const floor = new Color(standColours.floor);
   const fenceColour = new Color(standColours.fence);
   const wall = new Color(standColours.frontWall);
   return mergeBands([
-    sweepBand(boundary, { setback: 0, y: APRON_Y, colour: apron }, { setback: APRON_REACH, y: APRON_Y, colour: apron }),
+    sweepBand(boundary, { setback: 0, y: APRON_Y, colour: apron }, { setback: topRow.setback, y: APRON_Y, colour: apron }),
+    sweepBand(
+      boundary,
+      { setback: topRow.setback, y: APRON_Y, colour: apron },
+      { setback: topRow.setback + FLOOR_FADE, y: APRON_Y, colour: floor },
+    ),
+    sweepBand(
+      boundary,
+      { setback: topRow.setback + FLOOR_FADE, y: APRON_Y, colour: floor },
+      { setback: APRON_REACH, y: APRON_Y, colour: floor },
+    ),
     sweepBand(
       boundary,
       { setback: fence.setback, y: APRON_Y, colour: fenceColour },

@@ -92,8 +92,8 @@ function LightTowers({ boundary }: { boundary: Boundary }) {
             shadow-camera-far={400}
           />
           <mesh position={tower.position}>
-            <boxGeometry args={[7, 3, 7]} />
-            <meshBasicMaterial color={skyColours.lamp} />
+            <boxGeometry args={[4, 1.5, 4]} />
+            <meshBasicMaterial color={skyColours.lampHead} />
           </mesh>
         </group>
       ))}

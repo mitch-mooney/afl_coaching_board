@@ -293,6 +293,8 @@ export function grey(hex: string): string {
 export const standColours = {
   /** The concrete floor from the Boundary out, under the stand. */
   apron: grey(shade(palette.concrete, 0.6)),
+  /** The floor past the back of the stand: the horizon's darkness, so it fades into the night. */
+  floor: grey(shade(palette.concrete, 0.3)),
   /** The low fence round the apron. */
   fence: grey(palette.concrete),
   /** The wall below the front row. */
@@ -427,8 +429,10 @@ export const skyColours = {
   horizon: shade(palette.concrete, 0.32),
   /** The dome below the horizon, behind the stands. */
   below: shade(palette.concrete, 0.08),
-  /** The lamp heads on the towers. */
+  /** The towers' light. */
   lamp: palette.floodlight,
+  /** The lamp heads on the towers: dimmer than their light, so they mark the towers without outshining the field. */
+  lampHead: shade(palette.floodlight, 0.55),
 };
 
 /** Fog is the horizon's colour, so far grass fades into the sky without a seam. */
